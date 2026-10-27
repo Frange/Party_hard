@@ -1,0 +1,8 @@
+{
+  "name": "freddy",
+  "category": "special_enemies",
+  "role": "killer",
+  "carry": "claw",
+  "width": 24,
+  "height": 44
+}

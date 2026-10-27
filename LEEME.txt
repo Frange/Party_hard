@@ -1,0 +1,27 @@
+PARTY HARD (clon) + EDITOR
+
+PartyHard            el juego
+PartyHardEditor      editor de personajes, objetos, animales y escenarios
+assets/              todo el contenido (sprites, escenarios...). Lo leen el juego y el editor.
+
+Windows: ejecuta PartyHard.exe o PartyHardEditor.exe (mantén la carpeta assets junto a ellos).
+Mac: abre PartyHard.app o PartyHardEditor.app (la carpeta assets va junto a las apps).
+     La primera vez: clic derecho > Abrir, porque no están notarizadas por Apple.
+
+Dentro del juego, F2 abre el editor. En el editor, "Volver al juego (F2)" vuelve.
+El formato de los ficheros está en ASSETS.md.
+
+NOVEDADES v6
+- Personajes sin contorno, mas de 300 disenos nuevos.
+- Enemigo especial aleatorio (1 por nivel) que llega en un coche funebre. Matalo con 3 punaladas o deja que la policia lo detenga.
+- Multitud mas lista: huyen, avisan a la policia y senalan al culpable.
+- Piscinas transitables, llegadas de limusinas y ascensores con mas invitados.
+- Tecla G en el menu: escenario nuevo generado automaticamente.
+
+NOVEDADES v7
+- Los cuerpos solo se "detectan" cuando un testigo vivo avisa a la policia (llamada o en persona).
+- Policia mas listo: pocos cuerpos cada uno, ambulancias, refuerzos, SWAT o FBI (Mulder y Scully) muy de vez en cuando.
+- El tanque revienta coches y vehiculos de emergencias. Los helicopteros sueltan a la gente en la puerta.
+- DJ en todos los niveles; si lo matas suena punk rock. Muchas canciones nuevas, una lista distinta por escenario.
+- Animales nuevos: gato, pollitos, toro, elefante, jirafa, canguro. Caballo y perro mas pequenos.
+- 16 escenarios (plaza de toros, discoteca, pub, cine, estadio, plazas, Paris, festival, feria, supermercado, centro comercial).

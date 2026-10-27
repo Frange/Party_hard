@@ -1,0 +1,772 @@
+package main
+
+import (
+	"image/color"
+	"math"
+	"math/rand"
+	"sort"
+)
+
+// ---------------------------------------------------------------------------
+// Buildings (house, club, pub, cinema, mall, supermarket) and open-air venues
+// (bullring, stadium, plazas, festival, funfair). Wide corridors, doors to every room,
+// wall furniture only against walls.
+// ---------------------------------------------------------------------------
+
+type bldStyle struct {
+	title, intro string
+	outer, inner int
+	main         string
+	kinds        []string
+	floors       map[string]string
+	tint         color.RGBA
+	disco        bool
+	bx0, bx1     float64
+	depth        int
+	guests       int
+	baseFloor    string
+}
+
+var genStyles = map[string]*bldStyle{
+	"house": {title: "CASA", intro: "Una casa que nadie ha visto antes y una fiesta que nadie quería.", outer: WallBrick, inner: WallPlaster,
+		main: "living", kinds: []string{"kitchen", "bed", "lounge", "bar", "bath", "lounge", "bed", "kitchen"},
+		floors: map[string]string{"living": "wood", "kitchen": "tile", "bath": "tile", "bed": "carpet", "lounge": "parquet", "bar": "parquet"},
+		tint:   color.RGBA{0, 4, 30, 80}, guests: 34, depth: 3},
+	"club": {title: "DISCOTECA", intro: "Luces, humo y bajos que hacen temblar el suelo. Nadie oirá nada.", outer: WallClub, inner: WallClub,
+		main: "dance", kinds: []string{"clubbar", "vip", "bath", "vip", "clubbar", "lounge"},
+		floors: map[string]string{"dance": "concrete", "clubbar": "concrete", "vip": "carpet", "bath": "tile", "lounge": "carpet"},
+		tint:   color.RGBA{10, 0, 40, 110}, disco: true, guests: 42, depth: 3},
+	"pub": {title: "PUB", intro: "Un pub de barrio con billar, máquina de música y mucha cerveza.", outer: WallBrick, inner: WallWood,
+		main: "pubmain", kinds: []string{"billiards", "kitchen", "lounge", "bath", "billiards", "bar"},
+		floors: map[string]string{"pubmain": "parquet", "billiards": "wood", "kitchen": "tile", "bath": "tile", "lounge": "wood", "bar": "parquet"},
+		tint:   color.RGBA{20, 8, 0, 80}, guests: 34, depth: 2},
+	"cinema": {title: "CINE", intro: "Un cine sin butacas donde la película ya no importa.", outer: WallPlaster, inner: WallPlaster,
+		main: "hall", kinds: []string{"lobby", "lobby", "bath", "lobby"},
+		floors: map[string]string{"hall": "carpet", "lobby": "marble", "bath": "tile"},
+		tint:   color.RGBA{16, 0, 20, 100}, guests: 36, depth: 2},
+	"mall": {title: "CENTRO COMERCIAL", intro: "Tiendas, fuentes y una fiesta en horario comercial.", outer: WallPlaster, inner: WallPlaster,
+		main: "concourse", kinds: []string{"shop", "shop", "shop", "shop", "food", "shop"},
+		floors: map[string]string{"concourse": "mall", "shop": "tile", "food": "mall"},
+		tint:   color.RGBA{0, 6, 24, 60}, guests: 46, bx0: 40, bx1: 920, depth: 2},
+	"market": {title: "SUPERMERCADO", intro: "Pasillo 7: bebidas. Pasillo 8: problemas.", outer: WallPlaster, inner: WallPlaster,
+		main: "aisles", kinds: []string{"storage", "bath"},
+		floors: map[string]string{"aisles": "mall", "storage": "concrete", "bath": "tile"},
+		tint:   color.RGBA{0, 6, 24, 60}, guests: 44, bx0: 40, bx1: 920, depth: 1},
+}
+
+func genBuilding(rng *rand.Rand, style string) *LevelDef {
+	doorLog = nil
+	st := genStyles[style]
+	genInner = st.inner
+	genLo, genSpan = 0.38, 0.24
+	if style == "market" {
+		genLo, genSpan = 0.66, 0.1
+	}
+	d := &LevelDef{
+		Title: st.title, Intro: st.intro,
+		W: 960, H: 540, Sky: "none", Police: "car", Disco: st.disco,
+		Tint:    st.tint,
+		CarFrom: Vec{1040, 510}, CarTo: Vec{740, 510},
+		Guests: st.guests + rng.Intn(8), CellSize: 16,
+	}
+	bx0 := 100 + float64(rng.Intn(50))
+	bx1 := 800 + float64(rng.Intn(60))
+	if st.bx0 > 0 {
+		bx0, bx1 = st.bx0, st.bx1
+	}
+	if bx1-bx0 < 600 {
+		bx1 = bx0 + 600
+	}
+	frontX := bx0 + 140 + rng.Float64()*(bx1-bx0-280)
+	d.Floors = []Floor{
+		F(0, 0, 960, 452, "grass"),
+		F(0, 454, 960, 28, "pave"),
+		F(0, 482, 960, 58, "asphalt"),
+		F(0, 508, 960, 4, "dash"),
+		F(frontX-50, 400, 100, 46, "pave"),
+	}
+	d.Start = Vec{frontX, 470}
+	var rooms []Rect
+	var ws [][]Wall
+	inner := Rect{bx0 + 8, 46, bx1 - bx0 - 16, 350}
+	minRooms := map[string]int{"house": 3, "club": 3, "pub": 3, "cinema": 3, "mall": 3, "market": 2}[style]
+	for try := 0; try < 30; try++ {
+		doorLog = nil
+		rooms, ws = nil, nil
+		genSplit(rng, inner, st.depth, &rooms, &ws)
+		if len(rooms) >= minRooms {
+			break
+		}
+	}
+	ws = append(ws,
+		hw(bx0, bx1, 30, 16, st.outer),
+		vw(bx0, 30, 412, 8, st.outer),
+		vw(bx1-8, 30, 412, 8, st.outer),
+		hw(bx0, bx1, 396, 16, st.outer, [2]float64{frontX - 48, frontX + 48}),
+		hw(0, 960, 0, 14, WallHedge),
+		vw(0, 14, 452, 10, WallFence),
+		vw(950, 14, 452, 10, WallFence),
+		hw(0, 960, 444, 10, WallFence, [2]float64{frontX - 80, frontX + 90}),
+	)
+	d.Walls = walls(ws...)
+	sort.Slice(rooms, func(i, j int) bool { return rooms[i].W*rooms[i].H > rooms[j].W*rooms[j].H })
+	kinds := append([]string{}, st.kinds...)
+	rng.Shuffle(len(kinds), func(i, j int) { kinds[i], kinds[j] = kinds[j], kinds[i] })
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	for _, dr := range doorLog {
+		cx, cy := dr.R.X+dr.R.W/2, dr.R.Y+dr.R.H/2
+		pl.avoid = append(pl.avoid, Vec{cx, cy}, Vec{cx, cy + 34}, Vec{cx, cy - 34}, Vec{cx + 34, cy}, Vec{cx - 34, cy})
+	}
+	pl.avoid = append(pl.avoid, Vec{frontX, 380}, Vec{frontX, 350})
+	phones, hasDJ := 0, false
+	for i, r := range rooms {
+		kind := st.main
+		if i > 0 {
+			kind = kinds[(i-1)%len(kinds)]
+			if kind == "bath" && r.W*r.H > 30000 {
+				kind = st.kinds[0]
+			}
+		}
+		fl := st.floors[kind]
+		if fl == "" {
+			fl = "tile"
+		}
+		d.Floors = append(d.Genesis(), F(r.X, r.Y, r.W, r.H, fl))
+		_ = fl
+		ri := r.Grow(-8)
+		d.Roam = append(d.Roam, R(ri.X, ri.Y+30, ri.W, math.Max(20, ri.H-30)))
+		if genFurnish(kind, r, rng, pl, d, &phones) {
+			hasDJ = true
+		}
+	}
+	if !hasDJ {
+		r := rooms[0]
+		cx := r.X + r.W/2
+		pl.at("dj", cx, r.Y+62, 0)
+		d.Performers = append(d.Performers, Perf{Vec{cx, r.Y + 44}, "dj", DirDown})
+	}
+	if phones == 0 {
+		pl.scatter(rooms[0], 1, 40, "phone")
+	}
+	left := R(14, 40, bx0-24, 360)
+	right := R(bx1+10, 40, 938-bx1-10, 360)
+	for _, g := range []Rect{left, right} {
+		if g.W < 36 {
+			continue
+		}
+		d.Roam = append(d.Roam, R(g.X, g.Y, g.W, g.H))
+		switch style {
+		case "pub":
+			pl.scatter(g, 2+rng.Intn(2), 80, "cafetable", "bench", "tree")
+		case "club":
+			pl.scatter(g, 2, 80, "bench", "lamp", "bush")
+		default:
+			pl.scatter(g, 3+rng.Intn(3), 76, "tree", "bush", "lamp", "bbq", "table", "dumpster", "plant", "bush")
+		}
+	}
+	pl.scatter(R(14, 400, 930, 30), 4, 140, "bush", "lamp", "tree")
+	pl.at("car", 160+rng.Float64()*200, 534, 0)
+	pl.at("car", 600+rng.Float64()*200, 534, rng.Intn(4))
+	d.Props = props
+	d.Roam = append(d.Roam, R(14, 410, 930, 36), R(300, 456, 400, 22))
+	if left.W > 36 {
+		d.Guards = append(d.Guards, []Vec{{left.X + left.W/2, 180}, {left.X + left.W/2, 360}})
+		d.Animals = append(d.Animals, AnimalSpawn{[]string{"dog", "cat", "dog"}[rng.Intn(3)], Vec{left.X + left.W/2, 300}, left})
+	}
+	if right.W > 36 {
+		d.Guards = append(d.Guards, []Vec{{right.X + right.W/2, 180}, {right.X + right.W/2, 370}})
+		if rng.Intn(2) == 0 {
+			d.Animals = append(d.Animals, AnimalSpawn{"cat", Vec{right.X + right.W/2, 260}, right})
+		}
+	}
+	if len(d.Guards) == 0 {
+		d.Guards = [][]Vec{{{frontX - 200, 430}, {frontX + 200, 430}}}
+		inside := rooms[0].Grow(-40)
+		d.Guards = append(d.Guards, []Vec{{inside.X + 20, inside.Y + inside.H - 20}, {inside.X + inside.W - 20, inside.Y + inside.H - 20}})
+	}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+// Genesis returns the floors so far (helper kept tiny so the append above reads naturally).
+func (d *LevelDef) Genesis() []Floor { return d.Floors }
+
+// genFurnish fills one room according to its purpose. It returns true when it placed a DJ.
+func genFurnish(kind string, r Rect, rng *rand.Rand, pl *genPlacer, d *LevelDef, phones *int) bool {
+	cx := r.X + r.W/2
+	dj := false
+	switch kind {
+	case "living":
+		dw, dh := math.Min(r.W-80, 200), math.Min(r.H-150, 130)
+		if dh < 60 {
+			dh = 60
+		}
+		dx, dy := cx-dw/2, r.Y+r.H/2-dh/2+22
+		d.Floors = append(d.Floors, F(dx, dy, dw, dh, "dance"))
+		d.Dance = append(d.Dance, R(dx+8, dy+8, dw-16, dh-16))
+		pl.at("dj", cx, r.Y+62, 0)
+		pl.at("speaker", cx-90, r.Y+58, 0)
+		pl.at("speaker", cx+90, r.Y+58, 0)
+		d.Performers = append(d.Performers, Perf{Vec{cx, r.Y + 44}, "dj", DirDown})
+		dj = true
+		pl.at("punch", r.X+r.W-70, r.Y+r.H-26, 0)
+		pl.at("couch", r.X+70, r.Y+r.H-28, 1)
+		pl.at("phone", r.X+r.W-28, r.Y+r.H/2, 0)
+		*phones++
+		pl.scatter(r, 2, 80, "plant", "tv")
+	case "dance":
+		dw, dh := math.Min(r.W-70, 260), math.Min(r.H-140, 170)
+		dx, dy := cx-dw/2, r.Y+r.H/2-dh/2+20
+		d.Floors = append(d.Floors, F(dx, dy, dw, dh, "dance"))
+		d.Dance = append(d.Dance, R(dx+8, dy+8, dw-16, dh-16))
+		pl.at("dj", cx, r.Y+62, 1)
+		pl.at("speaker", cx-100, r.Y+58, 0)
+		pl.at("speaker", cx+100, r.Y+58, 0)
+		pl.at("truss", cx-60, r.Y+36, 0)
+		d.Performers = append(d.Performers, Perf{Vec{cx, r.Y + 44}, "dj", DirDown})
+		dj = true
+		pl.at("cage", r.X+40, r.Y+r.H/2, 0)
+		pl.at("cage", r.X+r.W-40, r.Y+r.H/2, 0)
+		d.Glows = append(d.Glows, Glow{Vec{cx, r.Y + r.H/2}, color.RGBA{120, 30, 160, 150}, 130, true})
+	case "clubbar":
+		pl.at("bar", cx, r.Y+58, 1)
+		pl.scatter(r, 3, 80, "stool", "table")
+		pl.at("phone", r.X+r.W-26, r.Y+r.H-30, 0)
+		*phones++
+	case "vip":
+		pl.at("couch", r.X+60, r.Y+60, 2)
+		pl.at("couch", r.X+r.W-60, r.Y+60, 2)
+		pl.scatter(r, 2, 90, "table", "plant")
+	case "pubmain":
+		pl.at("bar", cx, r.Y+58, 0)
+		pl.at("jukebox", r.X+34, r.Y+60, 0)
+		pl.at("speaker", r.X+r.W-34, r.Y+60, 0)
+		pl.at("dj", r.X+r.W-90, r.Y+60, 0)
+		d.Performers = append(d.Performers, Perf{Vec{r.X + r.W - 90, r.Y + 42}, "dj", DirDown})
+		dj = true
+		d.Dance = append(d.Dance, R(cx-60, r.Y+r.H/2, 120, 60))
+		pl.scatter(r, 4, 80, "table", "stool", "table")
+		pl.at("phone", r.X+30, r.Y+r.H-30, 0)
+		*phones++
+	case "billiards":
+		pl.at("pooltable", cx-50, r.Y+r.H/2+10, 0)
+		if r.W > 330 {
+			pl.at("pooltable", cx+60, r.Y+r.H/2+10, 0)
+		}
+		pl.scatter(r, 2, 80, "stool", "plant")
+	case "hall":
+		pl.at("screen", cx, r.Y+80, rng.Intn(3))
+		pl.at("dj", cx+90, r.Y+130, 0)
+		pl.at("speaker", cx+30, r.Y+128, 0)
+		pl.at("speaker", cx+150, r.Y+128, 0)
+		d.Performers = append(d.Performers, Perf{Vec{cx + 90, r.Y + 112}, "dj", DirDown})
+		dj = true
+		d.Dance = append(d.Dance, R(cx-130, r.Y+r.H/2-10, 200, 90))
+		pl.at("popcorn", r.X+36, r.Y+r.H-28, 0)
+		pl.at("popcorn", r.X+r.W-36, r.Y+r.H-28, 0)
+		pl.at("posters", r.X+r.W/2-80, r.Y+r.H-14, 0)
+	case "lobby":
+		pl.at("ticketbooth", r.X+44, r.Y+66, 0)
+		pl.at("popcorn", r.X+r.W-40, r.Y+62, 0)
+		pl.at("posters", cx, r.Y+44, rng.Intn(3))
+		pl.scatter(r, 2, 80, "couch", "plant")
+		pl.at("phone", r.X+30, r.Y+r.H-30, 0)
+		*phones++
+	case "concourse":
+		pl.at("fountain", cx, r.Y+r.H/2+30, 0)
+		pl.at("dj", r.X+70, r.Y+62, 0)
+		pl.at("speaker", r.X+20+28, r.Y+60, 0)
+		pl.at("speaker", r.X+120, r.Y+60, 0)
+		d.Performers = append(d.Performers, Perf{Vec{r.X + 70, r.Y + 44}, "dj", DirDown})
+		dj = true
+		d.Dance = append(d.Dance, R(r.X+30, r.Y+84, 150, 70))
+		for i := 0; i < 3; i++ {
+			pl.at("planter", r.X+r.W-70, r.Y+80+float64(i)*(r.H-130)/2, i)
+		}
+		pl.scatter(r, 3, 90, "bench", "plant", "planter")
+		pl.at("phone", r.X+r.W-26, r.Y+r.H-26, 0)
+		*phones++
+	case "shop":
+		for k := 0; k < 2 && r.W > 150; k++ {
+			pl.at("shelf", r.X+r.W/2, r.Y+70+float64(k)*80, k)
+		}
+		pl.scatter(r, 1, 80, "plant", "cart")
+	case "food":
+		pl.scatter(r, 2, 80, "table", "stool")
+		pl.at("counter", cx, r.Y+56, 0)
+		pl.at("fridge", cx-60, r.Y+56, 0)
+	case "aisles":
+		// rows of shelves with wide aisles; checkouts and freezers against the walls
+		for x := r.X + 70; x < r.X+r.W-70; x += 104 {
+			pl.at("freezer", x, r.Y+56, 0)
+		}
+		rowsY := []float64{r.Y + 150, r.Y + 232}
+		for ri, y := range rowsY {
+			if y > r.Y+r.H-80 {
+				continue
+			}
+			for x := r.X + 120; x < r.X+r.W-150; x += 134 {
+				pl.at("shelf", x, y, (ri+int(x))%4)
+			}
+		}
+		for i := 0; i < 3; i++ {
+			pl.at("checkout", r.X+r.W-50-float64(i)*84, r.Y+r.H-24, 0)
+		}
+		pl.at("cart", r.X+50, r.Y+r.H-30, 0)
+		pl.at("cart", r.X+80, r.Y+r.H-30, 0)
+		pl.at("dj", r.X+70, r.Y+r.H-60, 0)
+		pl.at("speaker", r.X+34, r.Y+r.H-62, 0)
+		pl.at("speaker", r.X+110, r.Y+r.H-62, 0)
+		d.Performers = append(d.Performers, Perf{Vec{r.X + 70, r.Y + r.H - 78}, "dj", DirDown})
+		dj = true
+		d.Dance = append(d.Dance, R(r.X+170, r.Y+r.H-100, 220, 60))
+		pl.at("phone", r.X+r.W-26, r.Y+r.H/2, 0)
+		*phones++
+	case "storage":
+		pl.scatter(r, 3, 80, "crate", "barrel", "crate")
+	case "kitchen":
+		pl.at("fridge", r.X+30, r.Y+56, 0)
+		pl.at("counter", r.X+80, r.Y+56, 0)
+		pl.at("stove", r.X+130, r.Y+56, 0)
+		pl.scatter(r, 1, 80, "table")
+	case "bath":
+		pl.at("bathtub", r.X+r.W-54, r.Y+56, 0)
+		pl.at("toilet", r.X+28, r.Y+48, 0)
+	case "bed":
+		pl.at("bed", r.X+r.W-56, r.Y+r.H-36, 0)
+		pl.at("closet", r.X+30, r.Y+56, 0)
+		pl.at("closet", r.X+78, r.Y+56, 0)
+		pl.scatter(r, 1, 80, "plant", "table")
+		if *phones < 2 {
+			pl.at("phone", r.X+22, r.Y+r.H-30, 0)
+			*phones++
+		}
+	case "lounge":
+		pl.at("fireplace", cx, r.Y+56, 0)
+		pl.scatter(r, 2, 90, "couch", "sofa")
+		pl.scatter(r, 1, 80, "table", "plant")
+	case "bar":
+		pl.at("bar", cx, r.Y+58, 0)
+		pl.scatter(r, 2, 80, "stool", "table", "plant")
+	}
+	return dj
+}
+
+// ---------------------------------------------------------------------------
+// open-air venues
+// ---------------------------------------------------------------------------
+
+func genStreet(d *LevelDef, frontX float64) {
+	d.Floors = append(d.Floors,
+		F(0, 454, 960, 28, "pave"),
+		F(0, 482, 960, 58, "asphalt"),
+		F(0, 508, 960, 4, "dash"))
+	d.Walls = append(d.Walls, hw(0, 960, 444, 10, WallFence, [2]float64{frontX - 80, frontX + 90})...)
+	d.Start = Vec{frontX, 470}
+	d.CarFrom, d.CarTo = Vec{1040, 510}, Vec{740, 510}
+}
+
+func genPlaza(rng *rand.Rand, eiffel bool) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "PLAZA EUROPEA", Intro: "Una plaza de cuento con fuente, terrazas y gente que sobra.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{10, 6, 30, 70},
+		Guests: 44 + rng.Intn(8), CellSize: 16,
+	}
+	if eiffel {
+		d.Title, d.Intro = "PARÍS", "Bajo la torre Eiffel, la ciudad del amor y del caos."
+	}
+	frontX := 380 + rng.Float64()*200
+	d.Floors = []Floor{F(0, 0, 960, 452, "cobble")}
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	// building facades along the top, with doors that are only decoration
+	var ws [][]Wall
+	ws = append(ws, hw(0, 960, 20, 78, WallBrick, [2]float64{150, 214}, [2]float64{430, 494}, [2]float64{700, 764}))
+	ws = append(ws, vw(0, 98, 452, 10, WallFence), vw(950, 98, 452, 10, WallFence))
+	d.Walls = walls(ws...)
+	pl.avoid = append(pl.avoid, Vec{frontX, 420})
+	cx, cy := 480.0, 280.0
+	if eiffel {
+		d.Floors = append(d.Floors, F(40, 110, 880, 330, "grass"), F(0, 110, 40, 330, "cobble"), F(420, 110, 120, 330, "cobble"), F(40, 300, 880, 40, "cobble"))
+		pl.at("eiffel", cx, 262, 0)
+		pl.avoid = append(pl.avoid, Vec{cx, 250}, Vec{cx, 200}, Vec{cx - 40, 258}, Vec{cx + 40, 258})
+		for _, x := range []float64{150, 270, 690, 810} {
+			pl.at("hedge", x, 170, 0)
+			pl.at("hedge", x, 410, 0)
+		}
+		for _, x := range []float64{110, 850} {
+			pl.at("planter", x, 250, rng.Intn(3))
+			pl.at("planter", x, 330, rng.Intn(3))
+		}
+		pl.at("bench", 360, 330, 0)
+		pl.at("bench", 600, 330, 0)
+	} else {
+		d.Floors = append(d.Floors, F(300, 150, 360, 250, "marble"))
+		pl.at("fountain", cx, cy, 0)
+		pl.avoid = append(pl.avoid, Vec{cx, cy}, Vec{cx - 45, cy}, Vec{cx + 45, cy}, Vec{cx, cy - 20})
+		for _, a := range []float64{-1, 1} {
+			pl.at("bench", cx+a*130, cy+10, 0)
+			pl.at("bench", cx+a*130, cy-70, 0)
+		}
+		pl.at("statue", 130, 200, rng.Intn(2))
+		pl.at("statue", 830, 200, rng.Intn(2))
+		pl.at("obelisk", 860, 380, 0)
+		pl.scatter(R(40, 110, 220, 330), 2, 90, "planter", "tree")
+		pl.scatter(R(700, 110, 220, 330), 2, 90, "planter", "tree")
+	}
+	// café terraces
+	for i := 0; i < 3; i++ {
+		pl.at("cafetable", 190+float64(i)*66, 150, i)
+	}
+	for i := 0; i < 3; i++ {
+		pl.at("cafetable", 760-float64(i)*66, 150, (i+1)%3)
+	}
+	pl.at("dj", 110, 360, 0)
+	pl.at("speaker", 62, 356, 0)
+	pl.at("speaker", 160, 356, 0)
+	d.Performers = []Perf{{Vec{110, 342}, "dj", DirDown}, {Vec{840, 330}, "guitar", DirDown}}
+	pl.at("lamp", 330, 200, 0)
+	pl.at("lamp", 630, 200, 0)
+	pl.at("lamp", 330, 400, 0)
+	pl.at("lamp", 630, 400, 0)
+	pl.at("phone", 920, 300, 0)
+	pl.scatter(R(30, 360, 900, 80), 3, 120, "bush", "tree", "planter")
+	pl.at("car", 200+rng.Float64()*100, 534, 1)
+	genStreet(d, frontX)
+	d.Props = props
+	d.Roam = []Rect{R(30, 110, 900, 330), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(60, 380, 120, 50)}
+	d.Animals = []AnimalSpawn{{"dog", Vec{200, 330}, R(30, 250, 250, 180)}, {"cat", Vec{850, 300}, R(700, 250, 230, 180)}}
+	if rng.Intn(2) == 0 {
+		d.Animals = append(d.Animals, AnimalSpawn{"hen", Vec{700, 380}, R(600, 340, 300, 90)})
+	}
+	d.Guards = [][]Vec{{{140, 300}, {140, 420}}, {{820, 300}, {820, 420}}, {{frontX - 160, 430}, {frontX + 160, 430}}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+func genBullring(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "PLAZA DE TOROS", Intro: "Arena, gradas y un toro que no ha pagado entrada.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{24, 8, 0, 70}, Disco: false,
+		Guests: 42 + rng.Intn(8), CellSize: 16,
+	}
+	frontX := 440 + rng.Float64()*120
+	cx, cy, R0 := 480.0, 232.0, 150.0
+	d.Floors = []Floor{F(0, 0, 960, 452, "pave")}
+	// round sand arena built from horizontal slices
+	for y := cy - R0; y < cy+R0; y += 6 {
+		dy := y + 3 - cy
+		w := math.Sqrt(math.Max(0, R0*R0-dy*dy))
+		d.Floors = append(d.Floors, F(cx-w, y, 2*w, 6, "arena"))
+	}
+	var wl []Wall
+	gates := []float64{math.Pi / 2, -math.Pi / 2, 0, math.Pi}
+	for a := 0.0; a < 2*math.Pi; a += 2 * math.Pi / 72 {
+		skip := false
+		for _, g := range gates {
+			da := math.Abs(math.Remainder(a-g, 2*math.Pi))
+			if da < 0.16 {
+				skip = true
+			}
+		}
+		if skip {
+			continue
+		}
+		wl = append(wl, Wall{R(cx+math.Cos(a)*R0-5, cy+math.Sin(a)*R0-5, 11, 11), WallWood})
+	}
+	d.Walls = wl
+	d.Walls = append(d.Walls, hw(0, 960, 0, 14, WallBrick)...)
+	d.Walls = append(d.Walls, vw(0, 14, 452, 10, WallFence)...)
+	d.Walls = append(d.Walls, vw(950, 14, 452, 10, WallFence)...)
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.avoid = append(pl.avoid, Vec{frontX, 420})
+	for _, g := range gates {
+		pl.avoid = append(pl.avoid, Vec{cx + math.Cos(g)*(R0+30), cy + math.Sin(g)*(R0+30)}, Vec{cx + math.Cos(g)*(R0-30), cy + math.Sin(g)*(R0-30)})
+	}
+	pl.at("stands", 270, 56, 0)
+	pl.at("stands", 690, 56, 1)
+	pl.at("stands", 270, 446, 1)
+	pl.at("stands", 690, 446, 0)
+	pl.at("dj", cx, cy-R0+64, 0)
+	pl.at("speaker", cx-60, cy-R0+60, 0)
+	pl.at("speaker", cx+60, cy-R0+60, 0)
+	d.Performers = []Perf{{Vec{cx, cy - R0 + 46}, "dj", DirDown}}
+	pl.at("phone", 60, 300, 0)
+	pl.at("phone", 900, 300, 0)
+	pl.scatter(R(20, 80, 160, 320), 3, 100, "lamp", "bench", "tree", "balloons")
+	pl.scatter(R(780, 80, 160, 320), 3, 100, "lamp", "bench", "tree", "cottoncandy")
+	pl.at("car", 180, 534, 2)
+	genStreet(d, frontX)
+	d.Props = props
+	d.Roam = []Rect{R(cx-R0+30, cy-R0+90, 2*R0-60, 2*R0-130), R(20, 70, 160, 360), R(780, 70, 160, 360), R(14, 410, 930, 36), R(300, 456, 400, 22), R(180, 80, 120, 60), R(660, 80, 120, 60)}
+	d.Dance = []Rect{R(cx-80, cy-30, 160, 90)}
+	d.Animals = []AnimalSpawn{{"bull", Vec{cx + 40, cy + 20}, R(cx-100, cy-60, 200, 140)}}
+	if rng.Intn(2) == 0 {
+		d.Animals = append(d.Animals, AnimalSpawn{"horse", Vec{cx - 70, cy + 70}, R(cx-110, cy+10, 220, 100)})
+	}
+	d.Guards = [][]Vec{{{70, 130}, {70, 400}}, {{890, 130}, {890, 400}}, {{frontX - 160, 430}, {frontX + 160, 430}}}
+	d.Glows = []Glow{{Vec{cx, cy}, color.RGBA{90, 50, 10, 110}, 140, true}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+func genStadium(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "ESTADIO", Intro: "Un campo de fútbol pequeño con grada, bengalas y cero árbitros.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{0, 10, 24, 60}, Disco: false,
+		Guests: 44 + rng.Intn(8), CellSize: 16,
+	}
+	frontX := 430 + rng.Float64()*140
+	d.Floors = []Floor{F(0, 0, 960, 452, "pave"), F(70, 96, 820, 300, "pitch")}
+	line := func(x, y, w, h float64) { d.Floors = append(d.Floors, F(x, y, w, h, "white")) }
+	line(90, 112, 780, 2)
+	line(90, 380, 780, 2)
+	line(90, 112, 2, 270)
+	line(868, 112, 2, 270)
+	line(478, 112, 2, 270)
+	line(90, 190, 90, 2)
+	line(90, 304, 90, 2)
+	line(178, 190, 2, 116)
+	line(780, 190, 90, 2)
+	line(780, 304, 90, 2)
+	line(778, 190, 2, 116)
+	for _, a := range []float64{0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6} { // centre circle
+		line(479+math.Cos(a)*42-1, 246+math.Sin(a)*42-1, 3, 3)
+	}
+	d.Walls = walls(
+		hw(60, 900, 86, 8, WallFence, [2]float64{300, 372}, [2]float64{600, 672}),
+		hw(60, 900, 400, 8, WallFence, [2]float64{frontX - 40, frontX + 40}, [2]float64{140, 212}),
+		vw(60, 86, 408, 8, WallFence, [2]float64{220, 290}),
+		vw(892, 86, 408, 8, WallFence, [2]float64{220, 290}),
+		hw(0, 960, 0, 14, WallBrick), vw(0, 14, 452, 10, WallFence), vw(950, 14, 452, 10, WallFence),
+	)
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.avoid = append(pl.avoid, Vec{frontX, 420}, Vec{frontX, 380})
+	pl.at("stands", 200, 66, 0)
+	pl.at("stands", 440, 66, 1)
+	pl.at("stands", 680, 66, 0)
+	pl.at("stands", 170, 452, 1)
+	pl.at("stands", 790, 452, 0)
+	pl.at("goal", 106, 262, 0)
+	pl.at("goal", 856, 262, 0)
+	pl.at("dj", 930-10, 330, 0)
+	pl.at("speaker", 926, 370, 0)
+	pl.at("speaker", 926, 290, 0)
+	d.Performers = []Perf{{Vec{920, 312}, "dj", DirLeft}}
+	pl.at("phone", 30, 300, 0)
+	pl.scatter(R(14, 120, 44, 300), 2, 120, "lamp", "bush")
+	pl.at("car", 640, 534, 0)
+	genStreet(d, frontX)
+	d.Props = props
+	d.Roam = []Rect{R(100, 120, 760, 260), R(14, 100, 44, 320), R(900, 100, 40, 320), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(430, 200, 100, 90)}
+	d.Animals = []AnimalSpawn{{"dog", Vec{300, 250}, R(100, 130, 300, 240)}}
+	d.Guards = [][]Vec{{{30, 140}, {30, 400}}, {{frontX - 180, 430}, {frontX + 180, 430}}, {{920, 140}, {920, 260}}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+func genFestival(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "FESTIVAL", Intro: "Tres días de música, barro y tiendas de campaña. Nadie echará de menos a nadie.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{14, 4, 34, 80}, Disco: true,
+		Guests: 50 + rng.Intn(8), CellSize: 16,
+	}
+	frontX := 400 + rng.Float64()*200
+	d.Floors = []Floor{F(0, 0, 960, 452, "grass"), F(100, 120, 760, 290, "dirt")}
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.avoid = append(pl.avoid, Vec{frontX, 420}, Vec{frontX, 380})
+	sx := 400 + rng.Float64()*160
+	pl.at("stage", sx, 130, 0)
+	pl.at("speaker", sx-210, 124, 0)
+	pl.at("speaker", sx+220, 124, 0)
+	pl.avoid = append(pl.avoid, Vec{sx, 180}, Vec{sx - 110, 170}, Vec{sx + 110, 170})
+	d.Performers = []Perf{{Vec{sx, 100}, "drum", DirDown}, {Vec{sx - 60, 110}, "guitar", DirDown}, {Vec{sx + 60, 110}, "guitar", DirDown}, {Vec{sx, 122}, "sing", DirDown}}
+	// second stage with the DJ on a side
+	djx := 130.0
+	if sx < 560 {
+		djx = 830
+	}
+	pl.at("dj", djx, 290, 1)
+	pl.at("speaker", djx-52, 286, 0)
+	pl.at("speaker", djx+52, 286, 0)
+	d.Performers = append(d.Performers, Perf{Vec{djx, 272}, "dj", DirDown})
+	for i := 0; i < 2; i++ {
+		pl.at("foodtruck", 130+float64(i)*700, 400, rng.Intn(4))
+	}
+	pl.scatter(R(30, 130, 900, 270), 6+rng.Intn(3), 120, "tent", "tent", "balloons", "cottoncandy", "bench")
+	for i := 0; i < 3; i++ {
+		pl.at("portapotty", 40+float64(i)*32, 440, i%2)
+	}
+	pl.scatter(R(30, 380, 900, 60), 3, 120, "lamp", "bush")
+	pl.at("phone", 920, 380, 0)
+	pl.at("car", 300, 534, 3)
+	genStreet(d, frontX)
+	d.Walls = append(d.Walls, vw(0, 0, 452, 10, WallFence)...)
+	d.Walls = append(d.Walls, vw(950, 0, 452, 10, WallFence)...)
+	d.Walls = append(d.Walls, hw(0, 960, 0, 14, WallHedge)...)
+	d.Props = props
+	d.Roam = []Rect{R(30, 90, 900, 330), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(sx-120, 180, 240, 90)}
+	d.Animals = []AnimalSpawn{{"dog", Vec{200, 330}, R(30, 250, 300, 160)}, {"cat", Vec{760, 340}, R(600, 250, 300, 160)}}
+	d.Guards = [][]Vec{{{50, 150}, {50, 400}}, {{910, 150}, {910, 400}}, {{frontX - 180, 430}, {frontX + 180, 430}}}
+	d.Glows = []Glow{{Vec{sx - 200, 110}, color.RGBA{120, 40, 190, 200}, 80, true}, {Vec{sx + 200, 110}, color.RGBA{40, 80, 200, 200}, 80, true}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+func genFunfair(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "PARQUE DE ATRACCIONES", Intro: "Atracciones que no se pueden montar y una fiesta que sí se puede estropear.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{18, 4, 30, 70}, Disco: true,
+		Guests: 50 + rng.Intn(8), CellSize: 16,
+	}
+	frontX := 400 + rng.Float64()*200
+	d.Floors = []Floor{F(0, 0, 960, 452, "pave"), F(60, 100, 840, 300, "cobble")}
+	for _, r := range []Rect{R(30, 60, 90, 120), R(840, 60, 90, 120)} {
+		d.Floors = append(d.Floors, F(r.X, r.Y, r.W, r.H, "grass"))
+	}
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.avoid = append(pl.avoid, Vec{frontX, 420}, Vec{frontX, 380})
+	// big rides: three slots chosen at random, left / centre / right at the back
+	slots := [][2]float64{{190, 200}, {480, 200}, {770, 200}}
+	rides := []string{"ferris", "carousel", "coaster"}
+	rng.Shuffle(len(rides), func(i, j int) { rides[i], rides[j] = rides[j], rides[i] })
+	for i, r := range rides {
+		x, y := slots[i][0], slots[i][1]
+		switch r {
+		case "ferris":
+			y = 190
+		case "carousel":
+			y = 190
+		case "coaster":
+			y = 150
+		}
+		pl.at(r, x, y, 0)
+		pl.avoid = append(pl.avoid, Vec{x, y + 24}, Vec{x - 40, y}, Vec{x + 40, y})
+	}
+	for i := 0; i < 4; i++ { // bumper cars in a loose group
+		pl.at("bumpercar", 330+float64(i%2)*70, 310+float64(i/2)*54, i)
+	}
+	pl.at("ticketbooth", 120, 300, 0)
+	pl.at("cottoncandy", 800, 300, 0)
+	pl.at("balloons", 860, 330, 0)
+	pl.at("dj", 640, 340, 0)
+	pl.at("speaker", 592, 336, 0)
+	pl.at("speaker", 690, 336, 0)
+	d.Performers = []Perf{{Vec{640, 322}, "dj", DirDown}}
+	pl.scatter(R(60, 260, 840, 150), 4, 120, "bench", "lamp", "tree", "planter")
+	pl.at("phone", 920, 400, 0)
+	pl.at("car", 560, 534, 1)
+	genStreet(d, frontX)
+	d.Walls = append(d.Walls, vw(0, 0, 452, 10, WallFence)...)
+	d.Walls = append(d.Walls, vw(950, 0, 452, 10, WallFence)...)
+	d.Walls = append(d.Walls, hw(0, 960, 0, 14, WallHedge)...)
+	d.Props = props
+	d.Roam = []Rect{R(30, 90, 900, 330), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(560, 350, 160, 50)}
+	d.Animals = []AnimalSpawn{{"cat", Vec{140, 380}, R(40, 330, 250, 90)}}
+	d.Guards = [][]Vec{{{50, 130}, {50, 400}}, {{910, 130}, {910, 400}}, {{frontX - 180, 430}, {frontX + 180, 430}}}
+	d.Glows = []Glow{{Vec{480, 170}, color.RGBA{200, 60, 140, 150}, 110, true}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+// genKinds lists every generated scenario type.
+var genKinds = []string{"house", "club", "pub", "cinema", "mall", "market", "plaza", "paris", "bullring", "stadium", "festival", "funfair", "roof", "beach"}
+
+// genExotic adds a few unusual animals to the open-air venues (never more than a couple).
+func genExotic(rng *rand.Rand, d *LevelDef, kind string) {
+	var pool []string
+	chance := 0.0
+	switch kind {
+	case "paris", "plaza":
+		pool, chance = []string{"giraffe", "elephant", "kangaroo", "cat", "cat"}, 0.5
+	case "festival":
+		pool, chance = []string{"elephant", "kangaroo", "giraffe"}, 0.65
+	case "funfair":
+		pool, chance = []string{"giraffe", "kangaroo", "elephant"}, 0.65
+	case "beach":
+		pool, chance = []string{"kangaroo", "elephant", "cat"}, 0.4
+	case "stadium":
+		pool, chance = []string{"kangaroo", "bull"}, 0.4
+	case "bullring":
+		pool, chance = []string{"cat", "hen"}, 0.5
+	case "house", "pub", "club":
+		pool, chance = []string{"cat", "cat", "hen"}, 0.4
+	default:
+		return
+	}
+	var big []Rect
+	for _, r := range d.Roam {
+		if r.W > 200 && r.H > 100 {
+			big = append(big, r)
+		}
+	}
+	if len(big) == 0 {
+		return
+	}
+	for n := 0; n < 2 && rng.Float64() < chance; n++ {
+		r := big[rng.Intn(len(big))]
+		a := R(r.X+10, r.Y+10, math.Min(r.W-20, 260), math.Min(r.H-20, 150))
+		k := pool[rng.Intn(len(pool))]
+		d.Animals = append(d.Animals, AnimalSpawn{k, Vec{a.X + a.W/2, a.Y + a.H/2}, a})
+		if k == "hen" {
+			d.Animals = append(d.Animals, AnimalSpawn{"chick", Vec{a.X + a.W/2 + 18, a.Y + a.H/2}, a}, AnimalSpawn{"chick", Vec{a.X + a.W/2 - 14, a.Y + a.H/2 + 8}, a})
+		}
+	}
+}
+
+func genByKind(rng *rand.Rand, kind string) *LevelDef {
+	d := genByKind0(rng, kind)
+	genExotic(rng, d, kind)
+	return d
+}
+
+func genByKind0(rng *rand.Rand, kind string) *LevelDef {
+	switch kind {
+	case "house", "club", "pub", "cinema", "mall", "market":
+		return genBuilding(rng, kind)
+	case "plaza":
+		return genPlaza(rng, false)
+	case "paris":
+		return genPlaza(rng, true)
+	case "bullring":
+		return genBullring(rng)
+	case "stadium":
+		return genStadium(rng)
+	case "festival":
+		return genFestival(rng)
+	case "funfair":
+		return genFunfair(rng)
+	case "roof":
+		return genRoof(rng)
+	}
+	return genBeach(rng)
+}
+
+// genNamed builds a scenario of a given type from a fixed seed, retrying until it is fully walkable.
+func genNamed(kind string, seed int64, title string) *LevelDef {
+	for try := 0; try < 40; try++ {
+		rng := rand.New(rand.NewSource(seed + int64(try)*7919))
+		d := genByKind(rng, kind)
+		if genValidate(d) {
+			if title != "" {
+				d.Title = title
+			}
+			return d
+		}
+	}
+	return nil
+}

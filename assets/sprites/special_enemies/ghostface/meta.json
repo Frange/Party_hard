@@ -1,0 +1,8 @@
+{
+  "name": "ghostface",
+  "category": "special_enemies",
+  "role": "killer",
+  "carry": "knife",
+  "width": 24,
+  "height": 44
+}

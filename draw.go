@@ -1,0 +1,1495 @@
+package main
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"math"
+	"math/rand"
+	"os"
+	"sort"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+)
+
+// charBase is the image row just below the soles of a character sprite.
+const charBase = charFeet + 1
+
+// world (design) coordinates -> native screen pixels
+func (g *Game) wx(x float64) float64 { return math.Round(x*wk) + g.camI.X }
+func (g *Game) wy(y float64) float64 { return math.Round(y*wk) + g.camI.Y }
+
+// sr converts a design rectangle to native pixels with consistent rounded edges.
+func sr(r Rect) Rect {
+	x0, y0 := math.Round(r.X*wk), math.Round(r.Y*wk)
+	x1, y1 := math.Round((r.X+r.W)*wk), math.Round((r.Y+r.H)*wk)
+	return Rect{x0, y0, x1 - x0, y1 - y0}
+}
+
+func drawTiled(dst *ebiten.Image, texs []*ebiten.Image, r Rect) {
+	const t = 32
+	for ty := math.Floor(r.Y/t) * t; ty < r.Y+r.H; ty += t {
+		for tx := math.Floor(r.X/t) * t; tx < r.X+r.W; tx += t {
+			x0, y0 := math.Max(tx, r.X), math.Max(ty, r.Y)
+			x1, y1 := math.Min(tx+t, r.X+r.W), math.Min(ty+t, r.Y+r.H)
+			if x1 <= x0 || y1 <= y0 {
+				continue
+			}
+			ix, iy := int(tx/t), int(ty/t)
+			tex := texs[int((uint32(ix)*73856093^uint32(iy)*19349663)>>7)%len(texs)]
+			sub := tex.SubImage(image.Rect(int(x0-tx), int(y0-ty), int(x1-tx), int(y1-ty))).(*ebiten.Image)
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(x0, y0)
+			dst.DrawImage(sub, op)
+		}
+	}
+}
+
+func (g *Game) bigText(dst *ebiten.Image, s string, cx, y float64, col, outline color.RGBA, scale float64) {
+	w := g.textW(s, scale)
+	x := math.Round(cx - w/2)
+	for _, o := range [][2]float64{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {2, 2}} {
+		op := &text.DrawOptions{}
+		op.GeoM.Scale(scale, scale)
+		op.GeoM.Translate(x+o[0]*scale*0.5, y+o[1]*scale*0.5)
+		op.ColorScale.ScaleWithColor(outline)
+		text.Draw(dst, s, g.face, op)
+	}
+	op := &text.DrawOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(x, y)
+	op.ColorScale.ScaleWithColor(col)
+	text.Draw(dst, s, g.face, op)
+}
+
+func (g *Game) renderBG() {
+	l := g.lvl
+	def := l.Def
+	if def.BGImg != nil {
+		l.bg = def.BGImg
+		return
+	}
+	bg := ebiten.NewImage(screenW, screenH)
+	bg.Fill(rgb(0x0a0912))
+	rng := rand.New(rand.NewSource(int64(len(def.Title)*131 + 7)))
+	W, H := float64(screenW), float64(screenH)
+
+	switch def.Sky {
+	case "city":
+		for y := 0.0; y < H; y += 4 {
+			t := y / H
+			fillRect(bg, 0, y, W, 4, mixc(rgb(0x070a1c), rgb(0x141c3c), 1-math.Abs(t-0.5)*1.4))
+		}
+		for x := 0.0; x < W; x += 6 + rng.Float64()*18 {
+			h := 18 + rng.Float64()*44
+			w := 14 + rng.Float64()*24
+			fillRect(bg, x, 50-h, w, h, rgb(0x0c1226))
+			for wy := 50 - h + 4; wy < 45; wy += 6 {
+				for wx := x + 3; wx < x+w-3; wx += 6 {
+					if rng.Intn(3) == 0 {
+						fillRect(bg, wx, wy, 2, 3, rgb(0xf0c850))
+					}
+				}
+			}
+		}
+		for x := 0.0; x < W; x += 8 + rng.Float64()*20 {
+			fillRect(bg, x, 504, 12+rng.Float64()*18, 8+rng.Float64()*20, rgb(0x0c1226))
+		}
+		for x := 40.0; x < 900; x += 150 {
+			fillRect(bg, x, 506, 100, 28, rgb(0x14304a))
+			fillRect(bg, x, 506, 100, 3, rgb(0x2a5a8a))
+		}
+	case "sea":
+		for y := 0.0; y < 40; y += 2 {
+			fillRect(bg, 0, y, W, 2, mixc(rgb(0x3a1a5a), rgb(0xb0406a), y/40))
+		}
+		for y := 40.0; y < 92; y += 2 {
+			fillRect(bg, 0, y, W, 2, mixc(rgb(0x241a48), rgb(0x1a1236), (y-40)/52))
+		}
+		for yy := 0.0; yy < 36; yy++ {
+			w := math.Sqrt(math.Max(0, 36*36-(36-yy)*(36-yy)))
+			fillRect(bg, 780-w, yy, 2*w, 1, rgb(0xf08a30))
+		}
+		for i := 0; i < 20; i++ {
+			fillRect(bg, 700+float64(i%5)*10, 46+float64(i)*2.4, 90-float64(i)*3, 1, rgb(0xe8884a))
+		}
+		fillRect(bg, 0, 38, W, 2, rgb(0xc85a7a))
+		fillRect(bg, 420, 28, 40, 8, rgb(0x14101e))
+		fillRect(bg, 432, 22, 10, 6, rgb(0x14101e))
+	}
+
+	for _, f := range def.Floors {
+		r := sr(f.R)
+		switch f.Kind {
+		case "dance":
+			fillRect(bg, r.X, r.Y, r.W, r.H, rgb(0x15121f))
+		case "dash":
+			for x := r.X; x < r.X+r.W; x += 27 {
+				fillRect(bg, x, r.Y, 15, math.Max(2, r.H*0.7), rgb(0xd8c860))
+			}
+		case "rug":
+			col := rgb(f.Color)
+			fillRect(bg, r.X, r.Y, r.W, r.H, shade(col, 0.7))
+			fillRect(bg, r.X+2, r.Y+2, r.W-4, r.H-4, col)
+			fillRect(bg, r.X+5, r.Y+5, r.W-10, r.H-10, shade(col, 0.85))
+			for x := r.X; x < r.X+r.W; x += 4 {
+				fillRect(bg, x, r.Y-1, 1, 1, shade(col, 1.2))
+				fillRect(bg, x, r.Y+r.H, 1, 1, shade(col, 1.2))
+			}
+		case "helipad":
+			cx, cy := r.Center().X, r.Center().Y
+			rad := r.W / 2
+			col := rgb(f.Color)
+			fillRect(bg, r.X, r.Y, r.W, r.H, rgb(0x1a2030))
+			for a := 0.0; a < 2*math.Pi; a += 0.06 {
+				for k := 0.0; k < 2; k++ {
+					fillRect(bg, math.Round(cx+math.Cos(a)*(rad-3-k)), math.Round(cy+math.Sin(a)*(rad-3-k)), 1, 1, col)
+				}
+			}
+			s := rad * 0.42
+			fillRect(bg, cx-s, cy-s, 3, 2*s, col)
+			fillRect(bg, cx+s-3, cy-s, 3, 2*s, col)
+			fillRect(bg, cx-s, cy-1, 2*s, 3, col)
+		default:
+			drawTiled(bg, g.as.floors[f.Kind], r)
+			g.groundDetail(bg, rng, f)
+		}
+	}
+	g.litter(bg, rng)
+	for _, p := range l.Pools {
+		pr := sr(p)
+		c := Rect{pr.X - 8, pr.Y - 8, pr.W + 16, pr.H + 16}
+		fillRect(bg, c.X, c.Y, c.W, c.H, rgb(0x1e4aa8))
+		for y := c.Y; y < c.Y+c.H; y += 4 {
+			for x := c.X; x < c.X+c.W; x += 4 {
+				if pr.Has(x+1, y+1) {
+					continue
+				}
+				col := rgb(0x2a5ac8)
+				if (int((x-c.X)/4)+int((y-c.Y)/4))%2 == 0 {
+					col = rgb(0x8ab8e8)
+				}
+				fillRect(bg, x, y, 4, 4, col)
+			}
+		}
+		for i := 0.0; i < 4; i++ {
+			fillRect(bg, pr.X+pr.W/2-16+i*8, pr.Y-8, 8, 4, rgb(0xeef4fa))
+		}
+		fillRect(bg, pr.X-1, pr.Y-1, pr.W+2, pr.H+2, rgb(0x16306a))
+		fillRect(bg, pr.X, pr.Y, pr.W, pr.H, rgb(0x2f8fcf))
+	}
+	for _, w := range l.Walls {
+		wallShadow(bg, sr(w.R), w.Style)
+	}
+	for _, w := range l.Walls {
+		drawWall(bg, sr(w.R), w.Style)
+	}
+	for _, dr := range def.Doors {
+		drawDoor(bg, dr)
+	}
+	l.bg = bg
+}
+
+func drawWall(dst *ebiten.Image, r Rect, style int) {
+	horiz := r.W >= r.H
+	var capC, faceC color.RGBA
+	switch style {
+	case WallBrick:
+		capC, faceC = rgb(0x1c1416), rgb(0x6a3e34)
+	case WallClub:
+		capC, faceC = rgb(0x14101c), rgb(0x2c2142)
+	case WallHedge:
+		capC, faceC = rgb(0x1e5028), rgb(0x2e7a3a)
+	case WallFence:
+		capC, faceC = rgb(0x6a4e2a), rgb(0x9c7a46)
+	case WallRoof:
+		capC, faceC = rgb(0x3a3c4a), rgb(0x161820)
+	case WallWood:
+		capC, faceC = rgb(0x3a2410), rgb(0x8a5e30)
+	default:
+		capC, faceC = rgb(0x1e1a1e), rgb(0x4a3a30)
+	}
+	if horiz {
+		capH := math.Min(4, math.Max(2, r.H*0.35))
+		if style == WallFence || style == WallHedge {
+			capH = 2
+		}
+		fillRect(dst, r.X, r.Y, r.W, capH, capC)
+		fillRect(dst, r.X, r.Y, r.W, 1, shade(capC, 1.5))
+		fillRect(dst, r.X, r.Y+capH, r.W, r.H-capH, faceC)
+		fh := r.H - capH
+		switch style {
+		case WallBrick:
+			for y := 0.0; y < fh; y += 3 {
+				fillRect(dst, r.X, r.Y+capH+y, r.W, 1, shade(faceC, 0.8))
+				off := 0.0
+				if int(y/3)%2 == 1 {
+					off = 3
+				}
+				for x := off; x < r.W; x += 6 {
+					fillRect(dst, r.X+x, r.Y+capH+y, 1, 3, shade(faceC, 0.8))
+				}
+			}
+		case WallClub:
+			fillRect(dst, r.X, r.Y+r.H-2, r.W, 1, rgb(0xff2090))
+			fillRect(dst, r.X, r.Y+r.H-1, r.W, 1, rgb(0x20c0ff))
+		case WallRoof:
+			fillRect(dst, r.X, r.Y+capH, r.W, 1, rgb(0x6a6e80))
+			fillRect(dst, r.X, r.Y+r.H-1, r.W, 1, rgb(0x2a2c3a))
+		case WallWood:
+			for x := 0.0; x < r.W; x += 4 {
+				fillRect(dst, r.X+x, r.Y+capH, 1, fh, shade(faceC, 0.7))
+			}
+			fillRect(dst, r.X, r.Y+r.H-2, r.W, 2, shade(faceC, 0.55))
+			fillRect(dst, r.X, r.Y+capH, r.W, 1, shade(faceC, 1.3))
+		case WallFence:
+			for x := 0.0; x < r.W; x += 4 {
+				fillRect(dst, r.X+x, r.Y+capH, 1, fh, shade(faceC, 0.72))
+			}
+			fillRect(dst, r.X, r.Y+capH+1, r.W, 1, shade(faceC, 0.6))
+		case WallHedge:
+			for x := 0.0; x < r.W; x += 4 {
+				for y := 0.0; y < fh; y += 3 {
+					if int(x/4+y/3)%2 == 0 {
+						fillRect(dst, r.X+x, r.Y+capH+y, 1, 1, shade(faceC, 1.3))
+					}
+				}
+			}
+		default:
+			for x := 0.0; x < r.W; x += 4 {
+				fillRect(dst, r.X+x, r.Y+capH, 1, fh, shade(faceC, 0.8))
+			}
+			fillRect(dst, r.X, r.Y+r.H-2, r.W, 2, shade(faceC, 0.6))
+			fillRect(dst, r.X, r.Y+capH, r.W, 1, shade(faceC, 1.3))
+		}
+		if (style == WallPlaster || style == WallWood) && fh >= 9 {
+			drawPictures(dst, r, capH, style)
+		}
+		if style == WallBrick && r.H > 26 {
+			for x := 7.0; x+9 < r.W; x += 26 {
+				fillRect(dst, r.X+x, r.Y+capH+7, 9, 10, rgb(0x2a3a58))
+				fillRect(dst, r.X+x, r.Y+capH+7, 9, 2, rgb(0x6a86b0))
+			}
+		}
+		return
+	}
+	fillRect(dst, r.X, r.Y, r.W, r.H, capC)
+	fillRect(dst, r.X, r.Y, 1, r.H, shade(capC, 1.45))
+	fillRect(dst, r.X+r.W-1, r.Y, 1, r.H, shade(capC, 0.7))
+	switch style {
+	case WallFence:
+		fillRect(dst, r.X+1, r.Y, r.W-2, r.H, faceC)
+		for y := 0.0; y < r.H; y += 4 {
+			fillRect(dst, r.X+1, r.Y+y, r.W-2, 1, shade(faceC, 0.7))
+		}
+	case WallHedge:
+		fillRect(dst, r.X, r.Y, r.W, r.H, faceC)
+		for y := 0.0; y < r.H; y += 3 {
+			fillRect(dst, r.X+1, r.Y+y, 1, 1, shade(faceC, 1.3))
+		}
+	case WallClub:
+		fillRect(dst, r.X+r.W/2, r.Y, 1, r.H, rgb(0xff2090))
+	case WallBrick:
+		fillRect(dst, r.X+1, r.Y, r.W-2, r.H, faceC)
+	case WallRoof:
+		fillRect(dst, r.X+1, r.Y, r.W-2, r.H, rgb(0x2a2c3a))
+		fillRect(dst, r.X, r.Y, 1, r.H, rgb(0x6a6e80))
+	case WallWood:
+		fillRect(dst, r.X+1, r.Y, r.W-2, r.H, faceC)
+		for y := 0.0; y < r.H; y += 5 {
+			fillRect(dst, r.X+1, r.Y+y, r.W-2, 1, shade(faceC, 0.7))
+		}
+	}
+	fillRect(dst, r.X+r.W, r.Y, 2, r.H, color.RGBA{0, 0, 0, 60})
+}
+
+// ---------------------------------------------------------------------------
+
+type drawItem struct {
+	y  float64
+	fn func()
+}
+
+func (g *Game) Layout(w, h int) (int, int) {
+	if g.mode == ModeEditor {
+		return edW, edH
+	}
+	return screenW, screenH
+}
+
+func (g *Game) drawImg(dst, im *ebiten.Image, x, y float64, ox, oy float64) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(math.Round(x-ox), math.Round(y-oy))
+	dst.DrawImage(im, op)
+}
+
+// drawActor draws a character animation frame with feet at logic position pos.
+func (g *Game) drawActor(dst *ebiten.Image, cs *CharSet, anim int, phase float64, pos Vec, dir Dir, yoff float64, swim bool) {
+	cx, cy := g.wx(pos.X), g.wy(pos.Y)
+	if !swim {
+		fillShadow(dst, cx, cy)
+	}
+	img, flip := cs.img(anim, dir, phase)
+	op := &ebiten.DrawImageOptions{}
+	if swim {
+		img = img.SubImage(image.Rect(0, 0, charW, 30)).(*ebiten.Image)
+		yoff += 12
+	}
+	if flip {
+		op.GeoM.Scale(-1, 1)
+		op.GeoM.Translate(charW, 0)
+	}
+	op.GeoM.Translate(cx-charCX, cy-charBase+yoff)
+	dst.DrawImage(img, op)
+	if swim {
+		for i := 0; i < 2; i++ {
+			a := uint8(110 - 40*i)
+			w := 16 + float64(i)*5 + math.Sin(g.time*4+pos.X)*1.5
+			fillRect(dst, cx-w/2, cy-10+float64(i)*2, w, 1, color.RGBA{a, a, a, a})
+		}
+	}
+}
+
+func (g *Game) drawLying(dst *ebiten.Image, cs *CharSet, sleep bool, pos Vec) {
+	im := cs.lying(sleep)
+	w, h := im.Bounds().Dx(), im.Bounds().Dy()
+	cx, cy := g.wx(pos.X), g.wy(pos.Y)
+	fillRect(dst, cx-float64(w)/2+3, cy-2, float64(w)-6, 3, color.RGBA{0, 0, 0, 50})
+	g.drawImg(dst, im, cx, cy, float64(w)/2, float64(h)-2)
+}
+
+func fillShadow(dst *ebiten.Image, cx, cy float64) {
+	for i, w := range []float64{15, 10} {
+		a := uint8(40 + i*30)
+		fillRect(dst, cx-w/2, cy-1+float64(i), w, 1, color.RGBA{0, 0, 0, a})
+		fillRect(dst, cx-w/2+1, cy-2+float64(i)*2, w-2, 1, color.RGBA{0, 0, 0, a})
+	}
+}
+
+func (g *Game) drawRing(dst *ebiten.Image, pos Vec) {
+	cx, cy := g.wx(pos.X), g.wy(pos.Y)-1
+	for a := 0.0; a < 2*math.Pi; a += 0.2 {
+		fillRect(dst, math.Round(cx+math.Cos(a)*13), math.Round(cy+math.Sin(a)*5), 1, 1, color.RGBA{235, 235, 245, 235})
+	}
+}
+
+func (g *Game) drawBubble(dst *ebiten.Image, pos Vec, txt string, red bool, up float64) {
+	w := math.Round(g.textW(txt, 1)) + 8
+	cx := g.wx(pos.X)
+	x := clampF(cx-math.Round(w/2), 2, screenW-w-2)
+	y := g.wy(pos.Y) - 52 - up
+	col := rgb(0x8a3ae0)
+	if red {
+		col = rgb(0xc42a2a)
+	}
+	fillRect(dst, x+1, y, w-2, 13, col)
+	fillRect(dst, x, y+1, w, 11, col)
+	fillRect(dst, x+2, y+1, w-4, 1, shade(col, 1.35))
+	fillRect(dst, cx-2, y+13, 4, 1, col)
+	fillRect(dst, cx-1, y+14, 2, 1, col)
+	g.drawText(dst, txt, x+4, y, rgb(0xffffff), 1)
+}
+
+func (g *Game) glowAt(dst *ebiten.Image, wp Vec, r float64, col color.RGBA) {
+	op := &ebiten.DrawImageOptions{}
+	s := r * wk / 48
+	op.GeoM.Translate(-48, -48)
+	op.GeoM.Scale(s, s)
+	op.GeoM.Translate(g.wx(wp.X), g.wy(wp.Y))
+	op.Blend = ebiten.BlendLighter
+	op.ColorScale.ScaleWithColor(col)
+	dst.DrawImage(g.as.glow, op)
+}
+
+// --- animation selection --------------------------------------------------------
+
+func (g *Game) guestPose(gu *Guest) (int, float64) {
+	t := g.time
+	if gu.stabT > 0 {
+		return AnimStab, math.Min(2, (0.25-gu.stabT)/0.25*3)
+	}
+	if gu.moving {
+		switch {
+		case gu.state == gFlee || gu.state == gRun || gu.state == gScared:
+			return AnimPanic, gu.anim
+		case gu.curSpd > 60:
+			return AnimRun, gu.anim
+		}
+		return AnimWalk, gu.anim
+	}
+	switch gu.state {
+	case gDance, gDanceWith:
+		return AnimDance0 + gu.style%4, t*7 + gu.off
+	case gDrink:
+		return AnimDrink, (gu.dur-gu.timer)*2.2 + 0.01
+	case gLounge:
+		return AnimDrink, t*1.1 + gu.off
+	case gChat:
+		if int(t/2.2)%2 == gu.role {
+			return AnimTalk, t*6 + gu.off
+		}
+	case gKiss:
+		return AnimKiss, t * 1.5
+	case gVomit:
+		return AnimVomit, t * 5
+	case gAlarm:
+		return AnimWave, t * 9
+	case gCall:
+		return AnimCall, t * 1.5
+	case gFun:
+		switch gu.fun {
+		case 0:
+			return AnimWave, t*3 + gu.off
+		case 1:
+			return AnimGuitar, t*7 + gu.off
+		case 2:
+			return AnimDrum, t*9 + gu.off
+		case 4:
+			return AnimDance0 + gu.style%4, t*9 + gu.off
+		}
+	case gPerform:
+		switch gu.perf {
+		case "dj":
+			return AnimDJ, gu.anim
+		case "drum":
+			return AnimDrum, gu.anim * 1.4
+		case "guitar":
+			return AnimGuitar, gu.anim * 0.8
+		case "sing":
+			return AnimSing, gu.anim * 0.8
+		}
+	}
+	return AnimIdle, t*1.3 + gu.off
+}
+
+func (g *Game) guardPose(gd *Guard) (int, float64) {
+	t := g.time
+	switch {
+	case gd.state == gdBeat:
+		return AnimPunch, t * 9
+	case gd.callT > 0:
+		return AnimCall, t * 1.5
+	case gd.moving && gd.state == gdChase:
+		return AnimRun, gd.anim
+	case gd.moving:
+		return AnimWalk, gd.anim
+	}
+	return AnimIdle, t*1.2 + gd.pos.X
+}
+
+func (g *Game) copPose(c *Cop) (int, float64) {
+	t := g.time
+	switch {
+	case c.state == cBag || (c.state == cBagHere && !c.moving):
+		return AnimCrouch, t * 2
+	case c.state == cTired:
+		return AnimTired, t * 2
+	case c.moving && c.state == cChase:
+		return AnimRun, c.anim
+	case c.moving && c.carry != nil:
+		return AnimCarry, c.anim
+	case c.moving:
+		return AnimWalk, c.anim
+	}
+	return AnimIdle, t*1.2 + c.pos.X
+}
+
+func (g *Game) playerPose() (int, float64) {
+	p := g.p
+	t := g.time
+	switch {
+	case p.stabT > 0:
+		return AnimStab, math.Min(2, (0.18-p.stabT)/0.18*3)
+	case p.danceT > 0:
+		return AnimDance0 + p.style%4, t * 7
+	case p.moving && p.carrying != nil:
+		return AnimCarry, p.anim
+	case p.moving && p.running:
+		return AnimRun, p.anim
+	case p.moving:
+		return AnimWalk, p.anim
+	case p.carrying != nil:
+		return AnimCarry, 0
+	}
+	return AnimIdle, t * 1.3
+}
+
+func (g *Game) bodyLyingImg(b *Body) *ebiten.Image {
+	if b.bagged {
+		return g.as.bag
+	}
+	return b.cs.lying(false)
+}
+
+func (g *Game) drawBody(dst *ebiten.Image, b *Body) {
+	if b.bagged {
+		w, h := g.as.bag.Bounds().Dx(), g.as.bag.Bounds().Dy()
+		g.drawImg(dst, g.as.bag, g.wx(b.pos.X), g.wy(b.pos.Y), float64(w)/2, float64(h)-1)
+		return
+	}
+	if b.fallT > 0 {
+		f := math.Min(2, (0.45-b.fallT)/0.45*3)
+		g.drawActor(dst, b.cs, AnimFall, f, b.pos, b.dir, 0, false)
+		return
+	}
+	g.drawLying(dst, b.cs, false, b.pos)
+}
+
+func (g *Game) drawSiren(dst *ebiten.Image, pos Vec) {
+	x, y := g.wx(pos.X), g.wy(pos.Y)-22+math.Round(math.Sin(g.time*6))
+	red := int(g.time*6)%2 == 0
+	fillRect(dst, x-3, y+2, 6, 2, rgb(0x2a2a34))
+	c1, c2 := rgb(0xff3030), rgb(0x3060ff)
+	if red {
+		c1, c2 = c2, c1
+	}
+	fillRect(dst, x-2, y, 2, 3, c1)
+	fillRect(dst, x, y, 2, 3, c2)
+}
+
+func (g *Game) drawCuffs(dst *ebiten.Image, pos Vec) {
+	x, y := g.wx(pos.X), g.wy(pos.Y)-54+math.Round(math.Sin(g.time*5))
+	g.drawImg(dst, g.as.cuffs, x, y, 7, 4)
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	if g.mode == ModeEditor {
+		g.drawEditor(screen)
+		if g.shot != "" && g.tick == g.shotTick {
+			g.saveShot(screen)
+		}
+		return
+	}
+	screen.Fill(rgb(0x08060c))
+	g.camI = Vec{}
+	if g.shake > 0 {
+		k := math.Min(1, g.shake*3) * 3
+		g.camI = Vec{math.Round((g.rng.Float64() - 0.5) * k), math.Round((g.rng.Float64() - 0.5) * k)}
+	}
+	l := g.lvl
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(g.camI.X, g.camI.Y)
+	screen.DrawImage(l.bg, op)
+	g.drawAnimatedFloors(screen)
+
+	for _, d := range g.decals {
+		x, y := g.wx(d.pos.X), g.wy(d.pos.Y)
+		col := color.RGBA{110, 14, 14, 200}
+		if d.kind == 1 {
+			col = color.RGBA{10, 10, 12, 190}
+		}
+		if d.kind == 2 {
+			col = color.RGBA{90, 130, 30, 200}
+		}
+		r := d.r * wk
+		for i := 0; i < 5; i++ {
+			a := float64(i) * 1.7
+			rr := r * (0.45 + 0.12*float64(i))
+			fillRect(screen, x+math.Cos(a)*r*0.35-rr/2, y-2+math.Sin(a)*r*0.2-rr*0.2, rr, rr*0.45, col)
+		}
+	}
+
+	var items []drawItem
+	for _, pr := range l.Props {
+		pr := pr
+		items = append(items, drawItem{pr.Sort, func() { g.drawProp(screen, pr) }})
+	}
+	for _, b := range g.bodies {
+		b := b
+		if b.carried {
+			continue
+		}
+		items = append(items, drawItem{b.pos.Y - 4, func() { g.drawBody(screen, b) }})
+	}
+	for _, gu := range g.guests {
+		gu := gu
+		if gu.out() {
+			continue
+		}
+		items = append(items, drawItem{gu.pos.Y, func() {
+			if gu.state == gSleep || (gu.state == gFun && gu.fun == 3 && gu.timer < 2.4) {
+				g.drawLying(screen, gu.cs, true, gu.pos)
+				return
+			}
+			anim, phase := g.guestPose(gu)
+			swim := g.lvl.InPool(gu.pos)
+			pos := gu.pos
+			yoff := 0.0
+			if swim {
+				yoff = math.Round(math.Sin(g.time*2 + gu.off))
+			}
+			if gu.stabT > 0 {
+				v := dirVec(gu.dir)
+				pos.X += v.X * 3
+				pos.Y += v.Y * 3
+			}
+			g.drawActor(screen, gu.cs, anim, phase, pos, gu.dir, yoff, swim)
+		}})
+	}
+	for _, gd := range g.guards {
+		gd := gd
+		items = append(items, drawItem{gd.pos.Y, func() {
+			if gd.dead {
+				return
+			}
+			anim, phase := g.guardPose(gd)
+			g.drawActor(screen, gd.cs, anim, phase, gd.pos, gd.dir, 0, false)
+		}})
+	}
+	for _, e := range g.elevators {
+		e := e
+		items = append(items, drawItem{e.pos.Y - 1, func() { g.drawElevator(screen, e) }})
+	}
+	if s := g.slasher; s != nil && (s.state == slHunt || s.state == slCuffed) {
+		items = append(items, drawItem{s.pos.Y, func() { g.drawSlasher(screen, s) }})
+	}
+	for _, c := range g.cops {
+		c := c
+		items = append(items, drawItem{c.pos.Y, func() {
+			cs := g.as.copCS
+			if c.alt > 0 && len(g.as.copAlt) > 0 && c.kind == 0 {
+				cs = g.as.copAlt[(c.alt-1)%len(g.as.copAlt)]
+			}
+			if c.kind == 1 {
+				cs = g.as.swatCS
+			} else if c.kind == 2 {
+				cs = g.as.fbiCS[c.alt%len(g.as.fbiCS)]
+			}
+			if c.medic {
+				cs = g.as.medicCS
+			}
+			anim, phase := g.copPose(c)
+			g.drawActor(screen, cs, anim, phase, c.pos, c.dir, 0, g.lvl.InPool(c.pos) && c.carry == nil)
+			if c.carry != nil {
+				bi := g.bodyLyingImg(c.carry)
+				w, h := bi.Bounds().Dx(), bi.Bounds().Dy()
+				g.drawImg(screen, bi, g.wx(c.pos.X), g.wy(c.pos.Y)-32, float64(w)/2, float64(h))
+			}
+		}})
+	}
+	for _, w := range g.wrecks {
+		w := w
+		items = append(items, drawItem{w.Y, func() {
+			pi := g.as.props["car"][4]
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(math.Round(g.wx(w.X)-pi.ox), math.Round(g.wy(w.Y)-pi.oy))
+			op.ColorScale.Scale(0.15, 0.13, 0.13, 1)
+			screen.DrawImage(pi.img, op)
+			g.drawFlames(screen, g.wx(w.X), g.wy(w.Y)-14, 22)
+		}})
+	}
+	for _, v := range g.veh {
+		v := v
+		if v.isHeli() {
+			continue
+		}
+		items = append(items, drawItem{v.y, func() {
+			k := 4
+			if v.kind == 1 {
+				k = 5
+			}
+			pi := g.as.props["car"][k]
+			if v.kind == 4 {
+				g.drawHearse(screen, pi, v)
+				return
+			}
+			if v.kind == 6 {
+				g.drawLimo(screen, pi, v)
+				return
+			}
+			if v.unit > 0 {
+				g.drawUnitCar(screen, pi, v)
+				return
+			}
+			g.drawImg(screen, pi.img, g.wx(v.x), g.wy(v.y), pi.ox, pi.oy)
+		}})
+	}
+	for _, a := range g.amb {
+		a := a
+		items = append(items, drawItem{a.y, func() { g.drawAmbient(screen, a) }})
+	}
+	for _, an := range g.animals {
+		an := an
+		items = append(items, drawItem{an.pos.Y, func() { g.drawAnimal(screen, an) }})
+	}
+	p := g.p
+	if g.mode != ModeMenu && !p.hidden {
+		items = append(items, drawItem{p.pos.Y + 0.2, func() {
+			if p.dead || p.knockT > 0 {
+				g.drawLying(screen, p.cs, false, p.pos)
+				if p.knockT > 0 && !p.dead {
+					for i := 0; i < 3; i++ {
+						a := g.time*6 + float64(i)*2.1
+						fillRect(screen, g.wx(p.pos.X)+math.Cos(a)*8-1, g.wy(p.pos.Y)-18+math.Sin(a)*3, 3, 3, rgb(0xf8e040))
+					}
+				}
+				return
+			}
+			g.drawRing(screen, p.pos)
+			anim, phase := g.playerPose()
+			pos := p.pos
+			if p.stabT > 0 {
+				v := dirVec(p.dir)
+				pos.X += v.X * 3
+				pos.Y += v.Y * 3
+			}
+			g.drawActor(screen, p.cs, anim, phase, pos, p.dir, 0, l.InPool(p.pos) && p.carrying == nil)
+			if p.carrying != nil {
+				bi := g.bodyLyingImg(p.carrying)
+				w, h := bi.Bounds().Dx(), bi.Bounds().Dy()
+				g.drawImg(screen, bi, g.wx(p.pos.X), g.wy(p.pos.Y)-38, float64(w)/2, float64(h))
+			}
+		}})
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].y < items[j].y })
+	for _, it := range items {
+		it.fn()
+	}
+	for _, b := range g.bodies {
+		if b.reported && !b.carried && !b.bagged {
+			g.drawSiren(screen, b.pos)
+		}
+	}
+	for _, v := range g.veh {
+		if v.isHeli() {
+			g.drawHeli(screen, v)
+		}
+	}
+	for _, a := range g.amb {
+		if a.kind == ambUFO {
+			g.drawAmbient(screen, a)
+		}
+	}
+	if g.mode == ModePlay && g.wanted > 0 && !p.hidden && !p.dead {
+		g.drawCuffs(screen, p.pos)
+	}
+
+	for _, gu := range g.guests {
+		if !gu.out() && gu.icon != "" {
+			g.drawBubble(screen, gu.pos, gu.icon, gu.icon == "!!!", float64(gu.cs.Spec.Stature)*-0.6)
+		}
+	}
+	for _, gd := range g.guards {
+		if !gd.dead && gd.icon != "" {
+			g.drawBubble(screen, gd.pos, gd.icon, true, 0)
+		}
+	}
+	for _, c := range g.cops {
+		if c.icon != "" {
+			g.drawBubble(screen, c.pos, c.icon, true, 0)
+		}
+	}
+	if s := g.slasher; s != nil && s.icon != "" {
+		g.drawBubble(screen, s.pos, s.icon, true, -6)
+	}
+	for _, pt := range g.parts {
+		a := pt.life / pt.max
+		c := pt.col
+		c = color.RGBA{uint8(float64(c.R) * a), uint8(float64(c.G) * a), uint8(float64(c.B) * a), uint8(255 * a)}
+		fillRect(screen, g.wx(pt.pos.X), g.wy(pt.pos.Y), math.Max(1, math.Round(pt.size*0.7)), math.Max(1, math.Round(pt.size*0.7)), c)
+	}
+
+	g.drawLighting(screen)
+	g.drawHUD(screen)
+	switch g.mode {
+	case ModeMenu:
+		g.drawMenu(screen)
+	case ModeLevelDone:
+		g.drawPanel(screen, "¡NIVEL COMPLETADO!", "No ha quedado nadie con vida en la fiesta...", rgb(0x60ff80),
+			fmt.Sprintf("Puntos: %d   Tiempo: %d:%02d", g.points, int(g.endTime)/60, int(g.endTime)%60), "ENTER: siguiente fiesta")
+	case ModeFinal:
+		g.drawPanel(screen, "¡HAS ACABADO CON TODAS LAS FIESTAS!", "La ciudad por fin está en silencio.", rgb(0xf0e060),
+			fmt.Sprintf("Puntos del último nivel: %d", g.points), "ENTER: volver al menú")
+	case ModeLose:
+		if g.time-g.endAt > 0.6 {
+			g.drawPanel(screen, "FIN DEL JUEGO", g.loseReason, rgb(0xff5050),
+				fmt.Sprintf("Víctimas: %d de %d   Puntos: %d", g.total-g.aliveCount(), g.total, g.points), "R / ENTER: reintentar    ESC: menú")
+		}
+	}
+	if g.shot != "" && g.tick == g.shotTick {
+		g.saveShot(screen)
+	}
+}
+
+func (g *Game) drawAmbient(dst *ebiten.Image, a *Ambient) {
+	x, y := g.wx(a.x), g.wy(a.y)
+	flip := a.vx > 0
+	switch a.kind {
+	case ambCar, ambBike:
+		name, v := "car", a.col
+		if a.kind == ambBike {
+			name, v = "motorbike", a.col%2
+		}
+		pi := g.as.props[name][v%len(g.as.props[name])]
+		op := &ebiten.DrawImageOptions{}
+		if flip {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(float64(pi.img.Bounds().Dx()), 0)
+			op.GeoM.Translate(math.Round(x-(float64(pi.img.Bounds().Dx())-pi.ox)), math.Round(y-pi.oy))
+		} else {
+			op.GeoM.Translate(math.Round(x-pi.ox), math.Round(y-pi.oy))
+		}
+		dst.DrawImage(pi.img, op)
+	case ambTank:
+		im := g.as.tank
+		w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
+		op := &ebiten.DrawImageOptions{}
+		if flip {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+		}
+		op.GeoM.Translate(math.Round(x-w/2), math.Round(y-h))
+		dst.DrawImage(im, op)
+	case ambHorse:
+		pi := g.as.props["horse"][0]
+		bob := math.Round(math.Sin(a.phase * 12))
+		op := &ebiten.DrawImageOptions{}
+		w := float64(pi.img.Bounds().Dx())
+		if !flip {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+		}
+		op.GeoM.Translate(math.Round(x-w/2), math.Round(y-pi.oy+bob))
+		dst.DrawImage(pi.img, op)
+		dir := DirLeft
+		if flip {
+			dir = DirRight
+		}
+		g.drawActor(dst, g.as.cowCS, AnimIdle, 0, Vec{a.x, a.y - 16}, dir, bob, false)
+	case ambObj:
+		k := propKinds[a.name]
+		imgs := g.as.props[a.name]
+		if k == nil || len(imgs) == 0 {
+			return
+		}
+		v := 0
+		if k.FPS > 0 {
+			v = int(a.phase*k.FPS) % len(imgs)
+		}
+		pi := imgs[v]
+		op := &ebiten.DrawImageOptions{}
+		w := float64(pi.img.Bounds().Dx())
+		if flip {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+			op.GeoM.Translate(math.Round(x-(w-pi.ox)), math.Round(y-pi.oy))
+		} else {
+			op.GeoM.Translate(math.Round(x-pi.ox), math.Round(y-pi.oy))
+		}
+		dst.DrawImage(pi.img, op)
+	case ambUFO:
+		im := g.as.ufo
+		w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
+		yy := y + math.Round(math.Sin(a.phase*2)*3)
+		g.drawImg(dst, im, x, yy, w/2, h/2)
+		fillRect(dst, x-5, yy+h/2, 10, 3, color.RGBA{60, 90, 70, 60})
+	}
+}
+
+var shotZoom int
+var shotCrop [4]int
+
+func (g *Game) saveShot(screen *ebiten.Image) {
+	b := screen.Bounds()
+	pix := make([]byte, 4*b.Dx()*b.Dy())
+	screen.ReadPixels(pix)
+	im := image.NewRGBA(b)
+	copy(im.Pix, pix)
+	var out image.Image = im
+	if shotZoom > 1 {
+		x0, y0, w, h := shotCrop[0], shotCrop[1], shotCrop[2], shotCrop[3]
+		z := shotZoom
+		zi := image.NewRGBA(image.Rect(0, 0, w*z, h*z))
+		for y := 0; y < h*z; y++ {
+			for x := 0; x < w*z; x++ {
+				zi.SetRGBA(x, y, im.RGBAAt(x0+x/z, y0+y/z))
+			}
+		}
+		out = zi
+	}
+	f, err := os.Create(g.shot)
+	if err == nil {
+		png.Encode(f, out)
+		f.Close()
+	}
+	os.Exit(0)
+}
+
+func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
+	cx, cy := g.wx(v.x), g.wy(v.y)
+	alt := math.Max(0, v.ty-v.y)
+	sw := (40 - math.Min(alt, 120)*0.15) * wk * 1.4
+	fillRect(dst, cx-sw/2, g.wy(v.ty)+4, sw, 5, color.RGBA{0, 0, 0, 70})
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(math.Round(cx-g.as.heliOX), math.Round(cy-g.as.heliOY))
+	if v.kind == 3 {
+		op.ColorScale.Scale(1, 0.92, 0.92, 1)
+	}
+	if v.kind == 5 {
+		op.ColorScale.Scale(0.3, 0.26, 0.34, 1)
+	}
+	if v.kind == 2 && v.unit == 1 {
+		op.ColorScale.Scale(0.35, 0.37, 0.42, 1)
+	}
+	if v.kind == 2 && v.unit == 2 {
+		op.ColorScale.Scale(0.2, 0.22, 0.3, 1)
+	}
+	dst.DrawImage(g.as.heli, op)
+	if v.kind == 3 {
+		fillRect(dst, math.Round(cx-5), math.Round(cy-5), 7, 2, rgb(0xd02828))
+		fillRect(dst, math.Round(cx-3), math.Round(cy-7), 3, 6, rgb(0xd02828))
+	}
+	rc := Vec{cx, cy - 25*wk}
+	for _, a := range []float64{0, 1.6, 3.2} {
+		for k := 0; k < 2; k++ {
+			ang := v.rot*0.6 + a + float64(k)*math.Pi/2
+			rop := &ebiten.DrawImageOptions{}
+			rop.GeoM.Scale(58*wk, 2)
+			rop.GeoM.Translate(-29*wk, -1)
+			rop.GeoM.Rotate(ang)
+			rop.GeoM.Translate(rc.X, rc.Y)
+			rop.ColorScale.ScaleWithColor(color.RGBA{40, 40, 46, 70})
+			dst.DrawImage(px, rop)
+		}
+	}
+	tail := Vec{cx + 48*wk, cy - 16*wk}
+	tp := &ebiten.DrawImageOptions{}
+	tp.GeoM.Scale(1.5, 9)
+	tp.GeoM.Translate(-0.75, -4.5)
+	tp.GeoM.Rotate(v.rot * 0.9)
+	tp.GeoM.Translate(tail.X, tail.Y)
+	tp.ColorScale.ScaleWithColor(color.RGBA{60, 60, 70, 110})
+	dst.DrawImage(px, tp)
+	if v.state != 1 || int(g.time*6)%2 == 0 {
+		g.glowAt(dst, Vec{v.x + 20, v.y - 6}, 26, color.RGBA{190, 20, 20, 130})
+	} else {
+		g.glowAt(dst, Vec{v.x - 20, v.y - 6}, 26, color.RGBA{30, 60, 210, 130})
+	}
+}
+
+func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
+	k := pr.K
+	v := pr.Var
+	if k.Poison && pr.armT > 0 {
+		v = 1
+	}
+	if pr.Name == "hen" && k.Native == nil {
+		v = (int(g.time*2.5) + int(pr.X)) % 2
+	}
+	if k.FPS > 0 && k.Native != nil {
+		v = (int(g.time*k.FPS) + int(pr.X)) % len(k.Native)
+	}
+	imgs := g.as.props[pr.Name]
+	pi := imgs[v%len(imgs)]
+	x, y := g.wx(pr.X), g.wy(pr.Y)
+	op := &ebiten.DrawImageOptions{}
+	sx := 0.0
+	if p := g.p; p.hidden && p.hideProp == pr {
+		sx = float64(g.tick/3%2)*2 - 1
+	}
+	op.GeoM.Translate(math.Round(x-pi.ox+sx), math.Round(y-pi.oy))
+	if pr.used && k.Trap != "" {
+		op.ColorScale.Scale(0.35, 0.3, 0.3, 1)
+	}
+	if pr.used && k.Phone {
+		op.ColorScale.Scale(0.6, 0.6, 0.6, 1)
+	}
+	if pr.wreck {
+		op.ColorScale.Scale(0.16, 0.14, 0.14, 1)
+	}
+	if pr.armT > 0 && k.Trap != "" && int(pr.armT*6)%2 == 0 {
+		op.ColorScale.Scale(1.6, 0.7, 0.7, 1)
+	}
+	if !(k.NoSolid && pr.Name != "tree") && pr.Name != "slide" && pr.Name != "stage" {
+		fw, fh := pr.Foot.W*wk+3, math.Max(3, pr.Foot.H*wk*0.7)
+		cxs, cys := g.wx(pr.Foot.X+pr.Foot.W/2)+1, g.wy(pr.Foot.Y+pr.Foot.H)
+		switch pr.Name {
+		case "tree":
+			fw, fh, cxs = 30, 8, cxs+6
+		case "palm":
+			fw, fh, cxs = 18, 5, cxs+5
+		case "umbrella":
+			fw, fh, cxs = 24, 6, cxs+5
+		}
+		softShadow(dst, cxs, cys-fh/2+1, fw, fh, 85)
+	}
+	dst.DrawImage(pi.img, op)
+	if pr.wreck {
+		g.drawFlames(dst, x, y-pi.oy*0.5, 18)
+	}
+	if k.Trap != "" && !pr.used && pr.armT == 0 && g.mode == ModePlay && distRect(g.p.pos, pr.Foot) < 40 {
+		fillRect(dst, math.Round(x)-1, math.Round(y-pi.oy)-3+math.Sin(g.time*5), 3, 2, rgb(0xff4040))
+	}
+}
+
+func (g *Game) drawAnimatedFloors(dst *ebiten.Image) {
+	l := g.lvl
+	def := l.Def
+	beat := int(g.time * 4)
+	pal := []uint32{0xd63a7a, 0x3a7ad6, 0x3ad69a, 0xe6c23a, 0xa03ad6}
+	if len(def.Strobe) > 0 {
+		pal = def.Strobe
+	}
+	cell := def.CellSize
+	if cell == 0 {
+		cell = 16
+	}
+	for _, f := range def.Floors {
+		if f.Kind != "dance" {
+			continue
+		}
+		for cy := 0.0; cy < f.R.H; cy += cell {
+			for cx := 0.0; cx < f.R.W; cx += cell {
+				r := sr(Rect{f.R.X + cx, f.R.Y + cy, math.Min(cell, f.R.W-cx), math.Min(cell, f.R.H-cy)})
+				i := (int(cx/cell) + int(cy/cell) + beat) % len(pal)
+				col := rgb(pal[i])
+				fillRect(dst, r.X+g.camI.X, r.Y+g.camI.Y, r.W, r.H, shade(col, 0.5))
+				fillRect(dst, r.X+g.camI.X+1, r.Y+g.camI.Y+1, r.W-2, r.H-2, shade(col, 0.95))
+				fillRect(dst, r.X+g.camI.X+1, r.Y+g.camI.Y+1, r.W-2, 1, shade(col, 1.3))
+			}
+		}
+	}
+	for _, p := range l.Pools {
+		r := sr(p)
+		x, y := r.X+g.camI.X, r.Y+g.camI.Y
+		if !def.Custom {
+			fillRect(dst, x, y, r.W, r.H, rgb(0x2a86c6))
+			fillRect(dst, x, y, r.W, 4, rgb(0x1f6fa8))
+		}
+		for yy := 3.0; yy < r.H; yy += 5 {
+			for xx := 0.0; xx < r.W; xx += 11 {
+				x0 := xx + 4*math.Sin(g.time*1.4+yy*0.6+xx*0.1)
+				if x0 < 0 || x0+5 > r.W {
+					continue
+				}
+				fillRect(dst, x+x0, y+yy, 5, 1, rgb(0x6cc4f0))
+				fillRect(dst, x+x0+1, y+yy+1, 3, 1, rgb(0x4aa8e0))
+			}
+		}
+		if !def.Custom {
+			fillRect(dst, x+r.W*0.62, y+r.H*0.3+math.Round(math.Sin(g.time*1.3)), 11, 3, rgb(0xe8c840))
+			fillRect(dst, x+r.W*0.2, y+r.H*0.7+math.Round(math.Sin(g.time*1.1)), 9, 9, rgb(0xe04a4a))
+			fillRect(dst, x+r.W*0.2+3, y+r.H*0.7+math.Round(math.Sin(g.time*1.1))+3, 3, 3, rgb(0x2a86c6))
+		}
+	}
+}
+
+func (g *Game) drawLighting(dst *ebiten.Image) {
+	def := g.lvl.Def
+	t := def.Tint
+	fillRect(dst, 0, 0, screenW, screenH, color.RGBA{uint8(float64(t.R) * 0.75), uint8(float64(t.G) * 0.75), uint8(float64(t.B) * 0.75), uint8(float64(t.A) * 0.75)})
+	for _, lp := range g.lvl.Lights {
+		g.glowAt(dst, lp, 80, color.RGBA{140, 112, 50, 140})
+	}
+	for _, gl := range def.Glows {
+		k := 1.0
+		if gl.Pulse {
+			k = 0.75 + 0.25*math.Sin(g.time*3+gl.Pos.X)
+		}
+		c := gl.Col
+		g.glowAt(dst, gl.Pos, gl.R*(0.9+0.1*k), color.RGBA{uint8(float64(c.R) * k), uint8(float64(c.G) * k), uint8(float64(c.B) * k), uint8(float64(c.A) * k)})
+	}
+	if def.Disco {
+		cols := []uint32{0xff2090, 0x20c0ff, 0xa040ff, 0x20ff90}
+		for _, d := range def.Dance {
+			c := d.Center()
+			for i := 0; i < 3; i++ {
+				a := g.time*0.8 + float64(i)*2.1
+				pos := Vec{c.X + math.Cos(a)*d.W*0.35, c.Y + math.Sin(a*1.3)*d.H*0.35}
+				col := rgb(cols[(i+int(g.time*0.7))%len(cols)])
+				g.glowAt(dst, pos, 70, color.RGBA{col.R / 3, col.G / 3, col.B / 3, 90})
+			}
+		}
+	}
+	for _, v := range g.veh {
+		if v.isHeli() {
+			continue
+		}
+		if v.kind == 4 {
+			g.glowAt(dst, Vec{v.x, v.y - 20}, 60, color.RGBA{60, 200, 60, 120})
+			continue
+		}
+		if v.kind == 6 {
+			continue
+		}
+		if int(g.time*6)%2 == 0 {
+			g.glowAt(dst, Vec{v.x - 7, v.y - 32}, 50, color.RGBA{200, 20, 20, 160})
+		} else {
+			g.glowAt(dst, Vec{v.x + 7, v.y - 32}, 50, color.RGBA{30, 60, 220, 160})
+		}
+	}
+	for _, b := range g.bodies {
+		if b.reported && !b.carried && !b.bagged {
+			col := color.RGBA{150, 20, 20, 120}
+			if int(g.time*6)%2 == 1 {
+				col = color.RGBA{30, 50, 170, 120}
+			}
+			g.glowAt(dst, Vec{b.pos.X, b.pos.Y - 18}, 34, col)
+		}
+	}
+	for _, pr := range g.lvl.Props {
+		if pr.armT > 0 && pr.K.Trap != "" {
+			g.glowAt(dst, Vec{pr.X, pr.Y - 14}, 30, color.RGBA{140, 60, 20, 120})
+		}
+	}
+	dst.DrawImage(g.as.vignette, nil)
+	if g.flash > 0 {
+		a := uint8(math.Min(1, g.flash*5) * 180)
+		fillRect(dst, 0, 0, screenW, screenH, color.RGBA{a, a, a, a})
+	}
+	if g.mode == ModeLose {
+		a := uint8(math.Min(1, (g.time-g.endAt)*1.5) * 120)
+		fillRect(dst, 0, 0, screenW, screenH, color.RGBA{a, 0, 0, a})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// HUD & menus
+// ---------------------------------------------------------------------------
+
+func (g *Game) textW(s string, scale float64) float64 {
+	w, _ := text.Measure(s, g.face, 0)
+	return w * scale
+}
+
+func (g *Game) drawText(dst *ebiten.Image, s string, x, y float64, c color.RGBA, scale float64) {
+	op := &text.DrawOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(x+1, y+1)
+	op.ColorScale.ScaleWithColor(color.RGBA{0, 0, 0, 255})
+	text.Draw(dst, s, g.face, op)
+	op = &text.DrawOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(x, y)
+	op.ColorScale.ScaleWithColor(c)
+	text.Draw(dst, s, g.face, op)
+}
+
+func (g *Game) drawTextC(dst *ebiten.Image, s string, cx, y float64, c color.RGBA, scale float64) {
+	g.drawText(dst, s, math.Round(cx-g.textW(s, scale)/2), y, c, scale)
+}
+
+func (g *Game) panel(dst *ebiten.Image, x, y, w, h float64) {
+	fillRect(dst, x, y, w, h, rgba(0x0a0812, 190))
+	fillRect(dst, x, y, w, 1, rgb(0x6a5a9a))
+	fillRect(dst, x, y+h-1, w, 1, rgb(0x6a5a9a))
+}
+
+func (g *Game) drawHUD(dst *ebiten.Image) {
+	if g.mode == ModeMenu {
+		return
+	}
+	alive := g.aliveCount()
+	g.drawText(dst, fmt.Sprintf("POINTS:%04d", g.points), 10, 8, rgb(0xb88cff), 2)
+	g.drawText(dst, fmt.Sprintf("KILLS:%02d/%02d", g.total-alive, g.total), 10, 36, rgb(0xff6aa8), 2)
+	if g.mode == ModePlay && g.titleT > 0 {
+		a := math.Min(1, g.titleT)
+		c := color.RGBA{uint8(255 * a), uint8(150 * a), uint8(30 * a), uint8(255 * a)}
+		g.bigText(dst, g.lvl.Def.Title, screenW/2, 12, c, color.RGBA{uint8(90 * a), uint8(30 * a), 0, uint8(255 * a)}, 4)
+	}
+	if g.mode == ModePlay && g.msgT > 0 {
+		mw := g.textW(g.msg, 1) + 12
+		g.panel(dst, math.Round(screenW/2-mw/2), 76, mw, 17)
+		g.drawTextC(dst, g.msg, screenW/2, 77, rgb(0xffffff), 1)
+	}
+	if g.mode == ModePlay && g.p.stamina < 5.9 {
+		fillRect(dst, 10, 66, 70, 4, rgb(0x2a2a3a))
+		fillRect(dst, 10, 66, 70*g.p.stamina/6, 4, rgb(0x60d060))
+	}
+	if g.mode == ModePlay && g.time < 16 {
+		s := "WASD mover · ESPACIO apuñalar · E interactuar · F bailar · SHIFT correr"
+		g.panel(dst, math.Round(screenW/2-g.textW(s, 1)/2-6), screenH-26, g.textW(s, 1)+12, 17)
+		g.drawTextC(dst, s, screenW/2, screenH-25, rgb(0xb8b0d0), 1)
+	}
+}
+
+func (g *Game) drawMenu(dst *ebiten.Image) {
+	fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, 170))
+	bob := math.Sin(g.time*3) * 4
+	g.bigText(dst, "PARTY HARD", screenW/2, 36+bob, rgb(0xff3070), rgb(0x50081c), 7)
+	g.drawTextC(dst, "Nadie te dejó dormir. Ahora nadie saldrá de la fiesta.", screenW/2, 118, rgb(0xe0d8f0), 1)
+	n := len(levelDefs)
+	first := 0
+	if g.menuSel > 6 {
+		first = g.menuSel - 6
+	}
+	for i := first; i < n && i < first+8; i++ {
+		col := rgb(0xb8b0d0)
+		pre := "   "
+		if i == g.menuSel {
+			col = rgb(0xffe060)
+			pre = "> "
+		}
+		num := ""
+		if i < 9 {
+			num = fmt.Sprintf("%d  ", i+1)
+		}
+		g.drawTextC(dst, pre+num+levelDefs[i].Title, screenW/2, 156+float64(i-first)*20, col, 1.5)
+	}
+	lines := []string{
+		"WASD / Flechas: moverse   SHIFT: correr   ESPACIO: apuñalar   F: bailar",
+		"E: cargar cuerpo, esconderse, activar trampas, envenenar ponche, cortar teléfono",
+		"Los guardias también son objetivos. Solo ven hacia delante: acércate por la espalda.",
+		"Si la policía te atrapa, o te matan, se acaba el juego.",
+	}
+	for i, l := range lines {
+		g.drawTextC(dst, l, screenW/2, 340+float64(i)*18, rgb(0xa8a0c0), 1)
+	}
+	if int(g.time*2)%2 == 0 {
+		g.drawTextC(dst, "ENTER: empezar   Flechas: elegir   R: aleatoria   G: escenario nuevo generado   F2: editor", screenW/2, 440, rgb(0xf0e060), 1.5)
+	}
+	g.drawText(dst, "M: sonido   F11: pantalla completa", 8, screenH-22, rgb(0x8a86a0), 1)
+}
+
+func (g *Game) drawPanel(dst *ebiten.Image, title, sub string, c color.RGBA, l3, l4 string) {
+	fillRect(dst, 0, 170, screenW, 190, rgba(0x000000, 210))
+	g.bigText(dst, title, screenW/2, 188, c, color.RGBA{0, 0, 0, 255}, 3)
+	g.drawTextC(dst, sub, screenW/2, 248, rgb(0xe0d8f0), 1.5)
+	g.drawTextC(dst, l3, screenW/2, 282, rgb(0xf0e060), 1.5)
+	g.drawTextC(dst, l4, screenW/2, 322, rgb(0xb8b0d0), 1.5)
+}
+
+// ---------------------------------------------------------------------------
+// ground, walls, doors and clutter
+// ---------------------------------------------------------------------------
+
+func alphaCol(c color.RGBA, a uint8) color.RGBA {
+	return color.RGBA{uint8(uint16(c.R) * uint16(a) / 255), uint8(uint16(c.G) * uint16(a) / 255), uint8(uint16(c.B) * uint16(a) / 255), a}
+}
+
+// groundDetail breaks up the flat floor textures: stains, cracks, grass tufts, pebbles, scratches.
+func (g *Game) groundDetail(bg *ebiten.Image, rng *rand.Rand, f Floor) {
+	{
+		switch f.Kind {
+		case "dance", "dash", "rug", "helipad":
+			return
+		}
+		r := sr(f.R)
+		area := r.W * r.H
+		put := func(x, y, w, h float64, c color.RGBA) {
+			if x < r.X {
+				w -= r.X - x
+				x = r.X
+			}
+			if y < r.Y {
+				h -= r.Y - y
+				y = r.Y
+			}
+			if x+w > r.X+r.W {
+				w = r.X + r.W - x
+			}
+			if y+h > r.Y+r.H {
+				h = r.Y + r.H - y
+			}
+			if w > 0 && h > 0 {
+				fillRect(bg, x, y, w, h, c)
+			}
+		}
+		for i := 0; i < int(area/650); i++ {
+			w, h := 6+rng.Float64()*18, 3+rng.Float64()*9
+			x, y := r.X+rng.Float64()*r.W-w/2, r.Y+rng.Float64()*r.H-h/2
+			if rng.Intn(2) == 0 {
+				put(x, y, w, h, color.RGBA{0, 0, 0, uint8(9 + rng.Intn(10))})
+			} else {
+				a := uint8(4 + rng.Intn(7))
+				put(x, y, w, h, color.RGBA{a, a, a, a})
+			}
+		}
+		switch f.Kind {
+		case "asphalt", "pave", "concrete":
+			for i := 0; i < int(area/2200); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				for s := 0; s < 4+rng.Intn(4); s++ {
+					put(x, y, 1, 1, color.RGBA{0, 0, 0, 90})
+					x += float64(rng.Intn(3) - 1 + 1)
+					y += float64(rng.Intn(3) - 1)
+				}
+			}
+		case "grass":
+			for i := 0; i < int(area/70); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				col := rgb(0x4a9650)
+				if rng.Intn(2) == 0 {
+					col = rgb(0x1f4a28)
+				}
+				put(x, y, 1, 2+float64(rng.Intn(2)), col)
+				put(x+1, y+1, 1, 2, shade(col, 0.9))
+			}
+			for i := 0; i < int(area/700); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				col := []uint32{0xf4f4f0, 0xf0d040, 0xf080b0, 0xb090f0}[rng.Intn(4)]
+				put(x, y, 1, 1, rgb(col))
+			}
+		case "sand", "dirt":
+			for i := 0; i < int(area/110); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				if rng.Intn(2) == 0 {
+					put(x, y, 1, 1, color.RGBA{0, 0, 0, 40})
+				} else {
+					put(x, y, 1, 1, color.RGBA{20, 20, 20, 20})
+				}
+			}
+		case "wood", "parquet", "deck", "boardwalk":
+			for i := 0; i < int(area/900); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				put(x, y, 3+rng.Float64()*6, 1, color.RGBA{16, 12, 8, 26})
+			}
+		case "tile", "marble", "carpet":
+			for i := 0; i < int(area/1500); i++ {
+				x, y := r.X+rng.Float64()*r.W, r.Y+rng.Float64()*r.H
+				put(x, y, 3+rng.Float64()*4, 2+rng.Float64()*2, color.RGBA{30, 20, 10, 30})
+			}
+		}
+	}
+}
+
+// litter: the mess a party leaves behind.
+func (g *Game) litter(bg *ebiten.Image, rng *rand.Rand) {
+	l := g.lvl
+	for i := 0; i < 150; i++ {
+		p := l.RandomRoam(rng)
+		x, y := math.Round(p.X*wk), math.Round(p.Y*wk)
+		switch rng.Intn(10) {
+		case 0:
+			fillRect(bg, x, y, 3, 2, rgb(0xe8e8f0))
+			fillRect(bg, x+1, y, 1, 1, rgb(0xb8b8c8))
+		case 1:
+			fillRect(bg, x, y, 2, 3, rgb([]uint32{0xd03030, 0x3060d0, 0xe0c030}[rng.Intn(3)]))
+			fillRect(bg, x, y, 2, 1, rgb(0xf4f4f4))
+		case 2:
+			fillRect(bg, x, y, 1, 4, rgb(0x2a8a40))
+			fillRect(bg, x, y, 1, 1, rgb(0x90e0a0))
+		case 3:
+			fillRect(bg, x, y, 1, 4, rgb(0x7a4a22))
+			fillRect(bg, x, y, 1, 1, rgb(0xd0a060))
+		case 4:
+			fillRect(bg, x, y, 2, 2, rgb(0xb8bcc8))
+		case 5:
+			for k := 0; k < 3; k++ {
+				fillRect(bg, x+float64(rng.Intn(5)), y+float64(rng.Intn(3)), 1, 1, rgb([]uint32{0xff4090, 0x40e0ff, 0xf0e040, 0x80ff80}[rng.Intn(4)]))
+			}
+		case 6:
+			fillRect(bg, x, y, 2, 1, rgb(0xf0f0f0))
+			fillRect(bg, x+2, y, 1, 1, rgb(0xe08030))
+		case 7:
+			fillRect(bg, x, y, 5, 2, color.RGBA{20, 10, 0, 50})
+		case 8:
+			fillRect(bg, x, y, 3, 3, rgb(0xf4f4f0))
+			fillRect(bg, x+1, y+1, 1, 1, rgb(0xd8c8a0))
+		default:
+			fillRect(bg, x, y, 4, 2, color.RGBA{60, 90, 140, 40})
+		}
+	}
+}
+
+// wallShadow: soft ambient occlusion on the floor next to walls.
+func wallShadow(bg *ebiten.Image, r Rect, style int) {
+	if style == WallHedge || style == WallFence {
+		if r.W >= r.H {
+			fillRect(bg, r.X, r.Y+r.H, r.W, 2, color.RGBA{0, 0, 0, 40})
+		} else {
+			fillRect(bg, r.X+r.W, r.Y, 2, r.H, color.RGBA{0, 0, 0, 40})
+		}
+		return
+	}
+	if r.W >= r.H {
+		for i, a := range []uint8{95, 62, 38, 20, 8} {
+			fillRect(bg, r.X, r.Y+r.H+float64(i), r.W, 1, color.RGBA{0, 0, 0, a})
+		}
+		fillRect(bg, r.X, r.Y-1, r.W, 1, color.RGBA{0, 0, 0, 34})
+		fillRect(bg, r.X, r.Y-2, r.W, 1, color.RGBA{0, 0, 0, 14})
+	} else {
+		for i, a := range []uint8{80, 48, 24, 10} {
+			fillRect(bg, r.X+r.W+float64(i), r.Y, 1, r.H, color.RGBA{0, 0, 0, a})
+		}
+		fillRect(bg, r.X-1, r.Y, 1, r.H, color.RGBA{0, 0, 0, 30})
+		fillRect(bg, r.X-2, r.Y, 1, r.H, color.RGBA{0, 0, 0, 12})
+	}
+}
+
+// drawDoor draws a door frame, threshold and an open door leaf in a wall gap.
+func drawDoor(bg *ebiten.Image, d Door) {
+	r := sr(d.R)
+	frame, hi := rgb(0x2e1c10), rgb(0x6a4a2c)
+	leaf, leafHi := rgb(0x8a5a2e), rgb(0xb88040)
+	if d.Style == WallFence || d.Style == WallHedge {
+		if d.Horiz {
+			fillRect(bg, r.X, r.Y, 3, r.H, rgb(0x6a4a2a))
+			fillRect(bg, r.X+r.W-3, r.Y, 3, r.H, rgb(0x6a4a2a))
+			fillRect(bg, r.X, r.Y, 3, 1, hi)
+			fillRect(bg, r.X+r.W-3, r.Y, 3, 1, hi)
+		} else {
+			fillRect(bg, r.X, r.Y, r.W, 3, rgb(0x6a4a2a))
+			fillRect(bg, r.X, r.Y+r.H-3, r.W, 3, rgb(0x6a4a2a))
+		}
+		return
+	}
+	if d.Horiz {
+		fillRect(bg, r.X, r.Y, r.W, 2, color.RGBA{0, 0, 0, 90})
+		fillRect(bg, r.X, r.Y, 3, r.H, frame)
+		fillRect(bg, r.X+r.W-3, r.Y, 3, r.H, frame)
+		fillRect(bg, r.X, r.Y, 1, r.H, hi)
+		fillRect(bg, r.X+r.W-3, r.Y, 1, r.H, hi)
+		fillRect(bg, r.X+3, r.Y+r.H-2, r.W-6, 2, rgb(0x7a6a58))
+		fillRect(bg, r.X+3, r.Y+r.H-2, r.W-6, 1, rgb(0xa89880))
+		ll := math.Min(r.H-2, r.W/2)
+		fillRect(bg, r.X+3, r.Y+1, 2, ll, leaf)
+		fillRect(bg, r.X+3, r.Y+1, 1, ll, leafHi)
+		fillRect(bg, r.X+4, r.Y+ll/2, 1, 1, rgb(0xf0d060))
+	} else {
+		fillRect(bg, r.X, r.Y, r.W, 3, frame)
+		fillRect(bg, r.X, r.Y+r.H-3, r.W, 3, frame)
+		fillRect(bg, r.X, r.Y, r.W, 1, hi)
+		fillRect(bg, r.X+r.W-2, r.Y+3, 2, r.H-6, rgb(0x7a6a58))
+		ll := math.Min(r.W-2, r.H/2)
+		fillRect(bg, r.X+1, r.Y+3, ll, 2, leaf)
+		fillRect(bg, r.X+1, r.Y+3, ll, 1, leafHi)
+	}
+}
+
+// drawPictures hangs framed pictures and shelves on interior walls.
+func drawPictures(dst *ebiten.Image, r Rect, capH float64, style int) {
+	for x := 8.0; x+10 < r.W; x += 36 {
+		h := uint32(int(r.X+x)*2654435761) >> 8
+		if h%3 != 0 {
+			continue
+		}
+		pw := 6 + float64(h%5)
+		px, py := r.X+x, r.Y+capH+2
+		fillRect(dst, px-1, py-1, pw+2, 7, rgb(0x2a1a10))
+		art := []uint32{0x6a8ab8, 0xb86a6a, 0x6ab88a, 0xd8c070, 0x9a6ac0}[h%5]
+		fillRect(dst, px, py, pw, 5, rgb(art))
+		fillRect(dst, px, py, pw, 1, shade(rgb(art), 1.3))
+		fillRect(dst, px+1, py+3, pw-2, 1, shade(rgb(art), 0.7))
+	}
+}
+
+func genVignette() *pixBuf {
+	b := newPix(screenW, screenH)
+	for y := 0; y < screenH; y++ {
+		for x := 0; x < screenW; x++ {
+			dx := (float64(x) - screenW/2) / (screenW / 2)
+			dy := (float64(y) - screenH/2) / (screenH / 2)
+			d := math.Sqrt(dx*dx*0.8 + dy*dy*1.1)
+			a := math.Max(0, d-0.62) / 0.7
+			v := uint8(math.Min(1, a*a) * 120)
+			i := (y*screenW + x) * 4
+			b.p[i+3] = v
+		}
+	}
+	return b
+}
+
+func softShadow(dst *ebiten.Image, cx, cy, w, h float64, alpha uint8) {
+	rows := int(h)
+	if rows < 1 {
+		rows = 1
+	}
+	for i := 0; i < rows; i++ {
+		t := (float64(i)+0.5)/float64(rows)*2 - 1
+		ww := w * math.Sqrt(math.Max(0, 1-t*t))
+		fillRect(dst, math.Round(cx-ww/2), math.Round(cy-h/2)+float64(i), math.Round(ww), 1, color.RGBA{0, 0, 0, alpha})
+	}
+}

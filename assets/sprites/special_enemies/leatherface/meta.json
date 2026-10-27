@@ -1,0 +1,8 @@
+{
+  "name": "leatherface",
+  "category": "special_enemies",
+  "role": "killer",
+  "carry": "chainsaw",
+  "width": 24,
+  "height": 44
+}

@@ -1,0 +1,20 @@
+{
+  "name": "stool",
+  "category": "furniture",
+  "anchor_x": 7,
+  "anchor_y": 21,
+  "foot_x": 4,
+  "foot_y": 17,
+  "foot_w": 6,
+  "foot_h": 4,
+  "solid": true,
+  "hide": false,
+  "phone": false,
+  "poison": false,
+  "trap": "",
+  "light": false,
+  "variants": false,
+  "fps": 0,
+  "sort_off": 0,
+  "ambient_speed": 0
+}
