@@ -378,11 +378,13 @@ func (g *Game) slasherPick(s *Slasher) {
 func (g *Game) hitSlasher() {
 	s := g.slasher
 	s.hp--
+	stunned := s.pause > 0 // still reeling from the last stab: he cannot fight back
 	s.pause = 1.3
 	// a stab in the back: he cannot hit back at once. He freezes for a moment and then needs
 	// time to turn round, so the following stabs are safe.
 	v, dv := dirVec(s.dir), dist(g.p.pos, s.pos)
-	behind := dv > 0 && (v.X*(g.p.pos.X-s.pos.X)+v.Y*(g.p.pos.Y-s.pos.Y))/dv < -0.1
+	// anywhere outside the cone he is looking into counts as his back, as does a stab while he is still stunned
+	behind := stunned || (dv > 0 && (v.X*(g.p.pos.X-s.pos.X)+v.Y*(g.p.pos.Y-s.pos.Y))/dv < 0.45 && !g.sees(s.pos, s.dir, g.p.pos, 60, 0.5))
 	if behind && s.hp > 0 {
 		s.pause = 1.8
 		s.alert, s.tgtP, s.lostT, s.turnT = false, true, 0, 0

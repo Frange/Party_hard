@@ -132,3 +132,16 @@ NOVEDADES DE LA ÚLTIMA VERSIÓN
   coches tipo Rocket League (Octane, Fennec, Dominus) con turbo y salto.
 - Más frases graciosas en todos y charla aleatoria según el escenario.
 - Estadio: porterías en vertical y líneas del campo blancas.
+
+OBJETOS, TRAMPAS Y PUNTOS (ÚLTIMA VERSIÓN)
+------------------------------------------
+- Todo lo que se puede usar lleva un rombo que se mueve; al acercarte aparece [E] y el nombre de la acción.
+- Cuencos de bebida (se pueden envenenar), frascos de veneno (hay que cogerlos antes de envenenar ponche, cuencos o buffet),
+  bolsa de disfraz (se usa sola cuando te buscan: cambias de ropa, se quitan las esposas y las estrellas) y sillas.
+- Trampas nuevas: fuga de gas, caja de fuegos artificiales y palanca del piano que cae del cielo. Las explosiones y
+  trampas también matan policías.
+- Puntos nuevos: animales, cables cortados (una vez por cabina), cuerpos escondidos, veneno, disfraz y muertes por trampas.
+- El asesino especial: ahora cuenta como "por la espalda" todo lo que no esté en su campo de visión, y no puede
+  responder mientras sigue aturdido por la puñalada anterior.
+- Los famosos se hablan entre sí (escenas de dos) y tienen momentos propios: Goku (Kamehameha), Freddie, Elvis, Santa,
+  Thor, Sonic, Mario, Deadpool, Hulk y Michael Jackson.

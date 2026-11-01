@@ -738,6 +738,8 @@ func (g *Game) guestPose(gu *Guest) (int, float64) {
 			return AnimCheer, t * 5
 		case 14:
 			return AnimPanic, t * 7
+		case 17, 18:
+			return gu.dAnim, t*6 + gu.off
 		case 15:
 			if gu.rcv {
 				return AnimWave, t * 6
@@ -1833,6 +1835,13 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 	}
 	if forces != "" {
 		g.drawText(dst, forces, 10, 74, rgb(0x90c8ff), 1)
+	}
+	if it := g.p.item; it != "" && g.mode == ModePlay {
+		name, col := "VENENO", rgb(0x60ff80)
+		if it == "disguise" {
+			name, col = "DISFRAZ", rgb(0xd090ff)
+		}
+		g.drawText(dst, "OBJETO: "+name, 10, 88, col, 1)
 	}
 	g.drawStars(dst)
 	g.drawCallHud(dst)

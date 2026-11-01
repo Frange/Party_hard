@@ -1,0 +1,20 @@
+# Music may be copyrighted: never upload it
+bands/
+DJ/
+music/
+more/
+music_anteriores/
+assets/music/
+assets/bands/
+*.mp3
+*.ogg
+*.wav
+*.flac
+*.m4a
+*.mid
+
+# Built packages contain the music too
+dist/
+PartyHard-Mac.zip
+PartyHard-Windows.zip
+assets_backup_*/

@@ -214,6 +214,9 @@ func buildLevel(def *LevelDef) *Level {
 	if l.ensureToilets(2) {
 		l.initNav()
 	}
+	if l.ensureItems() {
+		l.initNav()
+	}
 	return l
 }
 

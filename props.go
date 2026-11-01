@@ -33,6 +33,7 @@ type PropKind struct {
 	hasFoot   bool
 	Ambient   float64
 	Category  string
+	Item      string // pickup: "poison" or "disguise"
 }
 
 func c(h uint32) color.RGBA { return rgb(h) }

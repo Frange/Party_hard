@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -46,6 +47,7 @@ func main() {
 	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
+	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
 	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
 	credF := flag.Bool("credits", false, "open the credits (debug)")
 	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
@@ -167,6 +169,9 @@ func main() {
 	}
 	g.dbgCops = *copsF
 	g.dbgCheer = *cheerF
+	if *withF != "" {
+		g.dbgWith = strings.Split(*withF, ",")
+	}
 	g.dbgSnake = *snakeF
 	g.dbgRing = *ringF
 	if *kidsF {
@@ -192,6 +197,9 @@ func main() {
 		g.cam = Vec{*camx, *camy}
 	}
 	g.shot, g.shotTick = *shot, *shotTick
+	if *shot != "" {
+		progressFrozen = true // screenshots never touch the real progress
+	}
 	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
 		log.Fatal(err)
 	}

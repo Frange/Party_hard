@@ -1,67 +1,43 @@
-# Party Hard (clon) con editor de sprites y escenarios
+# Party Hard (homage clone) with a built-in sprite and level editor
 
-Windows: `PartyHard.exe` (juego) y `PartyHardEditor.exe` (editor). Mac: `PartyHard.app` y `PartyHardEditor.app`.
-La carpeta `assets` debe estar junto a ellos (en Mac, junto a las apps). En Mac, la primera vez haz clic derecho > Abrir.
-Desde el juego, **F2** abre el editor; en el editor, "Volver al juego (F2)" vuelve.
+A fan-made homage to *Party Hard* (Pinokl Games / tinyBuild), written in Go with [Ebiten](https://ebitengine.org/).
+All art is procedural pixel art; everything else (characters, objects, animals, levels) can be replaced from the `assets/` folder.
+Made by **Frange**, with Claude. Credits and the full homage notice are in the in-game *Settings > Credits* screen.
 
-## Proporciones de los personajes
-Cabeza pequeña (5-6 px), tronco de 9-10 px, piernas largas (unos 15 px), brazos finos de 1-2 px, unos 10 px de ancho y 33-35 de alto en total.
-Los personajes especiales pueden tener la cabeza algo más grande para reconocerlos mejor.
+- Windows: `PartyHard.exe` (game) and `PartyHardEditor.exe` (editor).
+- macOS: `PartyHard.app` and `PartyHardEditor.app` (first time: right-click > Open).
+- The `assets` folder must sit next to them (next to the apps on macOS). If you delete it, it is recreated with the defaults.
+- Inside the game, **F2** opens the editor; "Back to game (F2)" in the editor returns.
 
-## Todo el contenido está en carpetas
-El juego lee personajes, objetos, animales y escenarios de `assets/` (formato en `ASSETS.md`).
-Cámbialos con el editor o con cualquier programa de pixel art y se usan en el siguiente arranque, sin tocar código.
-Si borras `assets`, se vuelve a crear con el contenido por defecto.
+## The game
+
+You are a killer at a party. Kill everybody (guests, guards, DJ and band) without getting caught.
+
+- **Move** WASD / arrows, **run** Shift, **stab** Space, **dance** F, **use** E (carry bodies, hide, traps, drinks, phones, items). All keys and pad buttons can be rebound in Settings; the mouse works in every menu.
+- Everybody only sees in front of them: sneak up from behind. A stab in the back of the special killer cannot be answered at once.
+- Witnesses phone the police from the **red booths** (at least two per party). Cutting a booth's cable (once each) stops that phone; a guest who sees it cut goes to the **yellow technician phone** and a yellow van brings technicians to repair the line.
+- Police escalate with your criminality stars: police > FBI > military > SWAT > Power Rangers. They bag bodies, an ambulance comes for many bodies, and if you are hunted you will see handcuffs over your head. Places without a road (cruise ship, space station) get boats or ships in each vehicle's colour.
+- **Items**: poison bottles (to poison drink bowls, punch and buffets), disguise bags (an automatic outfit change that makes the police lose you), chairs, and more traps (explosive, electric, gas leak, fireworks, falling piano). Anything you can use is marked with a bobbing diamond and its name when you get close.
+- **Points** for kills, animals, explosions and traps, hidden bodies, cut phone lines, killing cops with traps, and killing the special killer.
+- **Trophies**: 50 trophies, each giving something (clothes, characters, events, powers). The last one, *Leyenda de la fiesta*, needs all the others and gives powers (immunity with golden halo and cop killing, summon famous guests, send a killer, rare events), turns the main menu golden, and unlocks golden items.
+- **Campaign**: 21 parties, from the house party to the space station (always last), including a six-lane motorway, a railway station, a casino, a ski resort and a graveyard. A free random mode and generated parties are also available.
+- **Rare events**: UFO abductions, Superman, Satan and God, zombies, T-Rex, ghosts, F1 drivers tearing through the party, escaped herds, skydivers, ball games, Halloween / Christmas / summer groups, taxis, monster trucks, Rocket League cars, trains, cheerleaders, snakes... Some trophies let you trigger rare events on demand.
+- Famous guests have catchphrases, chat with each other in short scenes and do their own special moves.
+- Hidden **DEBUG mode** (Konami code in the main menu): toggles for immunity, cop killing, powers, unlocking everything and more; nothing is saved while it is on.
 
 ## Editor
-* **Personajes**: pinta el muñeco de pie (frente, perfil, espalda) marcando qué es cabeza, torso, brazos y piernas.
-  Las animaciones (andar, correr, bailar, beber, apuñalar, DJ, batería...) se generan solas y se ven en la vista previa.
-  Cualquier fotograma se puede repintar a mano. Categorías: protagonista, invitados, famosos, guardias, guardias especiales, policía/sanitarios.
-* **Objetos / animales**: sprite con fotogramas animados, ancla, huella de colisión y propiedades (sólido, esconderse, teléfono, ponche
-  envenenable, trampa explosiva o eléctrica, farola, puntos de uso, cruza la calle...).
-* **Escenarios**: pinta el fondo píxel a píxel, dibuja la lógica (paredes, vallas, agua, zonas de paseo y de baile), coloca objetos,
-  inicio del jugador, ruta de guardias, DJ y músicos, luces y llegada de la policía (coche o helicóptero). Botón "Probar".
-* Atajos: P lápiz, E goma, L línea, R rectángulo, O elipse, F cubo, I cuentagotas, M simetría, Ctrl+Z/Ctrl+Y, Ctrl+S, rueda = zoom.
-* Plantillas: carga cualquiera de los personajes o escenarios por defecto como punto de partida.
-* **Importar tu propio arte**: arrastra uno o varios PNG a la ventana del editor. En personajes se colocan en la vista actual
-  (o por nombre de fichero: front/side/back) y las partes del cuerpo se asignan por la silueta (botón 'Auto-asignar partes').
-  En objetos se convierten en fotogramas y en escenarios en el fondo.
 
-## Juego
-* Menú: flechas + ENTER (o 1-9), R escenario aleatorio, F2 editor.
-* WASD / flechas: moverse. SHIFT: correr. ESPACIO: apuñalar. F: bailar. E: acción (cargar cuerpo, esconderse, trampas, ponche, teléfono).
-* Mata a todos (invitados, guardias, DJ y músicos). Todos ven solo hacia delante. Una persona llama a la policía; llega un policía
-  (y una ambulancia si hay muchos cuerpos) que mete los cuerpos en bolsas. Si te persigue verás esposas sobre tu cabeza; se cansa y se va.
-  Si te atrapa la policía o los guardias, fin del juego.
-* Llega un policía (en coche o helicóptero): primero busca al asesino por la zona, envuelve en bolsas los cuerpos que ve y al final
-  recoge los que queden. Camina más rápido que tú y si te ve corre hacia ti, un poco más rápido que tu carrera pero se cansa.
-  Con varios cuerpos viene una ambulancia con hasta 3 sanitarios que los cargan.
-* Los animales viven su vida: los caballos pasean y pastan y dan una coz mortal a quien se queda detrás, las gallinas picotean y huyen
-  asustadas, los perros merodean y ladran. Animales configurables en el editor (Puntos > Animales).
-* Pasan coches, motos, tanques, jinetes y ovnis. Los invitados charlan, se besan, beben, vomitan, duermen y bailan.
+- **Characters**: paint the figure (front, side, back) and mark head, torso, arms and legs. Animations are generated automatically; any frame can be repainted.
+- **Objects / animals**: animated frames, anchor, collision footprint and properties (solid, hide, phone, poisonable, explosive or electric trap, light, use points, crosses the street...).
+- **Levels**: paint the background, draw the logic (walls, fences, water, walking and dance zones), place objects, player start, guard routes, DJ and musicians, lights and police arrival. "Test" button.
+- Shortcuts: P pencil, E eraser, L line, R rectangle, O ellipse, F fill, I picker, M symmetry, Ctrl+Z/Ctrl+Y, Ctrl+S, wheel = zoom.
+- Drag PNG files onto the editor window to import your own art.
+- The content format is documented in [`ASSETS.md`](ASSETS.md).
 
-## Compilar
-Requiere Go. `./build.sh` genera juego y editor para Windows y Mac en `dist/` (el editor es el mismo código con `-tags editor`).
-Depuración: `-level N`, `-mute`, `-check`, `-selftest N`, `-shot f.png`, `-noassets`, `-editor`.
+## Building
 
-## Novedades (v6)
+Requires Go. `./build.sh` builds the game and the editor for Windows and macOS into `dist/` and zips them (the editor is the same code built with `-tags editor`).
 
-- **Sin contorno**: los personajes ya no llevan el borde de 1 px; son más finos, con sombreado interior.
-- **Más de 300 personajes**: arquetipos de fiesta (cani, ravero, vikingo, mariachi, ninja, sumo, hinchables, turistas, oficinistas…), parodias de cine/series/cómics/videojuegos (Hulk, Spider-Man, Terminator, RoboCop, Sonic, Crash, Mario, Lara Croft…). No hay personas reales vivas como objetivos.
-- **Enemigo especial** (máximo 1 por nivel): llega a mitad de partida en un coche fúnebre (o helicóptero negro en las azoteas), mata invitados y guardias, y te mata si te acercas. Algunos arrastran una motosierra con chispas. Puedes matarlo (3 puñaladas) o la policía lo detiene. Cuenta para el total. Sus sprites están en `assets/sprites/special_enemies` (rol `killer`).
-- **Multitud más lista**: tardan un momento en darse cuenta, uno llama, los demás huyen unos segundos y vuelven; si hay un policía cerca, los testigos corren a decirle quién fue y dónde.
-- **Refuerzos**: con muchos cuerpos llega un segundo agente con otro aspecto. Policías y médicos atascados se recolocan solos.
-- **Piscinas**: se puede entrar a nadar (jugador, invitados, policía y médicos); el jugador va más lento.
-- **Llegadas tardías**: limusinas (calle) y ascensores (azotea) traen 2-5 invitados más; el total a matar se actualiza.
-- **Escenarios generados**: en el menú, tecla **G** crea un escenario nuevo (casa con habitaciones y puertas, azotea o playa), siempre comprobado para que se pueda andar por todo.
+Debug flags: `-level N`, `-event N`, `-mute`, `-check`, `-selftest N`, `-shot f.png`, `-noassets`, `-editor`, `-immune`, `-fastevents`, `-with slug,slug`.
 
-## Novedades (v7)
-
-- **Detección de cuerpos**: un cuerpo solo cuenta como detectado cuando un testigo vivo avisa (llamada o hablando con un policía). Si el testigo muere antes, el aviso desaparece y otra persona o un policía debe verlo. Solo huyen quienes vieron el crimen o un cuerpo sin detectar, y corren algo más que el protagonista.
-- **Policía**: revisan pocos cuerpos (máximo 2 cada uno) y llaman a la ambulancia (1 a 3 sanitarios según los cuerpos); con muchos cuerpos llega un segundo agente. Si no encuentran al asesino se van y se pierde el aviso de las esposas. A veces vienen **SWAT** (4, furgón) o **FBI** (Mulder y Scully): nunca mezclados con la policía normal, más brutos, disparan a invitados si no dan con el culpable y se los llevan.
-- **Tanque**: si cruza la calle revienta los coches aparcados y los vehículos de emergencias. Si la tripulación aún estaba dentro, muere y no sale.
-- **Helicóptero**: la tripulación sale justo en la puerta.
-- **DJ en todos los niveles**. Si lo matas, la música pasa a punk rock. Cada nivel tiene su propia lista de canciones (house, techno, disco, reggaetón…) que va cambiando; el menú mantiene el tema original.
-- **Animales**: caballo y perro más pequeños; nuevos gato, pollitos, toro (embiste), elefante (echa agua), jirafa y canguro (noquea).
-- **16 escenarios**: plaza de toros, discoteca, pub, cine sin butacas, estadio, plaza europea con fuente, París con torre Eiffel, festival, parque de atracciones, supermercado y centro comercial, además de los 5 clásicos. Con tecla **G** se genera otro nuevo. Pasillos anchos, puertas a todas las habitaciones y armarios solo contra las paredes.
-- **Gags**: selfies, guitarra y batería imaginarias, tropiezos y un espontáneo en calzoncillos.
+Tests: `go test .`

@@ -162,6 +162,10 @@ type Guest struct {
 	hurry             bool    // running to the toilet, not strolling
 	hurryT            float64 // seconds spent running for the toilet
 	rcv               bool    // about to catch the ball
+	gasT              float64
+	dAnim             int     // animation of a duet / star moment
+	starT, starAct    float64 // when the next moment comes / how long the current one lasts
+	starDone          bool
 	bitten            float64 // snake venom: seconds left to live
 	wcInit            bool
 	wcWait            float64
@@ -361,6 +365,7 @@ type Player struct {
 	knockT   float64
 	danceT   float64
 	running  bool
+	item     string // what he carries: "poison" or "disguise"
 }
 
 type Assets struct {
@@ -398,6 +403,14 @@ type Assets struct {
 type Game struct {
 	streakT                float64
 	cheerT                 float64
+	duet                   *duetScene
+	duetT                  float64
+	beams                  []beam
+	floats                 []floatText
+	gas                    []gasCloud
+	fw                     []fwBox
+	pianos                 []pianoDrop
+	gasP                   float64
 	train                  *Train
 	trainT                 float64
 	bubbles                []worldBubble
@@ -434,6 +447,7 @@ type Game struct {
 	dbgCops                bool
 	dbgRing                int
 	dbgCheer               bool
+	dbgWith                []string
 	dbgSnake               bool
 	dbgSnakeOn             bool
 	kidPlan                []kidPlan
@@ -697,6 +711,11 @@ func (g *Game) loadLevel(i int) {
 	g.train, g.trainT = nil, 10+g.rng.Float64()*14
 	if fastEv {
 		g.trainT = 2
+	}
+	g.gas, g.fw, g.pianos, g.floats, g.gasP = nil, nil, nil, nil, 0
+	g.duet, g.duetT, g.beams = nil, 25+g.rng.Float64()*25, nil
+	if fastEv {
+		g.duetT = 3
 	}
 	g.cheerT, g.cheerGroup, g.cheerGroups = 20+g.rng.Float64()*50, nil, 0
 	if g.rng.Float64() < 0.35 {
@@ -1155,6 +1174,32 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateArrivals(dt)
 	g.updateStreaker()
 	g.updateBubbles(dt)
+	g.updateFloats(dt)
+	g.updateTraps2(dt)
+	g.updateDuets(dt)
+	g.updateBeams(dt)
+	if g.p.item == "disguise" && g.wanted > 0 && !g.p.dead {
+		g.useDisguise()
+	}
+	if len(g.dbgWith) > 0 && g.time > 0.3 {
+		var pool []*Guest
+		for _, gu := range g.guests {
+			if gu.perf == "" && !gu.out() {
+				pool = append(pool, gu)
+			}
+		}
+		for i, sl := range g.dbgWith {
+			if f := presetByName(sl); f != nil && i < len(pool) {
+				spec := f(g.rng)
+				gu := pool[i]
+				gu.cs, gu.name = newCharSet(&spec), nameFromSpec(&spec)
+				gu.quirkInit = false
+				gu.pos = g.lvl.NearestFree(Vec{g.p.pos.X + float64(i)*30 - 60, g.p.pos.Y - 70})
+				gu.state, gu.path = gIdle, nil
+			}
+		}
+		g.dbgWith = nil
+	}
 	if g.dbgSnake && g.time > 0.3 {
 		g.scatterSnake()
 		g.dbgSnake = false
@@ -1525,7 +1570,7 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 	} else {
 		g.snd.Play("thud")
 		if g.credit {
-			g.points += 50
+			g.award(gu.pos, 50, "")
 		}
 	}
 	g.checkDone()
@@ -1772,13 +1817,22 @@ func (g *Game) interact() {
 				g.stat("cuts", 1)
 				g.snd.Play("spark")
 				g.say("Has cortado el cable del teléfono")
+				g.award(Vec{pr.X, pr.Y}, 25, "cable")
 			}})
+		case k.Item != "" && p.carrying == nil && p.item == "":
+			cs = append(cs, candidate{d - 4, func() { g.pickItem(pr) }})
 		case k.Poison && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				if pr.armT > 0 {
-					g.say("El ponche ya está envenenado")
+					g.say("La bebida ya está envenenada")
 					return
 				}
+				if p.item != "poison" {
+					g.say("Necesitas un frasco de veneno: búscalo por la fiesta")
+					return
+				}
+				p.item = ""
+				g.award(Vec{pr.X, pr.Y}, 15, "veneno")
 				pr.armT = 40
 				g.snd.Play("splash")
 				g.say("Has envenenado el ponche")
@@ -1880,6 +1934,7 @@ func (g *Game) dispose(pool bool) {
 		}
 	}
 	p.carrying = nil
+	g.award(p.pos, 20, "cadáver")
 	if pool {
 		g.snd.Play("splash")
 		g.burst(Vec{p.pos.X, p.pos.Y}, 12, 50, rgb(0xa0d8f8), 0.5, 2, 160)
@@ -1918,6 +1973,9 @@ func (g *Game) triggerTrap(pr *Prop) {
 	defer func() { g.credit = false }()
 	centre := Vec{pr.X, pr.Y - 8}
 	switch pr.K.Trap {
+	case "gas", "fireworks", "piano":
+		g.credit = false
+		g.triggerNewTrap(pr)
 	case "explode":
 		g.snd.Play("boom")
 		g.shake = 0.6
@@ -1940,6 +1998,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 				g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
 			}
 		}
+		g.trapCops(centre, 64)
 		if !g.p.dead && dist(g.p.pos, centre) < 58 {
 			g.die("Has saltado por los aires con tu propia trampa")
 		}
@@ -2150,6 +2209,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		g.updateQuirk(gu, dt)
 	}
 	g.updateGreeting(gu, dt)
+	g.updateStar(gu, dt)
 	if gu.out() {
 		return
 	}

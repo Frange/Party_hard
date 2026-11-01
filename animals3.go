@@ -286,6 +286,7 @@ func (g *Game) killAnimal(a *Animal) {
 		}
 	}
 	a.dead = true
+	g.award(a.pos, 10+5*b2i(a.kind == animSnake), "")
 	a.icon, a.state = "", aIdle
 	g.decals = append(g.decals, Decal{pos: a.pos, kind: 0, r: 5 + g.rng.Float64()*3})
 	g.burst(Vec{a.pos.X, a.pos.Y - 6}, 10, 60, rgb(0xb01818), 0.5, 2, 200)
