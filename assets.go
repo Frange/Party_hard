@@ -183,13 +183,16 @@ func saveParts(path string, pid []uint8, w, h int) error {
 // ---------------------------------------------------------------------------
 
 type CharMeta struct {
-	Name     string `json:"name"`
-	Category string `json:"category"`
-	Role     string `json:"role,omitempty"` // cop | medic | guard
-	Carry    string `json:"carry,omitempty"`
-	Width    int    `json:"width"`
-	Height   int    `json:"height"`
-	Weight   int    `json:"weight,omitempty"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name,omitempty"` // proper name shown in on-screen messages, e.g. "Sonic"
+	Category    string `json:"category"`
+	Role        string `json:"role,omitempty"`   // cop | medic | guard
+	Gender      string `json:"gender,omitempty"` // "" | m | f — only affects the AnimPee pose
+	Carry       string `json:"carry,omitempty"`
+	Source      string `json:"source,omitempty"` // source PNG imported from sprites/togenerate
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Weight      int    `json:"weight,omitempty"`
 }
 
 type CharAsset struct {
@@ -248,6 +251,90 @@ func saveCharAsset(root string, ca *CharAsset) error {
 		}
 	}
 	return nil
+}
+
+// processToGenerate turns a supplied reference sprite into an editable rigged
+// character exactly once. Put one PNG per character in either
+// assets/sprites/togenerate/ or project/sprites/togenerate/. The original file
+// is never overwritten; a tiny .done marker records that its editable character
+// folder already exists. The editor can then refine the automatic part map.
+func processToGenerate(root string) int {
+	if root == "" {
+		return 0
+	}
+	inputs := []string{spritesDir(root, "togenerate"), filepath.Join(filepath.Dir(root), "sprites", "togenerate")}
+	made := 0
+	for _, in := range inputs {
+		ents, err := os.ReadDir(in)
+		if err != nil {
+			continue
+		}
+		for _, e := range ents {
+			if e.IsDir() || strings.ToLower(filepath.Ext(e.Name())) != ".png" {
+				continue
+			}
+			stem := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			name := strings.ToLower(strings.TrimSpace(stem))
+			name = strings.Map(func(r rune) rune {
+				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+					return r
+				}
+				return '-'
+			}, name)
+			name = strings.Trim(name, "-")
+			if name == "" {
+				continue
+			}
+			marker := filepath.Join(in, "generated", name+".done")
+			out := filepath.Join(spritesDir(root, "special_people"), name, "meta.json")
+			if _, err := os.Stat(marker); err == nil {
+				continue
+			}
+			if _, err := os.Stat(out); err == nil {
+				os.MkdirAll(filepath.Dir(marker), 0o755)
+				os.WriteFile(marker, []byte("already present\n"), 0o644)
+				continue
+			}
+			src, err := loadPNG(filepath.Join(in, e.Name()))
+			if err != nil {
+				fmt.Println("togenerate: skipping", e.Name(), err)
+				continue
+			}
+			w, h := maxI(32, src.w+8), maxI(48, src.h+6)
+			ca := newCharAsset(name, "special_people", w, h)
+			ca.Meta.Source = e.Name()
+			// Center the supplied front pose on a roomy canvas, feet aligned at the
+			// baseline so generated walk/dance animations have a stable pivot.
+			x0, y0 := (w-src.w)/2, h-src.h-2
+			for y := 0; y < src.h; y++ {
+				for x := 0; x < src.w; x++ {
+					si, di := (y*src.w+x)*4, ((y0+y)*w+x0+x)*4
+					copy(ca.Views[0].p[di:di+4], src.p[si:si+4])
+				}
+			}
+			// A mirrored profile/back is deliberately only a starting point. It is
+			// valid for the rig and immediately editable in the Character tab.
+			for view := 1; view < 3; view++ {
+				for y := 0; y < h; y++ {
+					for x := 0; x < w; x++ {
+						si, di := (y*w+(w-1-x))*4, (y*w+x)*4
+						copy(ca.Views[view].p[di:di+4], ca.Views[0].p[si:si+4])
+					}
+				}
+			}
+			for i := range ca.Views {
+				autoParts(ca.Views[i], i == 1)
+			}
+			if err := saveCharAsset(root, ca); err != nil {
+				fmt.Println("togenerate:", err)
+				continue
+			}
+			os.MkdirAll(filepath.Dir(marker), 0o755)
+			os.WriteFile(marker, []byte("generated "+name+"\n"), 0o644)
+			made++
+		}
+	}
+	return made
 }
 
 // ---------------------------------------------------------------------------
@@ -386,8 +473,14 @@ type LevelMeta struct {
 	Lights     []LevelLight   `json:"lights"`
 	Props      []LevelProp    `json:"props"`
 	// Logic layers, one string per row, one char per logicCell x logicCell native pixels.
-	// Solid: '.' free, '#' wall (blocks movement and sight), '=' low (blocks movement only), '~' water
+	// Solid: '.' free, '#' wall (blocks movement and sight), '=' low (blocks movement only), '~' water, ',' slow ground (walkable, 55% speed), 'w' window (blocks walking, E jumps through)
 	Solid []string `json:"solid"`
+	// Road and ambience, all optional (zero values keep the old behaviour).
+	TimeOfDay string `json:"time_of_day,omitempty"` // night (default) | dusk | day
+	RoadH     int    `json:"road_h,omitempty"`      // width of the road in native pixels; each lane sits a quarter of it from the centre line
+	Traffic   string `json:"traffic,omitempty"`     // both (default) | right | left
+	ParkX0    int    `json:"park_x0,omitempty"`     // x range along the road where police and ambulances stop
+	ParkX1    int    `json:"park_x1,omitempty"`
 	// Zone: '.' none, 'r' guests wander here, 'd' dance floor
 	Zone []string `json:"zone"`
 }

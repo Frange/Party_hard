@@ -1,0 +1,20 @@
+{
+  "name": "posters",
+  "category": "furniture",
+  "anchor_x": 31,
+  "anchor_y": 35,
+  "foot_x": 3,
+  "foot_y": 31,
+  "foot_w": 56,
+  "foot_h": 4,
+  "solid": false,
+  "hide": false,
+  "phone": false,
+  "poison": false,
+  "trap": "",
+  "light": false,
+  "variants": true,
+  "fps": 0,
+  "sort_off": 0,
+  "ambient_speed": 0
+}

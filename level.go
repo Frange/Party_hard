@@ -43,6 +43,7 @@ const (
 	WallClub
 	WallRoof
 	WallWood
+	WallRail
 )
 
 type Wall struct {
@@ -77,8 +78,10 @@ type Glow struct {
 
 type LevelDef struct {
 	Title       string
+	Icon        string // menu icon key, campaign levels only (see campaign.go)
 	Sky         string // city | sea | none
 	Police      string // car | heli
+	Transit     string // "sea" or "space": vehicles arrive as boats or ships along CarFrom..CarTo instead of cars
 	Pads        []Vec
 	Performers  []Perf
 	Doors       []Door
@@ -105,20 +108,43 @@ type LevelDef struct {
 	Tint        color.RGBA
 	Disco       bool
 	Strobe      []uint32
+	FastTraffic bool      // circuit-style venues: ambient cars spawn much more often
+	Highway     bool      // wide multi-lane road: dense traffic and people partying on the asphalt
+	Tracks      []float64 // railway: the y of each track; trains run along them (see trains.go)
+	TrainStop   float64   // x where a stopping train halts, centred
+	Lanes       []float64 // highway: the y of every lane (above CarFrom.Y drives left, below drives right)
+	Road        Rect      // highway: the asphalt band
+	Hull        bool      // draw a ship hull band with portholes around HullRect
+	HullRect    Rect
+	Shape       func(x, y, grow float64) bool // inside test for ship / station outlines; everything outside is void
+	HullName    string
+	Day         bool    // no night darkness layer (daylight / dusk)
+	LaneOff     float64 // distance of each traffic lane from the road centre line; 0 = default
+	Traffic     string  // both | right | left
+	ParkX0      float64 // police/ambulance stopping range along the road (0,0 = default)
+	ParkX1      float64
+	Slow        []Rect // walkable ground that slows the player
+	Windows     []Rect // solid, but the player can jump through with E
+	Sign        string // a neon wall sign (gradient text with a glow backing), e.g. "PARTY HARD"
+	SignPos     Vec
 }
 
 type Prop struct {
-	Name  string
-	K     *PropKind
-	X, Y  float64
-	Var   int
-	Foot  Rect
-	armT  float64
-	used  bool
-	on    bool
-	shake float64
-	Sort  float64
-	wreck bool
+	Name    string
+	K       *PropKind
+	X, Y    float64
+	Var     int
+	Foot    Rect
+	armT    float64
+	used    bool
+	on      bool
+	techBy  *Tech // a technician is on his way to repair this cut phone
+	shake   float64
+	Sort    float64
+	wreck   bool
+	fireOut bool    // flames put out by the firefighters
+	gone    bool    // picked up / removed
+	fade    float64 // 0..1: how see-through this tall prop is while someone stands behind it
 }
 
 type Level struct {
@@ -136,6 +162,7 @@ type Level struct {
 	blocked   []bool
 	extraGrow float64
 	bg        *ebiten.Image
+	graded    bool // gradeBG applied (needs a running game, so it happens on first draw)
 }
 
 const navCell = 8.0
@@ -163,6 +190,11 @@ func buildLevel(def *LevelDef) *Level {
 			l.solidsP = append(l.solidsP, p.Foot)
 			l.solidsN = append(l.solidsN, p.Foot)
 		}
+		for _, r := range k.Solids {
+			sr := Rect{in.X + r.X, in.Y + r.Y, r.W, r.H}
+			l.solidsP = append(l.solidsP, sr)
+			l.solidsN = append(l.solidsN, sr)
+		}
 		for _, u := range k.Use {
 			l.POIs[k.UseKind] = append(l.POIs[k.UseKind], Vec{in.X + u.X, in.Y + u.Y})
 		}
@@ -176,7 +208,148 @@ func buildLevel(def *LevelDef) *Level {
 	l.solidsP = append(l.solidsP, bounds...)
 	l.solidsN = append(l.solidsN, bounds...)
 	l.initNav()
+	if l.ensurePhones(2) {
+		l.initNav()
+	}
+	if l.ensureToilets(2) {
+		l.initNav()
+	}
 	return l
+}
+
+// ensurePhones makes sure every party has at least n phone booths, spread apart
+// on walkable, reachable floor (not on dance floors or in pools).
+func (l *Level) ensurePhones(n int) bool {
+	a := l.ensureBooth("phone", n, func(p *Prop) bool { return p.K.Phone }, nil)
+	if a {
+		l.initNav()
+	}
+	// the yellow technicians' phone is one more booth, apart from the red ones
+	var reds []Vec
+	for _, p := range l.Props {
+		if p.K.Phone {
+			reds = append(reds, Vec{p.X, p.Y})
+		}
+	}
+	b := l.ensureBooth("techphone", 1, func(p *Prop) bool { return p.K.TechPhone }, reds)
+	return a || b
+}
+
+// ensureBooth places props of one kind until the level has n of them (match counts the
+// existing ones); seeds are extra spots to keep away from.
+func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds []Vec, margin ...float64) bool {
+	mg := 0.0
+	if len(margin) > 0 {
+		mg = margin[0]
+	}
+	k := propKinds[name]
+	if k == nil {
+		return false
+	}
+	var have []Vec
+	for _, p := range l.Props {
+		if match(p) {
+			have = append(have, Vec{p.X, p.Y})
+		}
+	}
+	near := append(append([]Vec(nil), have...), seeds...)
+	added := false
+	reach := l.reachFrom(l.Def.Start)
+	spots := l.Def.Roam
+	for len(have) < n {
+		var best Vec
+		bd := -1.0
+		try := func(p Vec) {
+			for _, o := range []Vec{{0, 0}, {16, 0}, {-16, 0}, {0, -14}, {0, 10}, {14, 10}, {-14, 10}} {
+				if !l.Free(Vec{p.X + o.X, p.Y + o.Y}) {
+					return
+				}
+			}
+			if mg > 0 {
+				for _, o := range []Vec{{mg, 0}, {-mg, 0}, {0, mg}, {0, -mg}, {mg, mg}, {-mg, mg}, {mg, -mg}, {-mg, -mg}} {
+					if !l.Free(Vec{p.X + o.X, p.Y + o.Y}) {
+						return
+					}
+				}
+			}
+			if l.badGround(p) || l.InPool(p) || p.X < 40 || p.X > l.W-40 || p.Y < 70 || p.Y > l.H-30 {
+				return
+			}
+			for _, d := range l.Def.Dance {
+				if d.Grow(14).Has(p.X, p.Y) {
+					return
+				}
+			}
+			if !reach[int(p.Y/navCell)*l.cw+int(p.X/navCell)] {
+				return
+			}
+			md := 1e9
+			for _, h := range near {
+				md = math.Min(md, dist(h, p))
+			}
+			if len(near) == 0 {
+				md = dist(p, l.Def.Start)
+			}
+			if md > bd {
+				best, bd = p, md
+			}
+		}
+		if len(spots) > 0 {
+			for _, r := range spots {
+				for y := r.Y + 10; y < r.Y+r.H; y += 28 {
+					for x := r.X + 10; x < r.X+r.W; x += 28 {
+						try(Vec{x, y})
+					}
+				}
+			}
+		}
+		if bd < 0 {
+			for y := 80.0; y < l.H-30; y += 30 {
+				for x := 50.0; x < l.W-50; x += 30 {
+					try(Vec{x, y})
+				}
+			}
+		}
+		if bd < 0 {
+			break
+		}
+		p := &Prop{Name: name, K: k, X: best.X, Y: best.Y, Foot: Rect{best.X - k.FW/2, best.Y - k.FH, k.FW, k.FH}, Sort: best.Y + k.SortOff}
+		l.Props = append(l.Props, p)
+		l.solidsP = append(l.solidsP, p.Foot)
+		l.solidsN = append(l.solidsN, p.Foot)
+		have = append(have, best)
+		near = append(near, best)
+		added = true
+	}
+	return added
+}
+
+// reachFrom flood-fills the navigation grid from a point.
+func (l *Level) reachFrom(from Vec) []bool {
+	seen := make([]bool, l.cw*l.ch)
+	sx, sy := int(from.X/navCell), int(from.Y/navCell)
+	if sx < 0 || sy < 0 || sx >= l.cw || sy >= l.ch {
+		return seen
+	}
+	q := []int{sy*l.cw + sx}
+	seen[q[0]] = true
+	for len(q) > 0 {
+		c := q[0]
+		q = q[1:]
+		cx, cy := c%l.cw, c/l.cw
+		for _, d := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			nx, ny := cx+d[0], cy+d[1]
+			if nx < 0 || ny < 0 || nx >= l.cw || ny >= l.ch {
+				continue
+			}
+			i := ny*l.cw + nx
+			if !seen[i] && !l.blocked[i] {
+				seen[i] = true
+				q = append(q, i)
+			}
+		}
+	}
+	return seen
 }
 
 func (l *Level) initNav() {
@@ -340,15 +513,41 @@ func (l *Level) Path(from, to Vec) []Vec {
 	return out
 }
 
-// LOS: only opaque walls block sight.
+// LOS: only opaque walls block sight (exact segment-vs-rectangle test).
 func (l *Level) LOS(a, b Vec) bool {
-	n := int(dist(a, b)/4) + 1
-	for i := 1; i < n; i++ {
-		t := float64(i) / float64(n)
-		x, y := a.X+(b.X-a.X)*t, a.Y+(b.Y-a.Y)*t
-		for _, r := range l.sight {
-			if r.Has(x, y) {
+	for _, r := range l.sight {
+		if segHitsRect(a, b, r) {
+			return false
+		}
+	}
+	return true
+}
+
+func segHitsRect(a, b Vec, r Rect) bool {
+	t0, t1 := 0.0, 1.0
+	dx, dy := b.X-a.X, b.Y-a.Y
+	for _, e := range [4][2]float64{{-dx, a.X - r.X}, {dx, r.X + r.W - a.X}, {-dy, a.Y - r.Y}, {dy, r.Y + r.H - a.Y}} {
+		p, q := e[0], e[1]
+		if p == 0 {
+			if q < 0 {
 				return false
+			}
+			continue
+		}
+		t := q / p
+		if p < 0 {
+			if t > t1 {
+				return false
+			}
+			if t > t0 {
+				t0 = t
+			}
+		} else {
+			if t < t0 {
+				return false
+			}
+			if t < t1 {
+				t1 = t
 			}
 		}
 	}
@@ -384,6 +583,41 @@ func (l *Level) RandomRoam(rng *rand.Rand) Vec {
 func (l *Level) InPool(p Vec) bool {
 	for _, r := range l.Pools {
 		if r.Has(p.X, p.Y) {
+			return true
+		}
+	}
+	return false
+}
+
+// Outdoor says whether the topmost floor under p is open ground rather than
+// the inside of a building.
+func (l *Level) Outdoor(p Vec) bool {
+	kind := ""
+	for _, f := range l.Def.Floors {
+		if f.R.Has(p.X, p.Y) {
+			kind = f.Kind
+		}
+	}
+	switch kind {
+	case "grass", "dirt", "sand", "cobble", "pave", "asphalt", "dash", "pitch", "arena", "boardwalk", "deck", "rooftop", "rooftop2", "snow", "chalk", "edge", "rails", "":
+		return true
+	}
+	return false
+}
+
+// badGround: roads, helipads and the like, where nothing may be planted.
+func (l *Level) badGround(p Vec) bool {
+	d := l.Def
+	if d.Highway && d.Road.Has(p.X, p.Y) {
+		return true
+	}
+	for _, f := range d.Floors {
+		if spotBadFloors[f.Kind] && f.R.Grow(6).Has(p.X, p.Y) {
+			return true
+		}
+	}
+	for _, pd := range d.Pads {
+		if math.Hypot(pd.X-p.X, pd.Y-p.Y) < 60 {
 			return true
 		}
 	}

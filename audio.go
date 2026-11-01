@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math"
 	"math/rand"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 )
@@ -12,13 +13,17 @@ const sampleRate = 48000
 
 // Sounds holds every procedurally generated sound effect.
 type Sounds struct {
-	ctx    *audio.Context
-	music  *audio.Player
-	cur    string
-	tracks map[string][]byte
-	sfx    map[string][]byte
-	muted  bool
-	volume float64
+	ctx      *audio.Context
+	music    *audio.Player
+	cur      string
+	tracks   map[string][]byte
+	sfx      map[string][]byte
+	muted    bool
+	file     *os.File
+	isFile   bool
+	loopFile bool
+	paused   bool
+	volume   float64
 }
 
 func newSounds(muted bool) *Sounds {
@@ -71,6 +76,11 @@ func (s *Sounds) SetTrack(key string, build func() []byte) {
 		s.music.Close()
 		s.music = nil
 	}
+	if s.file != nil {
+		s.file.Close()
+		s.file = nil
+	}
+	s.isFile = false
 	s.cur = key
 	loop := audio.NewInfiniteLoop(bytes.NewReader(data), int64(len(data)))
 	p, err := s.ctx.NewPlayer(loop)
@@ -79,6 +89,7 @@ func (s *Sounds) SetTrack(key string, build func() []byte) {
 	}
 	p.SetVolume(0.5)
 	s.music = p
+	s.paused = s.muted
 	if !s.muted {
 		p.Play()
 	}
@@ -88,10 +99,12 @@ func (s *Sounds) StartMusic() {
 	if s.muted || s.music == nil || s.music.IsPlaying() {
 		return
 	}
+	s.paused = false
 	s.music.Play()
 }
 
 func (s *Sounds) StopMusic() {
+	s.paused = true
 	if s.music != nil && s.music.IsPlaying() {
 		s.music.Pause()
 	}

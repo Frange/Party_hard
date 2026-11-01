@@ -25,7 +25,27 @@ const (
 	ModeLose
 	ModeFinal
 	ModeEditor
+	ModeLevelSelect
+	ModeSettings
+	ModeShop
+	ModeConfirm
+	ModeTrophies
+	ModeDebug
 )
+
+// main menu rows (ModeMenu); the level grid lives in ModeLevelSelect
+const (
+	menuContinue = iota
+	menuNewGame
+	menuRandom
+	menuShop
+	menuTrophies
+	menuSettings
+	menuQuit
+	menuRows
+)
+
+const menuDebug = 100 // the hidden row that the Konami code opens
 
 var px *ebiten.Image // 1x1 white pixel
 
@@ -40,11 +60,11 @@ func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.RGBA) {
 // Vision: everyone only sees in a cone in front of them, up to a medium distance.
 const (
 	guestRange = 115.0
-	guestDot   = 0.3
+	guestDot   = 0.5
 	guardRange = 100.0
-	guardDot   = 0.45
+	guardDot   = 0.55
 	copRange   = 130.0
-	copDot     = 0.3
+	copDot     = 0.5
 )
 
 func (g *Game) sees(from Vec, dir Dir, to Vec, rng, minDot float64) bool {
@@ -93,51 +113,84 @@ const (
 	gScared
 	gReport
 	gFun
+	gLift   // being abducted: floats up in a UFO beam
+	gZombie // infected: slow, bites others into zombies
 )
 
 type Guest struct {
-	pos       Vec
-	dir       Dir
-	cs        *CharSet
-	style     int
-	perf      string
-	state     gState
-	next      gState
-	dur       float64
-	timer     float64
-	anim      float64
-	curSpd    float64
-	moving    bool
-	path      []Vec
-	icon      string
-	iconT     float64
-	dead      bool
-	gone      bool
-	poison    float64
-	scanT     float64
-	tgt       *Guest
-	tgtPlayer bool
-	repath    float64
-	stabT     float64
-	partner   *Guest
-	role      int
-	drunk     int
-	lookT     float64
-	sawKiller bool
-	danceEnd  float64
-	off       float64
-	lastTurn  int
-	sawPos    Vec
-	fun       int
-	runUntil  float64
-	sawSlash  bool
-	reportTo  *Cop
+	chant             bool
+	tech              bool   // on the way to the yellow phone to call the technicians
+	quirk             string // special behaviour: mj, mask, taz, beavis, butthead, gb
+	quirkT            float64
+	quirkInit         bool
+	greetInit, chatty bool
+	lastGreet         float64
+	leader            *Guest
+	keep              bool // part of a special group: never trimmed by the people limit
+	nick              string
+	armed             bool
+	rampage           int
+	origCS            *CharSet
+	pos               Vec
+	dir               Dir
+	cs                *CharSet
+	style             int
+	perf              string
+	state             gState
+	next              gState
+	dur               float64
+	timer             float64
+	anim              float64
+	curSpd            float64
+	moving            bool
+	path              []Vec
+	icon              string
+	iconT             float64
+	dead              bool
+	gone              bool
+	poison            float64
+	scanT             float64
+	tgt               *Guest
+	tgtPlayer         bool
+	repath            float64
+	stabT             float64
+	partner           *Guest
+	role              int
+	drunk             int
+	lift              float64 // height above the ground while abducted
+	need              float64 // bladder/bowel pressure: at 1 they run for the toilet
+	hurry             bool    // running to the toilet, not strolling
+	hurryT            float64 // seconds spent running for the toilet
+	rcv               bool    // about to catch the ball
+	bitten            float64 // snake venom: seconds left to live
+	wcInit            bool
+	wcWait            float64
+	inside            *Prop // the portable toilet this guest is in
+	queue             *Prop // the occupied portable toilet this guest is waiting for
+	wcDone            bool  // the accident already left its mark
+	lookT             float64
+	sawKiller         bool
+	danceEnd          float64
+	off               float64
+	lastTurn          int
+	sawPos            Vec
+	fun               int
+	runUntil          float64
+	sawSlash          bool
+	reportTo          *Cop
+	name              string // proper display name, or "" for a generic guest
 }
 
 func (gu *Guest) out() bool { return gu.dead || gu.gone }
 
+// paceK slows everybody who walks (player, guests, guards, police) a bit more.
+const paceK = 0.86
+
 func (gu *Guest) walk(speed, dt float64) bool {
-	m, arr := follow(&gu.pos, &gu.dir, &gu.path, speed, dt)
+	if gu.quirk == "kid" {
+		speed *= kidSpeedK // on wheels: faster than anybody on foot
+	}
+	m, arr := follow(&gu.pos, &gu.dir, &gu.path, speed*paceK, dt)
 	gu.moving, gu.curSpd = m, speed
 	return arr
 }
@@ -182,6 +235,16 @@ type Guard struct {
 	special  bool
 }
 
+// Police hierarchy tiers, one per criminality star. Only one tier is ever on
+// scene at a time: escalating or de-escalating sends the previous tier home.
+const (
+	unitPolice   = iota // 1 star: 1-2 officers
+	unitFBI             // 2 stars: Mulder & Scully
+	unitMilitary        // 3 stars: 3 soldiers
+	unitSWAT            // 4 stars: 4 operators
+	unitRangers         // 5 stars: 5 Power Rangers
+)
+
 type cState int
 
 const (
@@ -220,11 +283,12 @@ type Cop struct {
 	veh       *Vehicle
 	medic     bool
 	searchT   float64
+	onSceneT  float64 // seconds since the officer stepped out: nobody leaves before 20 unless relieved or the suspect is taken
 	maxSearch float64
 	wait      float64
 	alt       int
 	bagN      int
-	kind      int // 0 police, 1 swat, 2 fbi
+	kind      int // unitPolice/unitFBI/unitMilitary/unitSWAT/unitRangers
 	shootT    float64
 	stuckT    float64
 	stuckPos  Vec
@@ -241,8 +305,14 @@ type Vehicle struct {
 	pad     int
 	alt     int
 	hold    float64
-	unit    int // 0 police, 1 swat, 2 fbi
+	unit    int // unitPolice/unitFBI/unitMilitary/unitSWAT/unitRangers
 	dead    bool
+}
+
+// HudMsg is one line in the small news queue drawn under the criminality stars.
+type HudMsg struct {
+	text string
+	t    float64
 }
 
 type Body struct {
@@ -252,9 +322,13 @@ type Body struct {
 	fallT    float64
 	bagged   bool
 	reported bool
+	informer *Guest // the one guest already going to tell the police about this body
 	carried  bool
 	claimed  *Cop
 	seers    []*Guest // people who saw it but have not warned anyone yet
+	counted  bool     // already added to the located-kills total
+	label    string   // name shown when the mouse is over the body
+	byPlayer bool     // only the player's own kills (and traps/poison he set) raise the criminality
 }
 
 type Particle struct {
@@ -298,6 +372,7 @@ type Assets struct {
 	floors         map[string][]*ebiten.Image
 	vignette       *ebiten.Image
 	glow           *ebiten.Image
+	dark           *ebiten.Image // per-frame darkness layer, lights cut holes in it
 	playerCS       *CharSet
 	copCS          *CharSet
 	medicCS        *CharSet
@@ -306,11 +381,14 @@ type Assets struct {
 	copAlt         []*CharSet
 	swatCS         *CharSet
 	fbiCS          []*CharSet
+	militaryCS     []*CharSet
+	rangerCS       []*CharSet
 	killerCS       []*CharSet
 	heliOX, heliOY float64
 	animals        AnimalSprites
 	bag            *ebiten.Image
 	heli           *ebiten.Image
+	heliU          [6]*ebiten.Image // livery per responder kind (police..rangers) + medical at [5]
 }
 
 // ---------------------------------------------------------------------------
@@ -318,32 +396,92 @@ type Assets struct {
 // ---------------------------------------------------------------------------
 
 type Game struct {
-	streakT       float64
-	streaked      bool
-	djDead        bool
-	songIdx       int
-	nextSong      float64
-	wrecks        []Vec
-	respKind      int
-	swatKills     int
-	baseN         int
-	arrivals      int
-	arrivalT      float64
-	elevators     []*Elevator
-	slasher       *Slasher
-	slasherT      float64
-	slasherDone   bool
-	backupCalled  bool
-	pendingBackup float64
-	mode          Mode
-	as            *Assets
-	lvl           *Level
-	levelIdx      int
-	snd           *Sounds
-	face          text.Face
-	rng           *rand.Rand
-	tick          int
-	time          float64
+	streakT                float64
+	cheerT                 float64
+	train                  *Train
+	trainT                 float64
+	bubbles                []worldBubble
+	cheerGroup             []*Guest
+	cheerGroups            int
+	trails                 []fireTrail
+	forceAmb               string
+	tankN                  int
+	zombieTint             bool
+	setSel                 int // settings screen: row (actions, then "restaurar", "volver")
+	setCol                 int // 0,1 keyboard slots, 2 gamepad
+	capturing              bool
+	forceEv                int // debug: -event N starts event N-1 right away
+	events                 []*Event
+	eventT                 float64
+	evCycle                int
+	streaked               bool
+	djDead                 bool
+	wreckOut               map[Vec]bool
+	fireTruck              *Vehicle
+	fireCrew               []*Fireman
+	fireWait               float64
+	dbgCut                 bool
+	showCredits            bool
+	powerImmune            bool
+	pwEvAt                 float64
+	pwFamAt                float64
+	dbg                    debugState
+	debugMenu              bool
+	konami                 int
+	dbgSel                 int
+	menuMsg                string
+	menuMsgT               float64
+	dbgCops                bool
+	dbgRing                int
+	dbgCheer               bool
+	dbgSnake               bool
+	dbgSnakeOn             bool
+	kidPlan                []kidPlan
+	techCaller             *Guest
+	techCallT              float64
+	techVan                *Vehicle
+	techCrew               []*Tech
+	techWait               float64
+	techScanT              float64
+	evManual               int     // rare events the player has set off in this party
+	evManualAt             float64 // when the last one went off
+	fireTested             bool
+	exhibitPlan, exhibited bool
+	exhibitT               float64
+	names                  map[any]string
+	lastMX, lastMY         int
+	weapons                []*Prop
+	skipSong               bool
+	handSat                bool
+	handGod                bool
+	lib                    *musicLib
+	musicMode              string
+	songFile               string
+	songIdx                int
+	nextSong               float64
+	wrecks                 []Vec
+	respKind               int
+	pendingUnit            int // tier a scheduled vehicle will bring; -1 when none is inbound
+	stars                  int
+	starsDecayT            float64
+	swatKills              int
+	baseN                  int
+	arrivals               int
+	arrivalT               float64
+	elevators              []*Elevator
+	slasher                *Slasher
+	slasherT               float64
+	slasherDone            bool
+	slasherN               int
+	mode                   Mode
+	as                     *Assets
+	lvl                    *Level
+	levelIdx               int
+	snd                    *Sounds
+	face                   text.Face
+	rng                    *rand.Rand
+	tick                   int
+	time                   float64
 
 	p       *Player
 	guests  []*Guest
@@ -356,6 +494,7 @@ type Game struct {
 	amb     []*Ambient
 	animals []*Animal
 	ambT    float64
+	towT    float64
 
 	wanted       float64
 	seenNow      bool
@@ -363,6 +502,8 @@ type Game struct {
 	pendingCar   float64
 	pendingAmb   float64
 	ambCalled    bool
+	ambCount     int // ambulances sent in this case (a second one comes if the bodies keep piling up)
+	ambAt        float64
 	points       int
 	credit       bool
 	titleT       float64
@@ -375,15 +516,41 @@ type Game struct {
 	shake        float64
 	flash        float64
 
-	cam        Vec
-	camI       Vec
-	msg        string
-	msgT       float64
-	loseReason string
-	kills      int
-	total      int
-	endTime    float64
-	endAt      float64
+	cam                                         Vec
+	camI                                        Vec
+	msgs                                        []HudMsg
+	news                                        NewsBank
+	newsLast                                    map[string]int
+	dialogue                                    DialogueBank
+	progress                                    Progress
+	banked                                      bool
+	iconMode                                    bool
+	perkSpeed, perkStamina, perkCool, perkMoney float64
+	shopTab, shopSel, shopScroll                int
+	shopMsg                                     string
+	shopCache                                   map[string]*CharSet
+	danceSpot                                   Vec
+	danceLast                                   float64
+	danceCount                                  int
+	confirmT                                    float64
+	confirmSel                                  int
+	band                                        *Band
+	bandStage                                   bool
+	bandSpot                                    Vec
+	bandUsed                                    []bool
+	forceBand                                   int
+	rexImg                                      [2]*ebiten.Image
+	talkX, talkY, talkT                         float64
+	talkN, talkKind                             int
+	trophyDirty                                 bool
+	toasts                                      []trophyToast
+	trophySel, trophyScroll                     int
+	tierBase                                    map[string][]CharSpec
+	loseReason                                  string
+	kills                                       int
+	total                                       int
+	endTime                                     float64
+	endAt                                       float64
 
 	store         *AssetStore
 	ed            *Editor
@@ -391,7 +558,12 @@ type Game struct {
 	pendingExport bool
 	fromEditor    bool
 	testVictim    *Guest
-	menuSel       int
+	noHeat        bool // the kill that is happening does not count as a crime (zombies)
+	locatedN      int  // player kills the police have located so far (never goes down)
+	starFloor     int  // highest star level reached: the next call starts there again
+	killByPlayer  bool // set while a body is spawned by a player kill
+	menuSel       int  // row in the level grid (ModeLevelSelect)
+	mainSel       int  // row in the main menu (ModeMenu)
 	selftest      int
 	god           bool
 	shot          string
@@ -405,7 +577,15 @@ func newGame(mute bool) *Game {
 		face:     text.NewGoXFace(bitmapfont.Face),
 		rng:      rand.New(rand.NewSource(rand.Int63())),
 		rigCache: map[*CharAsset]*CharSet{},
+		newsLast: map[string]int{},
 	}
+	g.news = loadNewsBank()
+	g.dialogue = loadDialogueBank()
+	g.progress = loadProgress()
+	buildShopCatalog()
+	g.syncShop()
+	g.perkSpeed, g.perkStamina, g.perkCool, g.perkMoney = 1, 6, 1, 1
+	binds = loadBindings()
 	wb := newPix(1, 1)
 	wb.p[0], wb.p[1], wb.p[2], wb.p[3] = 255, 255, 255, 255
 	px = wb.img()
@@ -423,6 +603,11 @@ func newGame(mute bool) *Game {
 			g.pendingExport = true
 		}
 	}
+	if !noAssets && root != "" {
+		if n := processToGenerate(root); n > 0 {
+			fmt.Println("togenerate: imported", n, "editable character models")
+		}
+	}
 	if !noAssets {
 		g.store = loadAssetStore()
 	}
@@ -430,16 +615,21 @@ func newGame(mute bool) *Game {
 		applyObjects(g.store.Objs)
 	}
 	as := &Assets{props: buildPropImages(), floors: map[string][]*ebiten.Image{}}
-	for _, k := range []string{"wood", "deck", "tile", "carpet", "grass", "pave", "asphalt", "concrete", "marble", "parquet", "sand", "dirt", "rooftop", "rooftop2", "boardwalk", "cobble", "pitch", "white", "arena", "mall"} {
+	for _, k := range []string{"wood", "deck", "tile", "carpet", "grass", "pave", "asphalt", "concrete", "marble", "parquet", "sand", "dirt", "rooftop", "rooftop2", "boardwalk", "cobble", "pitch", "white", "arena", "mall", "snow", "chalk", "rails", "edge"} {
 		for v := 0; v < 3; v++ {
-			as.floors[k] = append(as.floors[k], genFloor(k, v).img())
+			as.floors[k] = append(as.floors[k], stylizeFloor(k, genFloor(k, v)).img())
 		}
 	}
 	as.glow = genGlow(96).img()
 	as.vignette = genVignette().img()
+	as.dark = ebiten.NewImage(screenW, screenH)
 	as.bag = genBodyBag().scaled(wk).outlinedSel(0.45).img()
 	as.heli = genHeli().scaled(wk).outlinedSel(0.45).img()
 	as.heliOX, as.heliOY = math.Round(41*wk+1), math.Round(34*wk+1)
+	liv := [6][3]uint32{{0xdcdce8, 0x2a4a9a, 0}, {0x20202c, 0x5a2a9a, 1}, {0x5a6a3a, 0x2c3a1c, 2}, {0x30323a, 0x20222a, 3}, {0xf4f4f8, 0xd02a5a, 4}, {0xf8f8fc, 0xd02828, 5}}
+	for i, l := range liv {
+		as.heliU[i] = genHeliPal(l[0], l[1], int(l[2])).scaled(wk).outlinedSel(0.45).img()
+	}
 	as.tank = genTank().scaled(1.5).outlinedSel(0.45).img()
 	as.ufo = genUFO().scaled(1.5).outlinedSel(0.45).img()
 	as.cuffs = genCuffs().scaled(1.5).img()
@@ -453,6 +643,7 @@ func newGame(mute bool) *Game {
 				as.bag = oa.Frames[0].img()
 			case "heli":
 				as.heli = oa.Frames[0].img()
+				as.heliU = [6]*ebiten.Image{}
 				as.heliOX, as.heliOY = float64(oa.Meta.AnchorX), float64(oa.Meta.AnchorY)
 			case "tank":
 				as.tank = oa.Frames[0].img()
@@ -471,31 +662,61 @@ func newGame(mute bool) *Game {
 }
 
 func (g *Game) loadLevel(i int) {
+	g.bankPoints()
+	g.banked = false
+	g.applyShop()
 	g.levelIdx = i
 	def := levelDefs[i]
+	nickRNG, nickUsed = g.rng, map[string]bool{}
 	g.lvl = buildLevel(def)
+	if nd := g.planBand(def); nd != nil {
+		def = nd
+		g.lvl = buildLevel(def)
+	}
 	g.renderBG()
 	g.time = 0
-	g.p = &Player{pos: def.Start, dir: DirUp, cs: g.as.playerCS, stamina: 6, style: g.rng.Intn(4)}
+	g.p = &Player{pos: def.Start, dir: DirUp, cs: g.as.playerCS, stamina: g.perkStamina, style: g.rng.Intn(4)}
 	g.guests, g.guards, g.cops, g.veh, g.bodies, g.decals, g.parts, g.amb, g.wrecks = nil, nil, nil, nil, nil, nil, nil, nil, nil
+	g.wreckOut, g.fireTruck, g.fireCrew, g.fireWait = nil, nil, nil, 0
+	g.techCaller, g.techVan, g.techCrew, g.techWait, g.techScanT = nil, nil, nil, 0, 0
+	g.evManual, g.evManualAt = 0, -999
+	g.pwEvAt, g.pwFamAt = -999, -999
 	g.ambT = 6 + g.rng.Float64()*10
+	if g.lvl.Def.Highway {
+		g.ambT = 0.5
+	}
+	g.towT = 20 + g.rng.Float64()*15
 	g.spawnAnimals()
 	g.wanted, g.kills = 0, 0
-	g.policeCalled, g.pendingCar, g.pendingAmb, g.ambCalled = false, -1, -1, false
+	g.policeCalled, g.pendingCar, g.pendingAmb, g.ambCalled, g.ambCount = false, -1, -1, false, 0
 	g.points, g.titleT = 0, 4.5
 	g.callerGuest, g.callerGuard, g.suspect = nil, nil, nil
 	g.murderT = 80 + g.rng.Float64()*80
-	g.slasher, g.slasherDone, g.slasherT = nil, false, 55+g.rng.Float64()*75
-	g.backupCalled, g.pendingBackup = false, -1
+	g.slasher, g.slasherDone, g.slasherT, g.slasherN = nil, false, 28+g.rng.Float64()*40, 0
 	g.streakT, g.streaked = 55+g.rng.Float64()*90, false
-	g.respKind, g.swatKills = 0, 0
+	g.train, g.trainT = nil, 10+g.rng.Float64()*14
+	if fastEv {
+		g.trainT = 2
+	}
+	g.cheerT, g.cheerGroup, g.cheerGroups = 20+g.rng.Float64()*50, nil, 0
+	if g.rng.Float64() < 0.35 {
+		g.cheerT = 1e9 // not every party has cheerleaders
+	}
+	g.trails, g.tankN = nil, 0
+	g.events, g.eventT = nil, g.time+45+g.rng.Float64()*45
+	g.respKind, g.swatKills = unitPolice, 0
+	g.pendingUnit = -1
+	g.stars, g.starsDecayT = 0, 0
+	g.locatedN, g.starFloor = 0, 0
+	g.handSat, g.handGod = false, false
+	g.musicMode = ""
 	g.djDead, g.songIdx, g.nextSong = false, 0, 70+g.rng.Float64()*40
 	g.arrivals, g.arrivalT, g.elevators = 0, 40+g.rng.Float64()*30, nil
 	if fastEv {
 		g.slasherT, g.arrivalT = 6, 14
 		g.ambT = 3
 	}
-	g.msg, g.msgT, g.shake, g.flash = "", 0, 0, 0
+	g.msgs, g.shake, g.flash = nil, 0, 0
 	for k := 0; k < def.Guests*14/10; k++ {
 		var pos Vec
 		for tries := 0; tries < 40; tries++ {
@@ -504,11 +725,12 @@ func (g *Game) loadLevel(i int) {
 				break
 			}
 		}
-		gu := &Guest{pos: pos, dir: Dir(g.rng.Intn(4)), cs: g.newGuestCS(), style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: g.rng.Float64() * 3, role: k % 2}
+		cs, name := g.newGuestCS()
+		gu := &Guest{pos: pos, dir: Dir(g.rng.Intn(4)), cs: cs, name: name, style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: g.rng.Float64() * 3, role: k % 2}
 		g.guests = append(g.guests, gu)
 	}
 	for _, pf := range def.Performers {
-		cs := g.newGuestCS()
+		cs, name := g.newGuestCS()
 		if g.store == nil || (len(g.store.Chars["people"])+len(g.store.Chars["special_people"])) == 0 {
 			spec := genericSpec(g.rng)
 			spec.Female = false
@@ -519,9 +741,15 @@ func (g *Game) loadLevel(i int) {
 			if pf.Role == "sing" && def.Title == "MIAMI BEACH" {
 				spec = presetElvis(g.rng)
 			}
-			cs = newCharSet(&spec)
+			cs, name = newCharSet(&spec), nameFromSpec(&spec)
 		}
-		gu := &Guest{pos: pf.Pos, dir: pf.Dir, cs: cs, perf: pf.Role, state: gPerform, role: g.rng.Intn(2)}
+		if m := g.stageMember(pf.Role); m != nil {
+			if f := presetByName(m.slug); f != nil {
+				spec := f(g.rng)
+				cs, name = newCharSet(&spec), nameFromSpec(&spec)
+			}
+		}
+		gu := &Guest{pos: pf.Pos, dir: pf.Dir, cs: cs, name: name, perf: pf.Role, state: gPerform, role: g.rng.Intn(2), keep: true}
 		g.guests = append(g.guests, gu)
 	}
 	for k, route := range def.Guards {
@@ -539,18 +767,49 @@ func (g *Game) loadLevel(i int) {
 		sg := &Guard{pos: route[len(route)-1], cs: g.as.specialGuardCS[g.rng.Intn(len(g.as.specialGuardCS))], route: route, ri: 0, state: gdWait, timer: g.rng.Float64(), home: route[0], leash: 220, special: true}
 		g.guards = append(g.guards, sg)
 	}
+	g.addLifeguards()
+	g.spawnHippies()
+	g.spawnWally()
+	g.spawnStars()
+	g.planKids()
+	g.exhibitPlan, g.exhibited, g.exhibitT = g.rng.Float64() < 0.25, false, 35+g.rng.Float64()*70
+	if fastEv {
+		g.exhibitPlan, g.exhibitT = true, 8
+	}
+	g.scatterWeapons()
+	g.trimGuests()
 	g.total = len(g.guests) + len(g.guards)
 	g.cam = g.camTarget()
 }
 
 func (g *Game) startLevel(i int) {
 	g.loadLevel(i)
+	g.stat("played", 1)
 	g.mode = ModePlay
 	g.snd.StartMusic()
 	g.say(g.lvl.Def.Intro)
 }
 
-func (g *Game) say(s string) { g.msg, g.msgT = s, 4.5 }
+// startRandomLevel picks from the random-mode pool: everything after the
+// fixed campaign block (other venues, plus re-seeded campaign kinds). It
+// never gates on unlock progress.
+func (g *Game) startRandomLevel() {
+	n := len(levelDefs)
+	if n <= campaignN {
+		g.startLevel(g.rng.Intn(maxI(n, 1)))
+		return
+	}
+	g.startLevel(campaignN + g.rng.Intn(n-campaignN))
+}
+
+// say queues a short news line under the criminality stars. Up to 2 lines
+// show at once; older ones are dropped so newer news is never hidden.
+func (g *Game) say(s string) {
+	g.msgs = append(g.msgs, HudMsg{s, 4.5})
+	if len(g.msgs) > 2 {
+		g.msgs = g.msgs[len(g.msgs)-2:]
+	}
+}
 
 // aliveCount: guests and guards left to kill.
 func (g *Game) aliveCount() int {
@@ -577,6 +836,7 @@ func (g *Game) aliveCount() int {
 
 func (g *Game) Update() error {
 	g.tick++
+	g.updateToasts(1.0 / 60)
 	g.syncMusic()
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
@@ -607,23 +867,116 @@ func (g *Game) Update() error {
 	switch g.mode {
 	case ModeMenu:
 		g.time += 1.0 / 60
-		n := len(levelDefs)
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
-			g.menuSel = (g.menuSel + 1) % n
+		if g.menuMsgT > 0 {
+			g.menuMsgT -= 1.0 / 60
 		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
-			g.menuSel = (g.menuSel + n - 1) % n
+		g.bankPoints()
+		g.checkTrophies()
+		list := g.menuList()
+		rows := len(list)
+		g.konamiStep()
+		click := g.mouseMenu(func(mx, my float64) int {
+			for i := 0; i < rows; i++ {
+				if y := menuRowY(i, rows); mx >= 100 && mx <= 430 && my >= y-6 && my <= y+30 {
+					return i
+				}
+			}
+			return -1
+		}, &g.mainSel)
+		g.mainSel = clampI(g.mainSel, 0, rows-1)
+		if actDown.just() {
+			g.mainSel = (g.mainSel + 1) % rows
+		}
+		if actUp.just() {
+			g.mainSel = (g.mainSel + rows - 1) % rows
+		}
+		if actConfirm.just() || click {
+			switch list[g.mainSel] {
+			case menuDebug:
+				g.dbgSel = 0
+				g.mode = ModeDebug
+			case menuContinue:
+				g.menuSel = clampI(g.progress.Unlocked-1, 0, campaignN-1)
+				g.mode = ModeLevelSelect
+			case menuNewGame:
+				if g.hasProgress() {
+					g.confirmT, g.confirmSel = 0, 0
+					g.mode = ModeConfirm
+				} else {
+					g.startLevel(0)
+				}
+			case menuRandom:
+				g.startRandomLevel()
+			case menuShop:
+				g.shopTab, g.shopSel, g.shopScroll, g.shopMsg = 0, 0, 0, ""
+				g.mode = ModeShop
+			case menuTrophies:
+				g.trophySel, g.trophyScroll = 0, 0
+				g.mode = ModeTrophies
+			case menuSettings:
+				g.setSel, g.setCol, g.capturing = 0, 0, false
+				g.mode = ModeSettings
+			case menuQuit:
+				return ebiten.Termination
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
+			g.openEditor()
+		}
+	case ModeTrophies:
+		g.updateTrophies()
+	case ModeDebug:
+		g.time += 1.0 / 60
+		g.updateDebug()
+	case ModeConfirm:
+		g.updateConfirm()
+	case ModeShop:
+		g.updateShop()
+	case ModeSettings:
+		g.time += 1.0 / 60
+		g.updateSettings()
+	case ModeLevelSelect:
+		g.time += 1.0 / 60
+		rows := campaignN + 1 // the campaign slots + the fixed "ALEATORIO" row
+		click := g.mouseMenu(func(mx, my float64) int {
+			for i := 0; i < rows; i++ {
+				cx, y := levelColX[i/levelRowsPerCol], 118+float64(i%levelRowsPerCol)*34
+				if mx >= cx-112 && mx <= cx+112 && my >= y-8 && my <= y+24 {
+					return i
+				}
+			}
+			return -1
+		}, &g.menuSel)
+		if actDown.just() {
+			g.menuSel = (g.menuSel + 1) % rows
+		}
+		if actUp.just() {
+			g.menuSel = (g.menuSel + rows - 1) % rows
+		}
+		if actRight.just() || actLeft.just() {
+			step := levelRowsPerCol
+			if actLeft.just() {
+				step = rows - levelRowsPerCol%rows
+			}
+			g.menuSel = (g.menuSel + step) % rows // jump between the columns
 		}
 		for i, k := range []ebiten.Key{ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5, ebiten.Key6, ebiten.Key7, ebiten.Key8, ebiten.Key9} {
-			if i < n && inpututil.IsKeyJustPressed(k) {
+			if i < campaignN && i < g.progress.Unlocked && inpututil.IsKeyJustPressed(k) {
 				g.startLevel(i)
 			}
 		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-			g.startLevel(g.menuSel)
+		if actConfirm.just() || click {
+			if g.menuSel == campaignN {
+				g.startRandomLevel()
+			} else if g.menuSel < g.progress.Unlocked {
+				g.startLevel(g.menuSel)
+			}
+		}
+		if actBack.just() {
+			g.mode = ModeMenu
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyR) {
-			g.startLevel(g.rng.Intn(n))
+			g.startRandomLevel()
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyG) {
 			if g.baseN == 0 || g.baseN > len(levelDefs) {
@@ -634,28 +987,20 @@ func (g *Game) Update() error {
 			g.menuSel = len(levelDefs) - 1
 			g.startLevel(g.menuSel)
 		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
-			g.openEditor()
-		}
 		for _, gu := range g.guests {
 			g.updateGuest(gu, 1.0/60)
-		}
-		if !g.camFixed {
-			c := g.lvl.Def
-			g.cam = Vec{0, 0}
-			_ = c
 		}
 	case ModePlay:
 		g.updatePlay(1.0 / 60)
 	case ModeLevelDone:
 		g.time += 1.0 / 60
 		g.updateParticles(1.0 / 60)
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if actConfirm.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			g.startLevel(g.levelIdx + 1)
 		}
 	case ModeFinal:
 		g.time += 1.0 / 60
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		if actConfirm.just() || actBack.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			g.loadLevel(0)
 			g.mode = ModeMenu
 		}
@@ -669,10 +1014,10 @@ func (g *Game) Update() error {
 			gd.anim += 1.0 / 60 * 10
 		}
 		if g.time-g.endAt > 1.0 {
-			if inpututil.IsKeyJustPressed(ebiten.KeyR) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			if inpututil.IsKeyJustPressed(ebiten.KeyR) || actConfirm.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				g.startLevel(g.levelIdx)
 			}
-			if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			if actBack.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
 				if g.fromEditor {
 					g.fromEditor = false
 					g.openEditor()
@@ -726,8 +1071,16 @@ func (g *Game) runSelftest() {
 			fmt.Printf("slasher: %s state=%d hp=%d chainsaw=%v\n", s.name, s.state, s.hp, s.chainsaw)
 		}
 		fmt.Printf("guests=%d total=%d arrivals=%d veh=%d\n", len(g.guests), g.total, g.arrivals, len(g.veh))
-		fmt.Printf("selftest ok: level=%d time=%.1f left=%d cops=%v cars=%d guards=%v wanted=%.1f called=%v mode=%d bodies=%d states=%v msg=%q\n",
-			g.levelIdx, g.time, g.aliveCount(), cs, len(g.veh), gs, g.wanted, g.policeCalled, g.mode, len(g.bodies), st, g.msg)
+		lastMsg := ""
+		if n := len(g.msgs); n > 0 {
+			lastMsg = g.msgs[n-1].text
+		}
+		kinds := make([]int, len(g.cops))
+		for i, c := range g.cops {
+			kinds[i] = c.kind
+		}
+		fmt.Printf("selftest ok: level=%d time=%.1f left=%d cops=%v kinds=%v cars=%d guards=%v wanted=%.1f stars=%d respKind=%d pendingUnit=%d called=%v mode=%d bodies=%d states=%v msg=%q\n",
+			g.levelIdx, g.time, g.aliveCount(), cs, kinds, len(g.veh), gs, g.wanted, g.stars, g.respKind, g.pendingUnit, g.policeCalled, g.mode, len(g.bodies), st, lastMsg)
 		os.Exit(0)
 	}
 	if g.mode == ModePlay && g.tick%260 == 0 && g.aliveCount() > 8 {
@@ -769,8 +1122,11 @@ func (g *Game) runSelftest() {
 
 func (g *Game) updatePlay(dt float64) {
 	g.time += dt
-	if g.msgT > 0 {
-		g.msgT -= dt
+	for i := range g.msgs {
+		g.msgs[i].t -= dt
+	}
+	for len(g.msgs) > 0 && g.msgs[0].t <= 0 {
+		g.msgs = g.msgs[1:]
 	}
 	if g.shake > 0 {
 		g.shake -= dt
@@ -778,7 +1134,7 @@ func (g *Game) updatePlay(dt float64) {
 	if g.flash > 0 {
 		g.flash -= dt
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if actBack.just() {
 		if g.fromEditor {
 			g.fromEditor = false
 			g.openEditor()
@@ -798,6 +1154,19 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateSlasher(dt)
 	g.updateArrivals(dt)
 	g.updateStreaker()
+	g.updateBubbles(dt)
+	if g.dbgSnake && g.time > 0.3 {
+		g.scatterSnake()
+		g.dbgSnake = false
+		g.dbgSnakeOn = true
+	}
+	if g.dbgCheer && g.time > 1 {
+		g.dbgCheer, g.cheerT = false, 0
+	}
+	g.updateCheer()
+	g.updateTrains(dt)
+	g.updateExhibitionists()
+	g.updateEvents(1.0 / 60)
 	for _, gu := range g.guests {
 		g.updateGuest(gu, dt)
 	}
@@ -819,12 +1188,32 @@ func (g *Game) updatePlay(dt float64) {
 		g.titleT -= dt
 	}
 	g.updateProps(dt)
+	g.checkTrophies()
 	g.maybeAmbulance()
-	g.maybeBackup()
+	g.updateStars(dt)
 	if !g.seenNow && g.wanted > 0 {
 		g.wanted -= dt
+		if !g.lawActive() {
+			g.wanted = 0 // nobody is left on the scene looking for you: the cuffs come off
+		}
 	}
 	g.updateVehicles(dt)
+	g.updateFire(dt)
+	g.updateTech(dt)
+	g.updateKidArrivals()
+	if g.dbgCops && g.time > 4 {
+		g.dbgCops = false
+		g.raisePolice(g.p.pos, true)
+	}
+	if g.dbgRing > 0 && g.time > 2 {
+		for _, gu := range g.guests {
+			if !gu.out() {
+				gu.state, gu.timer, gu.tech = gCall, 30, g.dbgRing == 2
+				break
+			}
+		}
+		g.dbgRing = 0
+	}
 	g.updateAmbient(dt)
 	g.updateAnimals(dt)
 	g.updateParticles(dt)
@@ -874,7 +1263,7 @@ func (g *Game) updatePlayer(dt float64) {
 		p.moving = false
 		return
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+	if actInteract.just() {
 		g.interact()
 	}
 	if p.hidden {
@@ -882,22 +1271,30 @@ func (g *Game) updatePlayer(dt float64) {
 		return
 	}
 	var dx, dy float64
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+	if actLeft.held() {
 		dx--
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+	if actRight.held() {
 		dx++
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+	if actUp.held() {
 		dy--
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+	if actDown.held() {
 		dy++
 	}
+	if dx == 0 && dy == 0 {
+		dx, dy = padAxis()
+	}
 	p.moving = dx != 0 || dy != 0
-	if inpututil.IsKeyJustPressed(ebiten.KeyF) && p.carrying == nil && p.danceT <= 0 {
+	if actEvent.just() {
+		g.manualEvent()
+	}
+	g.updatePowers()
+	if (actDance.just()) && p.carrying == nil && p.danceT <= 0 {
 		p.danceT = 4.5
 		g.say("¡A bailar!")
+		g.stat("dance", 1)
 		g.danceRoll()
 	}
 	if p.danceT > 0 {
@@ -909,15 +1306,19 @@ func (g *Game) updatePlayer(dt float64) {
 			return
 		}
 	}
-	speed := 66.0
+	speed := 46.0
 	p.running = false
-	running := ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
+	running := actRun.held()
 	if p.moving && running && p.stamina > 0 {
-		speed = 106
+		speed = 74
 		p.running = true
 		p.stamina -= dt
-	} else if p.stamina < 6 {
+	} else if p.stamina < g.perkStamina {
 		p.stamina += dt * 0.9
+	}
+	speed *= g.perkSpeed
+	if g.dbg.speed {
+		speed *= 2
 	}
 	if p.carrying != nil {
 		speed *= 0.75
@@ -925,6 +1326,12 @@ func (g *Game) updatePlayer(dt float64) {
 	if g.lvl.InPool(p.pos) {
 		speed *= 0.6
 		p.running = false
+	}
+	for _, r := range g.lvl.Def.Slow {
+		if r.Has(p.pos.X, p.pos.Y) {
+			speed *= 0.55
+			break
+		}
 	}
 	if p.moving {
 		l := math.Hypot(dx, dy)
@@ -940,17 +1347,17 @@ func (g *Game) updatePlayer(dt float64) {
 		} else {
 			p.dir = DirDown
 		}
-		nx := p.pos.X + dx*speed*dt
+		nx := p.pos.X + dx*speed*paceK*dt
 		if !g.lvl.SolidP(nx, p.pos.Y) {
 			p.pos.X = nx
 		}
-		ny := p.pos.Y + dy*speed*dt
+		ny := p.pos.Y + dy*speed*paceK*dt
 		if !g.lvl.SolidP(p.pos.X, ny) {
 			p.pos.Y = ny
 		}
 		p.anim += dt * stridePhase(speed)
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyJ) {
+	if actAttack.just() {
 		g.stab()
 	}
 }
@@ -958,6 +1365,26 @@ func (g *Game) updatePlayer(dt float64) {
 // danceRoll: nearby people react to the player dancing.
 func (g *Game) danceRoll() {
 	p := g.p
+	// dancing again and again in the same place ends up annoying somebody
+	if dist(p.pos, g.danceSpot) < 70 && g.time-g.danceLast < 90 {
+		g.danceCount++
+	} else {
+		g.danceCount = 1
+	}
+	g.danceSpot, g.danceLast = p.pos, g.time
+	if g.danceCount >= 4 {
+		var best *Guest
+		for _, gu := range g.guests {
+			if !gu.out() && gu.perf == "" && gu.state != gPunch && dist(gu.pos, p.pos) < 170 && (best == nil || dist(gu.pos, p.pos) < dist(best.pos, p.pos)) {
+				best = gu
+			}
+		}
+		if best != nil {
+			g.danceCount = 0
+			best.icon, best.iconT = g.line(guestCategory(best), "dance_annoyed"), 2
+			best.state, best.timer = gPunch, 12
+		}
+	}
 	for _, gu := range g.guests {
 		if gu.out() || dist(gu.pos, p.pos) > 95 || !g.lvl.LOS(gu.pos, p.pos) {
 			continue
@@ -969,7 +1396,7 @@ func (g *Game) danceRoll() {
 		}
 		r := g.rng.Float64()
 		switch {
-		case r < 0.55:
+		case r < 0.40:
 			side := 1.0
 			if g.rng.Intn(2) == 0 {
 				side = -1
@@ -977,14 +1404,21 @@ func (g *Game) danceRoll() {
 			t := Vec{p.pos.X + side*(22+g.rng.Float64()*10), p.pos.Y + (g.rng.Float64()-0.5)*14}
 			gu.path = g.lvl.Path(gu.pos, t)
 			gu.state, gu.danceEnd = gDanceWith, g.time+p.danceT+2+g.rng.Float64()*3
-			gu.icon, gu.iconT = "WOO!", 1.5
-		case r < 0.80:
+			gu.icon, gu.iconT = g.line(guestCategory(gu), "dance_join"), 1.5
+		case r < 0.55:
 		case r < 0.97:
-			gu.icon, gu.iconT = "NAH", 1.6
-			gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
+			// somebody who would rather not watch walks off to another zone
+			gu.icon, gu.iconT = g.line(guestCategory(gu), "dance_leave"), 1.6
+			far := g.lvl.RandomRoam(g.rng)
+			for k := 0; k < 6; k++ {
+				if c := g.lvl.RandomRoam(g.rng); dist(c, p.pos) > dist(far, p.pos) {
+					far = c
+				}
+			}
+			gu.path = g.lvl.Path(gu.pos, far)
 			gu.state, gu.next, gu.dur = gGoto, gIdle, 1
 		default:
-			gu.icon, gu.iconT = "HEY!", 2
+			gu.icon, gu.iconT = g.line(guestCategory(gu), "dance_annoyed"), 2
 			gu.state, gu.timer = gPunch, 12
 		}
 	}
@@ -999,7 +1433,7 @@ func (g *Game) stab() {
 		g.say("Suelta el cuerpo primero (E)")
 		return
 	}
-	p.cooldown = 0.45
+	p.cooldown = 0.45 * g.perkCool
 	p.stabT = 0.18
 	var bestG *Guest
 	var bestD *Guard
@@ -1024,7 +1458,22 @@ func (g *Game) stab() {
 		g.hitSlasher()
 		return
 	}
+	if g.canKillCops() {
+		if c := g.nearestCop(p.pos, math.Min(bd, 28)); c != nil {
+			g.stabCop(c)
+			return
+		}
+	}
+	if an, ad := g.nearAnimal(p.pos, math.Min(bd, 24)); an != nil && ad < bd {
+		g.killAnimal(an)
+		return
+	}
 	switch {
+	case bestG != nil && (bestG.state == gZombie || bestG.armed):
+		// putting down a zombie is not a crime: no witnesses, no heat
+		g.credit, g.noHeat = true, true
+		g.killGuest(bestG, false)
+		g.credit, g.noHeat = false, false
 	case bestG != nil:
 		g.killGuest(bestG, true)
 	case bestD != nil:
@@ -1033,7 +1482,7 @@ func (g *Game) stab() {
 }
 
 func (g *Game) spawnBody(pos Vec, cs *CharSet, dir Dir) {
-	g.bodies = append(g.bodies, &Body{pos: pos, cs: cs, dir: dir, fallT: 0.45})
+	g.bodies = append(g.bodies, &Body{pos: pos, cs: cs, dir: dir, fallT: 0.45, byPlayer: (g.killByPlayer || g.credit) && !g.noHeat})
 	g.decals = append(g.decals, Decal{pos: pos, kind: 0, r: 9 + g.rng.Float64()*4})
 	g.burst(Vec{pos.X, pos.Y - 14}, 18, 80, rgb(0xb01818), 0.7, 2, 220)
 }
@@ -1048,9 +1497,19 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 		g.djDead = true
 		g.songIdx = g.rng.Intn(5)
 		g.nextSong = g.time + 55 + g.rng.Float64()*30
-		g.say("¡Han matado al DJ! Ahora suena punk rock")
+		g.sayNews("dj_dead", nil)
+		g.say("Ve a la cabina del DJ (E) para cambiar la canción")
+	}
+	g.killByPlayer = byPlayer
+	if byPlayer {
+		g.stat("kills", 1)
+		if gu.cs != nil && gu.cs.Spec != nil && isKidSlug(gu.cs.Spec.Name) {
+			g.stat("kill_"+gu.cs.Spec.Name, 1)
+		}
 	}
 	g.spawnBody(gu.pos, gu.cs, gu.dir)
+	g.bodies[len(g.bodies)-1].label = guestLabel(gu)
+	g.killByPlayer = false
 	if gu.partner != nil && gu.partner.partner == gu {
 		gu.partner.partner = nil
 		if gu.partner.state == gChat || gu.partner.state == gKiss || gu.partner.state == gWaitP {
@@ -1062,6 +1521,7 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 		g.kills++
 		g.points += 30
 		g.witness()
+		g.sayNews("kill_player", map[string]string{"victim": guestLabel(gu)})
 	} else {
 		g.snd.Play("thud")
 		if g.credit {
@@ -1077,7 +1537,11 @@ func (g *Game) killGuard(gd *Guard) {
 	}
 	gd.dead = true
 	gd.icon = ""
+	g.stat("guards", 1)
+	g.killByPlayer = true
 	g.spawnBody(gd.pos, gd.cs, gd.dir)
+	g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
+	g.killByPlayer = false
 	g.snd.Play("stab")
 	g.kills++
 	g.points += 50
@@ -1089,6 +1553,22 @@ func (g *Game) checkDone() {
 	if g.aliveCount() == 0 && g.mode == ModePlay {
 		g.endTime = g.time
 		g.snd.Play("win")
+		g.bankPoints()
+		g.unlockNext()
+		g.stat("wins", 1)
+		if !g.policeCalled {
+			g.stat("nopolice", 1)
+		}
+		if g.time < 180 {
+			g.stat("fast", 1)
+		}
+		if g.time > 600 {
+			g.stat("long", 1)
+		}
+		if g.levelIdx < campaignN && g.progress.Stats[fmt.Sprintf("won_%d", g.levelIdx)] == 0 {
+			g.stat(fmt.Sprintf("won_%d", g.levelIdx), 1)
+			g.stat("distinct", 1)
+		}
 		if g.levelIdx+1 < len(levelDefs) {
 			g.mode = ModeLevelDone
 		} else {
@@ -1098,10 +1578,12 @@ func (g *Game) checkDone() {
 }
 
 func (g *Game) lose(reason string) {
-	if g.mode != ModePlay || g.god {
+	if g.mode != ModePlay || g.invulnerable() {
 		return
 	}
 	g.mode = ModeLose
+	g.stat("deaths", 1)
+	g.bankPoints()
 	g.loseReason = reason
 	g.endTime = g.time
 	g.endAt = g.time
@@ -1110,7 +1592,7 @@ func (g *Game) lose(reason string) {
 }
 
 func (g *Game) die(reason string) {
-	if g.god {
+	if g.invulnerable() {
 		return
 	}
 	g.p.dead = true
@@ -1157,12 +1639,12 @@ func (g *Game) witness() {
 		}
 	}
 	for _, gd := range g.guards {
-		if !gd.dead && g.sees(gd.pos, gd.dir, p.pos, guardRange*1.4, -0.1) {
+		if !gd.dead && g.sees(gd.pos, gd.dir, p.pos, guardRange*1.4, guardDot) {
 			gd.sight = 99
 		}
 	}
 	for _, c := range g.cops {
-		if g.sees(c.pos, c.dir, p.pos, copRange, copDot) {
+		if !c.medic && c.state != cLeave && g.sees(c.pos, c.dir, p.pos, copRange, copDot) {
 			g.wanted = math.Max(g.wanted, 45)
 		}
 	}
@@ -1191,7 +1673,8 @@ func (g *Game) alarm(gu *Guest, txt string) {
 }
 
 func (g *Game) callerAvailable() bool {
-	if g.policeCalled && g.copOnScene() {
+	// once the police have been called (even if still on their way) nobody calls again
+	if g.policeCalled || g.pendingCar >= 0 || g.pendingUnit >= 0 {
 		return false
 	}
 	if gu := g.callerGuest; gu != nil && !gu.out() {
@@ -1209,7 +1692,43 @@ func (g *Game) becomeCaller(gu *Guest) {
 		return
 	}
 	g.callerGuest = gu
+	g.claimBodies(gu)
 	g.alarm(gu, "!?")
+}
+
+// reporterActive: this guest is on their way to tell the police.
+func (g *Game) reporterActive(gu *Guest) bool {
+	if gu == nil || gu.out() {
+		return false
+	}
+	if gu.tech {
+		return false
+	}
+	switch gu.state {
+	case gReport, gToPhone, gCall:
+		return true
+	}
+	return gu == g.callerGuest
+}
+
+// reporters counts guests currently going to warn the police (max 2 at a time).
+func (g *Game) reporters() int {
+	n := 0
+	for _, gu := range g.guests {
+		if g.reporterActive(gu) {
+			n++
+		}
+	}
+	return n
+}
+
+// claimBodies: the bodies this guest knows are now "being reported" by them; nobody else needs to go.
+func (g *Game) claimBodies(gu *Guest) {
+	for _, b := range g.bodies {
+		if !b.reported && !b.carried && g.knows(gu, b) && (b.informer == nil || !g.reporterActive(b.informer)) {
+			b.informer = gu
+		}
+	}
 }
 
 // --- interaction -------------------------------------------------------------
@@ -1242,6 +1761,7 @@ func (g *Game) interact() {
 			} else {
 				cs = append(cs, candidate{d, func() {
 					p.hidden, p.hideProp = true, pr
+					g.stat("hide", 1)
 					p.pos = Vec{pr.X, pr.Y - 4}
 					g.say("Escondido. Pulsa E para salir")
 				}})
@@ -1249,6 +1769,7 @@ func (g *Game) interact() {
 		case k.Phone && !pr.used && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				pr.used = true
+				g.stat("cuts", 1)
 				g.snd.Play("spark")
 				g.say("Has cortado el cable del teléfono")
 			}})
@@ -1262,6 +1783,16 @@ func (g *Game) interact() {
 				g.snd.Play("splash")
 				g.say("Has envenenado el ponche")
 			}})
+		case (pr.Name == "closet" || pr.Name == "wardrobe") && p.carrying == nil:
+			cs = append(cs, candidate{d, func() {
+				if g.wanted > 0 {
+					g.wanted, g.seenNow = 0, false
+					g.say("Te has cambiado de ropa. Pierden tu pista")
+					g.snd.Play("spark")
+				} else {
+					g.say("Un armario: puedes cambiarte aquí si te buscan")
+				}
+			}})
 		case k.Trap != "" && !pr.used && pr.armT == 0 && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				pr.armT = 3
@@ -1270,6 +1801,42 @@ func (g *Game) interact() {
 				}
 				g.say("Trampa activada. ¡Aléjate!")
 			}})
+		}
+	}
+	// the DJ booth: once the DJ is dead anybody can change the song
+	if p.carrying == nil {
+		var booth []Vec
+		for _, pr := range g.lvl.Props {
+			if pr.Name == "dj" {
+				booth = append(booth, Vec{pr.X, pr.Y})
+			}
+		}
+		for _, pf := range g.lvl.Def.Performers {
+			if pf.Role == "dj" {
+				booth = append(booth, pf.Pos)
+			}
+		}
+		for _, b := range booth {
+			if d := dist(p.pos, b); d < 44 {
+				cs = append(cs, candidate{d - 6, func() {
+					if !g.djDead {
+						g.say("El DJ no te deja tocar sus discos")
+						return
+					}
+					g.skipSong = true
+					g.snd.Play("spark")
+					g.say("Cambias la canción en la cabina del DJ")
+				}})
+				break
+			}
+		}
+	}
+	if p.carrying == nil {
+		for _, w := range g.lvl.Def.Windows {
+			if d := distRect(p.pos, w); d < 14 {
+				w := w
+				cs = append(cs, candidate{d - 2, func() { g.jumpWindow(w) }})
+			}
 		}
 	}
 	if p.carrying != nil {
@@ -1362,6 +1929,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 		for _, gu := range g.guests {
 			if !gu.out() && dist(gu.pos, centre) < 64 {
 				g.killGuest(gu, false)
+				g.stat("traps", 1)
 			}
 		}
 		for _, gd := range g.guards {
@@ -1369,6 +1937,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 				gd.dead = true
 				g.points += 50
 				g.spawnBody(gd.pos, gd.cs, gd.dir)
+				g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
 			}
 		}
 		if !g.p.dead && dist(g.p.pos, centre) < 58 {
@@ -1392,6 +1961,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 			if !gu.out() && g.lvl.InPool(gu.pos) {
 				g.burst(Vec{gu.pos.X, gu.pos.Y - 12}, 10, 70, rgb(0xd0f4ff), 0.4, 2, 0)
 				g.killGuest(gu, false)
+				g.stat("traps", 1)
 			}
 		}
 		g.checkDone()
@@ -1470,6 +2040,26 @@ func (g *Game) findPartner(gu *Guest) *Guest {
 
 func (g *Game) guestPick(gu *Guest) {
 	d := g.lvl.Def
+	if l := gu.leader; l != nil && !l.out() && gu.need < 1 && g.rng.Float64() < 0.8 {
+		// the group sticks together behind its leader
+		gu.path = g.lvl.Path(gu.pos, g.lvl.NearestFree(Vec{l.pos.X + g.rng.Float64()*50 - 25, l.pos.Y + g.rng.Float64()*30 - 10}))
+		gu.state, gu.next, gu.dur = gGoto, gIdle, 2+g.rng.Float64()*2
+		return
+	}
+	if gu.need >= 1 {
+		// "I really have to go": run to the toilet, or relieve themselves where
+		// they stand when the venue has none
+		gu.need = 0
+		gu.hurry, gu.hurryT = true, 0
+		gu.icon, gu.iconT = []string{"WC!", "¡NO AGUANTO!", "¡BAÑO!"}[g.rng.Intn(3)], 2.5
+		if target, ok := g.poiRandom("toilet"); ok {
+			gu.path = g.lvl.Path(gu.pos, target)
+			gu.state, gu.next, gu.dur = gGoto, gToilet, 6+g.rng.Float64()*4
+			return
+		}
+		g.accident(gu, g.rng.Float64() < 0.25)
+		return
+	}
 	if gu.drunk >= 3 {
 		gu.drunk = 0
 		if g.rng.Float64() < 0.5 {
@@ -1517,8 +2107,27 @@ func (g *Game) guestPick(gu *Guest) {
 	case r < 0.84 && d.Swim && len(g.lvl.Pools) > 0:
 		target, ok = g.lvl.RandomIn(g.rng, g.lvl.Pools[g.rng.Intn(len(g.lvl.Pools))].Grow(-8)), true
 		next, dur = gSwim, 8+g.rng.Float64()*12
+	case d.Highway && r >= 0.62 && r < 0.70:
+		// the motorway is the dance floor
+		target, ok = g.lvl.RandomIn(g.rng, d.Road.Grow(-14)), true
+		next, dur = gDance, 6+g.rng.Float64()*8
 	case r >= 0.90:
 		g.guestFun(gu)
+		return
+	case r >= 0.76 && r < 0.80 && d.Police == "car":
+		// cross the street to the other pavement; most people look first
+		cy := math.Min(d.CarFrom.Y+g.laneOff()+10, d.H-12)
+		if g.rng.Float64() < 0.8 && g.trafficNear(Vec{gu.pos.X, cy}) {
+			break
+		}
+		if path := g.lvl.Path(gu.pos, Vec{gu.pos.X + g.rng.Float64()*80 - 40, cy}); path != nil {
+			gu.path = path
+			gu.state, gu.next, gu.dur = gGoto, gIdle, 3
+			return
+		}
+	case r >= 0.80:
+		// some people just stand around, calm, watching the party
+		gu.state, gu.timer, gu.path = gIdle, 14+g.rng.Float64()*26, nil
 		return
 	}
 	if !ok {
@@ -1528,13 +2137,32 @@ func (g *Game) guestPick(gu *Guest) {
 	gu.state, gu.next, gu.dur = gGoto, next, dur
 }
 
-const guestSpeed = 26.0
+const guestSpeed = 21.0
 
 func (g *Game) updateGuest(gu *Guest, dt float64) {
+	if !gu.quirkInit {
+		gu.quirkInit = true
+		if gu.cs != nil && gu.cs.Spec != nil {
+			gu.quirk = quirkOf(gu.cs.Spec.Name)
+		}
+	}
+	if gu.quirk != "" {
+		g.updateQuirk(gu, dt)
+	}
+	g.updateGreeting(gu, dt)
 	if gu.out() {
 		return
 	}
 	gu.moving = false
+	if gu.bitten > 0 {
+		g.venom(gu, dt)
+		if gu.out() {
+			return
+		}
+	}
+	if gu.state != gToilet && (gu.wcInit || gu.inside != nil || gu.queue != nil) {
+		gu.wcInit, gu.inside, gu.queue = false, nil, nil
+	}
 	if gu.stabT > 0 {
 		gu.stabT -= dt
 	}
@@ -1550,10 +2178,22 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			g.credit = true
 			g.killGuest(gu, false)
 			g.credit = false
+			g.stat("poison", 1)
+			g.sayNews("kill", map[string]string{"actor": "El veneno", "victim": guestLabel(gu)})
 			return
 		}
 	}
-	if g.mode == ModePlay {
+	g.maybePickWeapon(gu)
+	if g.mode == ModePlay && gu.iconT <= 0 && gu.perf == "" && (gu.state == gIdle || gu.state == gDance || gu.state == gLounge || gu.state == gGoto) && g.rng.Float64() < dt*0.003 {
+		gu.icon, gu.iconT = g.chatterLine(gu), 2.8
+	}
+	if gu.chant && gu.icon == "" && g.rng.Float64() < 0.0015 && !gu.out() {
+		gu.icon, gu.iconT = chants[g.rng.Intn(len(chants))], 2.5
+	}
+	if gu.state != gSleep && gu.perf == "" {
+		gu.need += dt * (0.006 + 0.004*gu.off/6)
+	}
+	if g.mode == ModePlay && gu.state != gZombie && gu.state != gLift {
 		gu.scanT -= dt
 		if gu.scanT <= 0 {
 			gu.scanT = 0.3
@@ -1569,18 +2209,33 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			if g.rng.Float64() < 0.5 {
 				gu.dir = Dir(g.rng.Intn(4))
 			}
+			if gu.icon == "" && !g.p.hidden && !g.p.dead && dist(gu.pos, g.p.pos) < 40 && g.rng.Float64() < 0.3 {
+				gu.icon, gu.iconT = g.line(guestCategory(gu), "greet"), 1.3
+			}
 		}
 		if gu.timer <= 0 {
 			g.guestPick(gu)
 		}
 	case gGoto:
-		if gu.walk(guestSpeed, dt) {
+		spd := guestSpeed
+		if gu.hurry {
+			spd = guestRunSpeed
+			gu.hurryT += dt
+			if gu.hurryT > 2.5 && g.rng.Float64() < dt*0.05 {
+				g.accident(gu, g.rng.Float64() < 0.4)
+				break
+			}
+		}
+		if gu.walk(spd, dt) {
+			gu.hurry = false
 			gu.state, gu.timer = gu.next, gu.dur
 			switch gu.state {
 			case gDance:
 				gu.dir = DirDown
 			case gDrink, gToilet, gLounge:
 				gu.dir = DirUp
+			case gFun:
+				gu.dir = DirDown
 			}
 		}
 	case gChatGo:
@@ -1660,14 +2315,28 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		if gu.timer <= 0 {
 			g.snd.Play("glug")
 			gu.drunk++
+			poisoned := false
 			for _, pr := range g.lvl.Props {
 				if pr.K.Poison && pr.armT > 0 && distRect(gu.pos, pr.Foot) < 30 && gu.poison <= 0 {
 					gu.poison = 4 + g.rng.Float64()*5
+					poisoned = true
 				}
 			}
+			if !poisoned {
+				gu.icon, gu.iconT = g.line(guestCategory(gu), "drink"), 1.3
+			}
 			gu.state, gu.timer = gIdle, 1.5
+			// too much to drink: they feel it
+			if gu.drunk >= 2 && g.rng.Float64() < 0.3 {
+				gu.drunk = 0
+				gu.state, gu.timer = gVomit, 2.4
+				gu.icon, gu.iconT = "BLEH", 2.4
+			}
+			gu.need += 0.18
 		}
-	case gToilet, gLounge:
+	case gToilet:
+		g.updateToilet(gu, dt)
+	case gLounge:
 		gu.timer -= dt
 		if gu.timer <= 0 {
 			gu.state, gu.timer = gIdle, 0
@@ -1696,7 +2365,8 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		if gu.timer <= 0 {
 			if g.callerGuest == gu {
 				g.guestReact(gu)
-			} else if c := g.nearCop(gu.pos); c != nil && (gu.sawKiller || gu.sawSlash || g.knowsAny(gu)) {
+			} else if c := g.nearCop(gu.pos); c != nil && g.reporters() < 2 && (gu.sawKiller || gu.sawSlash || g.knowsAny(gu)) {
+				g.claimBodies(gu)
 				gu.state, gu.reportTo, gu.repath = gReport, c, 0
 				gu.timer = 14
 				gu.icon, gu.iconT = "!!", 1.2
@@ -1705,23 +2375,46 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			}
 		}
 	case gToPhone:
+		if gu.tech {
+			if gu.walk(guestRunSpeed, dt) {
+				gu.state, gu.timer = gCall, 2.5
+				gu.dir = DirUp
+				gu.icon, gu.iconT = "¡Teléfono roto!", 3
+			}
+			break
+		}
 		if gu.walk(guestRunSpeed, dt) {
 			if g.phoneSpot(gu.pos) == nil {
 				g.guestFlee(gu)
 			} else {
 				gu.state, gu.timer = gCall, 2.5
 				gu.dir = DirUp
-				gu.icon, gu.iconT = "911", 3
+				gu.icon, gu.iconT = g.line(guestCategory(gu), "calling_police"), 3
 			}
 		}
 	case gFlee:
 		if gu.walk(guestRunSpeed, dt) {
-			gu.state, gu.timer = gCall, 2.5
-			gu.icon, gu.iconT = "911", 3
+			// every line is cut: there is nobody to call
+			if g.callerGuest == gu {
+				g.callerGuest = nil
+			}
+			g.scare(gu)
+			gu.icon, gu.iconT = "¡Sin línea!", 2
 		}
 	case gCall:
 		gu.timer -= dt
 		if gu.timer <= 0 {
+			if gu.tech {
+				gu.tech = false
+				if g.techCaller == gu {
+					g.techCaller = nil
+					if len(g.cutPhones()) > 0 && !g.techBusy() {
+						g.dispatchTech()
+					}
+				}
+				gu.state, gu.timer = gIdle, 3
+				break
+			}
 			if g.callerGuest == gu {
 				g.callerGuest = nil
 				g.callPolice(gu, gu.sawKiller)
@@ -1739,7 +2432,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			gu.repath = 0.3
 			gu.path = g.lvl.Path(gu.pos, g.p.pos)
 		}
-		gu.walk(80, dt)
+		gu.walk(56, dt)
 		if gu.timer <= 0 || g.p.hidden {
 			gu.state, gu.timer = gIdle, 2
 		} else if dist(gu.pos, g.p.pos) < 14 {
@@ -1753,6 +2446,10 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		}
 	case gFun:
 		g.updateFun(gu, dt)
+	case gZombie:
+		g.updateZombie(gu, dt)
+	case gLift:
+		gu.moving = false
 	case gScared:
 		gu.timer -= dt
 		if len(gu.path) == 0 {
@@ -1775,7 +2472,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
 			gu.timer = 3
 		}
-		gu.walk(82, dt)
+		gu.walk(57, dt)
 	}
 	if gu.moving {
 		gu.anim += dt * stridePhase(gu.curSpd)
@@ -1821,8 +2518,11 @@ func (g *Game) guestScan(gu *Guest) {
 		return
 	}
 	for _, b := range g.bodies {
-		if b.reported || b.carried {
+		if b.reported || b.carried || !b.byPlayer {
 			continue
+		}
+		if b.informer != nil && b.informer != gu && g.reporterActive(b.informer) {
+			continue // someone is already going to warn about this one
 		}
 		if g.sees(gu.pos, gu.dir, b.pos, guestRange, guestDot) {
 			known := g.knows(gu, b)
@@ -1833,9 +2533,15 @@ func (g *Game) guestScan(gu *Guest) {
 				}
 				g.becomeCaller(gu)
 			} else if !known {
-				g.alarm(gu, "?!")
+				g.alarm(gu, g.line(guestCategory(gu), "saw_body"))
 			}
 			return
+		}
+	}
+	for _, o := range g.guests {
+		if o.armed && o != gu && !o.out() && g.sees(gu.pos, gu.dir, o.pos, guestRange, guestDot) {
+			g.alarm(gu, "!?")
+			break
 		}
 	}
 	p := g.p
@@ -1849,9 +2555,15 @@ func (g *Game) guestScan(gu *Guest) {
 	}
 }
 
+// People do not kill each other by themselves any more: only a guest who picks up a weapon does.
+const randomMurders = false
+
 // --- rare murders among guests -------------------------------------------------
 
 func (g *Game) updateMurder(dt float64) {
+	if !randomMurders {
+		return
+	}
 	g.murderT -= dt
 	if g.murderT > 0 {
 		return
@@ -1895,11 +2607,19 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 	case !gu.tgtPlayer && gu.tgt != nil && !gu.tgt.out():
 		tp = gu.tgt.pos
 	default:
+		if gu.armed {
+			g.disarm(gu)
+			return
+		}
 		gu.state, gu.timer = gIdle, 2
 		return
 	}
 	gu.timer -= dt
 	if gu.timer <= 0 {
+		if gu.armed {
+			g.disarm(gu)
+			return
+		}
 		gu.state, gu.timer = gIdle, 2
 		return
 	}
@@ -1908,20 +2628,21 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 		gu.repath = 0.4
 		gu.path = g.lvl.Path(gu.pos, tp)
 	}
-	speed := 46.0
+	speed := 32.0
 	if gu.tgtPlayer {
-		speed = 82
+		speed = 57
 	}
 	gu.walk(speed, dt)
 	if dist(gu.pos, tp) < 12 {
 		gu.stabT = 0.25
 		g.snd.Play("stab")
 		if gu.tgtPlayer {
-			g.die("Un invitado psicópata te ha apuñalado por la espalda")
+			g.die(guestLabel(gu) + " te ha apuñalado por la espalda")
 			return
 		}
 		v := gu.tgt
 		g.killGuest(v, false)
+		g.sayNews("kill", map[string]string{"actor": guestLabel(gu), "victim": guestLabel(v)})
 		for _, o := range g.guests {
 			if o != gu && g.canWatch(o) && g.sees(o.pos, o.dir, v.pos, guestRange, guestDot) {
 				if len(g.bodies) > 0 {
@@ -1933,6 +2654,16 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 					g.alarm(o, "!?")
 				}
 			}
+		}
+		if gu.armed && gu.rampage > 1 {
+			gu.rampage--
+			if g.rampageTarget(gu) {
+				return
+			}
+		}
+		if gu.armed {
+			g.disarm(gu)
+			return
 		}
 		gu.state, gu.timer = gIdle, 3
 	}
@@ -1989,7 +2720,7 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 	if gd.scanT <= 0 && gd.state != gdBeat {
 		gd.scanT = 0.4
 		for _, b := range g.bodies {
-			if !b.reported && !b.carried && g.sees(gd.pos, gd.dir, b.pos, guardRange, guardDot) {
+			if !b.reported && !b.carried && b.byPlayer && g.sees(gd.pos, gd.dir, b.pos, guardRange, guardDot) {
 				if g.callerAvailable() {
 					g.callerGuard = gd
 					gd.callT = 3
@@ -2020,17 +2751,17 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 			gd.state = gdPatrol
 		}
 	case gdPatrol:
-		arr := g.guardWalk(gd, 30, dt)
+		arr := g.guardWalk(gd, 21, dt)
 		if arr {
 			gd.state, gd.timer = gdWait, 1.5+g.rng.Float64()*2
 			gd.dir = Dir(g.rng.Intn(4))
 		}
 	case gdReturn:
-		if g.guardWalk(gd, 44, dt) {
+		if g.guardWalk(gd, 31, dt) {
 			gd.state, gd.timer = gdWait, 0.5
 		}
 	case gdInvestigate:
-		if g.guardWalk(gd, 42, dt) {
+		if g.guardWalk(gd, 29, dt) {
 			gd.state, gd.timer = gdWait, 2
 		}
 	case gdReact:
@@ -2065,7 +2796,7 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 				gd.path = g.lvl.Path(gd.pos, p.pos)
 			}
 		}
-		chase := 82.0
+		chase := 57.0
 		if gd.special {
 			chase = 94
 		}
@@ -2076,7 +2807,7 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 			g.die("Los guardias de seguridad te han dado una paliza")
 		}
 	case gdSearch:
-		arr := g.guardWalk(gd, 40, dt)
+		arr := g.guardWalk(gd, 28, dt)
 		if arr {
 			gd.timer -= dt
 			if gd.timer <= 0 {
@@ -2090,13 +2821,37 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 			g.burst(Vec{p.pos.X, p.pos.Y - 8}, 3, 40, rgb(0xb01818), 0.4, 2, 200)
 		}
 	}
+	g.guardSeparate(gd, dt)
 	if gd.moving {
 		gd.anim += dt * stridePhase(gd.curSpd)
 	}
 }
 
+// guardSeparate: the same gentle anti-clumping nudge as copSeparate, so a
+// pair of guards does not stand fused together.
+func (g *Game) guardSeparate(gd *Guard, dt float64) {
+	if gd.dead {
+		return
+	}
+	const minDist, push = 13.0, 36.0
+	var fx, fy float64
+	for _, o := range g.guards {
+		if o == gd || o.dead {
+			continue
+		}
+		dx, dy := gd.pos.X-o.pos.X, gd.pos.Y-o.pos.Y
+		if d := math.Hypot(dx, dy); d > 0 && d < minDist {
+			k := (minDist - d) / minDist
+			fx += dx / d * k
+			fy += dy / d * k
+		}
+	}
+	gd.pos.X += fx * push * dt
+	gd.pos.Y += fy * push * dt
+}
+
 func (g *Game) guardWalk(gd *Guard, speed, dt float64) bool {
-	m, arr := follow(&gd.pos, &gd.dir, &gd.path, speed, dt)
+	m, arr := follow(&gd.pos, &gd.dir, &gd.path, speed*paceK, dt)
 	gd.moving, gd.curSpd = m, speed
 	return arr
 }
@@ -2125,7 +2880,7 @@ func (g *Game) knows(gu *Guest, b *Body) bool {
 // knowsAny: does this guest carry news of a body nobody has been told about?
 func (g *Game) knowsAny(gu *Guest) bool {
 	for _, b := range g.bodies {
-		if !b.reported && !b.carried && g.knows(gu, b) {
+		if !b.reported && !b.carried && g.knows(gu, b) && (b.informer == nil || b.informer == gu || !g.reporterActive(b.informer)) {
 			return true
 		}
 	}
@@ -2146,14 +2901,20 @@ func (g *Game) deliver(gu *Guest) {
 }
 
 func (g *Game) callPolice(gu *Guest, informed bool) {
+	if g.policeCalled {
+		return
+	}
 	g.deliver(gu)
 	g.raisePolice(gu.pos, informed)
 }
 
 // callPoliceGuard: a security guard phones in the bodies he has seen around him.
 func (g *Game) callPoliceGuard(gd *Guard) {
+	if g.policeCalled {
+		return
+	}
 	for _, b := range g.bodies {
-		if !b.reported && !b.carried && dist(b.pos, gd.pos) < 150 {
+		if !b.reported && !b.carried && dist(b.pos, gd.pos) < 150 && g.lvl.LOS(gd.pos, b.pos) {
 			b.reported, b.seers = true, nil
 			if g.alertPos == (Vec{}) {
 				g.alertPos = b.pos
@@ -2163,17 +2924,44 @@ func (g *Game) callPoliceGuard(gd *Guard) {
 	g.raisePolice(gd.pos, false)
 }
 
+// playerHeat: is any of the trouble the player's doing? Fights and murders
+// between other people never touch the criminality rating.
+func (g *Game) playerHeat() bool {
+	if g.wanted > 0 {
+		return true
+	}
+	for _, b := range g.bodies {
+		if b.byPlayer && b.reported && !b.carried {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *Game) raisePolice(at Vec, informed bool) {
+	if g.dbg.noPolice {
+		return
+	}
 	if g.policeCalled {
+		// Another witness may refresh the search, but it must not summon a
+		// second, overlapping authority.
+		if informed {
+			g.wanted = math.Max(g.wanted, 32)
+			g.killPos = at
+		}
 		return
 	}
 	g.policeCalled = true
 	g.snd.Play("ring")
-	g.respKind, g.swatKills = 0, 0
-	if r := g.rng.Float64(); r < 0.06 {
-		g.respKind = 1
-	} else if r < 0.12 {
-		g.respKind = 2
+	g.respKind, g.swatKills = unitPolice, 0
+	g.stars, g.starsDecayT = 0, 0
+	if g.playerHeat() || informed {
+		// the rating never falls: a new call starts at the highest level reached
+		g.stars = maxI(1, g.starFloor)
+		g.respKind = unitForStars(g.stars)
+		if g.stars > g.starFloor {
+			g.starFloor = g.stars
+		}
 	}
 	if g.alertPos == (Vec{}) {
 		g.alertPos = at
@@ -2199,8 +2987,69 @@ func (g *Game) raisePolice(at Vec, informed bool) {
 		}
 	}
 	g.pendingCar = g.time + 6
-	g.say("¡Alguien ha llamado a la policía!")
+	g.sayNews("police_call", nil)
 }
+
+// changeResponse enforces a single responder type on scene at a time: every
+// existing officer of a different tier returns to their car before the new
+// tier takes over the investigation.
+func (g *Game) changeResponse(kind int) {
+	if kind == g.respKind {
+		return
+	}
+	for _, c := range g.cops {
+		if c.medic || c.kind == kind || c.state == cLeave {
+			continue
+		}
+		g.releaseCop(c)
+		c.state = cLeave
+		c.path = g.lvl.Path(c.pos, g.vehDoor(c))
+	}
+	for _, v := range g.veh {
+		if v.unit == kind || (v.kind != 0 && v.kind != 2) {
+			continue
+		}
+		// a vehicle with its crew still out leaves by itself once they are aboard
+		crew := false
+		for _, c := range g.cops {
+			if c.veh == v {
+				crew = true
+			}
+		}
+		if !crew {
+			v.state = 2
+		}
+	}
+	g.respKind = kind
+}
+
+// closeCase: the suspect has been taken, so the player's guilt disappears,
+// every authority walks back to its vehicle and the stars drop to zero.
+func (g *Game) closeCase() {
+	g.wanted, g.seenNow = 0, false
+	g.pendingCar, g.pendingUnit = -1, -1
+	g.suspect = nil
+	g.stars, g.starsDecayT = 0, 0
+	for _, b := range g.bodies {
+		b.byPlayer = false
+	}
+	for _, o := range g.cops {
+		if o.medic || o.state == cLeave {
+			continue
+		}
+		g.releaseCop(o)
+		o.state = cLeave
+		o.path = g.lvl.Path(o.pos, g.vehDoor(o))
+	}
+	for _, v := range g.veh {
+		if (v.kind == 0 || v.kind == 2) && v.state == 0 && !v.spawned {
+			v.state = 2
+		}
+	}
+}
+
+// mayLeave: the minimum stay on scene (20s) has passed.
+func (c *Cop) mayLeave() bool { return c.medic || c.onSceneT >= 20 }
 
 func (g *Game) vehDoor(c *Cop) Vec {
 	v := c.veh
@@ -2259,7 +3108,21 @@ func (g *Game) dispatch(medic bool) {
 			n++
 		}
 	}
-	g.veh = append(g.veh, &Vehicle{kind: k, x: def.CarFrom.X + 40, y: def.CarFrom.Y, tx: def.CarTo.X - float64(n)*100, ty: def.CarFrom.Y, unit: g.unitFor(medic)})
+	tx := def.CarTo.X - float64(n)*100
+	if def.ParkX1 > def.ParkX0 {
+		// a custom parking range: stop inside it, spaced out, on the side the cars arrive from
+		if def.CarFrom.X > def.CarTo.X {
+			tx = math.Max(def.ParkX0, def.ParkX1-float64(n)*100)
+		} else {
+			tx = math.Min(def.ParkX1, def.ParkX0+float64(n)*100)
+		}
+	}
+	// emergency vehicles drive in the lane matching their direction
+	ly := def.CarFrom.Y + g.laneOff()
+	if def.CarFrom.X > def.CarTo.X {
+		ly = def.CarFrom.Y - g.laneOff()
+	}
+	g.veh = append(g.veh, &Vehicle{kind: k, x: def.CarFrom.X + 40, y: ly, tx: tx, ty: ly, unit: g.unitFor(medic)})
 	g.snd.Play("siren")
 }
 
@@ -2267,9 +3130,11 @@ func (g *Game) dispatch(medic bool) {
 func (g *Game) maybeAmbulance() {
 	if g.pendingAmb >= 0 && g.time >= g.pendingAmb {
 		g.pendingAmb = -1
+		g.ambCount++
+		g.ambAt = g.time
 		g.dispatch(true)
 	}
-	if g.ambCalled || g.pendingAmb >= 0 || !g.policeCalled {
+	if g.pendingAmb >= 0 || !g.policeCalled {
 		return
 	}
 	n := 0
@@ -2277,6 +3142,14 @@ func (g *Game) maybeAmbulance() {
 		if b.reported && !b.carried {
 			n++
 		}
+	}
+	if g.ambCalled {
+		// not enough hands: a second ambulance for a big pile of bodies
+		if g.ambCount == 1 && n >= 5 && g.time > g.ambAt+25 {
+			g.pendingAmb = g.time + 5
+			g.sayNews("ambulance_call", nil)
+		}
+		return
 	}
 	need := n >= 3
 	if n >= 1 {
@@ -2289,7 +3162,7 @@ func (g *Game) maybeAmbulance() {
 	if need {
 		g.ambCalled = true
 		g.pendingAmb = g.time + 7
-		g.say("Llega una ambulancia a por los cuerpos")
+		g.sayNews("ambulance_call", nil)
 	}
 }
 
@@ -2319,6 +3192,17 @@ func (g *Game) updateVehicles(dt float64) {
 				}
 			}
 		case 1:
+			if v.kind == 9 {
+				if !v.spawned {
+					v.spawned = true
+					g.kidFromVehicle(v)
+					v.hold = 2.2
+				}
+				if v.hold -= dt; v.hold <= 0 {
+					v.state = 2
+				}
+				break
+			}
 			if !v.spawned && v.kind == 6 {
 				v.spawned = true
 				g.limoArrives(v)
@@ -2328,6 +3212,20 @@ func (g *Game) updateVehicles(dt float64) {
 				v.hold -= dt
 				if v.hold <= 0 {
 					v.state = 2
+				}
+				break
+			}
+			if v.kind == 7 {
+				if !v.spawned {
+					v.spawned = true
+					g.firemenArrive(v)
+				}
+				break
+			}
+			if v.kind == 8 {
+				if !v.spawned {
+					v.spawned = true
+					g.techsArrive(v)
 				}
 				break
 			}
@@ -2345,12 +3243,16 @@ func (g *Game) updateVehicles(dt float64) {
 				} else {
 					pos = g.lvl.NearestFree(Vec{v.x - 12, v.y - 24})
 				}
-				n := 1
+				n := 1 + g.rng.Intn(2)
 				switch v.unit {
-				case 1:
-					n = 4
-				case 2:
+				case unitFBI:
 					n = 2
+				case unitMilitary:
+					n = 3
+				case unitSWAT:
+					n = 4
+				case unitRangers:
+					n = 5
 				}
 				if medic {
 					cnt := 0
@@ -2361,13 +3263,19 @@ func (g *Game) updateVehicles(dt float64) {
 					}
 					n = clampI((cnt+1)/2, 1, 3)
 				}
+				if !medic && v.unit != g.respKind {
+					g.changeResponse(v.unit)
+					if g.pendingUnit == v.unit {
+						g.pendingUnit = -1
+					}
+				}
 				for k := 0; k < n; k++ {
 					p2 := g.lvl.NearestFree(Vec{pos.X + float64(k)*10, pos.Y - float64(k%2)*8})
-					cop := &Cop{pos: p2, dir: DirDown, veh: v, medic: medic, alt: v.alt, kind: v.unit, maxChase: 3 + g.rng.Float64()*11}
-					cop.maxSearch = 32 + g.rng.Float64()*30
+					cop := &Cop{pos: p2, dir: DirDown, veh: v, medic: medic, alt: k, kind: v.unit, maxChase: 3 + g.rng.Float64()*11}
+					// Every authority type gives up within forty seconds.
+					cop.maxSearch = 27 + g.rng.Float64()*11
 					if v.unit > 0 {
-						cop.maxSearch += 14
-						cop.alt = k
+						cop.maxSearch = 34 + g.rng.Float64()*6
 						cop.shootT = 8 + g.rng.Float64()*4
 					}
 					if g.wanted > 0 {
@@ -2376,11 +3284,14 @@ func (g *Game) updateVehicles(dt float64) {
 					g.cops = append(g.cops, cop)
 					if medic {
 						g.copNext(cop)
-					} else {
+					} else if k == 0 && g.hasAlertPos() {
+						// Only the first officer of the crew heads straight for
+						// the tip; the rest fan out on their own patrol instead
+						// of all marching to the same spot.
 						cop.state = cGoto
-						if g.hasAlertPos() {
-							cop.path = g.lvl.Path(cop.pos, g.alertPos)
-						}
+						cop.path = g.lvl.Path(cop.pos, g.alertPos)
+					} else {
+						cop.state, cop.wait = cSweep, float64(k)*0.4
 					}
 				}
 			}
@@ -2443,6 +3354,10 @@ func (g *Game) copNext(c *Cop) {
 			return
 		}
 	}
+	if !c.mayLeave() {
+		c.state, c.wait, c.path = cSweep, 0, nil
+		return
+	}
 	c.state = cLeave
 	c.path = g.lvl.Path(c.pos, g.vehDoor(c))
 }
@@ -2457,7 +3372,7 @@ func (g *Game) removeBody(b *Body) {
 }
 
 func (g *Game) copWalk(c *Cop, speed, dt float64) bool {
-	m, arr := follow(&c.pos, &c.dir, &c.path, speed, dt)
+	m, arr := follow(&c.pos, &c.dir, &c.path, speed*paceK, dt)
 	c.moving, c.curSpd = m, speed
 	return arr
 }
@@ -2478,27 +3393,57 @@ func (g *Game) releaseCop(c *Cop) {
 var copPhrases = []string{"I'M IN POSITION", "ROGER THAT...", "NEED BACKUP!", "WHAT A MESS...", "COPY THAT", "SECURE THE AREA!"}
 
 const (
-	copWalkSpeed  = 74.0 // police walk faster than a walking player
-	copSweepSpeed = 66.0
-	copChaseSpeed = 112.0 // a bit faster than a running player: escapable
-	medicSpeed    = 62.0
+	copWalkSpeed  = 52.0 // police walk faster than a walking player
+	copSweepSpeed = 46.0
+	copChaseSpeed = 78.0 // a bit faster than a running player: escapable
+	medicSpeed    = 43.0
 )
 
 // sweepTarget: where the police look next. First around where the killer was last seen.
 func (g *Game) sweepTarget(c *Cop) Vec {
-	if g.wanted > 0 && c.searchT < 25 && g.killPos != (Vec{}) {
-		for i := 0; i < 14; i++ {
-			p := g.lvl.RandomRoam(g.rng)
-			if dist(p, g.killPos) < 190 {
-				return p
+	// each officer takes a different part of the map: pick the candidate that is
+	// farthest from where the other officers are, or already heading
+	far := func(p Vec) float64 {
+		m := 1e9
+		for _, o := range g.cops {
+			if o == c || o.medic || o.state == cLeave {
+				continue
+			}
+			if d := dist(p, o.pos); d < m {
+				m = d
+			}
+			if n := len(o.path); n > 0 {
+				if d := dist(p, o.path[n-1]); d < m {
+					m = d
+				}
+			}
+		}
+		return m
+	}
+	best, bestD := Vec{}, -1.0
+	for i := 0; i < 12; i++ {
+		p := g.lvl.RandomRoam(g.rng)
+		if g.wanted > 0 && c.searchT < 25 && g.killPos != (Vec{}) && dist(p, g.killPos) > 190 && i < 8 {
+			continue
+		}
+		if d := far(p); d > bestD {
+			best, bestD = p, d
+			if d > 160 {
+				break
 			}
 		}
 	}
-	return g.lvl.RandomRoam(g.rng)
+	if bestD < 0 {
+		return g.lvl.RandomRoam(g.rng)
+	}
+	return best
 }
 
 func (g *Game) updateCop(c *Cop, dt float64) {
 	c.moving = false
+	if c.state != cLeave {
+		c.onSceneT += dt
+	}
 	if c.iconT > 0 {
 		c.iconT -= dt
 		if c.iconT <= 0 {
@@ -2516,11 +3461,13 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 	if g.wanted > 0 {
 		bodyRange = 75
 	}
-	for _, b := range g.bodies {
-		if !b.reported && !b.carried && !b.bagged && g.sees(c.pos, c.dir, b.pos, copRange, copDot) {
-			b.reported = true
-			if c.icon == "" {
-				c.icon, c.iconT = copPhrases[g.rng.Intn(len(copPhrases))], 2
+	if c.state != cLeave {
+		for _, b := range g.bodies {
+			if !b.reported && !b.carried && !b.bagged && g.sees(c.pos, c.dir, b.pos, copRange, copDot) {
+				b.reported = true
+				if c.icon == "" {
+					c.icon, c.iconT = copPhrases[g.rng.Intn(len(copPhrases))], 2
+				}
 			}
 		}
 	}
@@ -2536,7 +3483,9 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 	}
 	chasing := c.state == cChase
 	sees := false
-	if !c.medic {
+	// A cop already sent home (a lower tier stood down by an escalation, or
+	// one whose shift ended) is done: nothing brings it back into the case.
+	if !c.medic && c.state != cLeave {
 		rng, dot := copRange, copDot
 		if chasing {
 			rng, dot = 150, -0.3
@@ -2545,7 +3494,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 	}
 	if sees && c.state != cTired {
 		if !chasing {
-			c.icon, c.iconT = "YOU'RE UNDER ARREST!", 1.8
+			c.icon, c.iconT = g.line(copCategory(c.kind), "halt"), 1.8
 			g.snd.Play("alert")
 			c.chaseT = 0
 			g.releaseCop(c)
@@ -2560,7 +3509,11 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 	}
 	if !c.medic && c.state != cLeave && c.state != cChase && c.state != cTired {
-		c.searchT += dt
+		// The FBI never gives up investigating on its own: it keeps searching
+		// until the criminality drops, or a higher tier is called in.
+		if c.kind != unitFBI || g.stars < 2 {
+			c.searchT += dt
+		}
 	}
 	switch c.state {
 	case cGoto:
@@ -2580,6 +3533,10 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 		if g.copWalk(c, copSweepSpeed, dt) {
 			c.wait = 0.7 + g.rng.Float64()*1.3
+			if c.kind == unitRangers {
+				// Power Rangers never stand still between patrol legs.
+				c.wait = 0
+			}
 			c.dir = Dir(g.rng.Intn(4))
 		}
 		if c.searchT >= c.maxSearch {
@@ -2622,7 +3579,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 		if c.chaseT > c.maxChase {
 			c.state, c.timer = cTired, 5
-			c.icon, c.iconT = "PUFF... PUFF...", 4
+			c.icon, c.iconT = g.line(copCategory(c.kind), "tired"), 4
 			break
 		}
 		c.repath -= dt
@@ -2638,8 +3595,10 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 	case cTired:
 		c.timer -= dt
-		g.copWalk(c, 22, dt)
-		if c.timer <= 0 {
+		g.copWalk(c, 15, dt)
+		if c.timer <= 0 && !c.mayLeave() {
+			c.timer = 1
+		} else if c.timer <= 0 {
 			// gives up: back to the vehicle and away
 			g.wanted = math.Min(g.wanted, 10)
 			g.releaseCop(c)
@@ -2693,9 +3652,9 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 			c.path = g.lvl.Path(c.pos, g.vehDoor(c))
 		}
 	case cReturn:
-		speed := 40.0
+		speed := 28.0
 		if c.medic {
-			speed = 46
+			speed = 32
 		}
 		if g.copWalk(c, speed, dt) {
 			if c.carry != nil {
@@ -2715,13 +3674,15 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 			c.repath = 0.3
 			c.path = g.lvl.Path(c.pos, s.pos)
 		}
-		g.copWalk(c, 84, dt)
+		g.copWalk(c, 59, dt)
 		if dist(c.pos, s.pos) < 14 {
 			s.gone = true
 			g.suspect = nil
-			g.say("La policía se lleva a un sospechoso")
+			g.sayNews("suspect_taken", map[string]string{"victim": guestLabel(s)})
+			// the suspect is taken: the player's guilt goes away and all the
+			// authorities go home
+			g.closeCase()
 			g.checkDone()
-			g.copNext(c)
 		}
 	case cLeave:
 		if g.copWalk(c, copWalkSpeed, dt) {
@@ -2749,29 +3710,69 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 					}
 				}
 				if !left {
-					g.ambCalled = false
+					g.ambCalled, g.ambCount = false, 0
 				}
 			} else {
-				g.policeCalled = false
-				g.suspect = nil
-				g.wanted = 0
-				for _, b := range g.bodies {
-					if !b.carried && !b.bagged {
-						b.reported, b.claimed = false, nil
+				// Do not clear the case while another type of authority is still
+				// arriving or searching.
+				active := false
+				for _, o := range g.cops {
+					if !o.medic && o.state != cLeave {
+						active = true
+					}
+				}
+				for _, v := range g.veh {
+					if (v.kind == 0 || v.kind == 2) && v.state != 2 {
+						active = true
+					}
+				}
+				if !active {
+					g.policeCalled = false
+					g.suspect = nil
+					g.wanted = 0
+					g.stars, g.starsDecayT, g.respKind, g.pendingUnit = 0, 0, unitPolice, -1
+					for _, b := range g.bodies {
+						if !b.carried && !b.bagged {
+							b.reported, b.claimed = false, nil
+						}
 					}
 				}
 			}
 		}
 	}
+	g.copSeparate(c, dt)
 	if c.moving {
 		c.anim += dt * stridePhase(c.curSpd)
 	}
 }
 
+// copSeparate gently pushes officers apart when they end up standing on top
+// of each other, so a crew reads as several people rather than one blob.
+func (g *Game) copSeparate(c *Cop, dt float64) {
+	if c.state == cLeave || c.state == cArrest || c.state == cSlash {
+		return
+	}
+	const minDist, push = 13.0, 36.0
+	var fx, fy float64
+	for _, o := range g.cops {
+		if o == c {
+			continue
+		}
+		dx, dy := c.pos.X-o.pos.X, c.pos.Y-o.pos.Y
+		if d := math.Hypot(dx, dy); d > 0 && d < minDist {
+			k := (minDist - d) / minDist
+			fx += dx / d * k
+			fy += dy / d * k
+		}
+	}
+	c.pos.X += fx * push * dt
+	c.pos.Y += fy * push * dt
+}
+
 // stridePhase: animation frames per second for a walking or running speed (px/s),
 // so feet do not slide on the floor.
 func stridePhase(speed float64) float64 {
-	if speed > 60 {
+	if speed > 42 {
 		return speed * wk / 5.0
 	}
 	return speed * wk / 3.4
@@ -2788,29 +3789,145 @@ const (
 	ambHorse
 	ambUFO
 	ambObj
+	ambTow
+	ambMeteor
 )
 
 type Ambient struct {
-	kind  int
-	x, y  float64
-	vx    float64
-	col   int
-	phase float64
-	name  string
-	dead  bool
+	kind   int
+	x, y   float64
+	vx     float64
+	col    int
+	phase  float64
+	name   string
+	dead   bool
+	loaded bool    // tow truck: already picked up a wreck
+	v0     float64 // cruising speed (signed); vx is what traffic currently allows
+	length float64
+	stopX  float64 // where a special vehicle does its stunt
+	wait   float64
+	done   bool
+	t2     float64
+	hop    float64 // visual lift (stunts); the lane is unchanged
+}
+
+// towLane: true for the lower, rightward lane, false for the upper, leftward one.
+// laneOffset: how far each one-way lane sits from the dashed center line
+// (def.CarFrom.Y, which is drawn right on top of it). Positive Y is down on
+// screen, so the lower lane (right-moving) is CarFrom.Y+laneOffset and the
+// upper lane (left-moving) is CarFrom.Y-laneOffset — on opposite sides of
+// the dashed line, not both on the same side of it.
+const laneOffset = 18.0 // lanes one car height (36px) apart
+
+// laneOff is the lane distance for the current level (custom backgrounds set it from the road width).
+func (g *Game) laneOff() float64 {
+	if o := g.lvl.Def.LaneOff; o > 0 {
+		return o
+	}
+	return laneOffset
+}
+
+func (g *Game) towLane(y float64) bool {
+	return y > g.lvl.Def.CarFrom.Y
+}
+
+// maybeTow sends a tow truck down whichever one-way lane still has a wreck
+// and does not already have one working it (at most 1 truck per lane).
+func (g *Game) maybeTow(dt float64) {
+	def := g.lvl.Def
+	if def.Police != "car" || len(g.wrecks) == 0 {
+		return
+	}
+	g.towT -= dt
+	if g.towT > 0 {
+		return
+	}
+	g.towT = 10 + g.rng.Float64()*8
+	for _, lane := range [2]bool{true, false} {
+		haveWreck := false
+		for _, w := range g.wrecks {
+			if g.towLane(w.Y) == lane {
+				haveWreck = true
+				break
+			}
+		}
+		if !haveWreck {
+			continue
+		}
+		busy := false
+		for _, a := range g.amb {
+			if a.kind == ambTow && !a.dead && g.towLane(a.y) == lane {
+				busy = true
+				break
+			}
+		}
+		if busy {
+			continue
+		}
+		a := &Ambient{kind: ambTow, col: g.rng.Intn(4)}
+		if lane {
+			a.y, a.x, a.vx = def.CarFrom.Y+g.laneOff(), -100, 70
+		} else {
+			a.y, a.x, a.vx = def.CarFrom.Y-g.laneOff(), 1060, -70
+		}
+		g.amb = append(g.amb, a)
+	}
 }
 
 func (g *Game) updateAmbient(dt float64) {
+	if g.lvl.Def.Transit != "" {
+		return // open sea and outer space have no street traffic
+	}
+	if g.forceAmb != "" {
+		// debug: -ambient NAME sends that vehicle down the right-moving lane at once
+		def := g.lvl.Def
+		a := &Ambient{kind: ambObj, name: g.forceAmb, y: def.CarFrom.Y + g.laneOff(), x: -60, vx: propKinds[g.forceAmb].Ambient, phase: 1}
+		a.v0, a.length, a.stopX = a.vx, ambLength(a), 500
+		g.amb = append(g.amb, a)
+		g.forceAmb = ""
+	}
 	g.ambT -= dt
 	if g.ambT <= 0 {
-		g.ambT = 16 + g.rng.Float64()*26
 		def := g.lvl.Def
+		if def.Highway {
+			g.ambT = 0.5 + g.rng.Float64()*0.9
+		} else if def.FastTraffic {
+			g.ambT = 3 + g.rng.Float64()*3
+		} else {
+			g.ambT = 9 + g.rng.Float64()*14
+		}
 		a := &Ambient{col: g.rng.Intn(4), phase: g.rng.Float64() * 6}
 		speed := 100.0
+		right := g.rng.Intn(2) == 0
+		switch def.Traffic {
+		case "right":
+			right = true
+		case "left":
+			right = false
+		}
 		if def.Police == "car" {
-			a.kind = []int{ambCar, ambCar, ambBike, ambTank, ambHorse}[g.rng.Intn(5)]
+			// A tank is a very occasional set piece, not routine traffic.
+			r := g.rng.Float64()
+			switch {
+			case r < 0.035:
+				a.kind = ambTank
+			case r < 0.20:
+				a.kind = ambHorse
+			case r < 0.45:
+				a.kind = ambBike
+			default:
+				a.kind = ambCar
+			}
 			if fastEv {
 				a.kind = ambTank
+			}
+			// a tank is rare: at most twice per party
+			if a.kind == ambTank {
+				if g.tankN >= 2 {
+					a.kind = ambCar
+				} else {
+					g.tankN++
+				}
 			}
 			var custom []string
 			for n, k := range propKinds {
@@ -2819,10 +3936,20 @@ func (g *Game) updateAmbient(dt float64) {
 				}
 			}
 			sort.Strings(custom)
-			if len(custom) > 0 && !fastEv && g.rng.Float64() < 0.6 {
+			if len(custom) > 0 && !fastEv && g.rng.Float64() < 0.4 {
 				a.kind, a.name = ambObj, custom[g.rng.Intn(len(custom))]
 			}
-			a.y = def.CarFrom.Y - 12 + g.rng.Float64()*14
+			// Two one-way lanes, one on each side of the dashed center line:
+			// below it always drives right, above it always drives left.
+			if right {
+				a.y = def.CarFrom.Y + laneOffset
+			} else {
+				a.y = def.CarFrom.Y - laneOffset
+			}
+			if len(def.Lanes) > 0 {
+				a.y = def.Lanes[g.rng.Intn(len(def.Lanes))]
+				right = a.y > def.CarFrom.Y
+			}
 			switch a.kind {
 			case ambObj:
 				speed = propKinds[a.name].Ambient
@@ -2833,24 +3960,60 @@ func (g *Game) updateAmbient(dt float64) {
 			case ambHorse:
 				speed = 85
 			}
+		} else if def.Sky == "space" {
+			a.kind = ambMeteor
+			a.y = 8 + g.rng.Float64()*30
+			speed = 220
 		} else {
 			a.kind = ambUFO
 			a.y = 14 + g.rng.Float64()*26
 			speed = 45
 		}
-		if g.rng.Intn(2) == 0 {
+		if right {
 			a.x, a.vx = -100, speed
 		} else {
 			a.x, a.vx = 1060, -speed
 		}
-		g.amb = append(g.amb, a)
+		a.v0 = a.vx
+		a.length = ambLength(a)
+		a.stopX = 280 + g.rng.Float64()*400
+		if a.kind == ambCar || a.kind == ambBike || a.kind == ambObj || a.kind == ambTank || a.kind == ambHorse {
+			// never spawn on top of the car that just entered this lane
+			for _, o := range g.amb {
+				if !o.dead && math.Abs(o.y-a.y) < 8 && math.Abs(o.x-a.x) < 110 {
+					a = nil
+					break
+				}
+			}
+		}
+		if a != nil {
+			g.amb = append(g.amb, a)
+		} else {
+			g.ambT = 2
+			if def.Highway {
+				g.ambT = 0.25
+			}
+		}
 	}
 	out := g.amb[:0]
 	for _, a := range g.amb {
+		g.driveAmbient(a, dt)
 		a.x += a.vx * dt
 		a.phase += dt
 		if a.kind == ambTank {
 			g.tankCrush(a)
+		}
+		if a.kind == ambCar || a.kind == ambBike || a.kind == ambObj {
+			g.runOver(a)
+		}
+		if a.kind == ambTow && !a.loaded {
+			for i, w := range g.wrecks {
+				if math.Abs(w.X-a.x) < 10 && math.Abs(w.Y-a.y) < 6 {
+					g.wrecks = append(g.wrecks[:i], g.wrecks[i+1:]...)
+					a.loaded = true
+					break
+				}
+			}
 		}
 		if a.x < -140 || a.x > 1100 || a.dead {
 			continue
@@ -2935,7 +4098,7 @@ func (g *Game) testLevel(name string) {
 func (g *Game) hasAlertPos() bool { return g.alertPos != (Vec{}) }
 
 // assetVersion is bumped when the built-in content changes in a way that needs a fresh export.
-const assetVersion = 7
+const assetVersion = 8
 
 // migrateAssets moves an outdated assets folder aside (nothing is deleted) so that fresh defaults are exported.
 func migrateAssets() {
@@ -2953,4 +4116,409 @@ func migrateAssets() {
 	if err := os.Rename(root, backup); err == nil {
 		fmt.Println("assets: old content moved to", backup)
 	}
+}
+
+// jumpWindow hops the player to the opposite side of a window along its thin axis.
+func (g *Game) jumpWindow(w Rect) {
+	p := g.p
+	c := w.Center()
+	var target Vec
+	if w.W >= w.H { // horizontal window: cross vertically
+		off := w.H/2 + 12
+		if p.pos.Y < c.Y {
+			target = Vec{p.pos.X, c.Y + off}
+		} else {
+			target = Vec{p.pos.X, c.Y - off}
+		}
+	} else {
+		off := w.W/2 + 12
+		if p.pos.X < c.X {
+			target = Vec{c.X + off, p.pos.Y}
+		} else {
+			target = Vec{c.X - off, p.pos.Y}
+		}
+	}
+	p.pos = g.lvl.NearestFree(target)
+	g.burst(p.pos, 6, 30, color.RGBA{200, 220, 230, 255}, 0.4, 2, 0)
+	g.say("¡Saltas por la ventana!")
+}
+
+// trafficNear reports whether a vehicle is close enough to the point to hit someone crossing there.
+func (g *Game) trafficNear(p Vec) bool {
+	for _, a := range g.amb {
+		if !a.dead && math.Abs(a.x-p.X) < 170 {
+			return true
+		}
+	}
+	return false
+}
+
+// runOver: vehicles on the road kill whoever is standing in their lane. People who cross
+// without looking (and the player) can be hit; it never raises the criminality.
+func (g *Game) runOver(a *Ambient) {
+	for _, gu := range g.guests {
+		if gu.out() {
+			continue
+		}
+		if math.Abs(gu.pos.X-a.x) < 26 && math.Abs(gu.pos.Y-a.y) < 11 {
+			g.killGuest(gu, false)
+			g.sayNews("kill", map[string]string{"actor": "Un coche", "victim": guestLabel(gu)})
+			g.snd.Play("thud")
+		}
+	}
+	p := g.p
+	if !p.dead && !p.hidden && math.Abs(p.pos.X-a.x) < 24 && math.Abs(p.pos.Y-a.y) < 10 {
+		g.die("Te ha atropellado un coche")
+	}
+}
+
+func ambLength(a *Ambient) float64 {
+	switch a.kind {
+	case ambBike:
+		return 30
+	case ambTank:
+		return 76
+	case ambHorse:
+		return 60
+	case ambObj:
+		if k := propKinds[a.name]; k != nil {
+			return float64(k.W)
+		}
+	}
+	return 66
+}
+
+// roadKind: things that drive along a lane and must queue behind each other.
+func roadKind(k int) bool {
+	return k == ambCar || k == ambBike || k == ambObj || k == ambTank || k == ambHorse
+}
+
+// driveAmbient sets this vehicle's speed for the frame: it follows the traffic
+// ahead of it in its lane (cars never drive through each other), and the few
+// special vehicles do their stunts.
+func (g *Game) driveAmbient(a *Ambient, dt float64) {
+	if !roadKind(a.kind) || a.v0 == 0 {
+		return
+	}
+	if a.kind == ambTank || a.kind == ambObj && a.name == "monstertruck" {
+		// the tank (and the monster truck) ignores everything and drives through all traffic
+		a.vx = a.v0
+		g.specialStunt(a, dt, new(float64))
+		return
+	}
+	dir := math.Copysign(1, a.v0)
+	allowed := math.Abs(a.v0)
+	gapTo := func(x, length float64) float64 { return (x-a.x)*dir - (length+a.length)/2 }
+	for _, o := range g.amb {
+		// a vehicle that is stopped (unloading, parked) is simply driven through
+		if o == a || o.dead || !roadKind(o.kind) || o.v0 == 0 || math.Abs(o.vx) < 1 || math.Abs(o.y-a.y) > 8 || math.Copysign(1, o.v0) != dir {
+			continue
+		}
+		if gp := gapTo(o.x, o.length); gp > -4 && gp < 70 {
+			if gp < 14 {
+				allowed = 0
+			} else {
+				allowed = math.Min(allowed, math.Max(math.Abs(o.vx), 0)*0.95)
+			}
+		}
+	}
+	if a.wait > 0 {
+		a.wait -= dt
+		allowed = 0
+	}
+	g.specialStunt(a, dt, &allowed)
+	a.vx = dir * allowed
+}
+
+// monsterCrush: the truck drives over the cars in its lane and over whoever is
+// in the way, leaving the flattened cars burning for the tow trucks.
+func (g *Game) monsterCrush(a *Ambient, dt float64) {
+	if a.phase > 0 && int(a.phase*3)%9 == 0 && g.rng.Float64() < dt*8 {
+		g.burst(Vec{a.x - math.Copysign(30, a.v0), a.y}, 1, 30, color.RGBA{60, 60, 66, 220}, 0.5, 3, -20)
+	}
+	a.hop = math.Max(0, a.hop-dt*40)
+	for _, o := range g.amb {
+		if o == a || o.dead || !(o.kind == ambCar || o.kind == ambBike || o.kind == ambObj && o.name != "monstertruck") {
+			continue
+		}
+		if math.Abs(o.y-a.y) < 10 && math.Abs(o.x-a.x) < 46 {
+			o.dead = true
+			a.hop = 14
+			g.snd.Play("thud")
+			g.explodeAt(o.x, o.y-6)
+			g.wrecks = append(g.wrecks, Vec{o.x, o.y})
+			g.say("¡El monster truck aplasta un coche!")
+		}
+	}
+}
+
+// boostCar: the Rocket League cars leave a trail of boost and now and then
+// jump (the flip is only the hop; there is no rotation).
+func (g *Game) boostCar(a *Ambient, dt float64) {
+	col := rgb(0x4ab0ff)
+	if a.col%2 == 1 {
+		col = rgb(0xffa030)
+	}
+	rear := -math.Copysign(30, a.v0)
+	if g.rng.Float64() < dt*40 {
+		g.burst(Vec{a.x + rear, a.y - 7}, 1, 60, col, 0.3, 3, 0)
+	}
+	if !a.done && (a.x-a.stopX)*math.Copysign(1, a.v0) >= 0 {
+		a.done = true
+		a.t2 = 0.001
+		g.bubbleAt(Vec{a.x, a.y - 30}, []string{"¡QUÉ SAVE!", "¡WHAT A SAVE!", "¡PAPA VOLÓ!", "¡CENTRANDO!", "¡NICE SHOT!"}[g.rng.Intn(5)], 1.4)
+	}
+	if a.t2 > 0 {
+		a.t2 += dt
+		a.hop = 52 * math.Sin(math.Min(1, a.t2/1.1)*math.Pi)
+		if a.t2 > 1.1 {
+			a.t2, a.hop = 0, 0
+		}
+	}
+}
+
+func (g *Game) specialStunt(a *Ambient, dt float64, allowed *float64) {
+	if a.kind != ambObj {
+		return
+	}
+	dir := math.Copysign(1, a.v0)
+	passed := (a.x-a.stopX)*dir >= 0
+	switch a.name {
+	case "schoolbus":
+		if passed && !a.done {
+			a.done = true
+			a.wait = 4
+			n := 4 + g.rng.Intn(5)
+			side := -1.0 // the pavement is on the far side of the road from the lanes' centre line
+			if a.y < g.lvl.Def.CarFrom.Y {
+				side = -1
+			} else {
+				side = 1
+			}
+			for i := 0; i < n; i++ {
+				g.addGuestAt(Vec{a.x + float64(i)*10 - 30, a.y + side*34 + side*float64(i%2)*8})
+			}
+			g.say("El autobús escolar trae más invitados: +" + itoa(n))
+			g.snd.Play("alert")
+		}
+	case "taxi":
+		if passed && !a.done {
+			a.done = true
+			if g.rng.Float64() < 0.65 && g.total < g.maxTotal() {
+				a.wait = 3
+				n := 1 + g.rng.Intn(3)
+				side := 1.0
+				if a.y < g.lvl.Def.CarFrom.Y {
+					side = -1
+				}
+				for i := 0; i < n; i++ {
+					g.addGuestAt(Vec{a.x + float64(i)*11 - 12, a.y + side*34 + side*float64(i%2)*8})
+				}
+				g.say("Un taxi deja " + itoa(n) + " invitado(s) en la puerta")
+			}
+		}
+	case "monstertruck":
+		g.monsterCrush(a, dt)
+	case "octane", "fennec", "dominus":
+		g.boostCar(a, dt)
+	case "delorean":
+		if passed && !a.done {
+			a.done = true
+			a.t2 = 0.001
+			g.say("¡88 millas por hora!")
+		}
+		if a.t2 > 0 {
+			a.t2 += dt
+			if a.col%2 == 0 {
+				// full speed, leaving two lines of fire where the wheels were, then gone in a flash
+				*allowed = math.Abs(a.v0) + a.t2*420
+				g.fireTrail(a, dt)
+				if *allowed > 760 || a.x < -20 || a.x > 980 {
+					g.burst(Vec{a.x, a.y - 10}, 24, 120, rgb(0xffffff), 0.5, 3, 0)
+					g.burst(Vec{a.x, a.y - 10}, 12, 80, rgb(0x60b0ff), 0.6, 2, 0)
+					g.snd.Play("zap")
+					a.dead = true
+				}
+			} else {
+				// takes off: the wheels fold and it climbs into the sky, with fire underneath
+				*allowed = math.Abs(a.v0) * 0.9
+				a.y -= 20 * a.t2 * dt * 3
+				g.fireTrail(a, dt)
+				if a.y < g.lvl.Def.CarFrom.Y-170 {
+					g.burst(Vec{a.x, a.y}, 20, 100, rgb(0xffffff), 0.5, 3, 0)
+					a.dead = true
+				}
+			}
+		}
+	}
+}
+
+type fireTrail struct {
+	x, y float64
+	t    float64
+}
+
+// fireTrail leaves two short flames at the car's wheels; purely visual.
+func (g *Game) fireTrail(a *Ambient, dt float64) {
+	for _, off := range [2]float64{-14, 12} {
+		g.trails = append(g.trails, fireTrail{a.x + off*math.Copysign(1, -a.v0)*-1, a.y - 2, 0})
+	}
+	g.burst(Vec{a.x, a.y - 2}, 2, 50, rgb(0xff8020), 0.4, 2, 0)
+}
+
+// mouseMenu lets the mouse pick menu rows: moving over a row selects it, a left click confirms.
+// pick maps a pointer position to a row (or -1). It returns true on a click over a row.
+func (g *Game) mouseMenu(pick func(mx, my float64) int, sel *int) bool {
+	x, y := ebiten.CursorPosition()
+	moved := x != g.lastMX || y != g.lastMY
+	g.lastMX, g.lastMY = x, y
+	i := pick(float64(x), float64(y))
+	if i < 0 {
+		return false
+	}
+	if moved {
+		*sel = i
+	}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		*sel = i
+		return true
+	}
+	return false
+}
+
+// lawActive: is any police officer or unit still on the scene or on the way?
+func (g *Game) lawActive() bool {
+	if !g.policeCalled || g.pendingCar >= 0 || g.pendingUnit >= 0 {
+		return true
+	}
+	for _, c := range g.cops {
+		if !c.medic && c.state != cLeave {
+			return true
+		}
+	}
+	for _, v := range g.veh {
+		if (v.kind == 0 || v.kind == 2) && v.state != 2 {
+			return true
+		}
+	}
+	return false
+}
+
+// otherCuffed: somebody else is being handcuffed right now (the killer, or a
+// suspect being taken), so the player's own cuffs mark must not show too.
+func (g *Game) otherCuffed() bool {
+	if g.slasher != nil && g.slasher.state == slCuffed {
+		return true
+	}
+	for _, c := range g.cops {
+		if c.state == cArrest {
+			return true
+		}
+	}
+	return false
+}
+
+// trimGuests enforces the people limit at the start of a party: ordinary
+// guests are dropped at random; specials (performers, groups, lifeguards) stay.
+func (g *Game) trimGuests() {
+	limit := g.maxStart()
+	for len(g.guests) > limit {
+		var cand []int
+		for i, gu := range g.guests {
+			if !gu.keep {
+				cand = append(cand, i)
+			}
+		}
+		if len(cand) == 0 {
+			return
+		}
+		i := cand[g.rng.Intn(len(cand))]
+		g.guests = append(g.guests[:i], g.guests[i+1:]...)
+	}
+}
+
+// hasProgress: is there anything a new game would erase?
+func (g *Game) hasProgress() bool {
+	p := g.progress
+	return p.Unlocked > 1 || p.Wallet > 0 || len(p.Owned) > 0 || len(p.Equip) > 0
+}
+
+// updateConfirm: the "erase everything?" popup. For five seconds only the
+// safe button works.
+func (g *Game) updateConfirm() {
+	g.time += 1.0 / 60
+	g.confirmT += 1.0 / 60
+	ready := g.confirmT >= 5
+	click := g.mouseMenu(func(mx, my float64) int {
+		if my >= 330 && my <= 372 {
+			if mx >= 250 && mx <= 480 {
+				return 0
+			}
+			if mx >= 500 && mx <= 710 {
+				return 1
+			}
+		}
+		return -1
+	}, &g.confirmSel)
+	if !ready {
+		g.confirmSel = 0
+	}
+	if actRight.just() || actLeft.just() {
+		if ready {
+			g.confirmSel = 1 - g.confirmSel
+		}
+	}
+	if actBack.just() {
+		g.mode = ModeMenu
+		return
+	}
+	if actConfirm.just() || click {
+		switch {
+		case g.confirmSel == 0:
+			g.mode = ModeMenu
+		case ready:
+			g.progress = Progress{Unlocked: 1, MaxStart: g.progress.MaxStart, MaxTotal: g.progress.MaxTotal}
+			saveProgress(g.progress)
+			g.syncShop()
+			g.shopCache, g.tierBase = nil, nil
+			g.applyShop()
+			g.startLevel(0)
+		}
+	}
+}
+
+func (g *Game) drawConfirm(dst *ebiten.Image) {
+	g.drawMenu(dst)
+	fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, 170))
+	fillRect(dst, 200, 140, 560, 260, rgb(0x1a0a10))
+	fillRect(dst, 200, 140, 560, 3, rgb(0xff3030))
+	fillRect(dst, 200, 397, 560, 3, rgb(0xff3030))
+	g.drawTextC(dst, "¡CUIDADO!", 480, 160, rgb(0xff5050), 3)
+	g.drawTextC(dst, "Vas a borrar todo el progreso:", 480, 218, rgb(0xf4f0ff), 1.5)
+	g.drawTextC(dst, "fiestas desbloqueadas, puntos y compras.", 480, 244, rgb(0xf4f0ff), 1.5)
+	g.drawTextC(dst, "¿Estás seguro de que quieres borrar todo?", 480, 284, rgb(0xf0e060), 1.5)
+	ready := g.confirmT >= 5
+	btn := func(x, w float64, label string, on, sel bool, col color.RGBA) {
+		bg := rgba(0x2a2a34, 255)
+		if on {
+			bg = shade(col, 0.45)
+		}
+		fillRect(dst, x, 330, w, 42, bg)
+		if sel {
+			fillRect(dst, x-3, 327, w+6, 3, rgb(0xffffff))
+			fillRect(dst, x-3, 372, w+6, 3, rgb(0xffffff))
+		}
+		tc := rgb(0x6a6a76)
+		if on {
+			tc = rgb(0xf4f4f4)
+		}
+		g.drawTextC(dst, label, x+w/2, 340, tc, 1.4)
+	}
+	btn(250, 230, "NO, ME HE EQUIVOCADO", true, g.confirmSel == 0, rgb(0x2aa060))
+	label := "BORRA TODO"
+	if !ready {
+		label = fmt.Sprintf("BORRA TODO (%d)", int(math.Ceil(5-g.confirmT)))
+	}
+	btn(500, 210, label, ready, g.confirmSel == 1 && ready, rgb(0xd03030))
+	g.drawTextC(dst, "Esc: volver", 480, 378, rgb(0x8a86a0), 1)
 }

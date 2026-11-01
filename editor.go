@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"image/png"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -252,6 +254,11 @@ type droppedImage struct {
 	b    *pixBuf
 }
 
+func isImgName(p string) bool {
+	p = strings.ToLower(p)
+	return strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg")
+}
+
 // droppedPNGs returns the PNG files dropped onto the window during the last frame.
 func droppedPNGs() []droppedImage {
 	fsys := ebiten.DroppedFiles()
@@ -260,7 +267,7 @@ func droppedPNGs() []droppedImage {
 	}
 	var out []droppedImage
 	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".png") {
+		if err != nil || d.IsDir() || !isImgName(path) {
 			return nil
 		}
 		f, err := fsys.Open(path)
@@ -268,7 +275,7 @@ func droppedPNGs() []droppedImage {
 			return nil
 		}
 		defer f.Close()
-		im, err := png.Decode(f)
+		im, _, err := image.Decode(f)
 		if err != nil {
 			return nil
 		}

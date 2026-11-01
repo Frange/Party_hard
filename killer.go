@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
@@ -21,12 +22,17 @@ const (
 )
 
 type Slasher struct {
+	lostT    float64 // seconds since he last saw the player
+	turnT    float64 // time spent noticing somebody who is behind him
+	alert    bool    // he has been hit: no more surprises, he turns at once
 	pos      Vec
 	dir      Dir
 	cs       *CharSet
 	state    int
 	path     []Vec
 	hp       int
+	kills    int // victims so far
+	need     int // kills before witnesses may call the police
 	anim     float64
 	moving   bool
 	curSpd   float64
@@ -47,7 +53,9 @@ type Slasher struct {
 	copRoll  float64
 }
 
-const guestRunSpeed = 112.0
+// Witnesses should look frightened, not like cartoon sprinters. This is still
+// quicker than walking, but slower than a sustained player sprint.
+const guestRunSpeed = 64.0
 
 // copOnScene: is there a police officer around (not a paramedic, not leaving)?
 func (g *Game) copOnScene() bool {
@@ -68,42 +76,62 @@ func (g *Game) pickKiller() (*CharSet, bool, string) {
 		cs := g.as.killerCS[k]
 		return cs, cs.Spec.Weapon == HoldChainsaw || (cs.rig != nil && cs.rig.carry == HoldChainsaw), cs.Spec.Name
 	}
-	e := killerPresets[g.rng.Intn(len(killerPresets))]
+	var pool []presetEntry
+	for _, k := range killerPresets {
+		if killerAllowed(k.Name) {
+			pool = append(pool, k)
+		}
+	}
+	e := pool[g.rng.Intn(len(pool))]
 	spec := e.F(g.rng)
+	if w, ok := weaponHold[g.shopEquip("kweapon")]; ok && ownedID(g.shopEquip("kweapon")) {
+		spec.Weapon = w
+	}
 	return newCharSet(&spec), spec.Weapon == HoldChainsaw, e.Name
 }
 
-func (g *Game) updateSlasher(dt float64) {
+// spawnSlasher sends a special enemy to the party on whatever the level uses
+// (hearse, helicopter, boat or ship). It reports false when no pad is free.
+func (g *Game) spawnSlasher() bool {
 	def := g.lvl.Def
+	cs, saw, name := g.pickKiller()
+	var v *Vehicle
+	if def.Police == "heli" {
+		pad := g.freePad()
+		if pad < 0 {
+			g.slasherT = g.time + 5
+			return false
+		}
+		p := def.Pads[pad]
+		v = &Vehicle{kind: 5, x: p.X, y: -130, tx: p.X, ty: p.Y, pad: pad}
+	} else {
+		tx, ly := g.parkSlot()
+		v = &Vehicle{kind: 4, x: def.CarFrom.X + 40, y: ly, tx: tx, ty: ly}
+	}
+	g.veh = append(g.veh, v)
+	g.slasherDone = true
+	g.slasher = &Slasher{cs: cs, state: slArrive, hp: 3, chainsaw: saw, name: name, dir: DirDown, need: 2 + g.rng.Intn(2)}
+	g.snd.Play("alert")
+	g.say("Algo siniestro se acerca a la fiesta...")
+	return true
+}
+
+func (g *Game) updateSlasher(dt float64) {
 	s := g.slasher
+	if s != nil && s.state == slGone {
+		// this one is done; another may come later (up to three per party)
+		g.slasher = nil
+		g.slasherN++
+		if g.slasherN < 3 {
+			g.slasherDone, g.slasherT = false, g.time+70+g.rng.Float64()*60
+		}
+		return
+	}
 	if s == nil {
 		if g.slasherDone || g.time < g.slasherT || g.testVictim != nil || len(g.guests) < 4 {
 			return
 		}
-		cs, saw, name := g.pickKiller()
-		var v *Vehicle
-		if def.Police == "heli" {
-			pad := g.freePad()
-			if pad < 0 {
-				g.slasherT = g.time + 5
-				return
-			}
-			p := def.Pads[pad]
-			v = &Vehicle{kind: 5, x: p.X, y: -130, tx: p.X, ty: p.Y, pad: pad}
-		} else {
-			n := 0
-			for _, o := range g.veh {
-				if o.state != 2 {
-					n++
-				}
-			}
-			v = &Vehicle{kind: 4, x: def.CarFrom.X + 40, y: def.CarFrom.Y, tx: def.CarTo.X - float64(n)*100, ty: def.CarFrom.Y}
-		}
-		g.veh = append(g.veh, v)
-		g.slasherDone = true
-		g.slasher = &Slasher{cs: cs, state: slArrive, hp: 3, chainsaw: saw, name: name, dir: DirDown}
-		g.snd.Play("alert")
-		g.say("Algo siniestro se acerca a la fiesta...")
+		g.spawnSlasher()
 		return
 	}
 	if s.iconT > 0 {
@@ -122,7 +150,7 @@ func (g *Game) updateSlasher(dt float64) {
 		if s.timer <= 0 {
 			s.state = slGone
 			g.points += 250
-			g.say("¡La policía ha detenido al asesino!")
+			g.sayNews("killer_catch", nil)
 			g.snd.Play("win")
 			g.checkDone()
 		}
@@ -163,11 +191,8 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 		for _, gu := range g.guests {
 			if g.canWatch(gu) && gu.perf == "" && g.sees(gu.pos, gu.dir, s.pos, guestRange, guestDot) {
 				gu.sawSlash, gu.sawPos = true, s.pos
-				if g.callerAvailable() {
-					g.becomeCaller(gu)
-				} else {
-					g.alarm(gu, "!?")
-				}
+				// seeing the killer is not a crime yet: the call only comes after a kill (slasherWitness)
+				g.alarm(gu, "!?")
 			}
 		}
 	}
@@ -197,12 +222,23 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 			s.path = g.lvl.Path(s.pos, g.lvl.RandomRoam(g.rng))
 		}
 	}
-	speed := 38.0
+	speed := 27.0
 	if s.chainsaw {
-		speed = 32
+		speed = 22
 	}
 	if s.tgtP {
-		speed = 76
+		speed = 34 // killers only ever walk
+	}
+	if s.tgtP && !s.alert {
+		// somebody behind him takes a moment to be noticed and turned on
+		v, dv := dirVec(s.dir), dist(p.pos, s.pos)
+		if dv > 0 && (v.X*(p.pos.X-s.pos.X)+v.Y*(p.pos.Y-s.pos.Y))/dv < -0.1 {
+			if s.turnT += dt; s.turnT < 1.1 {
+				return
+			}
+		} else {
+			s.turnT = 0
+		}
 	}
 	m, _ := follow(&s.pos, &s.dir, &s.path, speed, dt)
 	s.moving, s.curSpd = m, speed
@@ -235,9 +271,9 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 	default:
 		return
 	}
-	if dist(s.pos, tp) < 13 {
+	if dist(s.pos, tp) < 13 && (!s.tgtP || s.alert || g.sees(s.pos, s.dir, tp, 16, 0.1)) {
 		s.stabT = 0.3
-		s.pause = 1.1
+		s.pause = 0.6
 		switch {
 		case s.tgtP:
 			if !p.hidden && !p.dead {
@@ -248,12 +284,24 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 			v := s.tgtG
 			s.tgtG = nil
 			g.killGuest(v, false)
+			g.sayNews("kill", map[string]string{"actor": slasherActorName(s), "victim": guestLabel(v)})
 			g.slasherWitness(s, v.pos)
+			// a wide swing can take down a couple more people standing beside him
+			extra := 0
+			for _, o := range g.guests {
+				if extra < 2 && o != v && !o.out() && o.perf == "" && dist(o.pos, s.pos) < 20 {
+					g.killGuest(o, false)
+					g.sayNews("kill", map[string]string{"actor": slasherActorName(s), "victim": guestLabel(o)})
+					g.slasherWitness(s, o.pos)
+					extra++
+				}
+			}
 		case s.tgtD != nil:
 			d := s.tgtD
 			s.tgtD = nil
 			d.dead, d.icon = true, ""
 			g.spawnBody(d.pos, d.cs, d.dir)
+			g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(d, d.cs)
 			g.snd.Play("stab")
 			g.slasherWitness(s, d.pos)
 			g.checkDone()
@@ -263,17 +311,19 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 }
 
 func (g *Game) slasherWitness(s *Slasher, at Vec) {
+	s.kills++
 	g.burst(Vec{at.X, at.Y - 14}, 14, 80, rgb(0xb01818), 0.6, 2, 220)
 	for _, o := range g.guests {
 		if o.out() || !g.canWatch(o) || o.perf != "" {
 			continue
 		}
-		if g.sees(o.pos, o.dir, at, guestRange, guestDot) || dist(o.pos, at) < 45 {
+		if g.sees(o.pos, o.dir, at, guestRange, guestDot) || (dist(o.pos, at) < 45 && g.lvl.LOS(o.pos, at)) {
 			o.sawSlash, o.sawPos = true, s.pos
 			if len(g.bodies) > 0 {
 				g.knowBody(o, g.bodies[len(g.bodies)-1])
 			}
-			if g.callerAvailable() {
+			// nobody phones the police until the killer has taken 2-3 victims
+			if s.kills >= s.need && g.callerAvailable() {
 				g.becomeCaller(o)
 			} else {
 				g.alarm(o, "!?")
@@ -285,11 +335,19 @@ func (g *Game) slasherWitness(s *Slasher, at Vec) {
 // slasherPick: the player if he is close, otherwise the closest reachable victim.
 func (g *Game) slasherPick(s *Slasher) {
 	p := g.p
-	if !p.dead && !p.hidden && dist(p.pos, s.pos) < 110 && g.lvl.LOS(s.pos, p.pos) {
+	// like everybody else, the killer only notices what is in front of him
+	if !p.dead && !p.hidden && g.sees(s.pos, s.dir, p.pos, 110, guestDot) {
+		s.lostT = 0
 		s.tgtP, s.tgtG, s.tgtD = true, nil, nil
 		return
 	}
-	s.tgtP = false
+	if s.tgtP && !p.dead && !p.hidden {
+		// keeps chasing for a moment after losing sight of the player
+		if s.lostT += 0.5; s.lostT < 2.5 && dist(p.pos, s.pos) < 130 && g.lvl.LOS(s.pos, p.pos) {
+			return
+		}
+	}
+	s.tgtP, s.alert = false, false
 	if s.tgtG != nil && !s.tgtG.out() {
 		return
 	}
@@ -320,18 +378,34 @@ func (g *Game) slasherPick(s *Slasher) {
 func (g *Game) hitSlasher() {
 	s := g.slasher
 	s.hp--
-	s.pause = 0.5
+	s.pause = 1.3
+	// a stab in the back: he cannot hit back at once. He freezes for a moment and then needs
+	// time to turn round, so the following stabs are safe.
+	v, dv := dirVec(s.dir), dist(g.p.pos, s.pos)
+	behind := dv > 0 && (v.X*(g.p.pos.X-s.pos.X)+v.Y*(g.p.pos.Y-s.pos.Y))/dv < -0.1
+	if behind && s.hp > 0 {
+		s.pause = 1.8
+		s.alert, s.tgtP, s.lostT, s.turnT = false, true, 0, 0
+		g.snd.Play("stab")
+		g.burst(Vec{s.pos.X, s.pos.Y - 18}, 14, 90, rgb(0xb01818), 0.6, 2, 220)
+		g.shake = 0.15
+		s.icon, s.iconT = g.line("killers", "pain"), 0.8
+		return
+	}
+	s.alert, s.tgtP, s.lostT = true, true, 0
 	g.snd.Play("stab")
 	g.burst(Vec{s.pos.X, s.pos.Y - 18}, 14, 90, rgb(0xb01818), 0.6, 2, 220)
 	g.shake = 0.15
 	if s.hp > 0 {
-		s.icon, s.iconT = "!!!", 0.8
+		s.icon, s.iconT = g.line("killers", "pain"), 0.8
 		// he fights back: pushes the player away and tries to hit
 		g.p.knockT = 0.8
 		return
 	}
 	s.state = slGone
+	g.stat("killers", 1)
 	g.spawnBody(s.pos, s.cs, s.dir)
+	g.bodies[len(g.bodies)-1].label = slasherActorName(s)
 	g.kills++
 	g.points += 500
 	g.say("¡Has matado al asesino! +500")
@@ -356,7 +430,7 @@ func (g *Game) nearCop(pos Vec) *Cop {
 
 func (g *Game) scare(gu *Guest) {
 	gu.state, gu.timer, gu.path = gScared, 6+g.rng.Float64()*4, nil
-	gu.icon, gu.iconT = "!!", 1
+	gu.icon, gu.iconT = g.line(guestCategory(gu), "scared"), 1
 }
 
 func (g *Game) farRoam(from Vec) Vec {
@@ -390,10 +464,10 @@ func (g *Game) updateReport(gu *Guest, dt float64) {
 	}
 	gu.walk(guestRunSpeed, dt)
 	if dist(gu.pos, c.pos) < 28 {
-		gu.icon, gu.iconT = "¡FUE ÉL!", 2.5
+		gu.icon, gu.iconT = g.line(guestCategory(gu), "accused"), 2.5
 		gu.state, gu.timer, gu.path = gIdle, 3, nil
 		gu.dir = faceTo(gu.pos, c.pos)
-		c.icon, c.iconT = "ENTENDIDO", 2
+		c.icon, c.iconT = g.line(copCategory(c.kind), "understood"), 2
 		var bodyAt Vec
 		bd := 1e9
 		for _, b := range g.bodies {
@@ -430,10 +504,10 @@ func (g *Game) copSlashHook(c *Cop, dt float64) bool {
 	}
 	active := s != nil && (s.state == slHunt || s.state == slCuffed)
 	if c.state != cSlash {
-		if active && s.state == slHunt && c.state != cChase && c.state != cTired && g.sees(c.pos, c.dir, s.pos, copRange, copDot) {
+		if active && s.state == slHunt && s.kills >= 2 && c.state != cChase && c.state != cTired && c.state != cLeave && g.sees(c.pos, c.dir, s.pos, copRange, copDot) {
 			g.releaseCop(c)
 			c.state = cSlash
-			c.icon, c.iconT = "¡ALTO! ¡POLICÍA!", 2
+			c.icon, c.iconT = g.line(copCategory(c.kind), "halt"), 2
 			g.snd.Play("alert")
 		} else {
 			return false
@@ -454,20 +528,31 @@ func (g *Game) copSlashHook(c *Cop, dt float64) bool {
 	}
 	g.copWalk(c, copChaseSpeed*0.9, dt)
 	if dist(c.pos, s.pos) < 16 {
-		if c.copRollDone() && g.rng.Float64() < 0.3 {
-			// the killer gets the officer first
-			c.moving = false
+		if c.copRollDone() && g.rng.Float64() < 0.5 {
+			// the killer gets the officer first, and any other one at his side
 			g.snd.Play("stab")
-			g.spawnBody(c.pos, g.as.copCS, c.dir)
+			n := 0
+			for _, o := range append([]*Cop(nil), g.cops...) {
+				if !o.medic && (o == c || dist(o.pos, s.pos) < 26) {
+					g.spawnBody(o.pos, g.copCSFor(o), o.dir)
+					g.bodies[len(g.bodies)-1].label = "Agente " + g.personalName(o, g.copCSFor(o))
+					g.removeCop(o)
+					n++
+				}
+			}
 			s.stabT, s.pause = 0.3, 1.0
-			s.icon, s.iconT = "...", 1.5
-			g.say("¡El asesino ha matado a un policía!")
-			g.removeCop(c)
+			s.icon, s.iconT = g.line("killers", "caught"), 1.5
+			if n > 1 {
+				g.say("¡El asesino ha matado a varios policías!")
+			} else {
+				g.say("¡El asesino ha matado a un policía!")
+			}
 			return true
 		}
 		s.state, s.timer = slCuffed, 2.8
+		g.wanted = 0
 		s.icon, s.iconT = "", 0
-		c.icon, c.iconT = "¡QUEDA DETENIDO!", 2.5
+		c.icon, c.iconT = g.line(copCategory(c.kind), "arrest"), 2.5
 		g.snd.Play("alert")
 	}
 	return true
@@ -492,31 +577,118 @@ func (g *Game) removeCop(c *Cop) {
 	g.cops = out
 }
 
-// maybeBackup: with many bodies a second, different-looking officer comes.
-func (g *Game) maybeBackup() {
-	if g.pendingBackup >= 0 && g.time >= g.pendingBackup {
-		g.pendingBackup = -1
-		n := len(g.veh)
-		g.dispatch(false)
-		if len(g.veh) > n {
-			g.veh[len(g.veh)-1].alt = 1 + g.rng.Intn(2)
-		} else {
-			g.backupCalled = false
+// unitForStars maps a criminality level to the responder tier that handles it.
+func unitForStars(stars int) int {
+	u := unitForStarsRaw(stars)
+	for u > unitPolice && !ownedID(fmt.Sprintf("police:%d", u)) {
+		u--
+	}
+	return u
+}
+
+func unitForStarsRaw(stars int) int {
+	switch stars {
+	case 2:
+		return unitFBI
+	case 3:
+		return unitMilitary
+	case 4:
+		return unitSWAT
+	case 5:
+		return unitRangers
+	default:
+		return unitPolice
+	}
+}
+
+// starStep: how many located player kills raise one star. The level's total
+// number of people is split in six (police, FBI, military, SWAT, rangers and
+// the final stretch), e.g. 60 people -> 10.
+func (g *Game) starStep() int {
+	return maxI(2, int(math.Round(float64(g.total)/6)))
+}
+
+// countLocated adds the bodies the authorities have newly found to the running
+// total. The total never goes down, so carrying bodies away does not cool anything.
+func (g *Game) countLocated() {
+	for _, b := range g.bodies {
+		if b.byPlayer && b.reported && !b.counted {
+			b.counted = true
+			g.locatedN++
 		}
 	}
-	if g.backupCalled || !g.policeCalled || g.pendingBackup >= 0 || g.respKind != 0 {
+}
+
+// starsTarget: the star level justified by the player's located kills.
+func (g *Game) starsTarget() int {
+	if !g.policeCalled {
+		return 0
+	}
+	g.countLocated()
+	t := g.locatedN / g.starStep()
+	if t < 1 {
+		t = 1
+	}
+	if g.starFloor > t {
+		t = g.starFloor
+	}
+	if t > 5 {
+		t = 5
+	}
+	return t
+}
+
+// escalateTo schedules a fresh vehicle for a new tier, but — crucially —
+// does NOT dismiss whoever is currently on scene. The handoff only happens
+// once that vehicle actually arrives and its crew gets out (updateVehicles,
+// where v.unit != g.respKind triggers changeResponse): until then, the
+// current tier keeps searching, so there is never a gap with nobody
+// investigating.
+func (g *Game) escalateTo(kind int) {
+	if kind == g.respKind || kind == g.pendingUnit {
 		return
 	}
-	n := 0
-	for _, b := range g.bodies {
-		if b.reported && !b.carried {
-			n++
-		}
+	g.pendingUnit = kind
+	if g.pendingCar < 0 || g.pendingCar > g.time+5 {
+		g.pendingCar = g.time + 5
 	}
-	if n >= 4 {
-		g.backupCalled = true
-		g.pendingBackup = g.time + 9
-		g.say("Piden refuerzos: llega otro agente")
+}
+
+func (g *Game) announceStars(stars int) {
+	switch stars {
+	case 2:
+		g.sayNews("fbi_arrive", nil)
+	case 3:
+		g.sayNews("military_arrive", nil)
+	case 4:
+		g.sayNews("swat_arrive", nil)
+	case 5:
+		g.sayNews("rangers_arrive", nil)
+	}
+}
+
+// updateStars keeps the 0-5 criminality rating in sync with the current
+// mayhem: it escalates the police hierarchy immediately when bodies pile up,
+// but only eases off one star at a time so a lull does not instantly undo
+// the response.
+func (g *Game) updateStars(dt float64) {
+	if !g.policeCalled {
+		g.stars = 0
+		return
+	}
+	if !g.playerHeat() && g.stars <= 1 && g.starFloor == 0 {
+		g.stars = 0
+		return
+	}
+	// stars only go up: more located kills bring the next authority
+	if target := g.starsTarget(); target > g.stars {
+		g.stars = target
+		g.statMax("stars", target)
+		if g.stars > g.starFloor {
+			g.starFloor = g.stars
+		}
+		g.escalateTo(unitForStars(g.stars))
+		g.announceStars(g.stars)
 	}
 }
 
@@ -576,6 +748,7 @@ func (g *Game) drawSlasher(dst *ebiten.Image, s *Slasher) {
 	}
 	pos := s.pos
 	swim := g.lvl.InPool(pos)
+	g.glowAt(dst, Vec{pos.X, pos.Y - 20}, 18, color.RGBA{220, 20, 20, 48})
 	g.drawActor(dst, s.cs, anim, phase, pos, s.dir, 0, swim)
 	if s.state == slCuffed {
 		g.drawCuffs(dst, pos)
@@ -599,10 +772,16 @@ func (g *Game) drawHearse(dst *ebiten.Image, pi PropImg, v *Vehicle) {
 	fillRect(dst, cx-8, cy-31, 16, 1, color.RGBA{200, 170, 60, 255})
 }
 
-// unitFor: which kind of responders a new vehicle carries (paramedics are always plain).
+// unitFor: which kind of responders a new vehicle carries (paramedics are
+// always plain). A pending escalation/de-escalation takes priority over the
+// tier currently on scene, so the car being dispatched actually brings the
+// tier that was called for.
 func (g *Game) unitFor(medic bool) int {
 	if medic {
 		return 0
+	}
+	if g.pendingUnit >= 0 {
+		return g.pendingUnit
 	}
 	return g.respKind
 }
@@ -611,29 +790,44 @@ func (g *Game) drawUnitCar(dst *ebiten.Image, pi PropImg, v *Vehicle) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(math.Round(g.wx(v.x)-pi.ox), math.Round(g.wy(v.y)-pi.oy))
 	label, col := "SWAT", color.RGBA{230, 230, 240, 255}
-	if v.unit == 1 {
-		op.ColorScale.Scale(0.33, 0.35, 0.4, 1)
-	} else {
+	switch v.unit {
+	case unitFBI:
 		op.ColorScale.Scale(0.18, 0.2, 0.28, 1)
-		label, col = "FBI", color.RGBA{240, 220, 80, 255}
+		label, col = "FBI", color.RGBA{184, 66, 245, 255}
+	case unitMilitary:
+		op.ColorScale.Scale(0.2, 0.3, 0.18, 1)
+		label, col = "MILITAR", color.RGBA{60, 200, 70, 255}
+	case unitSWAT:
+		op.ColorScale.Scale(0.33, 0.35, 0.4, 1)
+		label, col = "SWAT", color.RGBA{255, 202, 38, 255}
+	case unitRangers:
+		op.ColorScale.Scale(0.4, 0.18, 0.22, 1)
+		label, col = "POWER RANGERS", color.RGBA{255, 60, 60, 255}
 	}
 	dst.DrawImage(pi.img, op)
 	g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y))-30, col, 1)
 }
 
-// copBrutal: SWAT and FBI units that cannot find the killer start shooting people in the crowd.
+// copBrutal: military, SWAT and Power Rangers that cannot find the killer
+// start shooting suspicious guests. The FBI only ever investigates, and
+// soldiers withdraw once they have fired their 3 shots.
 func (g *Game) copBrutal(c *Cop, dt float64) {
-	if c.kind == 0 || c.medic || (c.state != cSweep && c.state != cGoto) {
+	if c.medic || c.kind == unitPolice || c.kind == unitFBI || (c.state != cSweep && c.state != cGoto) {
 		return
 	}
 	if c.searchT < c.maxSearch*0.4 {
 		return
 	}
-	limit := 6
-	if c.kind == 2 {
-		limit = 2
+	limit := 4
+	if c.kind == unitMilitary {
+		limit = 3
 	}
 	if g.swatKills >= limit {
+		if c.kind == unitMilitary && c.mayLeave() {
+			g.releaseCop(c)
+			c.state = cLeave
+			c.path = g.lvl.Path(c.pos, g.vehDoor(c))
+		}
 		return
 	}
 	c.shootT -= dt
@@ -667,7 +861,7 @@ func (g *Game) copBrutal(c *Cop, dt float64) {
 			g.scare(o)
 		}
 	}
-	g.say("¡Han disparado a un invitado!")
+	g.sayNews("shoot_suspect", map[string]string{"actor": starLabel(c.kind), "victim": guestLabel(best)})
 }
 
 // ---------------------------------------------------------------------------
@@ -688,7 +882,7 @@ func (g *Game) tankCrush(a *Ambient) {
 		if pr.wreck || (pr.Name != "car" && pr.Name != "motorbike") {
 			continue
 		}
-		if math.Abs(pr.X-a.x) < 36 && math.Abs(pr.Y-a.y) < 40 {
+		if math.Abs(pr.X-a.x) < 36 && math.Abs(pr.Y-a.y) < 14 {
 			pr.wreck = true
 			g.explodeAt(pr.X, pr.Y)
 		}
@@ -698,7 +892,7 @@ func (g *Game) tankCrush(a *Ambient) {
 		if o == a || o.kind == ambTank || o.kind == ambUFO || o.dead {
 			continue
 		}
-		if math.Abs(o.x-a.x) < 50 && math.Abs(o.y-a.y) < 22 {
+		if math.Abs(o.x-a.x) < 50 && math.Abs(o.y-a.y) < 12 {
 			o.dead = true
 			g.explodeAt(o.x, o.y)
 			g.wrecks = append(g.wrecks, Vec{o.x, o.y})
@@ -709,7 +903,7 @@ func (g *Game) tankCrush(a *Ambient) {
 		if v.isHeli() || v.dead {
 			continue
 		}
-		if math.Abs(v.x-a.x) < 56 && math.Abs(v.y-a.y) < 26 {
+		if math.Abs(v.x-a.x) < 56 && math.Abs(v.y-a.y) < 12 {
 			g.vehicleDestroyed(v)
 		}
 	}
@@ -722,7 +916,7 @@ func (g *Game) vehicleDestroyed(v *Vehicle) {
 	switch v.kind {
 	case 0, 1:
 		if !v.spawned {
-			g.say("¡El tanque ha aplastado un vehículo de emergencias con su tripulación!")
+			g.sayNews("vehicle_wreck_crew", nil)
 			// the crew was still inside: they never come out. Another unit is sent a bit later.
 			if v.kind == 0 {
 				g.pendingCar = g.time + 9
@@ -731,7 +925,26 @@ func (g *Game) vehicleDestroyed(v *Vehicle) {
 				g.ambCalled = true
 			}
 		} else {
-			g.say("¡El tanque ha aplastado el vehículo de emergencias!")
+			g.sayNews("vehicle_wreck_empty", nil)
+			// The crew was already out on scene: with no car left to go back
+			// to, they just walk off down the sidewalk, splitting left/right.
+			def := g.lvl.Def
+			i := 0
+			for _, c := range g.cops {
+				if c.veh != v || c.state == cLeave {
+					continue
+				}
+				g.releaseCop(c)
+				c.veh = nil
+				c.state = cLeave
+				tx := def.CarFrom.X
+				if i%2 == 1 {
+					tx = def.CarTo.X
+				}
+				i++
+				// off the level along the road, never across the middle of the map
+				c.path = g.lvl.Path(c.pos, g.lvl.NearestFree(Vec{tx, def.CarFrom.Y}))
+			}
 		}
 	case 4:
 		if !v.spawned && g.slasher != nil && g.slasher.state == slArrive {

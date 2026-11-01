@@ -13,9 +13,12 @@ import (
 
 var animNames = [AnimCount]string{
 	AnimIdle: "idle", AnimWalk: "walk", AnimRun: "run", AnimDance0: "dance0", AnimDance1: "dance1", AnimDance2: "dance2", AnimDance3: "dance3",
+	AnimDance4: "dance4", AnimDance5: "dance5", AnimDance6: "dance6", AnimDance7: "dance7",
+	AnimDance8: "dance8", AnimDance9: "dance9", AnimDance10: "dance10", AnimDance11: "dance11",
 	AnimDrink: "drink", AnimTalk: "talk", AnimWave: "wave", AnimPunch: "punch", AnimStab: "stab", AnimFall: "fall", AnimVomit: "vomit",
 	AnimKiss: "kiss", AnimDJ: "dj", AnimDrum: "drum", AnimGuitar: "guitar", AnimSing: "sing", AnimCarry: "carry", AnimTired: "tired",
 	AnimLying: "lying", AnimSleep: "sleep", AnimCall: "call", AnimPanic: "panic", AnimCrouch: "crouch",
+	AnimPoint: "point", AnimLove: "love", AnimLaugh: "laugh", AnimPirouette: "pirouette", AnimPee: "pee", AnimZombie: "zombie", AnimLean: "lean",
 }
 
 var carryNames = map[string]int{
@@ -330,6 +333,12 @@ func (r *Rig) render(vw int, p Pose) *pixBuf {
 		r.blitShift(b, &v.L[PartHead], headDX, headDY, 0)
 	}
 	_ = heldID
+	if p.Hold == HoldPee && vw != vBack {
+		t := &v.L[PartTorso]
+		if t.ok {
+			drawStream(b, vw, t.px+torsoDX, t.py+torsoDY+2, r.feetY, p.Sit)
+		}
+	}
 	kind := p.Hold
 	if kind == HoldNone || (kind == HoldKnife && r.carry != HoldNone) {
 		kind = r.carry
@@ -345,7 +354,7 @@ func (r *Rig) render(vw int, p Pose) *pixBuf {
 // ---------------------------------------------------------------------------
 
 func newRigCharSet(ca *CharAsset) *CharSet {
-	spec := &CharSpec{Name: ca.Meta.Name}
+	spec := &CharSpec{Name: ca.Meta.Name, DisplayName: ca.Meta.DisplayName, Female: ca.Meta.Gender == "f"}
 	rig := buildRig(ca)
 	spec.Stature = rig.topY - 10
 	cs := newCharSet(spec)
@@ -383,6 +392,8 @@ func (cs *CharSet) rigFrame(anim, vw, f int) *pixBuf {
 			return ov
 		}
 		return cs.rig.render(vFront, poseFor(AnimIdle, 1)).rotCCW()
+	case AnimPee:
+		return cs.rig.render(vw, peePose(f, cs.Spec.Female))
 	}
 	return cs.rig.render(vw, poseFor(anim, f))
 }

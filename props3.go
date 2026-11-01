@@ -262,6 +262,32 @@ func init() {
 		b.rect(6, 28, 3, 3, c(0xf8f0d0))
 		b.rect(11, 28, 3, 3, c(0xe84a4a))
 	}}
+	// goalv: a goal seen from above at the end of a landscape pitch, so it stands
+	// upright; v=0 opens to the right (left end of the pitch), v=1 to the left.
+	pk["goalv"] = &PropKind{W: 36, H: 76, FW: 34, FH: 70, Vars: 2, Draw: func(b *pixBuf, v int) {
+		w := c(0xffffff)
+		net := c(0xc8d0d8)
+		line, back := 31, 3 // x of the goal line (the posts) and of the back bar
+		dir := 1
+		if v == 1 {
+			line, back, dir = 4, 32, -1
+		}
+		lo, hi := back, line
+		if lo > hi {
+			lo, hi = hi, lo
+		}
+		for x := lo; x <= hi; x += 4 {
+			b.rect(x, 6, 1, 64, net)
+		}
+		for y := 8; y < 70; y += 4 {
+			b.rect(lo, y, hi-lo+1, 1, net)
+		}
+		b.rect(lo, 4, hi-lo+2, 3, w)  // top side bar
+		b.rect(lo, 69, hi-lo+2, 3, w) // bottom side bar
+		b.rect(line, 4, 3, 68, w)     // the goal line with the two posts
+		b.rect(back, 4, 2, 68, shade(w, 0.85))
+		_ = dir
+	}}
 	pk["goal"] = &PropKind{W: 76, H: 36, FW: 76, FH: 5, Draw: func(b *pixBuf, v int) {
 		b.rect(2, 4, 3, 30, c(0xf4f4f8))
 		b.rect(71, 4, 3, 30, c(0xf4f4f8))

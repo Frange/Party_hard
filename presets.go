@@ -64,7 +64,10 @@ func genericSpec(r *rand.Rand) CharSpec {
 		if r.Intn(8) == 0 {
 			s.Glasses = GlassRound
 		}
-		s.Body = []int{BodyNormal, BodyNormal, BodySlim, BodyBig, BodyFat}[r.Intn(5)]
+		s.Body = []int{BodyNormal, BodyNormal, BodySlim, BodyBig, BodyFat, BodyObese}[r.Intn(6)]
+		if r.Intn(100) < 50 {
+			decorateWoman(&s, r)
+		}
 	} else {
 		s.Hair2 = []int{HairShort, HairShort, HairShort, HairBald, HairMohawk, HairCurly, HairPompadour, HairSpiky, HairComb, HairMessy}[r.Intn(10)]
 		s.Top = []int{TopTee, TopTee, TopTee, TopLong, TopTank, TopHoodie, TopHawaiian, TopSuit}[r.Intn(8)]
@@ -75,7 +78,7 @@ func genericSpec(r *rand.Rand) CharSpec {
 		if r.Intn(7) == 0 {
 			s.Glasses = []int{GlassRound, GlassShades}[r.Intn(2)]
 		}
-		s.Body = []int{BodyNormal, BodyNormal, BodyNormal, BodySlim, BodyBig, BodyFat, BodyGiant}[r.Intn(7)]
+		s.Body = []int{BodyNormal, BodyNormal, BodyNormal, BodySlim, BodyBig, BodyFat, BodyGiant, BodyObese}[r.Intn(8)]
 	}
 	if r.Intn(12) == 0 {
 		s.Head = HeadBig
@@ -265,15 +268,15 @@ func presetCartman(r *rand.Rand) CharSpec {
 	s.Skin = hx(0xf0d0a8)
 	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0xd83a2a), hx(0xd8c830), hx(0x3a2a1a)
 	s.Hat, s.HatCol = HatBeanie, hx(0x58b8e8)
-	s.Body, s.Head, s.Stature = BodyFat, HeadHuge, 3
+	s.Body, s.Head, s.Stature = BodyFat, HeadHuge, 7
 	return s
 }
 
 func presetKenny(r *rand.Rand) CharSpec {
 	s := mk(r, "kenny")
 	s.Top, s.Shirt, s.Pants, s.Shoes = TopHoodie, hx(0xf08a20), hx(0xf08a20), hx(0x3a2a1a)
-	s.Mask = hx(0xf08a20)
-	s.Body, s.Head, s.Stature = BodySlim, HeadHuge, 4
+	s.Mask, s.MaskKind = hx(0xf08a20), MaskHood
+	s.Body, s.Head, s.Stature = BodyBig, HeadHuge, 8
 	return s
 }
 
@@ -282,7 +285,7 @@ func presetKyle(r *rand.Rand) CharSpec {
 	s.Skin = hx(0xf0d0a8)
 	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0xf07a20), hx(0x3a5a3a), hx(0x3a2a1a)
 	s.Hat, s.HatCol = HatUshanka, hx(0x2a9a3a)
-	s.Body, s.Head, s.Stature = BodySlim, HeadHuge, 4
+	s.Body, s.Head, s.Stature = BodyBig, HeadHuge, 8
 	return s
 }
 
@@ -291,7 +294,7 @@ func presetStan(r *rand.Rand) CharSpec {
 	s.Skin = hx(0xf0d0a8)
 	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0x7a4a2a), hx(0x3a4a8a), hx(0x3a2a1a)
 	s.Hat, s.HatCol = HatBeanie, hx(0x2a4ab8)
-	s.Body, s.Head, s.Stature = BodySlim, HeadHuge, 4
+	s.Body, s.Head, s.Stature = BodyBig, HeadHuge, 8
 	return s
 }
 
@@ -636,8 +639,18 @@ var famousPresets = []func(*rand.Rand) CharSpec{
 }
 
 func randomGuestSpec(r *rand.Rand) CharSpec {
+	if len(castSlugs) > 0 && r.Intn(100) < 35 { // bought characters come first
+		if f := presetByName(castSlugs[r.Intn(len(castSlugs))]); f != nil {
+			return f(r)
+		}
+	}
 	if r.Intn(100) < 52 {
-		return famousPresets[r.Intn(len(famousPresets))](r)
+		for try := 0; try < 8; try++ {
+			sp := famousPresets[r.Intn(len(famousPresets))](r)
+			if allowedSlug(sp.Name) {
+				return sp
+			}
+		}
 	}
 	return genericSpec(r)
 }

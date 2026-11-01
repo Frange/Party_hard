@@ -25,7 +25,8 @@ func rigTest(path string, which string) {
 	}
 	ca := charAssetFromSpec(spec, "t", "people", "")
 	rig := buildRig(ca)
-	kinds := []int{AnimWalk, AnimRun, AnimDance0, AnimDance1, AnimDrink, AnimTalk, AnimStab, AnimVomit, AnimFall, AnimCarry}
+	kinds := []int{AnimWalk, AnimRun, AnimDance0, AnimDance1, AnimDrink, AnimTalk, AnimStab, AnimVomit, AnimFall, AnimCarry,
+		AnimPoint, AnimLove, AnimLaugh, AnimPirouette, AnimDance4}
 	const s = 3
 	views := []int{vFront, vSide, vBack}
 	img := image.NewRGBA(image.Rect(0, 0, 6*3*charW*s, len(kinds)*2*charH*s))
@@ -75,6 +76,16 @@ func castSheet(path string, zoom int) {
 		s := genericSpec(rng)
 		specs = append(specs, &s)
 	}
+	for i := 0; i < 36; i++ {
+		s := genericSpec(rng)
+		s.Female = true
+		decorateWoman(&s, rng)
+		specs = append(specs, &s)
+	}
+	for i := 0; i < 18; i++ {
+		s := lifeguardSpec(rng, i%2 == 1)
+		specs = append(specs, &s)
+	}
 	cols := 18
 	rows := (len(specs) + cols - 1) / cols
 	img := image.NewRGBA(image.Rect(0, 0, cols*charW*zoom, rows*charH*zoom))
@@ -91,7 +102,7 @@ func castSheet(path string, zoom int) {
 // animSheet writes the walk, run and dance frames of the player in three views (debug aid).
 func animSheet(path string, zoom int) {
 	p := playerSpec()
-	kinds := []int{AnimWalk, AnimRun, AnimDance0, AnimDrink, AnimStab, AnimDJ}
+	kinds := []int{AnimWalk, AnimRun, AnimDance0, AnimDrink, AnimStab, AnimDJ, AnimPoint, AnimLove, AnimLaugh, AnimPirouette, AnimDance4}
 	img := image.NewRGBA(image.Rect(0, 0, 6*3*charW*zoom, len(kinds)*charH*zoom))
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{60, 60, 70, 255}}, image.Point{}, draw.Src)
 	for ri, k := range kinds {
@@ -124,6 +135,13 @@ func animalSheet(path string, zoom int) {
 		{animElephant, append(append([]int{}, walk...), fGraze, fWarn)},
 		{animGiraffe, append(append([]int{}, walk...), fGraze, fWarn)},
 		{animKangaroo, append(append([]int{}, walk...), fWarn, fKick)},
+		{animRabbit, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animPig, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animDuck, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animBudgie, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animDeer, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animQuijote, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
+		{animSancho, []int{fStand, fWalk0, fWalk1, fPeck0, fPeck1}},
 	}
 	cw, chh := 76, 76
 	img := image.NewRGBA(image.Rect(0, 0, 8*cw*zoom, len(rows)*chh*zoom))
@@ -146,6 +164,20 @@ func animalSheet(path string, zoom int) {
 			return genElephantFrame(f, coat)
 		case animGiraffe:
 			return genGiraffeFrame(f, coat)
+		case animRabbit:
+			return genRabbitFrame(f, coat)
+		case animPig:
+			return genPigFrame(f, coat)
+		case animDuck:
+			return genDuckFrame(f, coat)
+		case animBudgie:
+			return genBudgieFrame(f, coat)
+		case animDeer:
+			return genDeerFrame(f, coat)
+		case animQuijote:
+			return genRiderFrame(f, coat, false).scaled(0.8)
+		case animSancho:
+			return genRiderFrame(f, coat, true).scaled(0.8)
 		}
 		return genKangarooFrame(f, coat)
 	}

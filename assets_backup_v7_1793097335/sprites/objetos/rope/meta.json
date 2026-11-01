@@ -1,0 +1,20 @@
+{
+  "name": "rope",
+  "category": "furniture",
+  "anchor_x": 63,
+  "anchor_y": 29,
+  "foot_x": 61,
+  "foot_y": 25,
+  "foot_w": 4,
+  "foot_h": 4,
+  "solid": false,
+  "hide": false,
+  "phone": false,
+  "poison": false,
+  "trap": "",
+  "light": false,
+  "variants": false,
+  "fps": 0,
+  "sort_off": -4,
+  "ambient_speed": 0
+}

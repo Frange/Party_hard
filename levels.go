@@ -66,33 +66,16 @@ func classicLevels() []*LevelDef {
 	return []*LevelDef{level1(), level2(), level3(), level4(), level5()}
 }
 
-// extraLevels are generated once from fixed seeds so the menu always offers the same venues.
+// extraLevels are the venues that are not one of the 20 fixed campaign
+// scenarios (see campaign.go) — they only ever show up in random mode.
 var extraLevels = []struct {
 	kind  string
 	seed  int64
 	title string
 }{
-	{"bullring", 11, "PLAZA DE TOROS"},
-	{"club", 23, "DISCOTECA"},
 	{"pub", 35, "PUB"},
-	{"cinema", 47, "CINE"},
-	{"stadium", 59, "ESTADIO"},
 	{"plaza", 71, "PLAZA EUROPEA"},
-	{"paris", 83, "PARIS"},
-	{"festival", 95, "FESTIVAL"},
-	{"funfair", 107, "PARQUE DE ATRACCIONES"},
-	{"market", 119, "SUPERMERCADO"},
 	{"mall", 131, "CENTRO COMERCIAL"},
-}
-
-func builtinLevels() []*LevelDef {
-	out := classicLevels()
-	for _, e := range extraLevels {
-		if d := genNamed(e.kind, e.seed, e.title); d != nil {
-			out = append(out, d)
-		}
-	}
-	return out
 }
 
 func init() {
@@ -107,36 +90,42 @@ func level1() *LevelDef {
 	d := &LevelDef{
 		Title: "HOUSE PARTY",
 		Intro: "Los vecinos no te dejan dormir. Haz que la fiesta termine.",
-		W:     960, H: 540, Sky: "none", Police: "car",
+		W:     960, H: 540, Sky: "none", Police: "car", Disco: true,
 		Tint:    color.RGBA{0, 4, 30, 80},
 		Start:   Vec{500, 468},
 		CarFrom: Vec{1040, 510}, CarTo: Vec{740, 510},
 		Guests: 30, CellSize: 16,
+		Sign:    "PARTY HARD",
+		SignPos: Vec{440, 112},
 	}
+	// The house is shallower than it used to be so the back garden (between
+	// the hedge and the house) and the front one (house to pavement) are
+	// twice as deep: interior rows run 76..356 instead of 46..396.
 	d.Floors = []Floor{
 		F(0, 0, 960, 452, "grass"),
-		F(128, 46, 164, 96, "tile"),
-		F(128, 158, 164, 238, "tile"),
-		F(300, 46, 280, 350, "wood"),
-		F(588, 46, 244, 174, "wood"),
-		F(588, 236, 244, 160, "carpet"),
-		FC(330, 110, 200, 180, "rug", 0x6a1e24),
-		FC(640, 80, 150, 100, "rug", 0x2a5a30),
-		F(440, 412, 100, 34, "pave"),
+		F(128, 76, 164, 76, "tile"),
+		F(128, 168, 164, 188, "tile"),
+		F(300, 76, 280, 280, "wood"),
+		F(588, 76, 244, 139, "wood"),
+		F(588, 231, 244, 125, "carpet"),
+		FC(330, 127, 200, 144, "rug", 0x6a1e24),
+		FC(640, 103, 150, 80, "rug", 0x2a5a30),
+		F(440, 372, 100, 74, "pave"),
 		F(0, 454, 960, 28, "pave"),
 		F(0, 482, 960, 58, "asphalt"),
 		F(0, 508, 960, 4, "dash"),
-		F(360, 130, 140, 130, "dance"),
+		F(360, 143, 140, 104, "dance"),
 	}
 	d.Walls = walls(
-		hw(120, 840, 30, 16, WallBrick),
-		vw(120, 30, 412, 8, WallBrick),
-		vw(832, 30, 412, 8, WallBrick),
-		hw(120, 840, 396, 16, WallBrick, [2]float64{450, 530}),
-		vw(292, 46, 396, 8, WallPlaster, [2]float64{76, 120}, [2]float64{250, 336}),
-		hw(128, 300, 142, 16, WallPlaster, [2]float64{170, 230}),
-		vw(580, 46, 396, 8, WallPlaster, [2]float64{96, 170}, [2]float64{270, 350}),
-		hw(588, 832, 220, 16, WallPlaster, [2]float64{680, 744}),
+		hw(120, 840, 60, 16, WallBrick),
+		// a side door into the kitchen, so the house isn't only enterable from the street
+		vw(120, 60, 372, 8, WallBrick, [2]float64{239, 311}),
+		vw(832, 60, 372, 8, WallBrick),
+		hw(120, 840, 356, 16, WallBrick, [2]float64{450, 530}),
+		vw(292, 76, 356, 8, WallPlaster, [2]float64{100, 135}, [2]float64{239, 308}),
+		hw(128, 300, 152, 16, WallPlaster, [2]float64{170, 230}),
+		vw(580, 76, 356, 8, WallPlaster, [2]float64{116, 175}, [2]float64{255, 319}),
+		hw(588, 832, 215, 16, WallPlaster, [2]float64{680, 744}),
 		hw(0, 960, 0, 14, WallHedge),
 		vw(0, 14, 452, 10, WallFence),
 		vw(950, 14, 452, 10, WallFence),
@@ -144,30 +133,39 @@ func level1() *LevelDef {
 	)
 	d.Props = []PropInst{
 		// bathroom
-		P("bathtub", 176, 100), P("toilet", 258, 128), P("plant", 142, 130),
+		P("bathtub", 176, 119), P("toilet", 258, 142), P("plant", 142, 143),
 		// kitchen
-		PV("fridge", 150, 214, 0), P("counter", 198, 214), P("stove", 252, 214),
-		P("table", 190, 310), P("table", 246, 350), P("bar", 206, 380), P("plant", 142, 380),
+		PV("fridge", 150, 210, 0), P("counter", 198, 210), P("stove", 252, 210),
+		P("table", 190, 287), P("table", 246, 319), P("bar", 206, 343), P("plant", 142, 343),
 		// living room
-		P("dj", 440, 108), P("speaker", 352, 104), P("speaker", 530, 104),
-		PV("couch", 342, 372, 1), PV("couch", 520, 372, 0), P("punch", 430, 376),
-		P("phone", 566, 340), P("plant", 314, 150), P("plant", 560, 150), P("tv", 330, 270),
+		P("dj", 440, 126), P("speaker", 352, 122), P("speaker", 530, 122),
+		PV("couch", 342, 337, 1), PV("couch", 520, 337, 0), P("punch", 430, 340),
+		P("phone", 566, 311), P("plant", 314, 159), P("plant", 560, 159), P("tv", 330, 255),
 		// lounge
-		P("fireplace", 700, 100), PV("couch", 630, 196, 2), PV("couch", 790, 196, 0), P("plant", 600, 120), P("table", 710, 170),
+		P("fireplace", 700, 119), PV("couch", 630, 196, 2), PV("couch", 790, 196, 0), P("plant", 600, 135), P("table", 710, 175),
 		// bedroom
-		P("bed", 790, 384), P("closet", 624, 300), P("closet", 810, 300), P("table", 690, 380), P("plant", 600, 380),
-		// gardens
+		P("bed", 790, 346), P("closet", 624, 279), P("closet", 810, 279), P("table", 690, 343), P("plant", 600, 343),
+		// back garden
+		P("bush", 250, 54), P("lamp", 480, 50), P("bush", 700, 54), P("bbq", 600, 52),
+		// side gardens
 		P("tree", 56, 150), P("bush", 70, 250), P("bbq", 60, 340), P("table", 70, 400), P("lamp", 100, 220),
 		P("tree", 900, 130), P("bush", 900, 260), P("dumpster", 890, 340), P("bush", 890, 410), P("lamp", 860, 200),
+		// front garden
 		P("bush", 160, 430), P("tree", 80, 430), P("lamp", 400, 430), P("lamp", 600, 430), P("bush", 700, 430),
+		P("tree", 250, 440), P("bush", 820, 425), P("bench", 330, 395), P("bench", 650, 395),
 		PV("car", 200, 534, 0), PV("car", 400, 534, 3),
 	}
-	d.Performers = []Perf{{Vec{440, 90}, "dj", DirDown}}
-	d.Animals = []AnimalSpawn{{"dog", Vec{70, 300}, R(14, 40, 100, 400)}, {"dog", Vec{900, 220}, R(842, 40, 100, 400)}, {"cat", Vec{880, 380}, R(842, 40, 100, 400)}}
-	d.Roam = []Rect{R(300, 150, 270, 230), R(310, 60, 260, 70), R(136, 170, 150, 215), R(136, 56, 150, 76),
-		R(596, 60, 228, 150), R(596, 246, 228, 140), R(14, 40, 100, 400), R(842, 40, 100, 400), R(14, 410, 930, 36), R(300, 456, 400, 22)}
-	d.Dance = []Rect{R(370, 142, 120, 100)}
+	d.Performers = []Perf{{Vec{440, 111}, "dj", DirDown}}
+	d.Animals = []AnimalSpawn{{"dog", Vec{70, 300}, R(14, 20, 100, 420)}, {"dog", Vec{900, 220}, R(842, 20, 100, 420)}, {"cat", Vec{880, 380}, R(842, 20, 100, 420)}}
+	d.Roam = []Rect{R(300, 159, 270, 190), R(310, 84, 260, 56), R(136, 176, 150, 172), R(136, 84, 150, 60),
+		R(596, 84, 228, 124), R(596, 239, 228, 112), R(14, 20, 100, 420), R(842, 20, 100, 420), R(130, 18, 700, 38), R(14, 374, 930, 68), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(370, 153, 120, 80)}
 	d.Guards = [][]Vec{{{60, 180}, {60, 360}}, {{900, 180}, {900, 370}}}
+	d.Glows = []Glow{
+		{Vec{70, 200}, color.RGBA{40, 190, 90, 110}, 90, true},
+		{Vec{890, 220}, color.RGBA{40, 190, 90, 110}, 90, true},
+		{Vec{440, 420}, color.RGBA{200, 180, 60, 90}, 100, true},
+	}
 	d.Doors = append(d.Doors, doorLog...)
 	return d
 }
@@ -290,6 +288,8 @@ func level4() *LevelDef {
 		Start:   Vec{130, 500},
 		CarFrom: Vec{1040, 512}, CarTo: Vec{640, 512},
 		Guests: 44, CellSize: 16,
+		Sign:    "MIAMI",
+		SignPos: Vec{160, 68},
 	}
 	d.Floors = []Floor{
 		F(0, 90, 960, 340, "sand"),
@@ -306,20 +306,24 @@ func level4() *LevelDef {
 	d.Props = []PropInst{
 		P("stage", 480, 214), P("speaker", 280, 204), P("speaker", 690, 204),
 		P("bungalow", 160, 180), P("palm", 280, 130), P("palm", 80, 300),
-		PV("portapotty", 770, 160, 0), PV("portapotty", 802, 160, 1), PV("portapotty", 834, 160, 0), PV("portapotty", 866, 160, 1),
+		PV("portapotty", 790, 160, 0), PV("portapotty", 822, 160, 1), PV("portapotty", 854, 160, 0), PV("portapotty", 886, 160, 1),
 		PV("booth", 790, 300, 0), PV("booth", 790, 420, 1),
 		P("lifeguard", 110, 360), PV("surfboard", 200, 340, 0), PV("surfboard", 218, 340, 1), PV("surfboard", 236, 340, 2),
 		P("crate", 260, 280), P("crate", 700, 280), P("barrel", 150, 260),
 		P("palm", 60, 450), P("palm", 200, 452), P("palm", 340, 452), P("palm", 620, 452), P("palm", 740, 452), P("palm", 900, 452),
 		P("lamp", 400, 450), P("lamp", 580, 450), P("sign", 520, 300), P("bush", 440, 330),
 		PV("car", 200, 534, 1), PV("motorbike", 880, 530, 0),
+		P("truss", 800, 196), P("screen", 640, 168),
+		PV("sunbed", 130, 438, 0), P("umbrella", 130, 410),
+		PV("sunbed", 470, 438, 1), P("umbrella", 470, 410),
+		PV("sunbed", 850, 438, 0), P("umbrella", 850, 410),
 	}
 	d.Performers = []Perf{
 		{Vec{480, 186}, "drum", DirDown}, {Vec{410, 196}, "guitar", DirDown}, {Vec{550, 196}, "guitar", DirDown}, {Vec{480, 204}, "sing", DirDown},
 		{Vec{800, 232}, "dj", DirDown},
 	}
 	d.Props = append(d.Props, P("dj", 800, 250), P("speaker", 746, 246), P("speaker", 854, 246))
-	d.Roam = []Rect{R(250, 230, 450, 190), R(20, 230, 220, 190), R(720, 230, 50, 190), R(20, 100, 240, 90), R(300, 100, 100, 50), R(10, 432, 930, 32), R(100, 470, 800, 16)}
+	d.Roam = []Rect{R(250, 230, 450, 190), R(20, 230, 220, 190), R(710, 230, 80, 190), R(20, 100, 240, 90), R(300, 100, 100, 50), R(10, 432, 930, 32), R(100, 470, 800, 16)}
 	d.Dance = []Rect{R(300, 240, 340, 130)}
 	d.Animals = []AnimalSpawn{{"dog", Vec{140, 300}, R(20, 230, 220, 190)}, {"dog", Vec{700, 380}, R(250, 300, 450, 120)}, {"cat", Vec{100, 380}, R(20, 230, 220, 190)}}
 	d.Guards = [][]Vec{{{240, 300}, {240, 410}}, {{700, 300}, {700, 410}}, {{60, 220}, {60, 300}}}
@@ -372,7 +376,8 @@ func level5() *LevelDef {
 		vw(200, 60, 220, 8, WallWood),
 		hw(24, 208, 212, 14, WallWood, [2]float64{90, 150}),
 		hw(754, 938, 60, 14, WallWood),
-		vw(754, 60, 220, 8, WallWood),
+		// a side door out of the stable, besides the one at the front
+		vw(754, 60, 220, 8, WallWood, [2]float64{120, 190}),
 		vw(930, 60, 220, 8, WallWood),
 		hw(754, 938, 212, 14, WallWood, [2]float64{820, 880}),
 		hw(0, 960, 462, 8, WallFence, [2]float64{360, 560}),

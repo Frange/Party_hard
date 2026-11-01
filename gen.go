@@ -76,37 +76,41 @@ type genRoom struct {
 	Kind string
 }
 
+// genDoorGap: a wide, generous doorway. Rooms should feel like you can walk
+// around anything in them, not squeeze through a narrow gap in the wall.
+const genDoorGap = 120.0
+
 func genSplit(rng *rand.Rand, r Rect, depth int, rooms *[]Rect, ws *[][]Wall) {
-	if depth == 0 || (r.W < 330 && r.H < 320) || (depth < 3 && rng.Float64() < 0.15) {
+	if depth == 0 || (r.W < 360 && r.H < 340) || (depth < 3 && rng.Float64() < 0.15) {
 		*rooms = append(*rooms, r)
 		return
 	}
 	vert := r.W > r.H*1.15
-	if r.W < 330 {
+	if r.W < 360 {
 		vert = false
 	}
-	if r.H < 320 {
+	if r.H < 340 {
 		vert = true
 	}
 	if vert {
-		if r.W < 330 {
+		if r.W < 360 {
 			*rooms = append(*rooms, r)
 			return
 		}
 		x := r.X + r.W*(genLo+rng.Float64()*genSpan)
-		gy := r.Y + 24 + rng.Float64()*math.Max(1, r.H-130)
-		*ws = append(*ws, vw(x-4, r.Y, r.Y+r.H, 8, genInner, [2]float64{gy, gy + 84}))
+		gy := r.Y + 24 + rng.Float64()*math.Max(1, r.H-genDoorGap-46)
+		*ws = append(*ws, vw(x-4, r.Y, r.Y+r.H, 8, genInner, [2]float64{gy, gy + genDoorGap}))
 		genSplit(rng, Rect{r.X, r.Y, x - 4 - r.X, r.H}, depth-1, rooms, ws)
 		genSplit(rng, Rect{x + 4, r.Y, r.X + r.W - x - 4, r.H}, depth-1, rooms, ws)
 		return
 	}
-	if r.H < 320 {
+	if r.H < 340 {
 		*rooms = append(*rooms, r)
 		return
 	}
 	y := r.Y + r.H*(genLo+rng.Float64()*genSpan)
-	gx := r.X + 30 + rng.Float64()*math.Max(1, r.W-140)
-	*ws = append(*ws, hw(r.X, r.X+r.W, y-7, 14, genInner, [2]float64{gx, gx + 84}))
+	gx := r.X + 30 + rng.Float64()*math.Max(1, r.W-genDoorGap-60)
+	*ws = append(*ws, hw(r.X, r.X+r.W, y-7, 14, genInner, [2]float64{gx, gx + genDoorGap}))
 	genSplit(rng, Rect{r.X, r.Y, r.W, y - 7 - r.Y}, depth-1, rooms, ws)
 	genSplit(rng, Rect{r.X, y + 7, r.W, r.Y + r.H - y - 7}, depth-1, rooms, ws)
 }
@@ -257,7 +261,10 @@ func genBad(def *LevelDef) []Vec {
 			test(p)
 		}
 	}
-	for _, pr := range l.Props {
+	for i, pr := range l.Props {
+		if i >= len(def.Props) {
+			break // booths added by buildLevel are placed on checked floor already and cannot be pruned
+		}
 		if pr.K.Hide || pr.K.Phone || pr.K.Trap != "" || pr.K.Poison {
 			test(Vec{pr.X, pr.Y + 14})
 		}

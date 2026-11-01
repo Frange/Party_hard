@@ -24,4 +24,111 @@ NOVEDADES v7
 - El tanque revienta coches y vehiculos de emergencias. Los helicopteros sueltan a la gente en la puerta.
 - DJ en todos los niveles; si lo matas suena punk rock. Muchas canciones nuevas, una lista distinta por escenario.
 - Animales nuevos: gato, pollitos, toro, elefante, jirafa, canguro. Caballo y perro mas pequenos.
-- 16 escenarios (plaza de toros, discoteca, pub, cine, estadio, plazas, Paris, festival, feria, supermercado, centro comercial).
+- Escenarios extra del modo aleatorio: plaza de toros, discoteca, pub, cine, estadio, plazas, París, festival, feria, supermercado, centro comercial.
+
+
+MÚSICA PROPIA (mp3)
+  music/  canciones principales de cada nivel: 1_nombre.mp3, 2_nombre.mp3 ... 15_nombre.mp3
+  more/   canciones al azar cuando acaba la del nivel (el DJ cambia de disco)
+  DJ/     canciones al azar cuando el DJ muere
+Las carpetas están junto a la carpeta assets. Lo que falte se rellena con la música sintetizada del juego.
+
+TIENDA
+------
+Los puntos de cada fiesta (ganes o pierdas) se guardan en tu cartera (progress.json).
+En el menú, TIENDA permite comprar: personajes principales, ropa (sombreros, gafas, trajes),
+objetos (zapatillas, pulmones, guantes), animales, asesinos nuevos y tipos de policía.
+Al empezar solo hay policía local; FBI, ejército, SWAT y Power Rangers salen (según las
+estrellas) cuando los desbloqueas. Los animales y asesinos no comprados no aparecen.
+
+BANDAS
+------
+En algunas fiestas toca una banda famosa (Beatles, Sum 41, Blink-182, Simple Plan, The Offspring,
+Metallica, Punk Sailor, Billy Talent, Lost Prophets, Despistaos, Elvis): en el escenario del nivel
+si lo tiene, o en un hueco libre con su propia pista de baile. Mientras tocan suena música punk
+(sintetizada). Si dejas mp3 en la carpeta "bands" cuyo nombre empiece por el de la banda
+(por ejemplo "blink182_all the small things.mp3" o "The Offspring - Pretty Fly.mp3"),
+sonará esa canción cuando esa banda esté en la fiesta.
+
+LÍMITE DE PERSONAJES
+--------------------
+En AJUSTES puedes elegir cuántos personajes hay al empezar la fiesta (40 por defecto)
+y el máximo total (60 por defecto).
+
+TELÉFONOS Y TÉCNICOS
+--------------------
+Cada fiesta tiene al menos 2 cabinas rojas (separadas) y una cabina AMARILLA aparte.
+Las rojas se pueden cortar (E); sin teléfono nadie puede llamar a la policía. El que vea una
+cabina cortada corre a la amarilla (no se puede romper) para llamar a los técnicos. Llega una
+furgoneta amarilla con 1 o 2 técnicos que arreglan las cabinas cortadas y se van.
+
+SUCESOS A DEMANDA
+-----------------
+Algunos trofeos (Fiestero, Cortacables, Testigo ocular, Contactos, Era jurásica, ¿A quién llamarás?,
+Servicio técnico) dan el poder de provocar un suceso raro con la tecla V (botón LB del mando;
+se cambia en AJUSTES): máximo 2 por fiesta, separados 30 segundos.
+
+NIÑOS SOBRE RUEDAS
+------------------
+Sam-sam y César (patinete) y Diego (monopatín): pequeños y más rápidos que nadie. Si te ven
+de frente, huyen; hay que pillarlos por la espalda. También están en la tienda.
+
+20 FIESTAS
+----------
+La campaña tiene 20 escenarios, siempre en este orden: House Party, Miami Beach, Glow Neon, Bull's Eye,
+Plaza de Toros, Torre Eiffel, Crucero Nocturno, Parque de Atracciones, Estadio, Discoteca, Festival,
+Skate Park, CEMENTERIO (noche de brujas), Cine, Circuito, ESTACIÓN DE ESQUÍ, Rooftop Party, CASINO,
+Supermercado y, de colofón, la Estación Espacial. Pub, Plaza Europea y Centro Comercial salen en el modo aleatorio.
+
+BARCOS Y NAVES
+--------------
+Donde no hay carretera (el crucero y la estación espacial) la policía, las ambulancias, los invitados
+nuevos, el coche fúnebre y los técnicos llegan en lancha motora o en nave, cada uno con el color de su
+coche. En la azotea siguen llegando los helicópteros y el ascensor.
+
+SAM-SAM, CÉSAR Y DIEGO
+-----------------------
+Pueden llegar a la fiesta ya empezada, en su patinete / monopatín por la acera (o en su lancha o nave).
+Si los compras en la tienda llegan siempre, poco después de empezar. Matar a cada uno da un trofeo
+con un suceso nuevo: Desfile de patinetes (Sam-sam), Lluvia de globos de agua (César) y Exhibición de
+skate (Diego). Esos sucesos salen solos de vez en cuando y también con la tecla de sucesos.
+
+TROFEO FINAL Y PODERES
+----------------------
+El trofeo 50, "Leyenda de la fiesta", se consigue ganando todos los demás. Da cuatro poderes (teclas en
+AJUSTES; por defecto I, O, K, L y en mando RB, LT, L3, R3):
+ I  inmunidad: no te mata nada y la puñalada mata policías; sale un halo dorado sobre tu cabeza
+ O  trae un famoso a la fiesta
+ K  envía un asesino
+ L  provoca un suceso raro (uno cada 10 segundos)
+Y además: corona, capa, traje, pelo, zapatos y espada de oro, y el personaje La Leyenda (en la tienda).
+Con todos los trofeos el menú de inicio se vuelve dorado: el vecino duerme en paz y los de la fiesta de la
+ventana están muertos.
+
+MODO DEBUG
+----------
+En el menú principal pulsa: arriba, arriba, abajo, abajo, izquierda, derecha, izquierda, derecha.
+Aparece DEBUG encima de las opciones: inmunidad, matar policías, poderes de los botones, todas las fiestas,
+toda la tienda, todos o ningún trofeo, +10.000 puntos, velocidad x2, sin policía y sucesos rápidos.
+Todo es temporal: no se guarda nada mientras dura y "Salir del DEBUG" restaura tu partida real.
+
+NOVEDADES DE LA ÚLTIMA VERSIÓN
+------------------------------
+- Los FBI, SWAT, militares y Power Rangers muertos dejan su propio cuerpo, con su ropa.
+- El supermercado se ha cambiado en la campaña por la AUTOPISTA: seis carriles, tráfico sin parar y gente
+  bailando en el asfalto (los coches atropellan a quien esté en su carril; el supermercado sigue en el modo
+  aleatorio). Ahora la campaña tiene 21 fiestas: la ESTACIÓN DE TREN va antes de la estación espacial.
+- Estación de tren: pasan trenes (los rápidos matan a quien esté en las vías) y otros paran y traen gente.
+- Las bandas y pistas de baile ya no se montan sobre carreteras, helipuertos, props, puertas, etc.
+- Un teléfono rojo (policía) o amarillo (técnicos) suena y salta arriba a la derecha mientras alguien llama.
+- Baños en todos los niveles (si no hay, cabinas portátiles). La gente va cuando le aprieta... y algunos no
+  llegan. Hay cola en las cabinas.
+- Animadoras con pompones: llegan en grupo, bailan y animan unos 30 segundos.
+- F1: Alonso, Hamilton, Verstappen, Leclerc y Sainz cruzan la fiesta como locos y atropellan.
+- Una serpiente por fiesta, como máximo: muerde (a ti te mata). Se puede apuñalar.
+- Sucesos nuevos: manada que se escapa (elefantes, toros, caballos, jirafas, canguros, cerdos, patos),
+  paracaidista que se une a la fiesta, partidillo de fútbol/baloncesto, grupos de Halloween, Navidad o
+  verano (bañadores, tumbonas, piscina), taxis que dejan gente, monster trucks que aplastan coches y
+  coches tipo Rocket League (Octane, Fennec, Dominus) con turbo y salto.
+- Más frases graciosas en todos y charla aleatoria según el escenario.
+- Estadio: porterías en vertical y líneas del campo blancas.

@@ -24,6 +24,7 @@ type CharEd struct {
 	name       string
 	view       int
 	cv         Canvas
+	wiz        *CharWizard
 	showParts  bool
 	tplIdx     int
 	// preview
@@ -251,6 +252,10 @@ func (c *CharEd) overridePath() string {
 }
 
 func (c *CharEd) update(u *UI) {
+	if c.wiz != nil {
+		c.wiz.update(u)
+		return
+	}
 	pt := c.ed.pt
 	pt.usePart = !c.ovMode
 	// ---- left panel
@@ -277,6 +282,12 @@ func (c *CharEd) update(u *UI) {
 	if u.button(124, y, 106, 22, "Nuevo en blanco", false) {
 		c.newBlank()
 	}
+	y += 26
+	if u.button(12, y, 218, 22, "Nuevo (paso a paso)", false) {
+		c.wiz = newCharWizard(c, c.category())
+		c.wiz.openCanvas()
+		return
+	}
 	y += 28
 	if u.button(12, y, 218, 22, "Plantilla: famoso (siguiente) ▶", false) {
 		c.fromSpec(famousPresets[c.tplIdx%len(famousPresets)](rand.New(rand.NewSource(int64(c.tplIdx) + 11))))
@@ -300,6 +311,12 @@ func (c *CharEd) update(u *UI) {
 		c.dirty = true
 	}
 	u.tooltip(172, y-4, 58, 20, "Objeto que lleva en la mano")
+	y += 26
+	u.text(12, y, "Sexo", uiDim)
+	if u.button(50, y-4, 70, 20, "sexo: "+orDash(c.ca.Meta.Gender), false) {
+		c.ca.Meta.Gender = cycleStr(c.ca.Meta.Gender, []string{"", "m", "f"})
+	}
+	u.tooltip(50, y-4, 70, 20, "Solo afecta a la animación de hacer pis")
 	y += 26
 	w, h := c.ca.Views[0].w, c.ca.Views[0].h
 	u.text(12, y, fmt.Sprintf("Tamaño %dx%d", w, h), uiDim)

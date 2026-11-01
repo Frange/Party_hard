@@ -87,43 +87,44 @@ func init() {
 		b.rect(172, 6, 14, 10, c(0x3a2a08))
 		b.rect(182, 18, 3, 30, c(0x8a8a96))
 	}}
-	pk["stage"] = &PropKind{W: 276, H: 124, FW: 268, FH: 56, SortOff: -90, Draw: func(b *pixBuf, v int) {
-		b.rect(0, 0, 276, 8, c(0x2a2a36))
-		for x := 4; x < 272; x += 8 {
-			b.line(x, 0, x+4, 8, c(0x4a4a5a))
-			b.line(x+4, 8, x+8, 0, c(0x4a4a5a))
-		}
-		b.rect(2, 0, 6, 108, c(0x2a2a36))
-		b.rect(268, 0, 6, 108, c(0x2a2a36))
-		for _, lx := range []int{26, 70, 138, 206, 250} {
-			b.ellipse(float64(lx), 11, 5, 3, c(0x20202a))
-			cc := []uint32{0xff3090, 0x30c0ff, 0xa040ff, 0xf0e040, 0x40ff90}[(lx/7)%5]
-			b.ellipse(float64(lx), 12, 3, 1.8, c(cc))
-		}
-		b.cube(0, 62, 276, 62, 14, c(0x504e60), c(0x2a2838))
-		b.rect(18, 24, 240, 36, c(0x14141e))
-		for x := 20; x < 256; x++ {
-			y := 42 + int(8*math.Sin(float64(x)/9))
-			b.rect(x, y, 1, 2, c(0xff3090))
-			b.rect(x, y+5, 1, 1, c(0x30c0ff))
-		}
-		// amp stacks and speakers
-		for _, sx := range []int{14, 240} {
-			b.cube(sx, 40, 22, 42, 5, c(0x3a3a46), c(0x1e1e26))
-			b.ellipse(float64(sx)+11, 56, 6, 6, c(0x4a4a58))
-			b.ellipse(float64(sx)+11, 56, 4, 4, c(0x101016))
-			b.ellipse(float64(sx)+11, 71, 6, 6, c(0x4a4a58))
-			b.ellipse(float64(sx)+11, 71, 4, 4, c(0x101016))
-		}
-		// drum kit
-		b.ellipse(138, 70, 14, 5, c(0xd8d8e0))
-		b.ellipse(138, 69, 12, 3.6, c(0xa02828))
-		b.ellipse(116, 66, 8, 3, c(0xe8c030))
-		b.ellipse(160, 66, 8, 3, c(0xe8c030))
-		b.ellipse(124, 76, 7, 3, c(0xd8d8e0))
-		b.ellipse(152, 76, 7, 3, c(0xd8d8e0))
-	}}
-	pk["portapotty"] = &PropKind{W: 28, H: 48, FW: 26, FH: 8, Hide: true, Vars: 2, Draw: func(b *pixBuf, v int) {
+	pk["stage"] = &PropKind{W: 276, H: 124, FW: 268, FH: 56, SortOff: -90, NoSolid: true,
+		Solids: []Rect{{-134, -56, 268, 14}, {-134, -56, 14, 40}, {120, -56, 14, 40}}, Draw: func(b *pixBuf, v int) {
+			b.rect(0, 0, 276, 8, c(0x2a2a36))
+			for x := 4; x < 272; x += 8 {
+				b.line(x, 0, x+4, 8, c(0x4a4a5a))
+				b.line(x+4, 8, x+8, 0, c(0x4a4a5a))
+			}
+			b.rect(2, 0, 6, 108, c(0x2a2a36))
+			b.rect(268, 0, 6, 108, c(0x2a2a36))
+			for _, lx := range []int{26, 70, 138, 206, 250} {
+				b.ellipse(float64(lx), 11, 5, 3, c(0x20202a))
+				cc := []uint32{0xff3090, 0x30c0ff, 0xa040ff, 0xf0e040, 0x40ff90}[(lx/7)%5]
+				b.ellipse(float64(lx), 12, 3, 1.8, c(cc))
+			}
+			b.cube(0, 62, 276, 62, 14, c(0x504e60), c(0x2a2838))
+			b.rect(18, 24, 240, 36, c(0x14141e))
+			for x := 20; x < 256; x++ {
+				y := 42 + int(8*math.Sin(float64(x)/9))
+				b.rect(x, y, 1, 2, c(0xff3090))
+				b.rect(x, y+5, 1, 1, c(0x30c0ff))
+			}
+			// amp stacks and speakers
+			for _, sx := range []int{14, 240} {
+				b.cube(sx, 40, 22, 42, 5, c(0x3a3a46), c(0x1e1e26))
+				b.ellipse(float64(sx)+11, 56, 6, 6, c(0x4a4a58))
+				b.ellipse(float64(sx)+11, 56, 4, 4, c(0x101016))
+				b.ellipse(float64(sx)+11, 71, 6, 6, c(0x4a4a58))
+				b.ellipse(float64(sx)+11, 71, 4, 4, c(0x101016))
+			}
+			// drum kit
+			b.ellipse(138, 70, 14, 5, c(0xd8d8e0))
+			b.ellipse(138, 69, 12, 3.6, c(0xa02828))
+			b.ellipse(116, 66, 8, 3, c(0xe8c030))
+			b.ellipse(160, 66, 8, 3, c(0xe8c030))
+			b.ellipse(124, 76, 7, 3, c(0xd8d8e0))
+			b.ellipse(152, 76, 7, 3, c(0xd8d8e0))
+		}}
+	pk["portapotty"] = &PropKind{W: 28, H: 48, FW: 26, FH: 8, Hide: true, Vars: 2, UseKind: "toilet", Use: []Vec{{0, 10}}, Draw: func(b *pixBuf, v int) {
 		col := []uint32{0x3a7ac8, 0x3aa070}[v%2]
 		b.cube(0, 0, 28, 48, 6, c(col+0x101010), c(col))
 		b.rect(4, 12, 20, 32, shade(c(col), 0.8))
@@ -323,22 +324,55 @@ func init() {
 }
 
 // helicopter body (rotor is drawn dynamically)
-func genHeli() *pixBuf {
+func genHeli() *pixBuf { return genHeliPal(0xdcdce8, 0x2a4a9a, 0) }
+
+// genHeliPal: the helicopter in a livery. style 1 FBI, 2 military, 3 SWAT, 4 rangers, 5 medical.
+func genHeliPal(body, trim uint32, style int) *pixBuf {
 	b := newPix(112, 64)
+	defer func() {
+		switch style {
+		case 1: // FBI: black with a violet band and white letters
+			b.rect(52, 30, 40, 2, c(0xb842f5))
+			b.rect(34, 30, 24, 2, c(0xb842f5))
+			for i := 0; i < 3; i++ {
+				b.rect(60+i*8, 26, 5, 3, c(0xf0f0f8))
+			}
+		case 2: // military: camo patches and rocket pods
+			for _, p := range [][4]int{{20, 36, 8, 4}, {34, 33, 6, 3}, {56, 29, 9, 3}, {72, 31, 7, 3}, {46, 38, 8, 3}} {
+				b.rect(p[0], p[1], p[2], p[3], c(0x2c3a1c))
+			}
+			b.rect(24, 42, 14, 3, c(0x1c2214))
+			b.rect(46, 42, 14, 3, c(0x1c2214))
+		case 3: // SWAT: dark with yellow stripes
+			b.rect(52, 29, 40, 2, c(0xffca26))
+			b.rect(30, 38, 30, 2, c(0xffca26))
+			b.rect(88, 18, 5, 3, c(0xffca26))
+		case 4: // rangers: rainbow stripes along the fuselage
+			cols := []uint32{0xe03030, 0x3060e0, 0xf0d020, 0xf070b0, 0x30c050}
+			for i, cc := range cols {
+				b.rect(52+i*8, 28, 8, 8, c(cc))
+				b.rect(30+i*5, 26, 5, 4, c(cc))
+			}
+		case 5: // medical: white with a red cross band
+			b.rect(52, 31, 40, 2, c(0xd02828))
+			b.rect(60, 27, 6, 8, c(0xd02828))
+			b.rect(58, 29, 10, 4, c(0xd02828))
+		}
+	}()
 	b.ox, b.oy = 1, 1
-	b.ellipse(40, 34, 30, 16, c(0x2a4a9a))
-	b.ellipse(40, 31, 28, 13, c(0xdcdce8))
-	b.ellipse(40, 38, 27, 8, c(0x2a4a9a))
+	b.ellipse(40, 34, 30, 16, c(trim))
+	b.ellipse(40, 31, 28, 13, c(body))
+	b.ellipse(40, 38, 27, 8, c(trim))
 	b.ellipse(26, 29, 12, 9, c(0x7ab0d8))
 	b.ellipse(26, 27, 9, 6, c(0xa8d8f0))
-	b.rect(52, 28, 40, 8, c(0xdcdce8))
-	b.rect(52, 33, 40, 3, c(0x2a4a9a))
-	b.rect(88, 18, 5, 18, c(0xdcdce8))
-	b.rect(88, 18, 5, 4, c(0x2a4a9a))
-	b.rect(34, 26, 24, 8, c(0xf4f4f8))
-	b.rect(36, 28, 3, 4, c(0x2a4a9a))
-	b.rect(41, 28, 3, 4, c(0x2a4a9a))
-	b.rect(46, 28, 3, 4, c(0x2a4a9a))
+	b.rect(52, 28, 40, 8, c(body))
+	b.rect(52, 33, 40, 3, c(trim))
+	b.rect(88, 18, 5, 18, c(body))
+	b.rect(88, 18, 5, 4, c(trim))
+	b.rect(34, 26, 24, 8, c(body))
+	b.rect(36, 28, 3, 4, c(trim))
+	b.rect(41, 28, 3, 4, c(trim))
+	b.rect(46, 28, 3, 4, c(trim))
 	b.rect(10, 50, 60, 2, c(0x3a3a46))
 	b.rect(18, 44, 2, 6, c(0x3a3a46))
 	b.rect(56, 44, 2, 6, c(0x3a3a46))

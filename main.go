@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"flag"
 	"fmt"
+	"image"
+	"image/png"
 	"log"
 	"math"
 	"math/rand"
@@ -18,6 +22,9 @@ const (
 
 var noAssets bool
 
+//go:embed icon/icon_256.png
+var iconPNG []byte
+
 func main() {
 	selftest := flag.Int("selftest", 0, "run N frames of automated play and exit (debug)")
 	mute := flag.Bool("mute", false, "start without sound")
@@ -29,6 +36,24 @@ func main() {
 	rigtest := flag.String("rigtest", "", "write a rig comparison sheet to this PNG and exit, debug")
 	noassets := flag.Bool("noassets", false, "ignore the assets folder and use only built-in content")
 	edtab := flag.Int("edtab", 0, "editor tab to open (debug)")
+	eventF := flag.Int("event", 0, "start special event N (1 plane,2 ufo,3 superman,4 satan,5 god,6 zombie), debug")
+	settingsF := flag.Bool("settings", false, "open the settings screen (debug)")
+	ambF := flag.String("ambient", "", "send this ambient vehicle down the road at once (debug)")
+	iconF := flag.Bool("iconmode", false, "draw only the logo on a dark background (used to make the app icon)")
+	bandF := flag.Int("band", 0, "always play band N (1-11) in the party, debug")
+	cutF := flag.Bool("cutphones", false, "cut every red phone a few seconds after the start (debug)")
+	kidsF := flag.Bool("kidsnow", false, "the three kids arrive a few seconds after the start (debug)")
+	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
+	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
+	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
+	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
+	credF := flag.Bool("credits", false, "open the credits (debug)")
+	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
+	dbgF := flag.Bool("debugscreen", false, "open the DEBUG screen (debug)")
+	immF := flag.Bool("immune", false, "start with the immunity halo on (debug)")
+	trophyF := flag.Bool("trophyscreen", false, "open the trophies screen (debug)")
+	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
+	levelSel := flag.Bool("levelselect", false, "open the level select screen (debug)")
 	edload := flag.String("edload", "", "character/object/background to load in the editor, name (debug)")
 	edmode := flag.Int("edmode", 0, "level editor mode (debug)")
 	zoomf := flag.String("shotzoom", "", "x,y,w,h,zoom crop for the screenshot (debug)")
@@ -40,7 +65,13 @@ func main() {
 	genseed := flag.Int64("genseed", 0, "play a generated level with this seed (debug)")
 	fastEvents := flag.Bool("fastevents", false, "killer and arrivals appear almost at once (debug)")
 	gentest := flag.Int("gentest", 0, "generate N levels of every kind and report (debug)")
+	expM := flag.String("exportmusic", "", "render a batch of mp3 songs into this folder (needs ffmpeg) and exit")
+	batchF := flag.Int("musicbatch", 2, "batch number for -exportmusic (a new number gives new songs)")
 	flag.Parse()
+	if *expM != "" {
+		exportMusic(*expM, *batchF)
+		return
+	}
 	if *gentest < 0 {
 		for _, d := range classicLevels() {
 			bad := genBad(d)
@@ -82,6 +113,9 @@ func main() {
 	gameWinW, gameWinH = int(screenW*sc), int(screenH*sc)
 	ebiten.SetWindowSize(gameWinW, gameWinH)
 	ebiten.SetWindowTitle("Party Hard - Fiesta Nocturna")
+	if im, err := png.Decode(bytes.NewReader(iconPNG)); err == nil {
+		ebiten.SetWindowIcon([]image.Image{im})
+	}
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	noAssets = *noassets
@@ -107,6 +141,51 @@ func main() {
 	fastEv = *fastEvents
 	if *level > 0 {
 		g.startLevel(*level - 1)
+	}
+	g.forceEv = *eventF
+	g.forceAmb = *ambF
+	if *settingsF || *credF {
+		g.mode = ModeSettings
+		g.showCredits = *credF
+	}
+	g.iconMode = *iconF
+	g.dbgCut = *cutF
+	techLog = *cutF
+	if *allTrF {
+		progressFrozen = true
+		g.progress = cloneProgress(g.progress)
+		for _, t := range trophyList {
+			g.progress.Trophies[t.id] = true
+		}
+	}
+	if *dbgF {
+		g.debugMenu, g.mode = true, ModeDebug
+	}
+	if *immF {
+		progressFrozen = true
+		g.dbg.immune = true
+	}
+	g.dbgCops = *copsF
+	g.dbgCheer = *cheerF
+	g.dbgSnake = *snakeF
+	g.dbgRing = *ringF
+	if *kidsF {
+		g.kidPlan = []kidPlan{{"sam_sam", 3, false}, {"cesar", 6, false}, {"diego", 9, false}}
+	}
+	g.forceBand = *bandF
+	if *trophyF {
+		g.mode = ModeTrophies
+		g.trophySel = *edtab
+		g.progress.Trophies = map[string]bool{"t_first": true}
+		g.toasts = []trophyToast{{name: "Primera sangre", reward: "Gorro de novato", t: 0.2}}
+	}
+	if *shopF {
+		g.mode = ModeShop
+		g.progress.Wallet = 5000
+		g.shopTab = *edtab
+	}
+	if *levelSel {
+		g.mode = ModeLevelSelect
 	}
 	if *camx >= 0 {
 		g.camFixed = true

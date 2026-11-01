@@ -12,6 +12,7 @@ mkapp() { # name binary dest
   local name="$1" bin="$2" dest="$3" id="$4"
   rm -rf "$dest/$name.app" && mkdir -p "$dest/$name.app/Contents/MacOS"
   cp "$bin" "$dest/$name.app/Contents/MacOS/$name" && chmod +x "$dest/$name.app/Contents/MacOS/$name"
+  mkdir -p "$dest/$name.app/Contents/Resources" && cp icon/AppIcon.icns "$dest/$name.app/Contents/Resources/AppIcon.icns"
   cat > "$dest/$name.app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PLIST-1.0.dtd">
@@ -20,6 +21,7 @@ mkapp() { # name binary dest
 <key>CFBundleDisplayName</key><string>$name</string>
 <key>CFBundleIdentifier</key><string>$id</string>
 <key>CFBundleExecutable</key><string>$name</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1.0</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
@@ -45,6 +47,10 @@ if [ -d assets ]; then
   for d in mac win; do
     cp -R assets $OUT/$d/assets
     cp LEEME.txt ASSETS.md $OUT/$d/
+    mkdir -p $OUT/$d/music $OUT/$d/more $OUT/$d/DJ
+    [ -d music ] && cp music/*.mp3 $OUT/$d/music/ 2>/dev/null || true
+    [ -d more ] && cp more/*.mp3 $OUT/$d/more/ 2>/dev/null || true
+    [ -d DJ ] && cp DJ/*.mp3 $OUT/$d/DJ/ 2>/dev/null || true
   done
   (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHard-Mac.zip 2>/dev/null || zip -qr ../../PartyHard-Mac.zip .)
   (cd $OUT/win && zip -qr ../../PartyHard-Windows.zip .)

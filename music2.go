@@ -340,8 +340,19 @@ func (g *Game) syncMusic() {
 		return
 	}
 	if g.mode == ModeMenu || g.mode == ModeEditor || g.lvl == nil {
+		g.musicMode = ""
 		g.snd.SetTrack("menu", musicLoop)
 		return
+	}
+	skip := g.skipSong
+	if g.syncRealMusic() {
+		g.skipSong = false
+		return
+	}
+	g.skipSong = false
+	if skip {
+		g.songIdx++
+		g.nextSong = g.time + 70 + g.rng.Float64()*40
 	}
 	title := g.lvl.Def.Title
 	if g.time >= g.nextSong {
@@ -352,7 +363,7 @@ func (g *Game) syncMusic() {
 		}
 	}
 	var sp songSpec
-	if g.djDead {
+	if g.djDead || g.band != nil {
 		pl := punkPlaylist()
 		sp = pl[g.songIdx%len(pl)]
 		title = "punk"

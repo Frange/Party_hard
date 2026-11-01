@@ -22,6 +22,8 @@ var logicBrushes = []logicBrush{
 	{"Muro (opaco)", 0, '#', color.RGBA{230, 60, 60, 150}},
 	{"Valla baja", 0, '=', color.RGBA{235, 170, 50, 150}},
 	{"Agua", 0, '~', color.RGBA{60, 140, 255, 140}},
+	{"Zona lenta (barro, gente)", 0, ',', color.RGBA{150, 110, 60, 140}},
+	{"Ventana (se salta con E)", 0, 'w', color.RGBA{80, 230, 230, 160}},
 	{"Borrar sólido", 0, '.', color.RGBA{}},
 	{"Zona de paseo", 1, 'r', color.RGBA{70, 220, 100, 90}},
 	{"Zona de baile", 1, 'd', color.RGBA{235, 80, 235, 120}},
@@ -498,6 +500,15 @@ func drawLevelPoints(vp *ebiten.Image, m *LevelMeta, sx, sy func(int) float64, z
 	fillRect(vp, sx(m.Start.X)-1, sy(m.Start.Y)-16, 2, 16, color.RGBA{60, 230, 255, 255})
 	fillRect(vp, sx(m.Start.X)+1, sy(m.Start.Y)-16, 8, 5, color.RGBA{60, 230, 255, 255})
 	if m.Police == "car" {
+		rh := m.RoadH
+		if rh == 0 {
+			rh = 44
+		}
+		fillRect(vp, sx(0), sy(m.CarFrom.Y-rh/2), 960*z, float64(rh)*z, rgba(0x5a78ff, 40))
+		fillRect(vp, sx(0), sy(m.CarFrom.Y), 960*z, 1, rgba(0xffe65a, 200))
+		if m.ParkX1 > m.ParkX0 {
+			fillRect(vp, sx(m.ParkX0), sy(m.CarFrom.Y-rh/2), float64(m.ParkX1-m.ParkX0)*z, float64(rh)*z, rgba(0x3cff96, 90))
+		}
 		line(m.CarFrom.X, m.CarFrom.Y, m.CarTo.X, m.CarTo.Y, color.RGBA{90, 120, 255, 255})
 		dot(m.CarFrom.X, m.CarFrom.Y, 4, color.RGBA{90, 120, 255, 255})
 		dot(m.CarTo.X, m.CarTo.Y, 5, color.RGBA{255, 255, 255, 255})
@@ -570,6 +581,9 @@ func (l *LevEd) logicPanel(u *UI, rx int) {
 		"Valla baja: bloquea el paso, se ve a través.",
 		"Agua: el jugador no entra; los invitados nadan",
 		"  si el escenario permite nadar.",
+		"Zona lenta: se puede pisar pero al 55% de velocidad.",
+		"Ventana: no se camina por ella; con E se salta al",
+		"  otro lado (pónla fina, en una pared).",
 		"Zona de paseo: donde se mueven los invitados.",
 		"Zona de baile: donde bailan (y se puede animar",
 		"  con cuadros de neón en Propiedades).",
@@ -723,6 +737,19 @@ func (l *LevEd) updatePoints(u *UI, x, y int, inside bool) {
 				m.Animals = append(m.Animals[:i], m.Animals[i+1:]...)
 			}
 		}
+	case 8:
+		if u.pressed {
+			m.ParkX0 = x
+			if m.ParkX1 <= m.ParkX0 {
+				m.ParkX1 = x + 160
+			}
+		}
+		if u.rpressed {
+			m.ParkX1 = x
+			if m.ParkX0 >= m.ParkX1 {
+				m.ParkX0 = x - 160
+			}
+		}
 	case 6:
 		if u.pressed {
 			m.Lights = append(m.Lights, LevelLight{X: x, Y: y, R: l.lrad, Color: [3]uint8{uint8(l.lcol[0]), uint8(l.lcol[1]), uint8(l.lcol[2])}, Alpha: uint8(l.lalpha), Pulse: l.lpulse})
@@ -738,7 +765,7 @@ func (l *LevEd) updatePoints(u *UI, x, y int, inside bool) {
 func (l *LevEd) pointsPanel(u *UI, rx int) {
 	m := &l.la.Meta
 	u.text(rx, 38, "PUNTOS DEL ESCENARIO", uiAccent)
-	tools := []string{"Inicio del jugador", "Policía: coche llega desde", "Policía: coche aparca en", "Helipuertos (hasta 3)", "Ruta de guardia", "DJ / músicos", "Luces", "Animales"}
+	tools := []string{"Inicio del jugador", "Policía: coche llega desde", "Policía: coche aparca en", "Helipuertos (hasta 3)", "Ruta de guardia", "DJ / músicos", "Luces", "Animales", "Zona de aparcamiento (poli/ambulancia)"}
 	for i, t := range tools {
 		if u.button(rx, 58+i*26, 292, 22, t, l.ptTool == i) {
 			l.ptTool = i
@@ -748,9 +775,17 @@ func (l *LevEd) pointsPanel(u *UI, rx int) {
 	switch l.ptTool {
 	case 0:
 		u.text(rx, y, "Clic: dónde aparece el jugador.", uiDim)
+	case 8:
+		u.text(rx, y, "Clic izq.: inicio del tramo. Clic der.: final.", uiDim)
+		u.text(rx, y+16, "Policía y ambulancias paran dentro, sobre la línea", uiDim)
+		u.text(rx, y+32, "central de la carretera (siempre en horizontal).", uiDim)
+		if u.button(rx, y+56, 292, 22, "Quitar zona (usar la de 'aparca en')", false) {
+			m.ParkX0, m.ParkX1 = 0, 0
+		}
 	case 1, 2:
 		u.text(rx, y, "El coche entra por 'desde' y aparca en 'aparca en'.", uiDim)
-		u.text(rx, y+16, "Pon la ruta sobre la carretera.", uiDim)
+		u.text(rx, y+16, "Pon la ruta sobre la carretera: la línea central", uiDim)
+		u.text(rx, y+32, "es la altura de 'desde'; usa la misma Y en los dos.", uiDim)
 		if u.button(rx, y+40, 292, 22, "Policía por: "+m.Police, false) {
 			m.Police = cycleStr(m.Police, []string{"car", "heli"})
 		}
@@ -846,8 +881,45 @@ func (l *LevEd) propsPanel(u *UI, rx int) {
 	u.slider("ta", rx, y+72, 150, &t[3], 0, 200, "Oscuridad")
 	m.Tint = [4]uint8{uint8(t[0]), uint8(t[1]), uint8(t[2]), uint8(t[3])}
 	u.rect(rx+230, y+18, 40, 40, color.RGBA{uint8(minI(255, t[0]*2)), uint8(minI(255, t[1]*2)), uint8(minI(255, t[2]*2)), 255})
-	u.text(rx, y+104, "Consejo: pinta el fondo con colores claros;", uiDim)
-	u.text(rx, y+120, "el juego lo oscurece según la oscuridad.", uiDim)
+	u.text(rx, y+100, "Consejo: pinta el fondo con colores claros;", uiDim)
+	u.text(rx, y+114, "el juego lo oscurece según la oscuridad.", uiDim)
+	y += 134
+	tod := m.TimeOfDay
+	if tod == "" {
+		tod = "night"
+	}
+	names := map[string]string{"night": "noche", "dusk": "atardecer", "day": "día"}
+	if u.button(rx, y, 292, 22, "Momento del día: "+names[tod], false) {
+		m.TimeOfDay = cycleStr(tod, []string{"night", "dusk", "day"})
+		if m.TimeOfDay == "night" {
+			m.TimeOfDay = ""
+		}
+	}
+	u.tooltip(rx, y, 292, 22, "Día y atardecer no oscurecen el escenario")
+	y += 28
+	rh := m.RoadH
+	if rh == 0 {
+		rh = 44
+	}
+	u.text(rx, y, fmt.Sprintf("Ancho de carretera: %d px", rh), uiText)
+	if u.button(rx+212, y-4, 30, 20, "-", false) && rh > 16 {
+		m.RoadH = rh - 4
+	}
+	if u.button(rx+246, y-4, 30, 20, "+", false) && rh < 120 {
+		m.RoadH = rh + 4
+	}
+	y += 26
+	tr := m.Traffic
+	if tr == "" {
+		tr = "both"
+	}
+	tn := map[string]string{"both": "ambos sentidos", "right": "solo hacia la derecha", "left": "solo hacia la izquierda"}
+	if u.button(rx, y, 292, 22, "Tráfico: "+tn[tr], false) {
+		m.Traffic = cycleStr(tr, []string{"both", "right", "left"})
+		if m.Traffic == "both" {
+			m.Traffic = ""
+		}
+	}
 }
 
 // importDrops: a dropped PNG becomes the background (resized to 640x360 if needed).

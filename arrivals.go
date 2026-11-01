@@ -16,12 +16,13 @@ type Elevator struct {
 	pos   Vec // centre of the door at the foot of the wall
 	t     float64
 	n     int
-	state int // 0 waiting for the ding, 1 opening, 2 people leave, 3 closing
+	state int    // 0 waiting for the ding, 1 opening, 2 people leave, 3 closing
+	kid   string // a kid arriving instead of ordinary guests
 	out   int
 }
 
 func (g *Game) updateArrivals(dt float64) {
-	if g.testVictim != nil || g.arrivals >= 3 || g.time < g.arrivalT || len(g.guests) < 4 {
+	if g.testVictim != nil || g.arrivals >= 3 || g.total+2 > g.maxTotal() || g.time < g.arrivalT || len(g.guests) < 4 {
 		g.updateElevators(dt)
 		return
 	}
@@ -89,7 +90,11 @@ func (g *Game) updateElevators(dt float64) {
 			if e.out < e.n && e.t > 0.6 {
 				e.t = 0
 				e.out++
-				g.addGuestAt(Vec{e.pos.X + float64(e.out%3-1)*5, e.pos.Y + 12})
+				if e.kid != "" {
+					g.addKidAt(e.kid, Vec{e.pos.X, e.pos.Y + 12})
+				} else {
+					g.addGuestAt(Vec{e.pos.X + float64(e.out%3-1)*5, e.pos.Y + 12})
+				}
 			}
 			if e.out >= e.n && e.t > 1.0 {
 				e.state, e.t = 3, 0
@@ -105,8 +110,12 @@ func (g *Game) updateElevators(dt float64) {
 }
 
 func (g *Game) addGuestAt(pos Vec) {
+	if g.total >= g.maxTotal() {
+		return // the party is full
+	}
 	pos = g.lvl.NearestFree(pos)
-	gu := &Guest{pos: pos, dir: DirDown, cs: g.newGuestCS(), style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: 0.5, role: g.rng.Intn(2)}
+	cs, name := g.newGuestCS()
+	gu := &Guest{pos: pos, dir: DirDown, cs: cs, name: name, style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: 0.5, role: g.rng.Intn(2)}
 	g.guests = append(g.guests, gu)
 	g.total++
 }
@@ -177,7 +186,7 @@ func (g *Game) drawElevator(dst *ebiten.Image, e *Elevator) {
 
 func (g *Game) guestFun(gu *Guest) {
 	gu.state = gFun
-	gu.fun = g.rng.Intn(5)
+	gu.fun = g.rng.Intn(11)
 	gu.path = nil
 	switch gu.fun {
 	case 0:
@@ -191,6 +200,24 @@ func (g *Game) guestFun(gu *Guest) {
 		gu.icon, gu.iconT = "TATATA!", 2
 	case 3:
 		gu.timer = 3.4
+	case 5:
+		gu.timer = 4
+		gu.icon, gu.iconT = "JAJAJA", 2
+	case 6:
+		gu.timer = 3.5
+		gu.icon, gu.iconT = "¡OLÉ!", 2
+	case 7:
+		gu.timer = 3
+		gu.icon, gu.iconT = "¡MIRA!", 2
+	case 8:
+		gu.timer = 6
+		gu.icon, gu.iconT = "¡BREAK!", 2
+	case 9:
+		gu.timer = 6
+		gu.icon, gu.iconT = "BIP BOP", 2
+	case 10:
+		gu.timer = 5
+		gu.icon, gu.iconT = "♥", 2
 	default:
 		gu.timer = 4
 		gu.icon, gu.iconT = "WOOOO!", 2
@@ -200,6 +227,12 @@ func (g *Game) guestFun(gu *Guest) {
 func (g *Game) updateFun(gu *Guest, dt float64) {
 	gu.timer -= dt
 	switch gu.fun {
+	case 11, 12:
+		g.updateAccident(gu, dt)
+	case 13:
+		g.updateCheerer(gu, dt)
+	case 14:
+		g.updateBitten(gu, dt)
 	case 0:
 		if int(gu.timer*2)%2 == 0 && g.rng.Float64() < 0.1 {
 			v := dirVec(gu.dir)

@@ -62,6 +62,9 @@ type Animal struct {
 	coat   int
 	sprayT float64
 	repath float64
+	dead   bool
+	label  string // proper name shown on hover (Woof)
+	home   bool   // placed by the level (stable, paddock): keeps to its own area
 }
 
 // frames of each animal sprite
@@ -319,6 +322,9 @@ func buildAnimalSprites() AnimalSprites {
 		}
 	}
 	buildMoreAnimalSprites(out)
+	buildCritterSprites(out)
+	buildRiderSprites(out)
+	buildSnakeSprites(out)
 	return out
 }
 
@@ -330,12 +336,18 @@ func (g *Game) spawnAnimals() {
 	g.animals = nil
 	for _, sp := range g.lvl.Def.Animals {
 		k := animalKindIndex(sp.Kind)
-		a := &Animal{kind: k, pos: g.lvl.NearestFree(sp.Pos), face: -1, area: sp.Area, seed: g.rng.Float64() * 10, timer: g.rng.Float64() * 3, coat: g.rng.Intn(3)}
+		if !animalAllowed(k) {
+			continue
+		}
+		a := &Animal{kind: k, pos: g.lvl.NearestFree(sp.Pos), face: -1, area: sp.Area, seed: g.rng.Float64() * 10, timer: g.rng.Float64() * 3, coat: g.rng.Intn(3), home: true}
 		if g.rng.Intn(2) == 0 {
 			a.face = 1
 		}
 		g.animals = append(g.animals, a)
 	}
+	g.scatterCritters()
+	g.scatterRiders()
+	g.scatterSnake()
 }
 
 func (a *Animal) behind(p Vec, reach, width float64) bool {
@@ -345,6 +357,9 @@ func (a *Animal) behind(p Vec, reach, width float64) bool {
 
 func (g *Game) updateAnimals(dt float64) {
 	for _, a := range g.animals {
+		if a.dead {
+			continue
+		}
 		a.moving = false
 		a.anim += dt
 		if a.iconT > 0 {
@@ -369,6 +384,12 @@ func (g *Game) updateAnimals(dt float64) {
 			g.updateKangaroo(a, dt)
 		case animChick:
 			g.updateChick(a, dt)
+		case animRabbit, animPig, animDuck, animBudgie, animDeer:
+			g.updateCritter(a, dt)
+		case animQuijote, animSancho:
+			g.animalWander(a, 13, dt, 0.15)
+		case animSnake:
+			g.updateSnake(a, dt)
 		}
 	}
 }
@@ -388,6 +409,17 @@ func (g *Game) animalWalk(a *Animal, speed, dt float64) bool {
 }
 
 func (g *Game) wanderTarget(a *Animal) Vec {
+	if aggressiveAnimal(a.kind) {
+		return g.lvl.RandomRoam(g.rng)
+	}
+	if !a.home {
+		for i := 0; i < 12; i++ {
+			if p := g.lvl.RandomIn(g.rng, a.area); g.lvl.Outdoor(p) {
+				return p
+			}
+		}
+		return a.pos
+	}
 	return g.lvl.RandomIn(g.rng, a.area)
 }
 
@@ -468,12 +500,14 @@ func (g *Game) updateHorse(a *Animal, dt float64) {
 			case *Guest:
 				if !v.out() && dist(v.pos, a.pos) < 38 {
 					g.killGuest(v, false)
+					g.sayNews("kill", map[string]string{"actor": "Un caballo", "victim": guestLabel(v)})
 				}
 			case *Guard:
 				if !v.dead && dist(v.pos, a.pos) < 38 {
 					v.dead = true
 					g.points += 50
 					g.spawnBody(v.pos, v.cs, v.dir)
+					g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(v, v.cs)
 					g.checkDone()
 				}
 			}
@@ -566,6 +600,12 @@ func (g *Game) updateDog(a *Animal, dt float64) {
 // ---------------------------------------------------------------------------
 
 func (g *Game) animalFrame(a *Animal) int {
+	if a.kind == animSnake {
+		return snakeFrame(a)
+	}
+	if a.kind >= animRabbit {
+		return critterFrame(a)
+	}
 	if a.kind >= animCat {
 		return g.animalFrameMore(a)
 	}
@@ -602,6 +642,10 @@ func (g *Game) animalFrame(a *Animal) int {
 }
 
 func (g *Game) drawAnimal(dst *ebiten.Image, a *Animal) {
+	if a.dead {
+		g.drawDeadAnimal(dst, a)
+		return
+	}
 	im := g.as.animals[animalKey(a.kind, a.coat, g.animalFrame(a))]
 	if im == nil {
 		im = g.as.animals[animalKey(a.kind, a.coat, fStand)]

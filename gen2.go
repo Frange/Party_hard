@@ -52,6 +52,11 @@ var genStyles = map[string]*bldStyle{
 		main: "aisles", kinds: []string{"storage", "bath"},
 		floors: map[string]string{"aisles": "mall", "storage": "concrete", "bath": "tile"},
 		tint:   color.RGBA{0, 6, 24, 60}, guests: 44, bx0: 40, bx1: 920, depth: 1},
+	"station": {title: "ESTACIÓN ESPACIAL", intro: "El final del viaje: una estación a la deriva, y una fiesta que no debería estar aquí.",
+		outer: WallRoof, inner: WallPlaster,
+		main: "lounge", kinds: []string{"storage", "bath", "bar", "lounge", "storage"},
+		floors: map[string]string{"lounge": "white", "bath": "tile", "bar": "arena", "storage": "concrete"},
+		tint:   color.RGBA{2, 2, 24, 120}, guests: 36, depth: 2},
 }
 
 func genBuilding(rng *rand.Rand, style string) *LevelDef {
@@ -89,7 +94,7 @@ func genBuilding(rng *rand.Rand, style string) *LevelDef {
 	var rooms []Rect
 	var ws [][]Wall
 	inner := Rect{bx0 + 8, 46, bx1 - bx0 - 16, 350}
-	minRooms := map[string]int{"house": 3, "club": 3, "pub": 3, "cinema": 3, "mall": 3, "market": 2}[style]
+	minRooms := map[string]int{"house": 3, "club": 3, "pub": 3, "cinema": 3, "mall": 3, "market": 2, "casino": 3}[style]
 	for try := 0; try < 30; try++ {
 		doorLog = nil
 		rooms, ws = nil, nil
@@ -98,10 +103,26 @@ func genBuilding(rng *rand.Rand, style string) *LevelDef {
 			break
 		}
 	}
+	// Buildings usually only had a front door; now a side or rear one shows
+	// up sometimes too, reusing the same hw/vw gap mechanism as the front
+	// door — no new concept needed.
+	var lGap, rGap, rearGap [][2]float64
+	if rng.Float64() < 0.35 {
+		y0 := 100 + rng.Float64()*180
+		lGap = [][2]float64{{y0, y0 + 100}}
+	}
+	if rng.Float64() < 0.35 {
+		y0 := 100 + rng.Float64()*180
+		rGap = [][2]float64{{y0, y0 + 100}}
+	}
+	if rng.Float64() < 0.25 && bx1-bx0 > 280 {
+		x0 := bx0 + 90 + rng.Float64()*(bx1-bx0-280)
+		rearGap = [][2]float64{{x0, x0 + 100}}
+	}
 	ws = append(ws,
-		hw(bx0, bx1, 30, 16, st.outer),
-		vw(bx0, 30, 412, 8, st.outer),
-		vw(bx1-8, 30, 412, 8, st.outer),
+		hw(bx0, bx1, 30, 16, st.outer, rearGap...),
+		vw(bx0, 30, 412, 8, st.outer, lGap...),
+		vw(bx1-8, 30, 412, 8, st.outer, rGap...),
 		hw(bx0, bx1, 396, 16, st.outer, [2]float64{frontX - 48, frontX + 48}),
 		hw(0, 960, 0, 14, WallHedge),
 		vw(0, 14, 452, 10, WallFence),
@@ -161,6 +182,8 @@ func genBuilding(rng *rand.Rand, style string) *LevelDef {
 			pl.scatter(g, 2+rng.Intn(2), 80, "cafetable", "bench", "tree")
 		case "club":
 			pl.scatter(g, 2, 80, "bench", "lamp", "bush")
+		case "casino":
+			pl.scatter(g, 3, 80, "palm", "lamp", "planter", "bench")
 		default:
 			pl.scatter(g, 3+rng.Intn(3), 76, "tree", "bush", "lamp", "bbq", "table", "dumpster", "plant", "bush")
 		}
@@ -196,6 +219,9 @@ func (d *LevelDef) Genesis() []Floor { return d.Floors }
 func genFurnish(kind string, r Rect, rng *rand.Rand, pl *genPlacer, d *LevelDef, phones *int) bool {
 	cx := r.X + r.W/2
 	dj := false
+	if ok, hasDJ := genFurnishCasino(kind, r, rng, pl, d, phones); ok {
+		return hasDJ
+	}
 	switch kind {
 	case "living":
 		dw, dh := math.Min(r.W-80, 200), math.Min(r.H-150, 130)
@@ -291,9 +317,10 @@ func genFurnish(kind string, r Rect, rng *rand.Rand, pl *genPlacer, d *LevelDef,
 		for k := 0; k < 2 && r.W > 150; k++ {
 			pl.at("shelf", r.X+r.W/2, r.Y+70+float64(k)*80, k)
 		}
-		pl.scatter(r, 1, 80, "plant", "cart")
+		pl.at("counter", cx, r.Y+46, 0)
+		pl.scatter(r, 2+int(r.W*r.H/14000), 60, "plant", "cart", "shelf", "bench", "stool")
 	case "food":
-		pl.scatter(r, 2, 80, "table", "stool")
+		pl.scatter(r, 4, 60, "table", "stool", "plant")
 		pl.at("counter", cx, r.Y+56, 0)
 		pl.at("fridge", cx-60, r.Y+56, 0)
 	case "aisles":
@@ -469,7 +496,7 @@ func genBullring(rng *rand.Rand) *LevelDef {
 		skip := false
 		for _, g := range gates {
 			da := math.Abs(math.Remainder(a-g, 2*math.Pi))
-			if da < 0.16 {
+			if da < 0.38 {
 				skip = true
 			}
 		}
@@ -524,7 +551,7 @@ func genStadium(rng *rand.Rand) *LevelDef {
 	}
 	frontX := 430 + rng.Float64()*140
 	d.Floors = []Floor{F(0, 0, 960, 452, "pave"), F(70, 96, 820, 300, "pitch")}
-	line := func(x, y, w, h float64) { d.Floors = append(d.Floors, F(x, y, w, h, "white")) }
+	line := func(x, y, w, h float64) { d.Floors = append(d.Floors, F(x, y, w, h, "chalk")) }
 	line(90, 112, 780, 2)
 	line(90, 380, 780, 2)
 	line(90, 112, 2, 270)
@@ -540,10 +567,10 @@ func genStadium(rng *rand.Rand) *LevelDef {
 		line(479+math.Cos(a)*42-1, 246+math.Sin(a)*42-1, 3, 3)
 	}
 	d.Walls = walls(
-		hw(60, 900, 86, 8, WallFence, [2]float64{300, 372}, [2]float64{600, 672}),
-		hw(60, 900, 400, 8, WallFence, [2]float64{frontX - 40, frontX + 40}, [2]float64{140, 212}),
-		vw(60, 86, 408, 8, WallFence, [2]float64{220, 290}),
-		vw(892, 86, 408, 8, WallFence, [2]float64{220, 290}),
+		hw(60, 900, 86, 8, WallFence, [2]float64{276, 396}, [2]float64{576, 696}),
+		hw(60, 900, 400, 8, WallFence, [2]float64{frontX - 50, frontX + 50}, [2]float64{116, 236}),
+		vw(60, 86, 408, 8, WallFence, [2]float64{190, 320}),
+		vw(892, 86, 408, 8, WallFence, [2]float64{190, 320}),
 		hw(0, 960, 0, 14, WallBrick), vw(0, 14, 452, 10, WallFence), vw(950, 14, 452, 10, WallFence),
 	)
 	var props []PropInst
@@ -554,18 +581,17 @@ func genStadium(rng *rand.Rand) *LevelDef {
 	pl.at("stands", 680, 66, 0)
 	pl.at("stands", 170, 452, 1)
 	pl.at("stands", 790, 452, 0)
-	pl.at("goal", 106, 262, 0)
-	pl.at("goal", 856, 262, 0)
+	pl.at("goalv", 74, 284, 0)  // goal line at x=90, net behind it
+	pl.at("goalv", 886, 284, 1) // goal line at x=870
 	pl.at("dj", 930-10, 330, 0)
 	pl.at("speaker", 926, 370, 0)
 	pl.at("speaker", 926, 290, 0)
 	d.Performers = []Perf{{Vec{920, 312}, "dj", DirLeft}}
 	pl.at("phone", 30, 300, 0)
-	pl.scatter(R(14, 120, 44, 300), 2, 120, "lamp", "bush")
 	pl.at("car", 640, 534, 0)
 	genStreet(d, frontX)
 	d.Props = props
-	d.Roam = []Rect{R(100, 120, 760, 260), R(14, 100, 44, 320), R(900, 100, 40, 320), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Roam = []Rect{R(100, 120, 760, 260), R(14, 100, 74, 320), R(876, 100, 70, 320), R(14, 410, 930, 36), R(300, 456, 400, 22)}
 	d.Dance = []Rect{R(430, 200, 100, 90)}
 	d.Animals = []AnimalSpawn{{"dog", Vec{300, 250}, R(100, 130, 300, 240)}}
 	d.Guards = [][]Vec{{{30, 140}, {30, 400}}, {{frontX - 180, 430}, {frontX + 180, 430}}, {{920, 140}, {920, 260}}}
@@ -684,7 +710,7 @@ func genFunfair(rng *rand.Rand) *LevelDef {
 }
 
 // genKinds lists every generated scenario type.
-var genKinds = []string{"house", "club", "pub", "cinema", "mall", "market", "plaza", "paris", "bullring", "stadium", "festival", "funfair", "roof", "beach"}
+var genKinds = []string{"house", "club", "pub", "cinema", "mall", "market", "plaza", "paris", "bullring", "stadium", "festival", "funfair", "roof", "beach", "skatepark", "circuit", "station", "highway", "trainstation"}
 
 // genExotic adds a few unusual animals to the open-air venues (never more than a couple).
 func genExotic(rng *rand.Rand, d *LevelDef, kind string) {
@@ -731,13 +757,61 @@ func genExotic(rng *rand.Rand, d *LevelDef, kind string) {
 func genByKind(rng *rand.Rand, kind string) *LevelDef {
 	d := genByKind0(rng, kind)
 	genExotic(rng, d, kind)
+	pruneWallProps(d)
 	return d
+}
+
+// wallHuggers may stand on a wall on purpose (grandstands against the fence, lifebuoys on the rail).
+var wallHuggers = map[string]bool{"stands": true, "lifebuoy": true, "dj": true, "performer": true}
+
+// freeStanding scenery must not touch a wall at all.
+var freeStanding = map[string]bool{"tombstone": true, "pine": true, "snowman": true, "pumpkin": true, "deadtree": true, "tree": true,
+	"palm": true, "bush": true, "planter": true, "bench": true, "shelf": true, "roulette": true, "slot": true, "table": true, "fountain": true}
+
+// pruneWallProps removes scenery that would be planted on top of a wall (more than a third of
+// its footprint inside it); furniture just leaning on a wall stays.
+func pruneWallProps(d *LevelDef) {
+	out := d.Props[:0]
+	for _, in := range d.Props {
+		k := propKinds[in.Kind]
+		if k == nil || wallHuggers[in.Kind] {
+			out = append(out, in)
+			continue
+		}
+		foot := Rect{in.X - k.FW/2, in.Y - k.FH, k.FW, k.FH}
+		bad := false
+		for _, w := range d.Walls {
+			if w.Style == WallVoid || !rectsOverlap(foot, w.R) {
+				continue
+			}
+			ox := math.Min(foot.X+foot.W, w.R.X+w.R.W) - math.Max(foot.X, w.R.X)
+			oy := math.Min(foot.Y+foot.H, w.R.Y+w.R.H) - math.Max(foot.Y, w.R.Y)
+			lim := 0.33
+			if freeStanding[in.Kind] {
+				lim = 0.04
+			}
+			if ox*oy > lim*foot.W*foot.H {
+				bad = true
+				break
+			}
+		}
+		if !bad {
+			out = append(out, in)
+		}
+	}
+	d.Props = out
 }
 
 func genByKind0(rng *rand.Rand, kind string) *LevelDef {
 	switch kind {
-	case "house", "club", "pub", "cinema", "mall", "market":
+	case "house", "club", "pub", "cinema", "mall", "market", "casino":
 		return genBuilding(rng, kind)
+	case "station":
+		return genStation(rng)
+	case "graveyard":
+		return genGraveyard(rng)
+	case "ski":
+		return genSki(rng)
 	case "plaza":
 		return genPlaza(rng, false)
 	case "paris":
@@ -752,8 +826,158 @@ func genByKind0(rng *rand.Rand, kind string) *LevelDef {
 		return genFunfair(rng)
 	case "roof":
 		return genRoof(rng)
+	case "yacht":
+		return genYacht(rng)
+	case "skatepark":
+		return genSkatepark(rng)
+	case "circuit":
+		return genCircuit(rng)
+	case "highway":
+		return genHighway(rng)
+	case "trainstation":
+		return genTrainStation(rng)
 	}
 	return genBeach(rng)
+}
+
+// genYacht is deliberately broad and uncluttered: it gives the same layered
+// deck / lounge / open water feeling as a party boat while preserving generous
+// routes for guests, medics and helicopters.
+func genYacht(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "CRUCERO NOCTURNO", Intro: "Mar abierto, música alta y ninguna salida elegante.",
+		W: 960, H: 540, Sky: "sea", Police: "car", Transit: "sea", Tint: color.RGBA{0, 16, 35, 95},
+		CarFrom: Vec{1040, 508}, CarTo: Vec{560, 496}, ParkX0: 220, ParkX1: 780,
+		Start: Vec{105, 410}, Pads: []Vec{{835, 271}, {114, 418}}, Guests: 46, CellSize: 16,
+		Hull: true, HullRect: Rect{60, 60, 842, 422}, HullName: "SS ROYAL", Shape: yachtShape,
+	}
+	// Hull, lower lounge and upper deck. The wide central deck is left open.
+	d.Floors = []Floor{
+		F(70, 70, 820, 400, "deck"), F(110, 112, 430, 210, "white"),
+		F(555, 112, 286, 210, "deck"), F(115, 340, 725, 86, "boardwalk"),
+		FC(652, 212, 138, 88, "tile", 0x3aaed0),
+		FC(800, 236, 70, 70, "helipad", 0xd8e1e8), FC(72, 376, 84, 84, "helipad", 0xd8e1e8),
+	}
+	d.Pools = []Rect{R(652, 212, 138, 88)}
+	d.Swim = true
+	d.Walls = walls(
+		hw(70, 760, 63, 6, WallRail), hw(70, 760, 473, 6, WallRail),
+		vw(63, 70, 470, 6, WallRail),
+		hw(110, 540, 102, 10, WallPlaster, [2]float64{265, 375}),
+		vw(540, 112, 322, 8, WallPlaster, [2]float64{170, 282}),
+	)
+	d.Props = []PropInst{
+		P("dj", 332, 140), P("speaker", 235, 148), P("speaker", 428, 148), P("bar", 322, 286), P("punch", 460, 278),
+		P("couch", 172, 290), PV("couch", 476, 286, 1), P("table", 225, 250), P("table", 410, 238),
+		P("sunbed", 592, 168), PV("sunbed", 615, 325, 1), P("umbrella", 600, 205), PV("umbrella", 804, 207, 2),
+		P("bar", 742, 178), P("phone", 812, 330), P("closet", 94, 190), P("plant", 512, 162),
+		P("lamp", 108, 355), P("lamp", 530, 360), P("lamp", 824, 346), P("plant", 96, 100), P("plant", 854, 100),
+		P("lifebuoy", 180, 68), P("lifebuoy", 480, 68), P("lifebuoy", 780, 68),
+		P("lifebuoy", 180, 475), P("lifebuoy", 780, 475),
+	}
+	d.Performers = []Perf{{Vec{332, 126}, "dj", DirDown}}
+	d.Roam = []Rect{R(84, 82, 786, 370), R(122, 122, 400, 185), R(566, 125, 265, 206), R(120, 348, 710, 72)}
+	d.Dance = []Rect{R(230, 170, 190, 82)}
+	d.Doors = append(d.Doors, doorLog...)
+	d.Walls = append(d.Walls, voidWalls(yachtShape, d.W, d.H)...)
+	return d
+}
+
+// genSkatepark: an open park with ramps, rails and a half-pipe, the same
+// generous open layout as genPlaza so there is always room to walk around
+// every obstacle.
+func genSkatepark(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "SKATE PARK", Intro: "Rampas, barandillas y una fiesta sin casco.",
+		W: 960, H: 540, Sky: "none", Police: "car", Tint: color.RGBA{6, 10, 24, 70},
+		Guests: 40 + rng.Intn(8), CellSize: 16,
+	}
+	frontX := 380 + rng.Float64()*200
+	d.Floors = []Floor{F(0, 0, 960, 452, "grass"), F(60, 90, 840, 320, "concrete")}
+	d.Walls = walls(
+		hw(0, 960, 20, 20, WallHedge),
+		vw(0, 40, 452, 10, WallFence),
+		vw(950, 40, 452, 10, WallFence),
+	)
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.at("halfpipe", 220, 170, 0)
+	pl.at("ramp", 460, 150, 0)
+	pl.at("ramp", 540, 150, 1)
+	pl.at("rail", 300, 290, 0)
+	pl.at("rail", 540, 300, 0)
+	pl.at("halfpipe", 760, 300, 1)
+	pl.avoid = append(pl.avoid, Vec{220, 170}, Vec{460, 150}, Vec{540, 150}, Vec{300, 290}, Vec{540, 300}, Vec{760, 300})
+	pl.at("dj", 110, 360, 0)
+	pl.at("speaker", 62, 356, 0)
+	pl.at("speaker", 160, 356, 0)
+	d.Performers = []Perf{{Vec{110, 342}, "dj", DirDown}}
+	pl.scatter(R(60, 90, 840, 320), 6, 90, "bench", "tree", "bush", "lamp")
+	pl.at("phone", 920, 300, 0)
+	pl.at("car", 200+rng.Float64()*100, 534, 1)
+	genStreet(d, frontX)
+	d.Props = props
+	d.Roam = []Rect{R(60, 90, 840, 320), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(80, 330, 120, 50)}
+	d.Animals = []AnimalSpawn{{"dog", Vec{700, 400}, R(600, 350, 300, 90)}}
+	d.Guards = [][]Vec{{{140, 150}, {140, 380}}, {{820, 150}, {820, 380}}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
+}
+
+// genCircuit: the street runs across the middle of the scenario instead of
+// along one edge, with grandstands north and south and a single decorative
+// bridge crossing (FastTraffic keeps cars circling through often).
+func genCircuit(rng *rand.Rand) *LevelDef {
+	doorLog = nil
+	d := &LevelDef{
+		Title: "CIRCUITO", Intro: "Un circuito de carreras convertido en pista de baile. Los coches no van a parar.",
+		W: 960, H: 540, Sky: "none", Police: "car", FastTraffic: true,
+		Tint:    color.RGBA{4, 4, 16, 80},
+		Start:   Vec{480, 110},
+		CarFrom: Vec{1040, 285}, CarTo: Vec{740, 285},
+		Guests: 40 + rng.Intn(6), CellSize: 16,
+	}
+	// The dashed center line sits at CarFrom.Y: the asphalt band straddles
+	// it symmetrically so both one-way lanes (see laneOffset) land cleanly
+	// on asphalt, one on each side of the line.
+	d.Floors = []Floor{
+		F(0, 20, 960, 224, "grass"),
+		F(0, 326, 960, 180, "grass"),
+		F(0, 244, 960, 82, "asphalt"),
+		F(0, 283, 960, 4, "dash"),
+	}
+	d.Walls = walls(
+		hw(0, 960, 20, 14, WallFence),
+		hw(0, 960, 506, 14, WallFence),
+		vw(0, 20, 486, 10, WallFence),
+		vw(950, 20, 486, 10, WallFence),
+		hw(0, 960, 236, 8, WallFence, [2]float64{410, 530}),
+		hw(0, 960, 326, 8, WallFence, [2]float64{410, 530}),
+	)
+	var props []PropInst
+	pl := &genPlacer{rng: rng, out: &props}
+	pl.at("bridge", 470, 285, 0)
+	pl.avoid = append(pl.avoid, Vec{470, 285})
+	for i := 0; i < 4; i++ {
+		pl.at("stands", 70+float64(i)*220, 60, i%2)
+		pl.at("stands", 70+float64(i)*220, 440, i%2)
+	}
+	pl.at("dj", 480, 90, 0)
+	pl.at("speaker", 420, 86, 0)
+	pl.at("speaker", 540, 86, 0)
+	d.Performers = []Perf{{Vec{480, 72}, "dj", DirDown}}
+	pl.scatter(R(40, 40, 880, 160), 6, 80, "bench", "plant", "lamp")
+	pl.scatter(R(40, 350, 880, 140), 6, 80, "bench", "plant", "lamp")
+	pl.at("phone", 920, 100, 0)
+	d.Props = props
+	d.Roam = []Rect{R(40, 40, 880, 170), R(40, 340, 880, 150)}
+	d.Dance = []Rect{R(380, 60, 200, 80)}
+	d.Guards = [][]Vec{{{140, 80}, {800, 80}}, {{140, 440}, {800, 440}}}
+	d.Doors = append(d.Doors, doorLog...)
+	return d
 }
 
 // genNamed builds a scenario of a given type from a fixed seed, retrying until it is fully walkable.

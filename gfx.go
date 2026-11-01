@@ -41,6 +41,52 @@ func mixc(a, b color.RGBA, t float64) color.RGBA {
 	return color.RGBA{m(a.R, b.R), m(a.G, b.G), m(a.B, b.B), 255}
 }
 
+// desat pulls a colour towards its own luminance by t (0 = unchanged, 1 = grey).
+func desat(c color.RGBA, t float64) color.RGBA {
+	l := 0.3*float64(c.R) + 0.59*float64(c.G) + 0.11*float64(c.B)
+	m := func(v uint8) uint8 { return uint8(float64(v)*(1-t) + l*t) }
+	return color.RGBA{m(c.R), m(c.G), m(c.B), c.A}
+}
+
+// tone desaturates and darkens every opaque pixel in place: the one palette
+// pass that keeps floors and sprites in the same muted, night-time range.
+func (b *pixBuf) tone(sat, mul float64) *pixBuf {
+	for i := 0; i < len(b.p); i += 4 {
+		if b.p[i+3] == 0 {
+			continue
+		}
+		c := desat(color.RGBA{b.p[i], b.p[i+1], b.p[i+2], 255}, sat)
+		c = shade(c, mul)
+		b.p[i], b.p[i+1], b.p[i+2] = c.R, c.G, c.B
+	}
+	return b
+}
+
+// stylizeSprite gives any sprite the shared finish: a mild desaturation so
+// props sit in the same muted range as the floors. No hard outline — the
+// original's sprites are defined by shading, not by a black border.
+func stylizeSprite(b *pixBuf) *pixBuf {
+	o := &pixBuf{w: b.w, h: b.h, p: append([]byte(nil), b.p...)}
+	return o.tone(0.18, 1)
+}
+
+// floorTone is how much each floor kind is darkened on top of the shared
+// desaturation: outdoors reads darker than the interiors the lights fall on.
+var floorTone = map[string]float64{
+	"grass": 0.8, "dirt": 0.75, "pave": 0.78, "asphalt": 0.8, "sand": 0.72, "cobble": 0.78, "pitch": 0.72, "chalk": 1.0,
+	"arena": 0.8, "boardwalk": 0.82, "rooftop": 0.85, "rooftop2": 0.9,
+	"wood": 0.9, "parquet": 0.85, "deck": 0.85, "tile": 0.82, "white": 0.62, "marble": 0.72, "mall": 0.75,
+	"carpet": 0.8, "concrete": 0.85, "snow": 0.66,
+}
+
+func stylizeFloor(kind string, b *pixBuf) *pixBuf {
+	mul, ok := floorTone[kind]
+	if !ok {
+		mul = 0.85
+	}
+	return b.tone(0.35, mul)
+}
+
 // ---------------------------------------------------------------------------
 // CPU pixel canvas
 // ---------------------------------------------------------------------------
@@ -225,14 +271,31 @@ func genFloor(kind string, variant int) *pixBuf {
 	}
 	switch kind {
 	case "wood":
-		fill(rgb(0x7a5333))
+		// dark planks with a slightly different tone per plank, fine grain
+		// lines and a dark seam, instead of one flat orange-brown
+		tones := []uint32{0x5a3e28, 0x644630, 0x523822, 0x5e4229}
 		for y := 0; y < 32; y += 8 {
-			b.rect(0, y, 32, 1, rgb(0x5e3e26))
-			b.rect(0, y+1, 32, 1, rgb(0x8a6040))
-			off := (y / 8 * 11) % 32
-			b.rect(off, y+2, 1, 6, rgb(0x5e3e26))
+			t := rgb(tones[(y/8+variant)%len(tones)])
+			b.rect(0, y, 32, 8, t)
+			b.rect(0, y, 32, 1, shade(t, 0.6))
+			b.rect(0, y+1, 32, 1, shade(t, 1.12))
+			off := (y/8*11 + variant*5) % 32
+			b.rect(off, y+1, 1, 7, shade(t, 0.62))
 			for i := 0; i < 5; i++ {
-				b.set(rng.Intn(32), y+2+rng.Intn(6), rgb(0x6a4730))
+				gx, gy := rng.Intn(28), y+2+rng.Intn(5)
+				b.rect(gx, gy, 2+rng.Intn(5), 1, shade(t, 0.86))
+			}
+			for i := 0; i < 2; i++ { // worn highlights along the plank
+				gx, gy := rng.Intn(26), y+2+rng.Intn(4)
+				b.rect(gx, gy, 3+rng.Intn(4), 1, shade(t, 1.18))
+			}
+			if rng.Intn(3) == 0 { // a knot
+				kx, ky := 4+rng.Intn(22), y+3+rng.Intn(2)
+				b.rect(kx, ky, 3, 2, shade(t, 0.62))
+				b.set(kx+1, ky, shade(t, 0.45))
+			}
+			if rng.Intn(3) == 0 {
+				b.set(off+2, y+3, shade(t, 0.5))
 			}
 		}
 	case "deck":
@@ -245,28 +308,37 @@ func genFloor(kind string, variant int) *pixBuf {
 		}
 		noise(30, rgb(0x94683f))
 	case "tile":
+		// muted cream/grey checker with a dark grout line and a few stains
+		fill(rgb(0x6e665a))
 		for y := 0; y < 32; y += 16 {
 			for x := 0; x < 32; x += 16 {
-				col := rgb(0xdccfae)
+				col := rgb(0xb8ad94)
 				if (x/16+y/16)%2 == 1 {
-					col = rgb(0xc4b48e)
+					col = rgb(0xa49a84)
 				}
-				b.rect(x, y, 16, 16, col)
-				b.rect(x, y, 16, 1, shade(col, 1.08))
+				col = shade(col, 0.94+rng.Float64()*0.12) // no two tiles quite the same
+				b.rect(x+1, y+1, 15, 15, col)
+				b.rect(x+2, y+2, 6, 1, shade(col, 1.08)) // a glint on the glaze
+				b.rect(x+1, y+1, 15, 1, shade(col, 1.07))
+				b.rect(x+1, y+15, 15, 1, shade(col, 0.9))
 			}
 		}
+		noise(14, rgb(0x968b76))
 	case "carpet":
-		fill(rgb(0x6b2a3c))
-		noise(160, rgb(0x7a3548))
-		noise(100, rgb(0x5a2030))
+		fill(rgb(0x4e2531))
+		noise(160, rgb(0x5a2c3a))
+		noise(100, rgb(0x421e29))
 	case "grass":
-		fill(rgb(0x2f6a35))
-		noise(70, rgb(0x3b7f41))
-		noise(50, rgb(0x265a2c))
+		// dark olive lawn: the lighting pass keeps it near-black away from
+		// the lamps, and the lamps bring out the blades
+		fill(rgb(0x2d4a2b))
+		noise(80, rgb(0x365734))
+		noise(60, rgb(0x253f24))
+		noise(20, rgb(0x1e3320))
 		for i := 0; i < 8; i++ {
 			x, y := rng.Intn(30), rng.Intn(30)
-			b.set(x, y, rgb(0x4a9650))
-			b.set(x, y+1, rgb(0x4a9650))
+			b.set(x, y, rgb(0x3f6a3c))
+			b.set(x, y+1, rgb(0x3f6a3c))
 		}
 	case "pave":
 		fill(rgb(0x8d8d98))
@@ -275,6 +347,27 @@ func genFloor(kind string, variant int) *pixBuf {
 		b.rect(0, 0, 1, 16, rgb(0x6f6f7a))
 		b.rect(16, 16, 1, 16, rgb(0x6f6f7a))
 		noise(30, rgb(0x9b9ba6))
+	case "rails":
+		// gravel ballast with wooden sleepers every 8px and two steel rails
+		fill(rgb(0x5a5650))
+		noise(120, rgb(0x6a665e))
+		noise(80, rgb(0x46423c))
+		for x := 0; x < 32; x += 8 {
+			b.rect(x+2, 4, 4, 24, rgb(0x4a3624))
+			b.rect(x+2, 4, 1, 24, rgb(0x6a4c32))
+		}
+		b.rect(0, 8, 32, 2, rgb(0x9a9ca8))
+		b.rect(0, 8, 32, 1, rgb(0xd0d2dc))
+		b.rect(0, 22, 32, 2, rgb(0x9a9ca8))
+		b.rect(0, 22, 32, 1, rgb(0xd0d2dc))
+	case "edge":
+		// the yellow safety line along the platform
+		fill(rgb(0x8a8a96))
+		noise(30, rgb(0x9a9aa6))
+		b.rect(0, 12, 32, 6, rgb(0xe8c020))
+		for x := 0; x < 32; x += 8 {
+			b.rect(x, 12, 4, 6, rgb(0x2a2a30))
+		}
 	case "asphalt":
 		fill(rgb(0x3b3b46))
 		noise(90, rgb(0x474752))
@@ -304,6 +397,11 @@ func genFloor(kind string, variant int) *pixBuf {
 				b.rect(x, y, 1, 16, rgb(0x5a3a20))
 			}
 		}
+	case "snow":
+		fill(rgb(0xdce6f2))
+		noise(120, rgb(0xeef4fc))
+		noise(90, rgb(0xc4d2e6))
+		noise(14, rgb(0xa8bcd8))
 	case "sand":
 		fill(rgb(0x4e485a))
 		noise(110, rgb(0x5a5468))
@@ -351,8 +449,14 @@ func genFloor(kind string, variant int) *pixBuf {
 			noise(60, rgb(0x3a9648))
 			noise(40, rgb(0x246a2e))
 		}
+	case "chalk":
+		fill(rgb(0xffffff))
 	case "white":
-		fill(rgb(0xe8e8e0))
+		fill(rgb(0xcfcbc0))
+		noise(40, rgb(0xc2bdb1))
+		for y := 0; y < 32; y += 16 {
+			b.rect(0, y, 32, 1, rgb(0xb9b4a8))
+		}
 	case "arena":
 		fill(rgb(0xb89a64))
 		noise(120, rgb(0xc8aa74))

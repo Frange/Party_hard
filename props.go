@@ -10,27 +10,29 @@ import (
 // PropKind describes a free-standing object. Props are anchored at the
 // bottom-centre of their footprint; the footprint is the part that blocks movement.
 type PropKind struct {
-	W, H     int
-	FW, FH   float64
-	Vars     int
-	Draw     func(b *pixBuf, v int)
-	Hide     bool
-	Phone    bool
-	Poison   bool
-	Trap     string // "explode" | "electric"
-	UseKind  string
-	Use      []Vec
-	Light    bool
-	NoSolid  bool
-	SortOff  float64
-	Native   []*pixBuf // sprite frames loaded from assets (already at native scale)
-	NAX, NAY float64
-	FPS      float64
-	FootDX   float64
-	FootDY   float64
-	hasFoot  bool
-	Ambient  float64
-	Category string
+	W, H      int
+	FW, FH    float64
+	Vars      int
+	Draw      func(b *pixBuf, v int)
+	Hide      bool
+	Phone     bool
+	TechPhone bool // the yellow phone used only to call the technicians
+	Poison    bool
+	Trap      string // "explode" | "electric"
+	UseKind   string
+	Use       []Vec
+	Light     bool
+	NoSolid   bool
+	Solids    []Rect // solid parts relative to the prop anchor, used instead of the foot box when a prop is walkable (a stage you can climb)
+	SortOff   float64
+	Native    []*pixBuf // sprite frames loaded from assets (already at native scale)
+	NAX, NAY  float64
+	FPS       float64
+	FootDX    float64
+	FootDY    float64
+	hasFoot   bool
+	Ambient   float64
+	Category  string
 }
 
 func c(h uint32) color.RGBA { return rgb(h) }
@@ -340,11 +342,33 @@ func init() {
 		}
 		b.rect(0, 32, 98, 1, c(0xa8a090))
 	}}
-	pk["phone"] = &PropKind{W: 20, H: 28, FW: 14, FH: 7, Phone: true, Draw: func(b *pixBuf, v int) {
-		b.cube(2, 12, 16, 16, 4, c(0x8a5a36), c(0x5e3e26))
-		b.rect(5, 7, 10, 6, c(0x2a2a34))
-		b.rect(4, 4, 12, 3, c(0xd03030))
-		b.rect(5, 9, 8, 1, c(0x6a6a7a))
+	pk["phone"] = &PropKind{W: 24, H: 46, FW: 16, FH: 8, Phone: true, Draw: func(b *pixBuf, v int) {
+		red, dark := c(0xc82828), c(0x8a1a1a)
+		b.rect(1, 0, 22, 4, dark) // roof
+		b.rect(2, 0, 20, 1, c(0xe05050))
+		b.rect(6, 1, 12, 2, c(0xf0d040))  // TEL sign
+		b.rect(2, 4, 20, 38, red)         // frame
+		b.rect(4, 6, 16, 32, c(0x86b8d0)) // glass
+		b.rect(5, 7, 4, 28, c(0xa8d4e8))
+		b.rect(11, 4, 2, 38, red) // mullions
+		b.rect(4, 17, 16, 2, red)
+		b.rect(4, 28, 16, 2, red)
+		b.rect(7, 20, 10, 7, c(0x2a2a34)) // the phone inside
+		b.rect(8, 21, 8, 2, c(0xd8d8e0))
+		b.rect(9, 24, 2, 2, c(0x8a8a9a))
+		b.rect(13, 24, 2, 2, c(0x8a8a9a))
+		b.rect(1, 40, 22, 5, dark) // base
+	}}
+	pk["weapon"] = &PropKind{W: 16, H: 10, FW: 8, FH: 3, NoSolid: true, Draw: func(b *pixBuf, v int) {
+		if v == 1 { // pistol
+			b.rect(2, 3, 9, 3, c(0x2a2a32))
+			b.rect(2, 3, 9, 1, c(0x5a5a68))
+			b.rect(3, 6, 3, 4, c(0x3a3a46))
+		} else { // knife
+			b.rect(1, 5, 4, 2, c(0x4a2c14))
+			b.rect(5, 5, 9, 2, c(0xd0d6e0))
+			b.rect(5, 5, 9, 1, c(0xf4f8ff))
+		}
 	}}
 	pk["bench"] = &PropKind{W: 38, H: 22, FW: 36, FH: 8, Draw: func(b *pixBuf, v int) {
 		b.rect(1, 2, 36, 7, c(0x9a6a3c))
@@ -424,9 +448,11 @@ func renderPropSprite(name string, k *PropKind, v int) *pixBuf {
 func buildPropImages() map[string][]PropImg {
 	out := map[string][]PropImg{}
 	for name, k := range propKinds {
+		// Both branches go through stylizeSprite so exported, user-painted and
+		// procedural props share one muted palette.
 		if k.Native != nil {
 			for _, f := range k.Native {
-				out[name] = append(out[name], PropImg{img: f.img(), ox: k.NAX, oy: k.NAY})
+				out[name] = append(out[name], PropImg{img: stylizeSprite(f).img(), ox: k.NAX, oy: k.NAY})
 			}
 			continue
 		}
@@ -435,7 +461,7 @@ func buildPropImages() map[string][]PropImg {
 			n = 1
 		}
 		for v := 0; v < n; v++ {
-			sb := renderPropSprite(name, k, v)
+			sb := stylizeSprite(renderPropSprite(name, k, v))
 			ox := (float64(k.W)/2 + 1) * wk
 			oy := (float64(k.H) + 1) * wk
 			out[name] = append(out[name], PropImg{img: sb.img(), ox: math.Round(ox), oy: math.Round(oy)})

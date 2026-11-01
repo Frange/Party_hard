@@ -62,6 +62,12 @@ const (
 	HoldBriefcase
 	HoldTorch
 	HoldSax
+	HoldPee
+	HoldFloat // lifeguard's ring buoy
+	HoldBoard // lifeguard's rescue board
+	HoldGun
+	HoldExt    // fire extinguisher
+	HoldPompom // a pompom in each hand (cheerleaders)
 )
 
 const (
@@ -72,6 +78,14 @@ const (
 	AnimDance1
 	AnimDance2
 	AnimDance3
+	AnimDance4
+	AnimDance5
+	AnimDance6
+	AnimDance7
+	AnimDance8
+	AnimDance9
+	AnimDance10
+	AnimDance11
 	AnimDrink
 	AnimTalk
 	AnimWave
@@ -91,14 +105,25 @@ const (
 	AnimCall
 	AnimPanic
 	AnimCrouch
+	AnimPoint
+	AnimLove
+	AnimLaugh
+	AnimPirouette
+	AnimPee
+	AnimZombie
+	AnimLean
+	AnimCheer
 	AnimCount
 )
 
 var animFrames = [AnimCount]int{
-	AnimIdle: 2, AnimWalk: 6, AnimRun: 6, AnimDance0: 6, AnimDance1: 6, AnimDance2: 6, AnimDance3: 6,
+	AnimIdle: 2, AnimWalk: 6, AnimRun: 6,
+	AnimDance0: 6, AnimDance1: 6, AnimDance2: 6, AnimDance3: 6,
+	AnimDance4: 6, AnimDance5: 6, AnimDance6: 6, AnimDance7: 6, AnimDance8: 6, AnimDance9: 6, AnimDance10: 6, AnimDance11: 6,
 	AnimDrink: 6, AnimTalk: 6, AnimWave: 4, AnimPunch: 4, AnimStab: 3, AnimFall: 3, AnimVomit: 4, AnimKiss: 2,
 	AnimDJ: 4, AnimDrum: 4, AnimGuitar: 4, AnimSing: 4, AnimCarry: 6, AnimTired: 2, AnimLying: 1, AnimSleep: 1,
 	AnimCall: 2, AnimPanic: 6, AnimCrouch: 2,
+	AnimPoint: 4, AnimLove: 6, AnimLaugh: 4, AnimPirouette: 6, AnimPee: 4, AnimZombie: 6, AnimLean: 2, AnimCheer: 4,
 }
 
 func restArm() Limb  { return Limb{0.7, 9, 0} }
@@ -134,6 +159,17 @@ func poseFor(kind, f int) Pose {
 		p.RA = Limb{2, 5.5, 6 * s}
 		p.Lean = 2
 		p.Bob = -1.2 * math.Abs(s)
+	case AnimLean: // Michael Jackson's impossible lean: the body tilts, the feet stay
+		p.Lean = 9
+		p.LA = Limb{1, 9, 0}
+		p.RA = Limb{1, 9, 0}
+		p.Bob = 0
+	case AnimZombie: // arms stretched straight out in front, shuffling legs
+		walkLegs(&p, phi, 3.4, 1.8)
+		p.LA = Limb{2.2, -1, 10}
+		p.RA = Limb{2.2, -1, 10}
+		p.Lean = 1
+		p.Bob = -0.5 * math.Abs(s)
 	case AnimCarry:
 		walkLegs(&p, phi, 4, 2.6)
 		p.LA = Limb{3.5, -8, 0}
@@ -280,14 +316,162 @@ func poseFor(kind, f int) Pose {
 		p.Hold = HoldPhone
 		p.RA = Limb{1.5, -4.5, 0}
 		p.Bob = float64(f) * 0.5
+	case AnimCheer: // both pompoms up, a little jump on every beat
+		p.Hold = HoldPompom
+		p.Open = true
+		switch f % 4 {
+		case 0:
+			p.LA, p.RA = Limb{6.5, -7.5, 0}, Limb{6.5, -7.5, 0}
+			p.Bob = -1.6
+			p.LF, p.RF = Limb{3, 9, 0}, Limb{3, 9, 0}
+		case 1:
+			p.LA, p.RA = Limb{7, -3, 0}, Limb{5, -8, 0}
+			p.Sway = 1
+		case 2:
+			p.LA, p.RA = Limb{7, -8, 0}, Limb{7, -8, 0}
+			p.Bob = -1.6
+			p.LF, p.RF = Limb{3, 9, 0}, Limb{3, 9, 0}
+		default:
+			p.LA, p.RA = Limb{5, -8, 0}, Limb{7, -3, 0}
+			p.Sway = -1
+		}
 	case AnimCrouch:
 		p.Sit = true
 		p.Lean = 3
 		p.Bob = 5
 		p.LA, p.RA = Limb{3, 7, 7 - float64(f)}, Limb{3, 7, 7 - float64(f)}
 		p.LF, p.RF = Limb{3, 7, 5}, Limb{3, 7, 5}
+	case AnimPoint:
+		p.LA = Limb{3, 7, 1}
+		switch f {
+		case 0:
+			p.RA = Limb{2, 6, 2}
+		case 1:
+			p.RA = Limb{1, 0, 9}
+			p.Lean = 1
+		default:
+			p.RA = Limb{0.5, -1, 10}
+			p.Lean = 1.5
+		}
+	case AnimLove:
+		p.LA = Limb{2, 2, 5}
+		p.RA = Limb{2, 2, 5}
+		p.HeadZ = 1.5 + 0.5*math.Abs(s)
+		p.Bob = 1.2 * math.Abs(s)
+		p.Open = c > 0
+	case AnimLaugh:
+		p.Bob = 2 * math.Abs(s)
+		p.Lean = -3 * math.Abs(s)
+		p.LA = Limb{4, 3, 1}
+		p.RA = Limb{4, 3, 1}
+		p.Open = true
+	case AnimPirouette:
+		p.LA = Limb{7, 2, 0}
+		p.RA = Limb{7, 2, 0}
+		p.Lean = 3 * s
+		p.Bob = -4 * math.Max(0, math.Sin(2*t))
+		p.LF = Limb{1, 9, 2 * c}
+		p.RF = Limb{3, 10, -2 * c}
+	case AnimDance4: // breakdance
+		p.Sit = true
+		p.Bob = 6
+		p.LF = Limb{5 * math.Abs(s), 6, 4 * s}
+		p.RF = Limb{5 * math.Abs(c), 6, -4 * c}
+		p.LA = Limb{3, 4, 6}
+		p.RA = Limb{3, 4, 6}
+		p.Lean = 4 * s
+	case AnimDance5: // robot
+		switch f {
+		case 0:
+			p.LA, p.RA = Limb{7, -6, 0}, Limb{2, 8, 0}
+		case 1:
+			p.LA, p.RA = Limb{2, 8, 0}, Limb{7, -6, 0}
+		case 2:
+			p.LA, p.RA = Limb{7, 2, 6}, Limb{2, 7, 0}
+		case 3:
+			p.LA, p.RA = Limb{2, 7, 0}, Limb{7, 2, 6}
+		case 4:
+			p.LA, p.RA = Limb{0, -8, 0}, Limb{0, -8, 0}
+		default:
+			p.LA, p.RA = Limb{4, 6, 0}, Limb{4, 6, 0}
+		}
+	case AnimDance6: // salsa
+		p.Sway = 3 * s
+		p.LA = Limb{3, 6, -2 * s}
+		p.RA = Limb{3, 6, 2 * s}
+		p.LF = Limb{2 + 1.5*s, 10, 0}
+		p.RF = Limb{2 - 1.5*s, 10, 0}
+	case AnimDance7: // sprinkler
+		p.LA = Limb{2, 3, 4}
+		p.RA = Limb{6 * s, -2, 3}
+		p.Bob = 0.6 * math.Abs(c)
+	case AnimDance8: // shopping cart
+		p.LA = Limb{3, 2 + 3*s, 4}
+		p.RA = Limb{3, 2 + 3*s, 4}
+		p.Lean = -1.5
+		walkLegs(&p, phi, 2.5, 1.5)
+	case AnimDance9: // floss
+		p.LA = Limb{2, 4, 6 * s}
+		p.RA = Limb{2, 4, -6 * s}
+		p.Sway = -2 * s
+	case AnimDance10: // moonwalk
+		walkLegs(&p, phi, 4, 1)
+		p.Lean = 2
+		p.LA = Limb{1.5, 9, 2 * s}
+		p.RA = Limb{1.5, 9, -2 * s}
+	case AnimDance11: // jazz hands
+		p.LA = Limb{6, -6, 1}
+		p.RA = Limb{6, -6, 1}
+		p.Open = f%2 == 0
+		p.Bob = 1.5 * math.Abs(s)
 	}
 	return p
+}
+
+// peePose stands in for poseFor on AnimPee: standing for a man, sitting
+// (with a visible stream) for a woman. Gender is not part of Pose/poseFor's
+// signature, so this is called directly from the few places that already
+// special-case an animation by gender/pose (same pattern as AnimLying/AnimSleep).
+func peePose(f int, female bool) Pose {
+	p := Pose{LA: restArm(), RA: restArm(), LF: restFoot(), RF: restFoot(), Hold: HoldPee}
+	if female {
+		p.Sit = true
+		p.Lean = 2
+		p.LA = Limb{3, 7, 3}
+		p.RA = Limb{3, 7, 3}
+		p.LF = Limb{2.5, 8, 2}
+		p.RF = Limb{2.5, 8, 2}
+	} else {
+		p.Lean = 1
+		p.LA = Limb{2, 7, 1}
+		p.RA = Limb{0.5, 2, 6}
+	}
+	p.Bob = 0.4 * float64(f%2)
+	return p
+}
+
+// drawStream paints the pee effect: a short dribble for the sitting pose,
+// an arcing stream down to the ground for the standing one. Not drawn from
+// behind.
+func drawStream(b *pixBuf, vw int, x, yTop, yBot float64, sit bool) {
+	if vw == vBack {
+		return
+	}
+	col := color.RGBA{0xe8, 0xd8, 0x50, 170}
+	cI := func(f float64) int { return int(math.Floor(f)) }
+	if sit {
+		for y := cI(yTop); y <= cI(yTop)+3 && float64(y) <= yBot; y++ {
+			b.set(cI(x), y, col)
+		}
+		return
+	}
+	steps := maxI(2, int(yBot-yTop))
+	for i := 0; i <= steps; i++ {
+		t := float64(i) / float64(steps)
+		yy := lerp(yTop, yBot, t)
+		xx := x + 3*math.Sin(t*math.Pi/2)
+		b.set(cI(xx), cI(yy), col)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +523,7 @@ const (
 	HairBuns
 	HairMessy
 	HairComb
+	HairSide // short hair with a fringe swept to one side
 )
 
 const (
@@ -383,6 +568,10 @@ const (
 	HatChicken
 	HatUnicorn
 	HatSamurai
+	HatPig
+	HatCat
+	HatDog
+	HatBird
 )
 
 const (
@@ -410,6 +599,7 @@ const (
 	BodyRobot
 	BodyFat
 	BodyGiant
+	BodyObese
 )
 
 const (
@@ -425,6 +615,7 @@ const (
 	MaskPig
 	MaskClown
 	MaskSkull
+	MaskHood // a drawn-tight parka hood that sticks out in front of the face in profile
 )
 
 const (
@@ -434,7 +625,7 @@ const (
 )
 
 type CharSpec struct {
-	Name                                    string
+	Name, DisplayName                       string
 	Skin, Hair, Shirt, Shirt2, Pants, Shoes color.RGBA
 	HatCol, Accent, Mask, Cape, Susp        color.RGBA
 	Top, Bottom, Pattern                    int
@@ -443,6 +634,10 @@ type CharSpec struct {
 	CarryCol                                color.RGBA
 	MaskKind, Weapon                        int
 	Female                                  bool
+	Bust, Hips                              int  // 0 none, 1 medium, 2 large, 3 exaggerated
+	Makeup, Censor                          bool // red lips and eye shadow / mosaic censor bar
+	Ride, Face                              int  // 1 scooter, 2 skateboard / 1 smile, 2 sly grin
+	RideCol                                 color.RGBA
 }
 
 func hx(h uint32) color.RGBA { return rgb(h) }
@@ -495,6 +690,8 @@ func bodyWidth(b int) int {
 		return 9
 	case BodyGiant:
 		return 11
+	case BodyObese:
+		return 13
 	}
 	return 5
 }
@@ -549,8 +746,13 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		legW, armW = 3, 3
 	case BodyGiant:
 		legW, armW = 4, 3
+	case BodyObese:
+		legW, armW = 5, 4
 	}
-	const footRow = 41.0
+	footRow := 41.0
+	if s.Ride != 0 {
+		footRow = 39 // the board takes the last rows
+	}
 	boneLeg := (footRow - hipY) / 2
 	if p.Sit {
 		boneLeg = 6.5
@@ -666,6 +868,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		x0 := cI(c0 - float64(tw)/2 + sway + shiftX)
 		return x0, x0 + tw, cI(torsoTop), cI(hipY)
 	}
+	var curves func()
 	torso := func() {
 		b.cur = 2
 		x0, x1, y0, y1 := torsoRows()
@@ -822,6 +1025,68 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				b.rect(x0-1, y, tw+2, 1, shade(s.Shirt, 1-0.02*float64(y-y1)))
 			}
 		}
+		if s.Female && !robot {
+			// curves: bust on the chest, wide hips under the waist. From the
+			// front they are drawn after the arms so they stay visible.
+			draw := func() {
+				bc := s.Shirt
+				if s.Top == TopBare {
+					bc = s.Skin
+				}
+				hc := s.Pants
+				if s.Top == TopDress {
+					hc = s.Shirt
+				}
+				if s.Bottom == BotNone && s.Top != TopDress {
+					hc = s.Skin
+				}
+				n := float64(s.Bust)
+				if s.Bust > 0 && vw != vBack {
+					if vw == vSide {
+						b.ellipse(float64(x1)+n*0.5, float64(y0)+1.5+n*0.5, 1.2+n*0.9, 1.4+n*0.8, bc)
+						b.set(x1+int(n), y0+1, shade(bc, 1.2))
+					} else {
+						for _, sx := range []float64{c0 - 0.5 - n*0.9 - 0.6, c0 + 0.5 + n*0.9 + 0.6} {
+							b.ellipse(sx, float64(y0)+1.8+n*0.6, 1.5+n*0.8, 1.7+n*0.8, bc)
+							b.ellipse(sx-0.4, float64(y0)+1.2+n*0.5, 0.7+n*0.3, 0.6+n*0.3, shade(bc, 1.2))
+							b.rect(int(sx-1), y0+3+int(n*1.2), 3, 1, shade(bc, 0.75))
+						}
+						b.rect(int(c0)-1, y0+2, 1, 2+int(n), shade(bc, 0.7)) // cleavage
+					}
+				}
+				if s.Hips > 0 {
+					h := float64(s.Hips)
+					if vw == vSide {
+						b.ellipse(float64(x0)-0.5, float64(y1)+0.5, 1.2+h*1.1, 2.4+h*0.6, hc)
+					} else {
+						b.ellipse(c0, float64(y1)+1.3, float64(tw)/2+1.2+h*1.7, 2.3+h*0.7, hc)
+						b.ellipse(c0, float64(y1)+0.2, float64(tw)/2+0.6+h*1.4, 1.2, shade(hc, 1.12))
+					}
+				}
+			}
+			if vw == vFront {
+				curves = draw
+			} else {
+				draw()
+			}
+		}
+		if s.Censor {
+			mos := func(x, y, w, h int) {
+				for yy := y; yy < y+h; yy++ {
+					for xx := x; xx < x+w; xx++ {
+						col := hx(0xb8b8c0)
+						if (xx/2+yy/2)%2 == 0 {
+							col = hx(0x6a6a74)
+						}
+						b.set(xx, yy, col)
+					}
+				}
+			}
+			mos(x0-1, y1-2, tw+2, 4)
+			if s.Female {
+				mos(x0, y0+1, tw, 3)
+			}
+		}
 	}
 	cape := func(front bool) {
 		b.cur = 2
@@ -942,7 +1207,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				return dy < -ry*0.25 || (math.Abs(dx) > rx*0.8 && dy < ry*0.2)
 			}
 			switch s.Hair2 {
-			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive:
+			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive, HairSide:
 				hair(capCond, hairC)
 				if s.Hair2 != HairBald {
 					b.set(ihx-1, top+1, shade(hairC, 1.45))
@@ -952,6 +1217,11 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				case HairPompadour:
 					b.rect(ihx-2, top-2, 5, 2, hairC)
 					b.rect(ihx-1, top-3, 3, 1, shade(hairC, 1.4))
+				case HairSide:
+					if vw != vBack {
+						// the fringe falls over the forehead, lower on the left than on the right
+						hair(func(x, y int, dx, dy float64) bool { return dy < ry*(0.05-dx/rx*0.55) && dy < ry*0.2 }, hairC)
+					}
 				case HairQuiff:
 					b.rect(ihx-3, top-1, 7, 2, hairC)
 					b.rect(ihx+1, top-2, 4, 1, hairC)
@@ -1022,10 +1292,33 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 					b.set(ihx-1, ey-1, shade(hairC, 0.6))
 					b.set(ihx+1, ey-1, shade(hairC, 0.6))
 					b.set(ihx, ey+2, hx(0xc03050))
+					if s.Makeup {
+						b.rect(ihx-1, ey+2, 3, 1, hx(0xe8082a))
+						b.set(ihx, ey+3, hx(0xc8002a))
+						b.set(ihx-2, ey, hx(0x7a3ab0))
+						b.set(ihx+2, ey, hx(0x7a3ab0))
+						b.set(ihx-1, ey-1, hx(0x7a3ab0))
+						b.set(ihx+1, ey-1, hx(0x7a3ab0))
+					}
 				}
 			}
 			if p.Open && s.Eyes != EyesAlien {
 				b.set(ihx, ey+2, hx(0x5a1a1a))
+			}
+			if s.Face != 0 && s.Mask.A == 0 && !p.Open {
+				my := ey + 2
+				if s.Head >= HeadBig {
+					my = ey + 3
+				}
+				mc := shade(s.Skin, 0.55)
+				if s.Face == 1 {
+					b.set(ihx-2, my-1, mc)
+					b.rect(ihx-1, my, 3, 1, hx(0xf8f0f0)) // a toothy smile
+					b.set(ihx+2, my-1, mc)
+				} else { // a sly little smirk, lifted on one side
+					b.rect(ihx-1, my, 3, 1, hx(0xf8f0f0))
+					b.set(ihx+2, my-1, mc)
+				}
 			}
 		} else if vw == vSide {
 			ex := cI(hxp + rx*0.45)
@@ -1041,6 +1334,9 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			}
 			if s.Mask.A == 0 {
 				b.set(cI(hxp+rx), ey+1, skinD)
+				if s.Makeup && s.Female {
+					b.set(cI(hxp+rx), ey+2, hx(0xe8082a))
+				}
 			}
 			if p.Open {
 				b.set(ex, ey+2, hx(0x5a1a1a))
@@ -1289,6 +1585,43 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			b.rect(ihx-1, ey+1, 3, 2, hx(0xf0b020))
 			b.set(ihx-rxi, ey-1, hx(0x14141a))
 			b.set(ihx+rxi, ey-1, hx(0x14141a))
+		case HatPig:
+			b.ellipse(hxp, hyp-0.6, rx+0.8, ry-0.6, hc)
+			b.rect(ihx-rxi, top-1, 2, 3, shade(hc, 0.8)) // floppy ears
+			b.rect(ihx+rxi-1, top-1, 2, 3, shade(hc, 0.8))
+			if vw == vFront {
+				b.rect(ihx-1, ey+1, 3, 2, shade(hc, 1.12)) // snout
+				b.set(ihx-1, ey+2, hx(0x6a2a3a))
+				b.set(ihx+1, ey+2, hx(0x6a2a3a))
+			}
+		case HatCat:
+			b.ellipse(hxp, hyp-1, rx+0.6, ry-1, hc)
+			b.rect(ihx-rxi, top-3, 2, 3, hc) // pointed ears
+			b.rect(ihx+rxi-1, top-3, 2, 3, hc)
+			b.set(ihx-rxi, top-4, hc)
+			b.set(ihx+rxi, top-4, hc)
+			b.set(ihx-rxi, top-2, hx(0xf0a0b0))
+			b.set(ihx+rxi, top-2, hx(0xf0a0b0))
+			if vw == vFront {
+				b.set(ihx, ey+1, hx(0xf0a0b0)) // nose
+			}
+		case HatDog:
+			b.ellipse(hxp, hyp-0.8, rx+0.6, ry-0.8, hc)
+			b.rect(ihx-rxi-1, top, 2, 5, shade(hc, 0.7)) // long floppy ears
+			b.rect(ihx+rxi, top, 2, 5, shade(hc, 0.7))
+			if vw == vFront {
+				b.set(ihx, ey+1, hx(0x14141a)) // black nose
+				b.rect(ihx-1, ey+2, 3, 1, hx(0xe8d0b0))
+			}
+		case HatBird:
+			b.ellipse(hxp, hyp-1, rx+0.4, ry-1, hc)
+			b.rect(ihx, top-4, 1, 4, hx(0xf0c030)) // crest feathers
+			b.rect(ihx+1, top-5, 1, 4, hx(0xe85a30))
+			b.rect(ihx-1, top-3, 1, 3, hx(0x40b0e0))
+			if vw == vFront {
+				b.rect(ihx-1, ey+1, 3, 1, hx(0xf0a020)) // little beak
+				b.set(ihx, ey+2, hx(0xf0a020))
+			}
 		case HatUnicorn:
 			b.ellipse(hxp, hyp-1.2, rx+0.6, ry-1.2, hx(0xf4f0f8))
 			b.line(ihx, top, ihx, top-6, hx(0xf0d040))
@@ -1336,7 +1669,10 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		hp := float64(cx - 1)
 		cape(false)
 		drawLeg(hp, p.LF, -1, true, 5)
-		drawArm(sx, shY, p.LA, -1, true, 3)
+		lsx, lsy := drawArm(sx, shY, p.LA, -1, true, 3)
+		if p.Hold == HoldPompom {
+			held(lsx, lsy, 3)
+		}
 		drawLeg(hp, p.RF, 1, false, 6)
 		torso()
 		if p.Hold == HoldGuitar {
@@ -1354,7 +1690,10 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		cape(false)
 		hxL, hyL := drawArm(shL.X, shL.Y, p.RA, 1, false, 3)
 		held(hxL, hyL, 3)
-		drawArm(shR.X, shR.Y, p.LA, -1, false, 4)
+		rx0, ry0 := drawArm(shR.X, shR.Y, p.LA, -1, false, 4)
+		if p.Hold == HoldPompom {
+			held(rx0, ry0, 4)
+		}
 		head()
 	default:
 		cape(true)
@@ -1367,12 +1706,57 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			b.set(cI(c0+sway), cI(hipY-2), hx(0x2a1a10))
 			b.line(cI(c0+sway), cI(hipY-2), cI(c0+8), cI(hipY-9), hx(0x5a3418))
 		}
-		drawArm(shL.X, shL.Y, p.LA, -1, false, 3)
+		lx0, ly0 := drawArm(shL.X, shL.Y, p.LA, -1, false, 3)
+		if p.Hold == HoldPompom {
+			held(lx0, ly0, 3)
+		}
 		hx0, hy0 := drawArm(shR.X, shR.Y, p.RA, 1, false, 4)
+		if curves != nil {
+			curves()
+		}
 		head()
 		held(hx0, hy0, 4)
 	}
+	if p.Hold == HoldPee {
+		drawStream(b, vw, c0+sway+shiftX, hipY+2, footRow, p.Sit)
+	}
+	if s.Ride != 0 {
+		drawRide(b, s, vw, charCX, int(hipY)-2)
+	}
 	return b
+}
+
+// drawRide paints the scooter or skateboard under the feet (the rider stands still on it).
+func drawRide(b *pixBuf, s *CharSpec, vw, cx, handY int) {
+	deck := s.RideCol
+	if deck.A == 0 {
+		deck = hx(0x3a8ae0)
+	}
+	wheel, metal := hx(0xf0f0f0), hx(0x9a9aa6)
+	if vw == vSide {
+		b.rect(cx-6, 41, 13, 2, deck)
+		b.rect(cx-6, 41, 13, 1, shade(deck, 1.25))
+		b.rect(cx-5, 43, 2, 1, wheel)
+		b.rect(cx+4, 43, 2, 1, wheel)
+		if s.Ride == 1 { // scooter: stem at the front with a handlebar
+			for y := handY; y < 41; y++ {
+				b.set(cx+6, y, metal)
+			}
+			b.rect(cx+5, handY, 3, 1, hx(0x3a3a46))
+		} else { // skateboard: upturned ends
+			b.set(cx-7, 40, deck)
+			b.set(cx+7, 40, deck)
+		}
+		return
+	}
+	b.rect(cx-4, 41, 9, 2, deck)
+	b.rect(cx-4, 41, 9, 1, shade(deck, 1.25))
+	b.set(cx-4, 43, wheel)
+	b.set(cx+4, 43, wheel)
+	if s.Ride == 1 && vw == vFront {
+		b.rect(cx-4, handY, 9, 1, hx(0x3a3a46))
+		b.set(cx, handY+1, metal)
+	}
 }
 
 // outlinedSel keeps the silhouette exactly as painted, like the original sprites (no extra outline pixels),
@@ -1463,9 +1847,15 @@ func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 	var b *pixBuf
 	switch anim {
 	case AnimLying:
-		b = genChar(cs.Spec, 0, poseFor(AnimIdle, 0)).rotCW()
+		sp := *cs.Spec
+		sp.Ride = 0
+		b = genChar(&sp, 0, poseFor(AnimIdle, 0)).rotCW()
 	case AnimSleep:
-		b = genChar(cs.Spec, 0, poseFor(AnimIdle, 1)).rotCCW()
+		sp := *cs.Spec
+		sp.Ride = 0
+		b = genChar(&sp, 0, poseFor(AnimIdle, 1)).rotCCW()
+	case AnimPee:
+		b = genChar(cs.Spec, vw, peePose(f, cs.Spec.Female))
 	default:
 		b = genChar(cs.Spec, vw, poseFor(anim, f))
 	}
@@ -1476,6 +1866,9 @@ func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 
 // image for an animation at a given phase and facing; flip = draw mirrored.
 func (cs *CharSet) img(anim int, d Dir, phase float64) (*ebiten.Image, bool) {
+	if cs.Spec != nil && cs.Spec.Ride != 0 && (anim == AnimWalk || anim == AnimRun) {
+		anim, phase = AnimIdle, 0 // riders glide: legs stay still on the board
+	}
 	n := animFrames[anim]
 	f := int(math.Floor(phase)) % n
 	if f < 0 {
@@ -1583,6 +1976,16 @@ func drawHeld(b *pixBuf, kind int, col color.RGBA, vw int, hx0, hy0 float64) {
 	case HoldSelfie:
 		b.line(x+1, y, x+3, y-15, hx(0x4a4a50))
 		b.rect(x+2, y-19, 3, 4, hx(0x101018))
+	case HoldPompom:
+		if col.A == 0 {
+			col = hx(0xf0d030)
+		}
+		b.ellipse(float64(x)+0.5, float64(y)-3, 3.3, 3.6, col)
+		b.ellipse(float64(x), float64(y)-4, 1.6, 1.8, shade(col, 1.35))
+		b.set(x-3, y-6, shade(col, 1.2))
+		b.set(x+3, y-5, shade(col, 0.8))
+		b.set(x-2, y, shade(col, 0.8))
+		b.set(x+2, y+1, col)
 	case HoldPlant:
 		b.rect(x-1, y-1, 4, 3, hx(0xb4572e))
 		b.rect(x-2, y-5, 6, 4, hx(0x3a9a44))
@@ -1607,6 +2010,36 @@ func drawHeld(b *pixBuf, kind int, col color.RGBA, vw int, hx0, hy0 float64) {
 		b.line(x+1, y, x+1, y-8, hx(0x6a4a2a))
 		b.rect(x, y-12, 3, 4, hx(0xff8a20))
 		b.rect(x+1, y-14, 1, 2, hx(0xffd860))
+	case HoldFloat:
+		if col.A == 0 {
+			col = hx(0xe03030)
+		}
+		for k := 0; k < 12; k++ {
+			a := float64(k) / 12 * 2 * math.Pi
+			px, py := x+1+int(math.Round(math.Cos(a)*4)), y-4+int(math.Round(math.Sin(a)*4))
+			cc := col
+			if k%3 == 0 {
+				cc = hx(0xf4f4f4)
+			}
+			b.rect(px, py, 2, 2, cc)
+		}
+	case HoldBoard:
+		if col.A == 0 {
+			col = hx(0xe03030)
+		}
+		b.rect(x, y-16, 4, 18, col)
+		b.rect(x, y-16, 4, 2, shade(col, 1.2))
+		b.rect(x+1, y-9, 2, 3, hx(0xf4f4f4))
+		b.rect(x, y-3, 4, 1, hx(0xf4f4f4))
+	case HoldExt:
+		b.rect(x, y-4, 3, 6, hx(0xd02a2a))
+		b.rect(x, y-4, 3, 1, hx(0x2a2a30))
+		b.rect(x+2, y-6, 3, 1, hx(0x2a2a30))
+		b.set(x+1, y-1, hx(0xf4f4f4))
+	case HoldGun:
+		b.rect(x, y-3, 5, 2, hx(0x2a2a32))
+		b.rect(x, y-1, 2, 3, hx(0x3a3a46))
+		b.set(x+4, y-3, hx(0x8a8a96))
 	case HoldSax:
 		b.line(x+1, y-8, x+1, y+1, hx(0xe8b830))
 		b.line(x+1, y+1, x+4, y+3, hx(0xe8b830))
@@ -1691,6 +2124,12 @@ func maskSide(b *pixBuf, s *CharSpec, hxp, hyp, rx, ry float64, ex, ey int) {
 		b.ellipse(hxp, hyp+ry*0.55+1, rx-0.3, 2.6, s.Mask)
 		b.rect(ex, ey, 1, 3, black)
 		b.rect(ex, ey+4, 2, 3, black)
+	case MaskHood:
+		// the hood puffs out in front of the face, like the cartoon's
+		b.ellipse(hxp+rx+0.6, hyp+0.4, 2.6, ry*0.62, s.Mask)
+		b.ellipse(hxp+rx+1.2, hyp+0.4, 1.4, ry*0.38, shade(s.Mask, 0.7))
+		b.set(ex, ey, hx(0xf4f4f4))
+		b.set(ex+1, ey, black)
 	case MaskPig:
 		b.rect(ex+1, ey+1, 2, 2, shade(s.Mask, 0.75))
 		b.set(ex, ey, black)

@@ -454,7 +454,7 @@ func (g *Game) victimAhead(a *Animal, reach, width float64) (any, Vec) {
 	return nil, Vec{}
 }
 
-func (g *Game) animalKill(v any, msg string) bool {
+func (g *Game) animalKill(v any, msg, actor string) bool {
 	switch t := v.(type) {
 	case *Player:
 		if !t.dead {
@@ -464,6 +464,7 @@ func (g *Game) animalKill(v any, msg string) bool {
 	case *Guest:
 		if !t.out() {
 			g.killGuest(t, false)
+			g.sayNews("kill", map[string]string{"actor": actor, "victim": guestLabel(t)})
 			return true
 		}
 	}
@@ -509,7 +510,7 @@ func (g *Game) updateBull(a *Animal, dt float64) {
 		a.victimRepath(g, t, dt)
 		g.animalWalk(a, 125, dt)
 		if dist(a.pos, t) < 16 {
-			if g.animalKill(a.victim, "Un toro te ha embestido") {
+			if g.animalKill(a.victim, "Un toro te ha embestido", "Un toro") {
 				g.snd.Play("thud")
 				g.burst(Vec{a.pos.X, a.pos.Y - 14}, 10, 80, rgb(0xd8d0c0), 0.4, 2, 100)
 			}

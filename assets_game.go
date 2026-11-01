@@ -18,6 +18,9 @@ import (
 func applyObjects(objs []*ObjAsset) {
 	for _, oa := range objs {
 		m := oa.Meta
+		if m.Name == "phone" {
+			continue // the red booth is always the built-in one (older exports kept a different drawing)
+		}
 		f0 := oa.Frames[0]
 		k := &PropKind{
 			W: int(float64(f0.w) / wk), H: int(float64(f0.h) / wk),
@@ -37,6 +40,10 @@ func applyObjects(objs []*ObjAsset) {
 		}
 		k.Ambient = m.Ambient
 		k.Category = m.Category
+		if old := propKinds[m.Name]; old != nil && len(old.Solids) > 0 {
+			// a built-in walkable prop (the stage): keep its built-in solid parts
+			k.Solids, k.NoSolid = old.Solids, old.NoSolid
+		}
 		propKinds[m.Name] = k
 	}
 }
@@ -62,22 +69,29 @@ func (g *Game) pickAsset(cat string) *CharAsset {
 	return l[g.rng.Intn(len(l))]
 }
 
-// newGuestCS picks a guest from the asset folders, or falls back to the built-in generator.
-func (g *Game) newGuestCS() *CharSet {
+// newGuestCS picks a guest from the asset folders, or falls back to the
+// built-in generator. The second return value is the guest's proper display
+// name for on-screen messages, or "" for an ordinary unnamed guest.
+func (g *Game) newGuestCS() (*CharSet, string) {
 	if g.store != nil {
 		people, special := g.store.Chars["people"], g.store.Chars["special_people"]
 		if len(people)+len(special) > 0 {
 			var ca *CharAsset
-			if len(special) > 0 && (len(people) == 0 || g.rng.Float64() < 0.4) {
+			isSpecial := len(special) > 0 && (len(people) == 0 || g.rng.Float64() < 0.4)
+			if isSpecial {
 				ca = special[g.rng.Intn(len(special))]
 			} else {
 				ca = people[g.rng.Intn(len(people))]
 			}
-			return g.rigFor(ca)
+			name := ""
+			if isSpecial {
+				name = nameFromAsset(ca)
+			}
+			return g.rigFor(ca), name
 		}
 	}
 	spec := randomGuestSpec(g.rng)
-	return newCharSet(&spec)
+	return newCharSet(&spec), nameFromSpec(&spec)
 }
 
 // setupCast chooses the characters for the player, police and guards (assets first, built-ins as fallback).
@@ -100,6 +114,27 @@ func (g *Game) setupCast() {
 			Shoes: hx(0x0e0e12), Top: TopSuit, Accent: hx(0x22222c), Hair2: HairBob}
 		as.swatCS = newCharSet(&sw)
 		as.fbiCS = []*CharSet{newCharSet(&mu), newCharSet(&sc)}
+		m1 := CharSpec{Name: "military_a", Skin: hx(0xc89868), Hair: hx(0x1a1a1a), Shirt: hx(0x3a4a2a), Shirt2: hx(0x3a4a2a), Pants: hx(0x2a3a22), Shoes: hx(0x14140e),
+			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x3a4a2a), Accent: hx(0x3a4a2a), Body: BodyBig}
+		m2 := CharSpec{Name: "military_b", Skin: hx(0x8a6244), Hair: hx(0x0e0e0e), Shirt: hx(0x344028), Shirt2: hx(0x344028), Pants: hx(0x263018), Shoes: hx(0x100f0a),
+			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x344028), Accent: hx(0x344028), Body: BodyBig, Beard: BeardMustache}
+		as.militaryCS = []*CharSet{newCharSet(&m1), newCharSet(&m2)}
+		rangerColors := []struct {
+			name string
+			col  uint32
+		}{
+			{"ranger_red", 0xd01818},
+			{"ranger_blue", 0x1858d0},
+			{"ranger_yellow", 0xe0c010},
+			{"ranger_green", 0x18a030},
+			{"ranger_pink", 0xe050a8},
+		}
+		as.rangerCS = nil
+		for _, rc := range rangerColors {
+			r := CharSpec{Name: rc.name, Skin: hx(0xe0b088), Hair: hx(0x1a1a1a), Shirt: hx(rc.col), Shirt2: hx(rc.col), Pants: hx(0x1a1a22), Shoes: hx(0x0a0a0c),
+				Top: TopArmor, Hat: HatHelmet, HatCol: hx(rc.col), Accent: hx(0xf4f4f8), Body: BodyBig}
+			as.rangerCS = append(as.rangerCS, newCharSet(&r))
+		}
 	}
 	as.killerCS = nil
 	for i := 0; i < 4; i++ {
@@ -238,6 +273,27 @@ func levelDefFromAsset(la *LevelAsset) *LevelDef {
 	for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == '~' }) {
 		d.Pools = append(d.Pools, cellRectToDesign(r))
 	}
+	for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == ',' }) {
+		d.Slow = append(d.Slow, cellRectToDesign(r))
+	}
+	for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == 'w' }) {
+		wr := cellRectToDesign(r)
+		d.Windows = append(d.Windows, wr)
+		d.Walls = append(d.Walls, Wall{R: wr, Style: WallFence})
+	}
+	switch m.TimeOfDay {
+	case "day":
+		d.Day = true
+		d.Tint = color.RGBA{0, 0, 0, 0}
+	case "dusk":
+		d.Day = true
+		d.Tint = color.RGBA{70, 24, 8, 70}
+	}
+	if m.RoadH > 0 {
+		d.LaneOff = float64(m.RoadH) / wk / 4
+	}
+	d.Traffic = m.Traffic
+	d.ParkX0, d.ParkX1 = float64(m.ParkX0)/wk, float64(m.ParkX1)/wk
 	for _, r := range mergeCells(m.Zone, func(c byte) bool { return c == 'r' || c == 'd' }) {
 		d.Roam = append(d.Roam, cellRectToDesign(r))
 	}
@@ -265,6 +321,7 @@ func (g *Game) rebuildLevels() {
 			defs = append(defs, levelDefFromAsset(la))
 		}
 		levelDefs = defs
+		campaignN = len(defs) // custom background sets replace the campaign wholesale
 	} else {
 		levelDefs = builtinLevels()
 	}
