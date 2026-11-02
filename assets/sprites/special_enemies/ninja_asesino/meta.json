@@ -1,0 +1,11 @@
+{
+  "name": "ninja_asesino",
+  "display_name": "Ninja Asesino",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "knife",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

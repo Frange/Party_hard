@@ -34,9 +34,9 @@ PLIST
 
 for tags in "" "editor"; do
   suffix=""; [ -n "$tags" ] && suffix="Editor"
-  GOOS=windows GOARCH=amd64 go build -tags "$tags" -ldflags "-H=windowsgui -s -w" -o "$OUT/win/PartyHard$suffix.exe" .
-  GOOS=darwin GOARCH=amd64 go build -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-amd64" .
-  GOOS=darwin GOARCH=arm64 go build -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-arm64" .
+  GOOS=windows GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags "-H=windowsgui -s -w" -o "$OUT/win/PartyHard$suffix.exe" .
+  GOOS=darwin GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-amd64" .
+  GOOS=darwin GOARCH=arm64 go build -trimpath -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-arm64" .
   lipo -create "$OUT/tmp/ph$suffix-amd64" "$OUT/tmp/ph$suffix-arm64" -output "$OUT/tmp/ph$suffix"
   mkapp "PartyHard$suffix" "$OUT/tmp/ph$suffix" "$OUT/mac" "local.partyhard.clone$suffix"
 done

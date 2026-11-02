@@ -578,8 +578,8 @@ func loadAssetStore() *AssetStore {
 	}
 	st := &AssetStore{Root: root, Chars: map[string][]*CharAsset{}}
 	for _, cat := range charCategories {
-		for _, name := range listDirs(spritesDir(root, cat)) {
-			ca, err := loadCharAsset(filepath.Join(spritesDir(root, cat), name))
+		for _, name := range spriteNames(root, cat) {
+			ca, err := loadCharAsset(spriteDirOf(root, cat, name))
 			if err != nil {
 				fmt.Println("assets: skipping character", cat, name, ":", err)
 				continue
@@ -591,8 +591,8 @@ func loadAssetStore() *AssetStore {
 			st.Chars[cat] = append(st.Chars[cat], ca)
 		}
 	}
-	for _, name := range listDirs(spritesDir(root, "objetos")) {
-		oa, err := loadObjAsset(filepath.Join(spritesDir(root, "objetos"), name))
+	for _, name := range spriteNames(root, "objetos") {
+		oa, err := loadObjAsset(spriteDirOf(root, "objetos", name))
 		if err != nil {
 			fmt.Println("assets: skipping object", name, ":", err)
 			continue
@@ -602,8 +602,8 @@ func loadAssetStore() *AssetStore {
 		}
 		st.Objs = append(st.Objs, oa)
 	}
-	for _, name := range listDirs(backgroundsDir(root)) {
-		la, err := loadLevelAsset(filepath.Join(backgroundsDir(root), name))
+	for _, name := range backgroundNames(root) {
+		la, err := loadLevelAsset(backgroundDirOf(root, name))
 		if err != nil {
 			fmt.Println("assets: skipping background", name, ":", err)
 			continue

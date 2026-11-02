@@ -129,7 +129,7 @@ func animLabel(a int) string {
 
 // thumbFor loads (once) the front picture of a character for the list.
 func (c *CharEd) thumbFor(folder, name string) *ebiten.Image {
-	dir := filepath.Join(spritesDir(c.ed.root, folder), name)
+	dir := spriteDirOf(c.ed.root, folder, name)
 	if im, ok := c.thumbs[dir]; ok {
 		return im
 	}
@@ -157,7 +157,7 @@ func (c *CharEd) update(u *UI) {
 		select {
 		case d, ok := <-c.importCh:
 			if d != nil {
-				c.importDrops([]droppedImage{*d})
+				c.ed.requestImport([]droppedImage{*d})
 			}
 			if !ok || d != nil {
 				c.importCh = nil
@@ -204,20 +204,21 @@ func (c *CharEd) leftColumn(u *UI) {
 	u.heading(x+4, y, w-8, fmt.Sprintf("%s (%d)", c.sub().label, len(c.list)))
 	y += 20
 	gridH := edH - y - 150
-	items := make([]thumb, len(c.list))
 	budget := 6
 	folder := c.sub().folder
-	for i, n := range c.list {
-		items[i] = thumb{label: n}
-		dir := filepath.Join(spritesDir(c.ed.root, folder), n)
+	mk := func(i int) thumb {
+		n := c.list[i]
+		t := thumb{label: n}
+		dir := spriteDirOf(c.ed.root, folder, n)
 		if _, ok := c.thumbs[dir]; ok || budget > 0 {
 			if !ok {
 				budget--
 			}
-			items[i].img = c.thumbFor(folder, n)
+			t.img = c.thumbFor(folder, n)
 		}
+		return t
 	}
-	if i := u.thumbGrid(x, y, w, gridH, 4, items, c.listSel, &c.listScroll); i >= 0 {
+	if i := u.searchGrid("charfind", x, y, w, gridH, 4, &c.find, c.list, mk, c.listSel, &c.listScroll); i >= 0 {
 		c.listSel = i
 		c.load(c.list[i])
 	}
@@ -245,7 +246,7 @@ func (c *CharEd) leftColumn(u *UI) {
 		}
 		c.listSel = -1
 	}
-	if u.iconBtn(x+2*(bw3+4), y, bw3, 34, "import", "Importar", false, "Cargar una imagen PNG o JPG (o arrástrala a la ventana)") && c.importCh == nil {
+	if u.iconBtn(x+2*(bw3+4), y, bw3, 34, "import", "Importar", false, "Cargar una imagen PNG, JPG o PDF (o arrástrala a la ventana)") && c.importCh == nil {
 		c.importCh = pickImageAsync()
 	}
 	y += 40
@@ -410,6 +411,7 @@ func (c *CharEd) drawTools(u *UI, x, y int) {
 	u.heading(x, y, w, "COLOR")
 	y += 20
 	y = u.simplePalette(pt, x, y, w)
+	u.canvasOptions(x, y+8, w)
 }
 
 // simplePalette: swatches, recent colours and a hex box. Returns the next free y.

@@ -791,7 +791,10 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		if vw == vSide {
 			out = 0
 		}
-		mx, my, ex, ey := ik2(sx, sy, sx+tx, sy+ty, 4.7, out*0.25, 0.9)
+		// a hand close to the shoulder (arm folded or pointing at the viewer) shortens the
+		// bones instead of folding them into a zigzag that reads as pieces of arm
+		bl := math.Min(4.7, math.Max(2.6, math.Hypot(tx, ty)*0.62))
+		mx, my, ex, ey := ik2(sx, sy, sx+tx, sy+ty, bl, out*0.25, 0.9)
 		up, fo := armUpper, armFore
 		if dark {
 			up, fo = shade(up, 0.78), shade(fo, 0.78)

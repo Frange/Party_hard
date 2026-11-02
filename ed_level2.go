@@ -73,7 +73,7 @@ func (l *LevEd) thumbFor(name string) *ebiten.Image {
 	if im, ok := l.thumbs[name]; ok {
 		return im
 	}
-	b, err := loadPNG(filepath.Join(backgroundsDir(l.ed.root), name, "background.png"))
+	b, err := loadPNG(filepath.Join(backgroundDirOf(l.ed.root, name), "background.png"))
 	if err != nil {
 		l.thumbs[name] = nil
 		return nil
@@ -160,16 +160,17 @@ func (l *LevEd) leftColumn(u *UI) {
 	u.heading(x+4, y, w-8, fmt.Sprintf("MIS ESCENARIOS (%d)", len(l.list)))
 	y += 20
 	gridH := 250
-	items := make([]thumb, len(l.list))
 	budget := 3
-	for i, n := range l.list {
-		items[i] = thumb{label: n}
+	mk := func(i int) thumb {
+		n := l.list[i]
+		t := thumb{label: n}
 		if _, ok := l.thumbs[n]; ok || budget > 0 {
 			if !ok {
 				budget--
 			}
-			items[i].img = l.thumbFor(n)
+			t.img = l.thumbFor(n)
 		}
+		return t
 	}
 	if len(l.list) == 0 {
 		u.round(x, y, w, gridH, rgb(0x101018))
@@ -177,7 +178,7 @@ func (l *LevEd) leftColumn(u *UI) {
 		u.text(x+12, y+16, "Aún no has guardado ninguno.", uiDim)
 		u.text(x+12, y+34, "Empieza con Nuevo, una", uiDim)
 		u.text(x+12, y+50, "plantilla o un generador.", uiDim)
-	} else if i := u.thumbGrid(x, y, w, gridH, 2, items, l.sel, &l.scroll); i >= 0 {
+	} else if i := u.searchGrid("lvfind", x, y, w, gridH, 2, &l.find, l.list, mk, l.sel, &l.scroll); i >= 0 {
 		l.sel = i
 		l.loadByName(l.list[i])
 	}
@@ -584,15 +585,15 @@ func (l *LevEd) objetosPanel(u *UI) {
 		l.moveMode = i == 1
 	}
 	y += 38
-	items := make([]thumb, len(l.kinds))
-	for i, k := range l.kinds {
-		items[i] = thumb{label: k}
-		if imgs := l.ed.g.as.props[k]; len(imgs) > 0 {
-			items[i].img = imgs[0].img
+	mkKind := func(i int) thumb {
+		t := thumb{label: l.kinds[i]}
+		if imgs := l.ed.g.as.props[l.kinds[i]]; len(imgs) > 0 {
+			t.img = imgs[0].img
 		}
+		return t
 	}
 	gh := 380
-	if i := u.thumbGrid(x, y, lvRW-4, gh, 4, items, l.kindSel, &l.kindScr); i >= 0 {
+	if i := u.searchGrid("kindfind", x, y, lvRW-4, gh, 4, &l.kindFind, l.kinds, mkKind, l.kindSel, &l.kindScr); i >= 0 {
 		l.kindSel = i
 		l.curVar = 0
 	}

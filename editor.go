@@ -5,6 +5,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -30,6 +31,7 @@ type Editor struct {
 	ch   *CharEd
 	ob   *ObjEd
 	lv   *LevEd
+	imp  *ImportDlg // the "adjust picture" window while it is open
 }
 
 func (g *Game) openEditor() {
@@ -103,6 +105,14 @@ func (g *Game) updateEditor() error {
 	if ed.msgT > 0 {
 		ed.msgT--
 	}
+	if ed.imp != nil {
+		if drops := droppedPNGs(); len(drops) > 0 {
+			ed.imp.queue = append(ed.imp.queue, drops...)
+			ed.imp.total += len(drops)
+		}
+		ed.imp.update(u)
+		return nil
+	}
 	// top bar
 	u.rect(0, 0, edW, edTop, rgb(0x0e0e14))
 	u.rect(0, edTop-1, edW, 1, uiLine)
@@ -142,7 +152,7 @@ func (g *Game) updateEditor() error {
 		}
 	}
 	if drops := droppedPNGs(); len(drops) > 0 {
-		ed.handleDrops(drops)
+		ed.requestImport(drops)
 	}
 	switch ed.tab {
 	case 0:
@@ -212,7 +222,7 @@ func (ed *Editor) debugLoad(name string) {
 	case 0:
 		for ti, t := range charTypes {
 			for si, sb := range t.subs {
-				if _, err := os.Stat(filepath.Join(spritesDir(ed.root, sb.folder), name)); err == nil && sb.matches(charRoleOf(filepath.Join(spritesDir(ed.root, sb.folder), name))) {
+				if dirExists(spriteDirOf(ed.root, sb.folder, name)) && sb.matches(charRoleOf(spriteDirOf(ed.root, sb.folder, name))) {
 					ed.ch.typeIdx, ed.ch.subIdx = ti, si
 					ed.ch.reloadList()
 					ed.ch.load(name)
@@ -230,11 +240,12 @@ func (ed *Editor) debugLoad(name string) {
 type droppedImage struct {
 	name string
 	b    *pixBuf
+	err  string // set when the file could not be read
 }
 
 func isImgName(p string) bool {
 	p = strings.ToLower(p)
-	return strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg")
+	return strings.HasSuffix(p, ".png") || strings.HasSuffix(p, ".jpg") || strings.HasSuffix(p, ".jpeg") || strings.HasSuffix(p, ".pdf")
 }
 
 // droppedPNGs returns the PNG files dropped onto the window during the last frame.
@@ -253,6 +264,23 @@ func droppedPNGs() []droppedImage {
 			return nil
 		}
 		defer f.Close()
+		if strings.HasSuffix(strings.ToLower(path), ".pdf") {
+			// the PDF reader needs a real file
+			tmp, err := os.CreateTemp("", "ph-drop*.pdf")
+			if err != nil {
+				return nil
+			}
+			io.Copy(tmp, f)
+			tmp.Close()
+			defer os.Remove(tmp.Name())
+			b, err := loadImageAny(tmp.Name())
+			if err != nil {
+				out = append(out, droppedImage{err: err.Error()})
+				return nil
+			}
+			out = append(out, droppedImage{name: strings.ToLower(path), b: b})
+			return nil
+		}
 		im, _, err := image.Decode(f)
 		if err != nil {
 			return nil

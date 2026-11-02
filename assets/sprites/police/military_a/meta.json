@@ -1,0 +1,10 @@
+{
+  "name": "military_a",
+  "display_name": "Military A",
+  "category": "police",
+  "role": "military",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

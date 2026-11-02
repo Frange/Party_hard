@@ -30,6 +30,10 @@ func main() {
 	selftest := flag.Int("selftest", 0, "run N frames of automated play and exit (debug)")
 	mute := flag.Bool("mute", false, "start without sound")
 	level := flag.Int("level", 0, "start level (1-4) directly, debug")
+	findF := flag.String("edfind", "", "search text preset in the editor lists (debug)")
+	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
+	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
+	impSave := flag.String("edsave", "", "after -edaccept, save it with this name (debug)")
 	shot := flag.String("shot", "", "save a screenshot to this PNG and exit, debug")
 	shotTick := flag.Int("shottick", 120, "frame for the screenshot")
 	camx := flag.Float64("camx", -1, "fixed camera x, debug")
@@ -141,6 +145,20 @@ func main() {
 			g.ed.debugLoad(*edload)
 		}
 		g.ed.lv.mode = *edmode
+		if *impF != "" {
+			if b, err := loadImageAny(*impF); err == nil {
+				g.ed.requestImport([]droppedImage{{name: strings.ToLower(*impF), b: b}})
+				if *impAcc && g.ed.imp != nil {
+					g.ed.imp.process()
+					g.ed.imp.accept()
+					if *impSave != "" {
+						g.ed.ch.name, g.ed.ob.name = *impSave, *impSave
+						g.ed.save()
+					}
+				}
+			}
+		}
+		g.ed.ch.find, g.ed.ob.find, g.ed.lv.find = *findF, *findF, *findF
 		if *edcarry != "" {
 			g.ed.ch.ca.Meta.Carry = *edcarry
 			g.ed.ch.dirty = true

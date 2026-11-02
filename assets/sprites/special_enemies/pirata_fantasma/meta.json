@@ -1,0 +1,11 @@
+{
+  "name": "pirata_fantasma",
+  "display_name": "Pirata Fantasma",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "claw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

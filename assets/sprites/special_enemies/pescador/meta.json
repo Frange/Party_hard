@@ -1,0 +1,11 @@
+{
+  "name": "pescador",
+  "display_name": "Pescador",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "machete",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

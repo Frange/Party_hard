@@ -1,0 +1,11 @@
+{
+  "name": "torero_maldito",
+  "display_name": "Torero Maldito",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "saber",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

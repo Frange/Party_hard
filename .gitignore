@@ -23,3 +23,7 @@ dist/
 PartyHard-Mac.zip
 PartyHard-Windows.zip
 assets_backup_*/
+
+# Things made from your own pictures (photos of friends, family...): never upload them
+imports/
+/imports/

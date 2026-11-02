@@ -1,0 +1,10 @@
+{
+  "name": "scully",
+  "display_name": "Scully",
+  "category": "police",
+  "role": "fbi",
+  "gender": "f",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

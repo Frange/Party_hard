@@ -381,6 +381,59 @@ func (c *Canvas) zoomAt(mx, my, nz int) {
 	c.py = my - c.y - int(iy*float64(nz))
 }
 
+// what the transparent pixels of a drawing look like while painting (shared by the editors)
+type canvasBG struct {
+	a, b  uint32 // the two checker colours (equal = flat colour)
+	light bool
+	name  string
+}
+
+var canvasBGs = []canvasBG{
+	{0x2c2c38, 0x34343f, false, "Oscuro (cuadros)"},
+	{0xc8c8d4, 0xdcdce6, true, "Claro (cuadros)"},
+	{0xffffff, 0xffffff, true, "Blanco"},
+	{0x808890, 0x808890, true, "Gris"},
+	{0x4a9a5a, 0x4a9a5a, false, "Verde"},
+	{0x5a8ad0, 0x5a8ad0, false, "Azul"},
+	{0xd06a9a, 0xd06a9a, false, "Rosa"},
+}
+
+var (
+	cvGrid = true
+	cvBG   = 0
+)
+
+// canvasOptions: grid on/off and the colour shown behind transparent pixels. Returns the next free y.
+func (u *UI) canvasOptions(x, y, w int) int {
+	u.heading(x, y, w, "VISTA DEL DIBUJO")
+	y += 20
+	if u.iconBtn(x, y, w, 26, "grid", "Cuadrícula", cvGrid, "Mostrar u ocultar la cuadrícula mientras pintas") {
+		cvGrid = !cvGrid
+	}
+	y += 32
+	u.text(x, y, "Fondo transparente", uiDim)
+	y += 16
+	for i, b := range canvasBGs {
+		cx := x + i*(w/len(canvasBGs))
+		sw := w/len(canvasBGs) - 3
+		u.rect(cx, y, sw, 18, rgb(b.a))
+		if b.a != b.b {
+			u.rect(cx, y, sw/2, 9, rgb(b.b))
+			u.rect(cx+sw/2, y+9, sw-sw/2, 9, rgb(b.b))
+		}
+		if i == cvBG {
+			u.frame(cx-1, y-1, sw+2, 20, uiAccent)
+		}
+		if u.in(cx, y, sw, 18) {
+			u.tip = b.name
+			if u.pressed {
+				cvBG = i
+			}
+		}
+	}
+	return y + 28
+}
+
 func (c *Canvas) draw(d *ebiten.Image, w, h int, checker bool) {
 	if c.img == nil {
 		return
@@ -389,14 +442,19 @@ func (c *Canvas) draw(d *ebiten.Image, w, h int, checker bool) {
 	vp := d.SubImage(imageRect(c.x, c.y, c.vw, c.vh)).(*ebiten.Image)
 	fillRect(vp, float64(c.x), float64(c.y), float64(c.vw), float64(c.vh), rgb(0x101018))
 	ix, iy := float64(c.x+c.px), float64(c.y+c.py)
+	bg := canvasBGs[clampI(cvBG, 0, len(canvasBGs)-1)]
 	if checker {
-		for yy := 0; yy < h; yy++ {
-			for xx := 0; xx < w; xx++ {
-				col := rgb(0x2c2c38)
-				if (xx+yy)%2 == 0 {
-					col = rgb(0x34343f)
+		if bg.a == bg.b {
+			fillRect(vp, ix, iy, float64(w*c.zoom), float64(h*c.zoom), rgb(bg.a))
+		} else {
+			for yy := 0; yy < h; yy++ {
+				for xx := 0; xx < w; xx++ {
+					col := rgb(bg.a)
+					if (xx+yy)%2 == 0 {
+						col = rgb(bg.b)
+					}
+					fillRect(vp, ix+float64(xx*c.zoom), iy+float64(yy*c.zoom), float64(c.zoom), float64(c.zoom), col)
 				}
-				fillRect(vp, ix+float64(xx*c.zoom), iy+float64(yy*c.zoom), float64(c.zoom), float64(c.zoom), col)
 			}
 		}
 	}
@@ -404,8 +462,11 @@ func (c *Canvas) draw(d *ebiten.Image, w, h int, checker bool) {
 	op.GeoM.Scale(c.zf(), c.zf())
 	op.GeoM.Translate(ix, iy)
 	vp.DrawImage(c.img, op)
-	if c.grid && c.zoom >= 6 && c.fz == 0 {
+	if c.grid && cvGrid && c.zoom >= 6 && c.fz == 0 {
 		gc := color.RGBA{255, 255, 255, 22}
+		if bg.light {
+			gc = color.RGBA{0, 0, 0, 40}
+		}
 		for xx := 0; xx <= w; xx++ {
 			fillRect(vp, ix+float64(xx*c.zoom), iy, 1, float64(h*c.zoom), gc)
 		}
@@ -709,6 +770,7 @@ func (pt *Painter) handle(u *UI, cv *Canvas, b *pixBuf, mirrorParts bool) bool {
 					if b.pid != nil && pt.usePart && b.pid[y*b.w+x] > 0 {
 						pt.part = b.pid[y*b.w+x]
 					}
+					pt.tool = ToolPencil // got a colour: back to painting
 				}
 			}
 		case ToolFill:

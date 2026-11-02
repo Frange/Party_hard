@@ -1,0 +1,11 @@
+{
+  "name": "payaso_circo",
+  "display_name": "Payaso Circo",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "knife",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

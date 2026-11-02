@@ -1,0 +1,10 @@
+{
+  "name": "cop_f",
+  "display_name": "Cop F",
+  "category": "police",
+  "role": "cop",
+  "gender": "f",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

@@ -173,3 +173,14 @@ CARRETERAS E IDIOMAS
   quien esté en la carretera.
 - AJUSTES > Idioma / Language: español o inglés. Cambia todos los textos, mensajes, frases y nombres graciosos.
   El editor tiene su propio selector ES / EN arriba a la derecha.
+
+IMPORTAR IMÁGENES
+-----------------
+- Importar (o arrastrar un PNG, JPG o PDF —el PDF, solo en macOS y Linux—) una imagen grande abre una ventana para
+  ajustarla: recortas lo que quieras, quitas el fondo (color automático o elegido, con tolerancia), eliges el tamaño en
+  píxeles, reduces los colores y ves el resultado antes de aceptar. Después lo retocas en el editor como cualquier dibujo.
+  En personajes eliges si la foto es de frente, de perfil o de espalda; puedes importar las tres seguidas.
+- Lo que guardes después de importar (personajes, objetos, animales y fondos de escenarios) se guarda en la carpeta
+  "imports" (junto a "assets"), no en "assets". El juego y el editor leen las dos. "imports" está en .gitignore:
+  nunca se sube al repositorio. Los zips del juego tampoco la incluyen.
+- Editor > dibujo: botón Cuadrícula y selector de fondo transparente para ver bien lo que pintas.

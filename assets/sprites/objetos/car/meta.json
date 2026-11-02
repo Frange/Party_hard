@@ -1,8 +1,8 @@
 {
   "name": "car",
   "category": "vehicle",
-  "anchor_x": 34,
-  "anchor_y": 37,
+  "anchor_x": 33,
+  "anchor_y": 36,
   "foot_x": 3,
   "foot_y": 21,
   "foot_w": 62,
@@ -16,5 +16,10 @@
   "variants": true,
   "fps": 0,
   "sort_off": 0,
-  "ambient_speed": 0
+  "ambient_speed": 0,
+  "light_col": [
+    0,
+    0,
+    0
+  ]
 }

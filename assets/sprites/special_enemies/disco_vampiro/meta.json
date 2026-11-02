@@ -1,0 +1,11 @@
+{
+  "name": "disco_vampiro",
+  "display_name": "Disco Vampiro",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "claw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

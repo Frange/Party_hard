@@ -1,0 +1,10 @@
+{
+  "name": "ranger_pink",
+  "display_name": "Ranger Pink",
+  "category": "police",
+  "role": "ranger",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "edited": true
+}

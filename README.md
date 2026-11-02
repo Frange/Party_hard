@@ -35,7 +35,9 @@ Three tabs, each with big icon buttons and the same layout: what you have on the
 - **Scenarios**: list of your scenarios with thumbnails, name, save, new (always from a generated scenario, never empty), template (copy a game scenario), generator, import a PNG/JPG background and test. Drawing options: Background, Walls, Objects, Points and Settings.
 - **Roads**: in *Walls* paint a one-lane road and choose its direction (left, right, up, down); traffic drives along it.
 - **Languages**: Spanish or English, in the game's Settings and in the editor's top bar (all texts, messages and funny names are translated).
-- Import buttons open the system file dialog; you can also drag a PNG/JPG onto the window.
+- Import buttons open the system file dialog; you can also drag a PNG, JPG or PDF (first page; macOS and Linux) onto the window.
+- **Import window**: a big picture (a photo of a friend, a drawing...) opens a window to crop what you want, remove the background, choose the pixel size, reduce the colours and see the result before sending it to the editor to be retouched. Several pictures (front, side, back) can be queued.
+- **`imports/` folder**: whatever you save after importing a picture (characters, objects, animals, scenario backgrounds) goes to `imports/` (next to `assets/`), not to `assets/`. The game and the editor read both. `imports/` is in `.gitignore`, so your own pictures are never uploaded to the repository.
 - The content format is documented in [`ASSETS.md`](ASSETS.md).
 
 ## Building

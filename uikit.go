@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -268,4 +269,64 @@ func (u *UI) finishMenu() {
 func (u *UI) swatch(x, y, w, h int, c color.RGBA) {
 	u.round(x, y, w, h, c)
 	u.roundFrame(x, y, w, h, uiLine)
+}
+
+// matchFind reports whether name contains every word typed in the search box.
+func matchFind(name, find string) bool {
+	name = strings.ToLower(strings.ReplaceAll(name, "_", " "))
+	for _, w := range strings.Fields(strings.ToLower(find)) {
+		if !strings.Contains(name, w) {
+			return false
+		}
+	}
+	return true
+}
+
+// searchGrid is a thumbGrid with a search box on top that filters while you type.
+// mk builds the thumbnail of names[i] (called only for the visible matches).
+// It returns the clicked index in names (or -1); sel is an index in names too.
+func (u *UI) searchGrid(id string, x, y, w, h, cols int, find *string, names []string, mk func(i int) thumb, sel int, scroll *int) int {
+	if u.input(id, x, y, w, find, 20) {
+		*scroll = 0
+	}
+	if *find == "" && u.focus != id {
+		u.text(x+4, y+4, "Buscar…", uiDim)
+	} else if *find != "" && u.iconBtn2(x+w-18, y+1, 18, 18) {
+		*find, *scroll = "", 0
+	}
+	var idx []int
+	for i, n := range names {
+		if matchFind(n, *find) {
+			idx = append(idx, i)
+		}
+	}
+	items := make([]thumb, len(idx))
+	selPos := -1
+	for p, i := range idx {
+		items[p] = mk(i)
+		if i == sel {
+			selPos = p
+		}
+	}
+	gy := y + 24
+	if len(idx) == 0 {
+		u.round(x, gy, w, h-24, rgb(0x101018))
+		u.roundFrame(x, gy, w, h-24, uiLine)
+		u.text(x+10, gy+12, "Sin resultados", uiDim)
+		return -1
+	}
+	if p := u.thumbGrid(x, gy, w, h-24, cols, items, selPos, scroll); p >= 0 {
+		return idx[p]
+	}
+	return -1
+}
+
+// iconBtn2 draws a small "x" clear button and reports a click.
+func (u *UI) iconBtn2(x, y, w, h int) bool {
+	hot := u.in(x, y, w, h)
+	if hot {
+		u.round(x, y, w, h, uiBtnHot)
+	}
+	u.textC(x+w/2, y+3, "x", uiText)
+	return hot && u.pressed
 }

@@ -1,0 +1,10 @@
+{
+  "name": "tortuga_donatello",
+  "display_name": "Donatello",
+  "category": "special_people",
+  "gender": "m",
+  "carry": "broom",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

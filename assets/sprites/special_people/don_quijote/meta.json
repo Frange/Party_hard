@@ -1,0 +1,10 @@
+{
+  "name": "don_quijote",
+  "display_name": "Don Quijote",
+  "category": "special_people",
+  "gender": "m",
+  "carry": "flag",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

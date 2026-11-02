@@ -1,0 +1,10 @@
+{
+  "name": "cop_big",
+  "display_name": "Cop Big",
+  "category": "police",
+  "role": "cop",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

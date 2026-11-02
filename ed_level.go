@@ -3,7 +3,6 @@ package main
 import (
 	"image/color"
 	"math"
-	"path/filepath"
 	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -42,6 +41,7 @@ type LevEd struct {
 	list                         []string
 	sel                          int
 	scroll                       int
+	find, kindFind               string
 	name                         string
 	mode                         int
 	cv                           Canvas
@@ -77,6 +77,7 @@ type LevEd struct {
 	introTxt                     string
 	thumbs                       map[string]*ebiten.Image
 	importCh                     chan *droppedImage
+	imported                     bool // came from a picture: saved in the imports folder
 	propThumbs                   map[string]*ebiten.Image
 	wasRoad                      bool
 	needFit                      bool // centre and fit the picture at the next frame
@@ -91,7 +92,7 @@ func newLevEd(ed *Editor) *LevEd {
 }
 
 func (l *LevEd) reloadList() {
-	l.list = listAssetNames(backgroundsDir(l.ed.root))
+	l.list = backgroundNames(l.ed.root)
 	l.refreshKinds()
 }
 
@@ -109,6 +110,7 @@ func (l *LevEd) newBlank() {
 }
 
 func (l *LevEd) setLevel(la *LevelAsset) {
+	l.imported = false
 	l.la = la
 	l.solid, l.zone = toGrid(la.Meta.Solid), toGrid(la.Meta.Zone)
 	l.titleTxt, l.introTxt = la.Meta.Title, la.Meta.Intro
@@ -136,12 +138,14 @@ func fromGrid(g [][]byte) []string {
 }
 
 func (l *LevEd) loadByName(name string) {
-	la, err := loadLevelAsset(filepath.Join(backgroundsDir(l.ed.root), name))
+	dir := backgroundDirOf(l.ed.root, name)
+	la, err := loadLevelAsset(dir)
 	if err != nil {
 		l.ed.say("No se pudo cargar: " + err.Error())
 		return
 	}
 	l.setLevel(la)
+	l.imported = inImports(l.ed.root, dir)
 	l.name = name
 }
 
@@ -163,11 +167,16 @@ func (l *LevEd) save() {
 	if l.la.Meta.Title == "" {
 		l.la.Meta.Title = name
 	}
-	if err := saveLevelAsset(l.ed.root, l.la); err != nil {
+	saveRoot, nm := importSaveRoot(l.ed.root, l.imported, "", name)
+	if saveRoot != l.ed.root && dirExists(backgroundDirOf(l.ed.root, nm)) && !inImports(l.ed.root, backgroundDirOf(l.ed.root, nm)) {
+		nm += "_importado"
+	}
+	l.la.Meta.Name = nm
+	if err := saveLevelAsset(saveRoot, l.la); err != nil {
 		l.ed.say("Error al guardar: " + err.Error())
 		return
 	}
-	l.name = name
+	l.name = nm
 	l.reloadList()
 	l.ed.say("Guardado en " + l.la.Dir)
 }
@@ -449,6 +458,7 @@ func (l *LevEd) importDrops(drops []droppedImage) {
 		}
 	}
 	l.la.BG = nb
+	l.imported = true
 	l.ed.pt.clearHistory()
 	l.cv.setPix(nb)
 	l.cv.dirty = true

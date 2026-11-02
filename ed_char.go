@@ -21,6 +21,8 @@ type CharEd struct {
 	importCh   chan *droppedImage
 	list       []string
 	listSel    int
+	imported   bool // came from a picture: saved in the imports folder
+	find       string
 	listScroll int
 	name       string
 	view       int
@@ -69,8 +71,8 @@ func (c *CharEd) category() string { return c.sub().folder }
 func (c *CharEd) reloadList() {
 	sub := c.sub()
 	var out []string
-	for _, n := range listAssetNames(spritesDir(c.ed.root, sub.folder)) {
-		if sub.matches(charRoleOf(filepath.Join(spritesDir(c.ed.root, sub.folder), n))) {
+	for _, n := range spriteNames(c.ed.root, sub.folder) {
+		if sub.matches(charRoleOf(spriteDirOf(c.ed.root, sub.folder, n))) {
 			out = append(out, n)
 		}
 	}
@@ -78,7 +80,8 @@ func (c *CharEd) reloadList() {
 }
 
 func (c *CharEd) load(name string) {
-	ca, err := loadCharAsset(filepath.Join(spritesDir(c.ed.root, c.category()), name))
+	dir := spriteDirOf(c.ed.root, c.category(), name)
+	ca, err := loadCharAsset(dir)
 	if err != nil {
 		c.ed.say("No se pudo cargar: " + err.Error())
 		return
@@ -90,6 +93,7 @@ func (c *CharEd) load(name string) {
 	}
 	c.ca = ca
 	c.name = name
+	c.imported = inImports(c.ed.root, dir)
 	c.ca.Meta.Category = c.category()
 	if c.ca.Meta.Gender == "" {
 		c.ca.Meta.Gender = "m"
@@ -106,6 +110,7 @@ func (c *CharEd) afterLoad() {
 }
 
 func (c *CharEd) newBlank() {
+	c.imported = false
 	c.ca = newCharAsset("nuevo", c.category(), charW, charH)
 	c.ca.Meta.Role = c.sub().role
 	c.ca.Meta.Gender = "m"
@@ -114,6 +119,7 @@ func (c *CharEd) newBlank() {
 }
 
 func (c *CharEd) fromSpec(spec CharSpec) {
+	c.imported = false
 	role := ""
 	switch c.category() {
 	case "police":
@@ -184,7 +190,9 @@ func (c *CharEd) save() {
 	if c.ca.Meta.Gender == "" {
 		c.ca.Meta.Gender = "m"
 	}
-	if err := saveCharAsset(c.ed.root, c.ca); err != nil {
+	saveRoot, name := importSaveRoot(c.ed.root, c.imported, c.category(), name)
+	c.ca.Meta.Name = name
+	if err := saveCharAsset(saveRoot, c.ca); err != nil {
 		c.ed.say("Error al guardar: " + err.Error())
 		return
 	}
@@ -522,6 +530,7 @@ func (c *CharEd) importDrops(drops []droppedImage) {
 		c.view = vi
 	}
 	c.cv.setPix(c.ca.Views[c.view])
+	c.imported = true
 	c.dirty = true
 	c.ed.pt.clearHistory()
 	c.ed.say("Imagen importada. Las partes se han asignado por la silueta: revísalas con 'Ver partes'")

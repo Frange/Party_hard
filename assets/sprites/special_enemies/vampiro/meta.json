@@ -1,0 +1,11 @@
+{
+  "name": "vampiro",
+  "display_name": "Vampiro",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "claw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

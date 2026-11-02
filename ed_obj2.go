@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image/color"
 	"math"
-	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -68,7 +67,7 @@ func (o *ObjEd) update(u *UI) {
 		select {
 		case d, ok := <-o.importCh:
 			if d != nil {
-				o.importDrops([]droppedImage{*d})
+				o.ed.requestImport([]droppedImage{*d})
 			}
 			if !ok || d != nil {
 				o.importCh = nil
@@ -109,19 +108,20 @@ func (o *ObjEd) leftColumn(u *UI) {
 	u.heading(x+4, y, w-8, fmt.Sprintf("%s (%d)", t.label, len(o.list)))
 	y += 20
 	gridH := edH - y - 150
-	items := make([]thumb, len(o.list))
 	budget := 8
-	for i, n := range o.list {
-		items[i] = thumb{label: n}
-		dir := filepath.Join(spritesDir(o.ed.root, "objetos"), n)
+	mk := func(i int) thumb {
+		n := o.list[i]
+		t := thumb{label: n}
+		dir := spriteDirOf(o.ed.root, "objetos", n)
 		if _, ok := o.thumbs[dir]; ok || budget > 0 {
 			if !ok {
 				budget--
 			}
-			items[i].img = o.thumbFor(n)
+			t.img = o.thumbFor(n)
 		}
+		return t
 	}
-	if i := u.thumbGrid(x, y, w, gridH, 4, items, o.sel, &o.scroll); i >= 0 {
+	if i := u.searchGrid("objfind", x, y, w, gridH, 4, &o.find, o.list, mk, o.sel, &o.scroll); i >= 0 {
 		o.sel = i
 		o.loadByName(o.list[i])
 	}
@@ -137,7 +137,7 @@ func (o *ObjEd) leftColumn(u *UI) {
 		o.newBlank()
 		o.sel = -1
 	}
-	if u.iconBtn(x+2*(bw3+4), y, bw3, 34, "import", "Importar", false, "Cargar una imagen PNG o JPG (o arrástrala a la ventana)") && o.importCh == nil {
+	if u.iconBtn(x+2*(bw3+4), y, bw3, 34, "import", "Importar", false, "Cargar una imagen PNG, JPG o PDF (o arrástrala a la ventana)") && o.importCh == nil {
 		o.importCh = pickImageAsync()
 	}
 	y += 40
@@ -335,7 +335,8 @@ func (o *ObjEd) paintTools(u *UI, x, y int) {
 	y += 36
 	u.heading(x, y, w, "COLOR")
 	y += 20
-	u.simplePalette(pt, x, y, w)
+	y = u.simplePalette(pt, x, y, w)
+	u.canvasOptions(x, y+8, w)
 }
 
 func (o *ObjEd) logicTools(u *UI, x, y int) {

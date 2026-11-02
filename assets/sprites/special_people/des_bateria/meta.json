@@ -1,0 +1,9 @@
+{
+  "name": "des_bateria",
+  "display_name": "Despistaos · bateria",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

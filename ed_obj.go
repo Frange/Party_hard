@@ -70,6 +70,7 @@ type ObjEd struct {
 	list     []string // names of the current filter
 	sel      int
 	scroll   int
+	find     string
 	name     string
 	frame    int
 	cv       Canvas
@@ -89,6 +90,7 @@ type ObjEd struct {
 	lastMY   int
 	thumbs   map[string]*ebiten.Image
 	importCh chan *droppedImage
+	imported bool // came from a picture: saved in the imports folder
 }
 
 func newObjEd(ed *Editor) *ObjEd {
@@ -107,9 +109,8 @@ func (o *ObjEd) curType() objType {
 
 func (o *ObjEd) reloadList() {
 	o.entries = nil
-	root := spritesDir(o.ed.root, "objetos")
-	for _, n := range listAssetNames(root) {
-		data, err := os.ReadFile(filepath.Join(root, n, "meta.json"))
+	for _, n := range spriteNames(o.ed.root, "objetos") {
+		data, err := os.ReadFile(filepath.Join(spriteDirOf(o.ed.root, "objetos", n), "meta.json"))
 		if err != nil {
 			continue
 		}
@@ -138,6 +139,7 @@ func (o *ObjEd) filterList() {
 
 // newBlank starts a new object of the current kind with sensible defaults.
 func (o *ObjEd) newBlank() {
+	o.imported = false
 	t := o.curType()
 	o.meta = ObjMeta{Name: "nuevo", Category: t.key}
 	o.name = "nuevo"
@@ -202,7 +204,7 @@ func (o *ObjEd) afterLoad() {
 }
 
 func (o *ObjEd) thumbFor(name string) *ebiten.Image {
-	dir := filepath.Join(spritesDir(o.ed.root, "objetos"), name)
+	dir := spriteDirOf(o.ed.root, "objetos", name)
 	if im, ok := o.thumbs[dir]; ok {
 		return im
 	}
@@ -218,7 +220,9 @@ func (o *ObjEd) thumbFor(name string) *ebiten.Image {
 }
 
 func (o *ObjEd) loadByName(name string) {
-	oa, err := loadObjAsset(filepath.Join(spritesDir(o.ed.root, "objetos"), name))
+	dir := spriteDirOf(o.ed.root, "objetos", name)
+	o.imported = inImports(o.ed.root, dir)
+	oa, err := loadObjAsset(dir)
 	if err != nil {
 		o.ed.say("No se pudo cargar: " + err.Error())
 		return
@@ -271,13 +275,15 @@ func (o *ObjEd) save() {
 		m.UseX, m.UseY = nil, nil
 	}
 	oa := &ObjAsset{Meta: m, Frames: o.frames}
-	if err := saveObjAsset(o.ed.root, oa); err != nil {
+	saveRoot, nm := importSaveRoot(o.ed.root, o.imported, "objetos", m.Name)
+	oa.Meta.Name = nm
+	if err := saveObjAsset(saveRoot, oa); err != nil {
 		o.ed.say("Error al guardar: " + err.Error())
 		return
 	}
 	o.dir = oa.Dir
-	o.name = name
-	o.meta = m
+	o.name = nm
+	o.meta = oa.Meta
 	o.reloadList()
 	o.ed.refreshObjects()
 	o.ed.say("Guardado en " + oa.Dir)
@@ -322,6 +328,7 @@ func (o *ObjEd) importDrops(drops []droppedImage) {
 			}
 		}
 	}
+	o.imported = true
 	o.ed.pt.clearHistory()
 	o.cv.fit(o.frames[0].w, o.frames[0].h)
 	o.cv.setPix(o.frames[o.frame])

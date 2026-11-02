@@ -1,0 +1,11 @@
+{
+  "name": "jardinero_loco",
+  "display_name": "Jardinero Loco",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "plant",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

@@ -1,0 +1,11 @@
+{
+  "name": "caballero_negro",
+  "display_name": "Caballero Negro",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "saber",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

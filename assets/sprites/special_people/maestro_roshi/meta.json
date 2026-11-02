@@ -1,0 +1,9 @@
+{
+  "name": "maestro_roshi",
+  "display_name": "Maestro Roshi",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

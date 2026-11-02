@@ -1,0 +1,10 @@
+{
+  "name": "ranger_yellow",
+  "display_name": "Ranger Yellow",
+  "category": "police",
+  "role": "ranger",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "edited": true
+}

@@ -1,0 +1,11 @@
+{
+  "name": "santa_psicopata",
+  "display_name": "Santa Psicopata",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "machete",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}
