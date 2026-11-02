@@ -106,6 +106,7 @@ func (g *Game) gradText(dst *ebiten.Image, s string, cx, y float64, colA, colB, 
 }
 
 func (g *Game) bigText(dst *ebiten.Image, s string, cx, y float64, col, outline color.RGBA, scale float64) {
+	s = tr(s)
 	w := g.textW(s, scale)
 	x := math.Round(cx - w/2)
 	for _, o := range [][2]float64{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {2, 2}} {
@@ -127,6 +128,10 @@ func (g *Game) renderBG() {
 	def := l.Def
 	if def.BGImg != nil {
 		l.bg = def.BGImg
+		if !def.roadsDrawn {
+			def.roadsDrawn = true
+			drawRoads(def.BGImg, def)
+		}
 		l.graded = true
 		return
 	}
@@ -276,6 +281,7 @@ func (g *Game) renderBG() {
 	for _, dr := range def.Doors {
 		drawDoor(bg, dr)
 	}
+	drawRoads(bg, def)
 	g.drawHull(bg, def)
 	g.drawSign(bg, def)
 	l.bg = bg
@@ -856,6 +862,7 @@ func (g *Game) drawCuffs(dst *ebiten.Image, pos Vec) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	g.pickLanguage()
 	if g.mode == ModeEditor {
 		g.drawEditor(screen)
 		if g.shot != "" && g.tick == g.shotTick {
@@ -982,6 +989,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				g.drawImg(screen, bi, g.wx(c.pos.X), g.wy(c.pos.Y)-32, float64(w)/2, float64(h))
 			}
 		}})
+	}
+	for _, rc := range g.roadCars {
+		rc := rc
+		s := g.lvl.Def.Roads[rc.seg]
+		y := rc.at(s).Y
+		if s.horizontal() {
+			y += 8
+		}
+		items = append(items, drawItem{y, func() { g.drawRoadCar(screen, rc) }})
 	}
 	if tr := g.train; tr != nil {
 		items = append(items, drawItem{tr.trackY + 12, func() { g.drawTrain(screen) }})
@@ -1561,8 +1577,14 @@ func (g *Game) drawLighting(dst *ebiten.Image) {
 	def := g.lvl.Def
 	t := def.Tint
 	var lights []lightSrc
-	for _, lp := range g.lvl.Lights {
-		lights = append(lights, lightSrc{lp, 110, color.RGBA{150, 118, 52, 120}, 0.95})
+	for i, lp := range g.lvl.Lights {
+		r, col := 110.0, color.RGBA{150, 118, 52, 120}
+		if i < len(g.lvl.LightSrc) {
+			if k := g.lvl.LightSrc[i]; k != nil && k.LightR > 0 {
+				r, col = k.LightR, k.LightC
+			}
+		}
+		lights = append(lights, lightSrc{lp, r, col, 0.95})
 	}
 	for _, gl := range def.Glows {
 		k := 1.0
@@ -1689,11 +1711,13 @@ func (g *Game) finishLighting(dst *ebiten.Image) {
 // ---------------------------------------------------------------------------
 
 func (g *Game) textW(s string, scale float64) float64 {
+	s = tr(s)
 	w, _ := text.Measure(s, g.face, 0)
 	return w * scale
 }
 
 func (g *Game) drawText(dst *ebiten.Image, s string, x, y float64, c color.RGBA, scale float64) {
+	s = tr(s)
 	op := &text.DrawOptions{}
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(x+1, y+1)

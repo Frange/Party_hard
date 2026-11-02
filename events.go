@@ -765,6 +765,11 @@ func (g *Game) nearestGuest(p Vec) *Guest {
 // drawEventsTop draws what flies above everything, after the lighting pass.
 func (g *Game) drawEventsTop(dst *ebiten.Image) {
 	defer g.drawBubbles(dst)
+	if dbgSolids && g.lvl != nil {
+		for _, r := range g.lvl.solidsP {
+			fillRect(dst, g.wx(r.X), g.wy(r.Y), r.W, r.H, color.RGBA{255, 0, 0, 90})
+		}
+	}
 	defer g.drawFloats(dst)
 	defer g.drawUseMarks(dst)
 	g.drawTraps2(dst)

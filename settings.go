@@ -14,10 +14,11 @@ import (
 const (
 	setRowStart   = int(actCount)     // people at the start of a party
 	setRowMax     = int(actCount) + 1 // people in the whole party
-	setRowCredits = int(actCount) + 2
-	setRowReset   = int(actCount) + 3
-	setRowBack    = int(actCount) + 4
-	setRows       = int(actCount) + 5
+	setRowLang    = int(actCount) + 2 // language of the game
+	setRowCredits = int(actCount) + 3
+	setRowReset   = int(actCount) + 4
+	setRowBack    = int(actCount) + 5
+	setRows       = int(actCount) + 6
 )
 
 // the rows are packed tight so all the actions, the limits and the buttons fit
@@ -118,6 +119,11 @@ func (g *Game) updateSettings() {
 			saveProgress(g.progress)
 		}
 	}
+	if g.setSel == setRowLang && (actRight.just() || actLeft.just()) {
+		gameLang = otherLang(gameLang)
+		uiLang = gameLang
+		saveLanguages()
+	}
 	if g.setSel < int(actCount) {
 		if actRight.just() {
 			g.setCol = (g.setCol + 1) % 3
@@ -145,6 +151,10 @@ func (g *Game) updateSettings() {
 			g.capturing = true
 		case g.setSel == setRowStart || g.setSel == setRowMax:
 			// changed with the left/right keys
+		case g.setSel == setRowLang:
+			gameLang = otherLang(gameLang)
+			uiLang = gameLang
+			saveLanguages()
 		case g.setSel == setRowCredits:
 			g.showCredits = true
 		case g.setSel == setRowReset:
@@ -200,6 +210,15 @@ func (g *Game) drawSettings(dst *ebiten.Image) {
 				}
 				g.drawTextC(dst, vals[c], cols[c], y, vc, 1.15)
 			}
+			continue
+		}
+		if i == setRowLang {
+			g.drawText(dst, "Idioma / Language", 252, y, col, 1.3)
+			name := "Español"
+			if gameLang == "en" {
+				name = "English"
+			}
+			g.drawTextC(dst, "◄ "+name+" ►", 760, y, rgb(0xffe060), 1.3)
 			continue
 		}
 		label := "RESTAURAR VALORES"

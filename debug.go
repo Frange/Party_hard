@@ -191,3 +191,5 @@ func animalSheet(path string, zoom int) {
 	png.Encode(f, img)
 	f.Close()
 }
+
+var dbgSolids bool

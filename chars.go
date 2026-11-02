@@ -638,6 +638,7 @@ type CharSpec struct {
 	Makeup, Censor                          bool // red lips and eye shadow / mosaic censor bar
 	Ride, Face                              int  // 1 scooter, 2 skateboard / 1 smile, 2 sly grin
 	RideCol                                 color.RGBA
+	noOverride                              bool // built from an asset: do not look for an edited drawing again
 }
 
 func hx(h uint32) color.RGBA { return rgb(h) }
@@ -1832,7 +1833,14 @@ type CharSet struct {
 	over  map[string]*pixBuf
 }
 
-func newCharSet(s *CharSpec) *CharSet { return &CharSet{Spec: s, cache: map[int]*ebiten.Image{}} }
+func newCharSet(s *CharSpec) *CharSet {
+	if !s.noOverride && s.Name != "" {
+		if cs := overrideCharSet(s); cs != nil {
+			return cs
+		}
+	}
+	return &CharSet{Spec: s, cache: map[int]*ebiten.Image{}}
+}
 
 func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 	key := anim*1000 + vw*100 + f

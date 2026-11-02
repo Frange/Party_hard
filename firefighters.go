@@ -180,6 +180,9 @@ func (g *Game) firemenArrive(v *Vehicle) {
 		sp := spec
 		sp.Hair = hx(pick(g.rng, hairTones))
 		cs := newCharSet(&sp)
+		if len(g.as.fireCS) > 0 {
+			cs = g.as.fireCS[i%len(g.as.fireCS)]
+		}
 		pos := g.lvl.NearestFree(Vec{v.x - 14 + float64(i)*10, v.y - 24 - float64(i%2)*6})
 		f := &Fireman{pos: pos, dir: DirDown, cs: cs, truck: v}
 		g.fireCrew = append(g.fireCrew, f)

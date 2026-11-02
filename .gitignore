@@ -1,9 +1,14 @@
 # Music may be copyrighted: never upload it
-bands/
-DJ/
-music/
-more/
-music_anteriores/
+bands/*
+!bands/README.md
+DJ/*
+!DJ/README.md
+music/*
+!music/README.md
+more/*
+!more/README.md
+music_anteriores/*
+!music_anteriores/README.md
 assets/music/
 assets/bands/
 *.mp3

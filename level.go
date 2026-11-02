@@ -110,6 +110,8 @@ type LevelDef struct {
 	Strobe      []uint32
 	FastTraffic bool      // circuit-style venues: ambient cars spawn much more often
 	Highway     bool      // wide multi-lane road: dense traffic and people partying on the asphalt
+	Roads       []RoadSeg // one-lane roads painted in the editor
+	roadsDrawn  bool
 	Tracks      []float64 // railway: the y of each track; trains run along them (see trains.go)
 	TrainStop   float64   // x where a stopping train halts, centred
 	Lanes       []float64 // highway: the y of every lane (above CarFrom.Y drives left, below drives right)
@@ -152,6 +154,7 @@ type Level struct {
 	W, H      float64
 	Walls     []Wall
 	Props     []*Prop
+	LightSrc  []*PropKind // the kind behind each entry of Lights (its own light radius and colour)
 	Pools     []Rect
 	solidsP   []Rect
 	solidsN   []Rect
@@ -200,6 +203,7 @@ func buildLevel(def *LevelDef) *Level {
 		}
 		if k.Light {
 			l.Lights = append(l.Lights, Vec{in.X, in.Y - 44})
+			l.LightSrc = append(l.LightSrc, k)
 		}
 	}
 	// world bounds
@@ -317,9 +321,14 @@ func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds 
 			break
 		}
 		p := &Prop{Name: name, K: k, X: best.X, Y: best.Y, Foot: Rect{best.X - k.FW/2, best.Y - k.FH, k.FW, k.FH}, Sort: best.Y + k.SortOff}
+		if k.hasFoot {
+			p.Foot = Rect{best.X + k.FootDX, best.Y + k.FootDY, k.FW, k.FH}
+		}
 		l.Props = append(l.Props, p)
-		l.solidsP = append(l.solidsP, p.Foot)
-		l.solidsN = append(l.solidsN, p.Foot)
+		if !k.NoSolid { // pick-up items are not solid: a solid would stay behind, invisible, once they are taken
+			l.solidsP = append(l.solidsP, p.Foot)
+			l.solidsN = append(l.solidsN, p.Foot)
+		}
 		have = append(have, best)
 		near = append(near, best)
 		added = true
@@ -406,10 +415,12 @@ func cellCenter(cx, cy int) Vec {
 
 func (l *Level) NearestFree(p Vec) Vec {
 	cx, cy := l.cellOf(p)
-	if l.cellFree(cx, cy) {
+	// the spot itself, but only when the player's collision box fits there too: a "free" cell can
+	// still have a wall or a prop foot inside it, and standing in one means being stuck
+	if l.cellFree(cx, cy) && !l.SolidP(p.X, p.Y) {
 		return p
 	}
-	for r := 1; r < 40; r++ {
+	for r := 0; r < 40; r++ {
 		best, bd := Vec{}, math.MaxFloat64
 		for dy := -r; dy <= r; dy++ {
 			for dx := -r; dx <= r; dx++ {
@@ -418,6 +429,9 @@ func (l *Level) NearestFree(p Vec) Vec {
 				}
 				if l.cellFree(cx+dx, cy+dy) {
 					c := cellCenter(cx+dx, cy+dy)
+					if l.SolidP(c.X, c.Y) {
+						continue
+					}
 					if d := dist(c, p); d < bd {
 						best, bd = c, d
 					}
@@ -626,3 +640,18 @@ func (l *Level) badGround(p Vec) bool {
 	}
 	return false
 }
+
+// RoadSeg is a one-lane road painted in the editor: traffic drives through the rectangle in Dir.
+type RoadSeg struct {
+	R   Rect
+	Dir int // roadRight, roadLeft, roadUp, roadDown
+}
+
+const (
+	roadRight = iota
+	roadLeft
+	roadUp
+	roadDown
+)
+
+func (r RoadSeg) horizontal() bool { return r.Dir == roadRight || r.Dir == roadLeft }

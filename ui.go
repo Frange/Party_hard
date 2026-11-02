@@ -10,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 // ---------------------------------------------------------------------------
@@ -18,20 +19,25 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	edW = 1280
-	edH = 720
+	edW   = 1280
+	edH   = 720
+	edTop = 36 // height of the top bar
 )
 
 var (
-	uiBG     = rgb(0x1e1e26)
-	uiPanel  = rgb(0x2a2a36)
-	uiBtn    = rgb(0x3a3a4c)
-	uiBtnHot = rgb(0x4c4c64)
-	uiBtnOn  = rgb(0x5a46a0)
-	uiText   = rgb(0xe8e8f0)
-	uiDim    = rgb(0x9090a8)
-	uiAccent = rgb(0xffc040)
-	uiLine   = rgb(0x4a4a60)
+	uiBG       = rgb(0x13131a)
+	uiPanel    = rgb(0x1b1b26)
+	uiCard     = rgb(0x242434)
+	uiBtn      = rgb(0x2d2d42)
+	uiBtnHot   = rgb(0x3d3d5a)
+	uiBtnOn    = rgb(0x6a50e8)
+	uiBtnOnHot = rgb(0x7e66f5)
+	uiText     = rgb(0xeeeef8)
+	uiDim      = rgb(0x8c8cab)
+	uiAccent   = rgb(0xffb347)
+	uiLine     = rgb(0x34344c)
+	uiGood     = rgb(0x44d492)
+	uiRed      = rgb(0xff5a7a)
 )
 
 type UI struct {
@@ -53,6 +59,7 @@ type UI struct {
 	blink    int
 	tip      string
 	grab     string // widget currently dragged
+	menu     menuState
 }
 
 func (u *UI) begin() {
@@ -68,6 +75,12 @@ func (u *UI) begin() {
 	u.back = inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || (ebiten.IsKeyPressed(ebiten.KeyBackspace) && inpututil.KeyPressDuration(ebiten.KeyBackspace) > 20 && inpututil.KeyPressDuration(ebiten.KeyBackspace)%3 == 0)
 	u.enter = inpututil.IsKeyJustPressed(ebiten.KeyEnter)
 	u.esc = inpututil.IsKeyJustPressed(ebiten.KeyEscape)
+	u.menu.pressedRaw = false
+	if u.menu.id != "" {
+		// an open pop-up swallows the clicks: only it reacts to them
+		u.menu.pressedRaw = u.pressed
+		u.pressed, u.rpressed, u.released = false, false, false
+	}
 	u.cmds = u.cmds[:0]
 	u.tip = ""
 	u.blink++
@@ -84,6 +97,29 @@ func (u *UI) rect(x, y, w, h int, c color.RGBA) {
 	u.add(func(d *ebiten.Image) { fillRect(d, float64(x), float64(y), float64(w), float64(h), c) })
 }
 
+// round paints a filled rectangle with the corners cut, which is all the roundness a pixel UI needs.
+func (u *UI) round(x, y, w, h int, c color.RGBA) {
+	u.add(func(d *ebiten.Image) {
+		fillRect(d, float64(x+2), float64(y), float64(w-4), float64(h), c)
+		fillRect(d, float64(x), float64(y+2), float64(w), float64(h-4), c)
+		fillRect(d, float64(x+1), float64(y+1), float64(w-2), float64(h-2), c)
+	})
+}
+
+// roundFrame is the 1px outline of round().
+func (u *UI) roundFrame(x, y, w, h int, c color.RGBA) {
+	u.add(func(d *ebiten.Image) {
+		fillRect(d, float64(x+2), float64(y), float64(w-4), 1, c)
+		fillRect(d, float64(x+2), float64(y+h-1), float64(w-4), 1, c)
+		fillRect(d, float64(x), float64(y+2), 1, float64(h-4), c)
+		fillRect(d, float64(x+w-1), float64(y+2), 1, float64(h-4), c)
+		fillRect(d, float64(x+1), float64(y+1), 1, 1, c)
+		fillRect(d, float64(x+w-2), float64(y+1), 1, 1, c)
+		fillRect(d, float64(x+1), float64(y+h-2), 1, 1, c)
+		fillRect(d, float64(x+w-2), float64(y+h-2), 1, 1, c)
+	})
+}
+
 func (u *UI) frame(x, y, w, h int, c color.RGBA) {
 	u.add(func(d *ebiten.Image) {
 		fillRect(d, float64(x), float64(y), float64(w), 1, c)
@@ -93,17 +129,26 @@ func (u *UI) frame(x, y, w, h int, c color.RGBA) {
 	})
 }
 
+// plainText draws UI text without the drop shadow the game's text has: crisper on flat panels.
+func (g *Game) plainText(d *ebiten.Image, s string, x, y float64, c color.RGBA) {
+	s = tr(s)
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(x, y)
+	op.ColorScale.ScaleWithColor(c)
+	text.Draw(d, s, g.face, op)
+}
+
 func (u *UI) text(x, y int, s string, c color.RGBA) {
-	u.add(func(d *ebiten.Image) { u.g.drawText(d, s, float64(x), float64(y), c, 1) })
+	u.add(func(d *ebiten.Image) { u.g.plainText(d, s, float64(x), float64(y), c) })
 }
 
 func (u *UI) textC(cx, y int, s string, c color.RGBA) {
-	u.add(func(d *ebiten.Image) { u.g.drawTextC(d, s, float64(cx), float64(y), c, 1) })
+	u.add(func(d *ebiten.Image) { u.g.plainText(d, s, float64(cx)-u.g.textW(s, 1)/2, float64(y), c) })
 }
 
 func (u *UI) panel(x, y, w, h int) {
-	u.rect(x, y, w, h, uiPanel)
-	u.frame(x, y, w, h, uiLine)
+	u.round(x, y, w, h, uiPanel)
+	u.roundFrame(x, y, w, h, uiLine)
 }
 
 // button returns true when clicked.
@@ -116,11 +161,10 @@ func (u *UI) button(x, y, w, h int, label string, on bool) bool {
 	if hot {
 		col = uiBtnHot
 		if on {
-			col = rgb(0x6c58b8)
+			col = uiBtnOnHot
 		}
 	}
-	u.rect(x, y, w, h, col)
-	u.frame(x, y, w, h, uiLine)
+	u.round(x, y, w, h, col)
 	u.textC(x+w/2, y+(h-12)/2, label, uiText)
 	if hot && u.pressed {
 		u.focus = ""
@@ -171,12 +215,12 @@ func (u *UI) input(id string, x, y, w int, val *string, maxLen int) bool {
 	if focused {
 		col = rgb(0x22222e)
 	}
-	u.rect(x, y, w, 20, col)
+	u.round(x, y, w, 20, col)
 	bc := uiLine
 	if focused {
 		bc = uiAccent
 	}
-	u.frame(x, y, w, 20, bc)
+	u.roundFrame(x, y, w, 20, bc)
 	s := *val
 	if focused && (u.blink/30)%2 == 0 {
 		s += "_"
@@ -202,9 +246,10 @@ func (u *UI) slider(id string, x, y, w int, val *int, lo, hi int, label string) 
 			changed = true
 		}
 	}
-	u.rect(x, y+5, w, 4, rgb(0x14141c))
+	u.round(x, y+5, w, 4, rgb(0x0e0e14))
 	frac := float64(*val-lo) / float64(hi-lo)
-	u.rect(x+int(frac*float64(w))-3, y, 6, 14, uiAccent)
+	u.round(x, y+5, int(frac*float64(w))+1, 4, uiBtnOn)
+	u.round(x+int(frac*float64(w))-4, y+1, 9, 12, uiAccent)
 	u.text(x+w+8, y, fmt.Sprintf("%s %d", label, *val), uiText)
 	return changed
 }
@@ -217,8 +262,8 @@ func (u *UI) tooltip(x, y, w, h int, s string) {
 
 // list draws a scrollable list of names and returns the clicked index (or -1).
 func (u *UI) list(x, y, w, rows int, items []string, sel int, scroll *int) int {
-	u.rect(x, y, w, rows*18+2, rgb(0x14141c))
-	u.frame(x, y, w, rows*18+2, uiLine)
+	u.round(x, y, w, rows*18+2, rgb(0x101018))
+	u.roundFrame(x, y, w, rows*18+2, uiLine)
 	if u.in(x, y, w, rows*18+2) && u.wheel != 0 {
 		*scroll -= int(math.Round(u.wheel))
 	}
@@ -274,7 +319,8 @@ type Canvas struct {
 	x, y   int // top-left of the viewport on screen
 	vw, vh int // viewport size
 	zoom   int
-	px, py int // pan: offset of the image inside the viewport, in screen pixels
+	fz     float64 // fractional zoom (the level editor); 0 = use the integer zoom
+	px, py int     // pan: offset of the image inside the viewport, in screen pixels
 	grid   bool
 	img    *ebiten.Image
 	dirty  bool
@@ -306,9 +352,18 @@ func (c *Canvas) fit(w, h int) {
 
 // at converts a screen position to image pixel coordinates.
 func (c *Canvas) at(mx, my int) (int, int) {
-	x := int(math.Floor(float64(mx-c.x-c.px) / float64(c.zoom)))
-	y := int(math.Floor(float64(my-c.y-c.py) / float64(c.zoom)))
+	z := c.zf()
+	x := int(math.Floor(float64(mx-c.x-c.px) / z))
+	y := int(math.Floor(float64(my-c.y-c.py) / z))
 	return x, y
+}
+
+// zf is the zoom actually in use.
+func (c *Canvas) zf() float64 {
+	if c.fz > 0 {
+		return c.fz
+	}
+	return float64(c.zoom)
 }
 
 func (c *Canvas) inView(mx, my int) bool {
@@ -346,10 +401,10 @@ func (c *Canvas) draw(d *ebiten.Image, w, h int, checker bool) {
 		}
 	}
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(float64(c.zoom), float64(c.zoom))
+	op.GeoM.Scale(c.zf(), c.zf())
 	op.GeoM.Translate(ix, iy)
 	vp.DrawImage(c.img, op)
-	if c.grid && c.zoom >= 6 {
+	if c.grid && c.zoom >= 6 && c.fz == 0 {
 		gc := color.RGBA{255, 255, 255, 22}
 		for xx := 0; xx <= w; xx++ {
 			fillRect(vp, ix+float64(xx*c.zoom), iy, 1, float64(h*c.zoom), gc)
@@ -389,6 +444,7 @@ type Painter struct {
 	col      color.RGBA
 	part     uint8
 	usePart  bool // paint the part id too (character editor)
+	partOnly bool // PARTES mode: only the part map changes, the colours stay
 	mirror   bool
 	brush    int
 	undo     []snapshot
@@ -473,6 +529,17 @@ func (pt *Painter) setPx(b *pixBuf, x, y int, erase bool, mirrorParts bool) {
 			return
 		}
 		i := (y*b.w + x) * 4
+		if pt.partOnly && b.pid != nil {
+			// assigning parts: only pixels that are painted take a part; the colours are left alone
+			if b.p[i+3] > 0 {
+				if erase {
+					b.pid[y*b.w+x] = 0
+				} else {
+					b.pid[y*b.w+x] = part
+				}
+			}
+			return
+		}
 		if erase {
 			b.p[i], b.p[i+1], b.p[i+2], b.p[i+3] = 0, 0, 0, 0
 			if b.pid != nil {
@@ -646,7 +713,11 @@ func (pt *Painter) handle(u *UI, cv *Canvas, b *pixBuf, mirrorParts bool) bool {
 			}
 		case ToolFill:
 			pt.pushUndo(b)
-			pt.flood(b, x, y)
+			if pt.partOnly {
+				pt.floodPart(b, x, y)
+			} else {
+				pt.flood(b, x, y)
+			}
 			pt.pushRecent(pt.col)
 			changed = true
 		default:
@@ -795,4 +866,26 @@ func imageRect(x, y, w, h int) image.Rectangle { return image.Rect(x, y, x+w, y+
 // rectFill paints a filled rectangle with the current colour and part (used by tests and tools).
 func (pt *Painter) rectFill(b *pixBuf, x0, y0, x1, y1 int) {
 	shapePoints(ToolRectFill, x0, y0, x1, y1, func(x, y int) { pt.setPx(b, x, y, false, false) })
+}
+
+// floodPart gives the whole connected painted region under (x,y) that shares its part the current part.
+func (pt *Painter) floodPart(b *pixBuf, x, y int) {
+	if b.pid == nil || x < 0 || y < 0 || x >= b.w || y >= b.h || b.p[(y*b.w+x)*4+3] == 0 {
+		return
+	}
+	target := b.pid[y*b.w+x]
+	if target == pt.part {
+		return
+	}
+	stack := [][2]int{{x, y}}
+	for len(stack) > 0 {
+		p := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		px, py := p[0], p[1]
+		if px < 0 || py < 0 || px >= b.w || py >= b.h || b.p[(py*b.w+px)*4+3] == 0 || b.pid[py*b.w+px] != target {
+			continue
+		}
+		b.pid[py*b.w+px] = pt.part
+		stack = append(stack, [2]int{px + 1, py}, [2]int{px - 1, py}, [2]int{px, py + 1}, [2]int{px, py - 1})
+	}
 }

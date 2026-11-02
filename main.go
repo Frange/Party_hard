@@ -48,6 +48,10 @@ func main() {
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
+	solidsF := flag.Bool("solids", false, "draw every solid rectangle in red (debug)")
+	walkF := flag.Bool("walkbot", false, "the player walks about at random and logs where he gets stuck (debug)")
+	roadF := flag.Bool("testroad", false, "add four one-lane roads to the level (debug)")
+	langF := flag.String("lang", "", "game language for this run: es | en (debug)")
 	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
 	credF := flag.Bool("credits", false, "open the credits (debug)")
 	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
@@ -57,6 +61,7 @@ func main() {
 	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
 	levelSel := flag.Bool("levelselect", false, "open the level select screen (debug)")
 	edload := flag.String("edload", "", "character/object/background to load in the editor, name (debug)")
+	edcarry := flag.String("edcarry", "", "held object to give the character in the editor (debug)")
 	edmode := flag.Int("edmode", 0, "level editor mode (debug)")
 	zoomf := flag.String("shotzoom", "", "x,y,w,h,zoom crop for the screenshot (debug)")
 	edit := flag.Bool("editor", false, "start in the editor")
@@ -124,6 +129,10 @@ func main() {
 	if *zoomf != "" {
 		fmt.Sscanf(*zoomf, "%d,%d,%d,%d,%d", &shotCrop[0], &shotCrop[1], &shotCrop[2], &shotCrop[3], &shotZoom)
 	}
+	loadLanguages()
+	if *langF == "en" || *langF == "es" {
+		gameLang, editorLang = *langF, *langF
+	}
 	g := newGame(*mute)
 	if *edit || defaultEditor {
 		g.openEditor()
@@ -132,6 +141,12 @@ func main() {
 			g.ed.debugLoad(*edload)
 		}
 		g.ed.lv.mode = *edmode
+		if *edcarry != "" {
+			g.ed.ch.ca.Meta.Carry = *edcarry
+			g.ed.ch.dirty = true
+		}
+		g.ed.ch.mode = minI(*edmode, 1)
+		g.ed.ob.mode = minI(*edmode, 1)
 	}
 	g.selftest = *selftest
 	if *genseed != 0 {
@@ -169,6 +184,9 @@ func main() {
 	}
 	g.dbgCops = *copsF
 	g.dbgCheer = *cheerF
+	g.dbgRoad = *roadF
+	g.walkBot = *walkF
+	dbgSolids = *solidsF
 	if *withF != "" {
 		g.dbgWith = strings.Split(*withF, ",")
 	}

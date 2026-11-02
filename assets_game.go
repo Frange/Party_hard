@@ -39,6 +39,14 @@ func applyObjects(objs []*ObjAsset) {
 			}
 		}
 		k.Ambient = m.Ambient
+		if m.Light && m.LightR > 0 {
+			k.LightR = float64(m.LightR)
+			a := m.LightA
+			if a <= 0 {
+				a = 120
+			}
+			k.LightC = color.RGBA{uint8(clampI(m.LightCol[0], 0, 255)), uint8(clampI(m.LightCol[1], 0, 255)), uint8(clampI(m.LightCol[2], 0, 255)), uint8(clampI(a, 0, 255))}
+		}
 		k.Category = m.Category
 		if old := propKinds[m.Name]; old != nil && len(old.Solids) > 0 {
 			// a built-in walkable prop (the stage): keep its built-in solid parts
@@ -78,10 +86,15 @@ func (g *Game) newGuestCS() (*CharSet, string) {
 		if len(people)+len(special) > 0 {
 			var ca *CharAsset
 			isSpecial := len(special) > 0 && (len(people) == 0 || g.rng.Float64() < 0.4)
-			if isSpecial {
-				ca = special[g.rng.Intn(len(special))]
-			} else {
-				ca = people[g.rng.Intn(len(people))]
+			for try := 0; try < 12; try++ {
+				if isSpecial {
+					ca = special[g.rng.Intn(len(special))]
+				} else {
+					ca = people[g.rng.Intn(len(people))]
+				}
+				if !ca.Meta.ShopOnly { // those are only there to be edited
+					break
+				}
 			}
 			name := ""
 			if isSpecial {
@@ -96,44 +109,28 @@ func (g *Game) newGuestCS() (*CharSet, string) {
 
 // setupCast chooses the characters for the player, police and guards (assets first, built-ins as fallback).
 func (g *Game) setupCast() {
+	g.loadOverrides()
 	as := g.as
 	ps, cs, ms := playerSpec(), copSpec(), medicSpec()
 	as.playerCS, as.copCS, as.medicCS = newCharSet(&ps), newCharSet(&cs), newCharSet(&ms)
 	as.guardCS, as.specialGuardCS = nil, nil
 	{
-		a := copSpec()
-		a.Name, a.Female, a.Hair2, a.Hair, a.Body = "cop_f", true, HairPony, hx(0x6a3a1a), BodySlim
-		b := copSpec()
-		b.Name, b.Body, b.Beard, b.Stature, b.Skin = "cop_big", BodyFat, BeardMustache, -1, hx(0x9a6a48)
-		as.copAlt = []*CharSet{newCharSet(&a), newCharSet(&b)}
-		sw := CharSpec{Name: "swat", Skin: hx(0xe0b088), Hair: hx(0x1a1a1a), Shirt: hx(0x22262e), Shirt2: hx(0x22262e), Pants: hx(0x1a1c22), Shoes: hx(0x0a0a0c),
-			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x22262e), Accent: hx(0x22262e), Body: BodyBig, Glasses: GlassShades, Stature: -1}
-		mu := CharSpec{Name: "mulder", Skin: hx(0xe8b48a), Hair: hx(0x3a2a1a), Shirt: hx(0x2a2a34), Shirt2: hx(0xf4f4f8), Pants: hx(0x2a2a34),
-			Shoes: hx(0x0e0e12), Top: TopSuit, Accent: hx(0x6a2a3a), Hair2: HairComb}
-		sc := CharSpec{Name: "scully", Female: true, Skin: hx(0xf4d0b4), Hair: hx(0xb04a1a), Shirt: hx(0x22222c), Shirt2: hx(0xf4f4f8), Pants: hx(0x22222c),
-			Shoes: hx(0x0e0e12), Top: TopSuit, Accent: hx(0x22222c), Hair2: HairBob}
-		as.swatCS = newCharSet(&sw)
-		as.fbiCS = []*CharSet{newCharSet(&mu), newCharSet(&sc)}
-		m1 := CharSpec{Name: "military_a", Skin: hx(0xc89868), Hair: hx(0x1a1a1a), Shirt: hx(0x3a4a2a), Shirt2: hx(0x3a4a2a), Pants: hx(0x2a3a22), Shoes: hx(0x14140e),
-			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x3a4a2a), Accent: hx(0x3a4a2a), Body: BodyBig}
-		m2 := CharSpec{Name: "military_b", Skin: hx(0x8a6244), Hair: hx(0x0e0e0e), Shirt: hx(0x344028), Shirt2: hx(0x344028), Pants: hx(0x263018), Shoes: hx(0x100f0a),
-			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x344028), Accent: hx(0x344028), Body: BodyBig, Beard: BeardMustache}
-		as.militaryCS = []*CharSet{newCharSet(&m1), newCharSet(&m2)}
-		rangerColors := []struct {
-			name string
-			col  uint32
-		}{
-			{"ranger_red", 0xd01818},
-			{"ranger_blue", 0x1858d0},
-			{"ranger_yellow", 0xe0c010},
-			{"ranger_green", 0x18a030},
-			{"ranger_pink", 0xe050a8},
+		u := unitSpecs()
+		var alt []*CharSet
+		for i := range u.copAlt {
+			alt = append(alt, newCharSet(&u.copAlt[i]))
 		}
-		as.rangerCS = nil
-		for _, rc := range rangerColors {
-			r := CharSpec{Name: rc.name, Skin: hx(0xe0b088), Hair: hx(0x1a1a1a), Shirt: hx(rc.col), Shirt2: hx(rc.col), Pants: hx(0x1a1a22), Shoes: hx(0x0a0a0c),
-				Top: TopArmor, Hat: HatHelmet, HatCol: hx(rc.col), Accent: hx(0xf4f4f8), Body: BodyBig}
-			as.rangerCS = append(as.rangerCS, newCharSet(&r))
+		as.copAlt = alt
+		as.swatCS = newCharSet(&u.swat)
+		as.fbiCS, as.militaryCS, as.rangerCS = nil, nil, nil
+		for i := range u.fbi {
+			as.fbiCS = append(as.fbiCS, newCharSet(&u.fbi[i]))
+		}
+		for i := range u.military {
+			as.militaryCS = append(as.militaryCS, newCharSet(&u.military[i]))
+		}
+		for i := range u.rangers {
+			as.rangerCS = append(as.rangerCS, newCharSet(&u.rangers[i]))
 		}
 	}
 	as.killerCS = nil
@@ -147,13 +144,58 @@ func (g *Game) setupCast() {
 	if l := g.store.Chars["main_character"]; len(l) > 0 {
 		as.playerCS = g.rigFor(l[0])
 	}
-	var cops, medics []*CharAsset
+	var cops, medics, fbis, militars, swats, rangers []*CharAsset
+	as.fireCS, as.techCS = nil, nil
 	for _, ca := range g.store.Chars["police"] {
-		if ca.Meta.Role == "medic" {
+		switch ca.Meta.Role {
+		case "medic":
 			medics = append(medics, ca)
-		} else {
+		case "firefighter":
+			if ca.Meta.Edited {
+				as.fireCS = append(as.fireCS, g.rigFor(ca))
+			}
+		case "technician":
+			if ca.Meta.Edited {
+				as.techCS = append(as.techCS, g.rigFor(ca))
+			}
+		case "fbi":
+			if ca.Meta.Edited {
+				fbis = append(fbis, ca)
+			}
+		case "military":
+			if ca.Meta.Edited {
+				militars = append(militars, ca)
+			}
+		case "swat":
+			if ca.Meta.Edited {
+				swats = append(swats, ca)
+			}
+		case "ranger":
+			if ca.Meta.Edited {
+				rangers = append(rangers, ca)
+			}
+		default:
 			cops = append(cops, ca)
 		}
+	}
+	rigs := func(l []*CharAsset) []*CharSet {
+		var out []*CharSet
+		for _, ca := range l {
+			out = append(out, g.rigFor(ca))
+		}
+		return out
+	}
+	if len(fbis) > 0 {
+		as.fbiCS = rigs(fbis)
+	}
+	if len(militars) > 0 {
+		as.militaryCS = rigs(militars)
+	}
+	if len(swats) > 0 {
+		as.swatCS = g.rigFor(swats[0])
+	}
+	if len(rangers) > 0 {
+		as.rangerCS = rigs(rangers)
 	}
 	if len(cops) > 0 {
 		as.copCS = g.rigFor(cops[0])
@@ -275,6 +317,12 @@ func levelDefFromAsset(la *LevelAsset) *LevelDef {
 	}
 	for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == ',' }) {
 		d.Slow = append(d.Slow, cellRectToDesign(r))
+	}
+	for dir, ch := range []byte{'>', '<', '^', 'v'} {
+		ch := ch
+		for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == ch }) {
+			d.Roads = append(d.Roads, RoadSeg{R: cellRectToDesign(r), Dir: dir})
+		}
 	}
 	for _, r := range mergeCells(m.Solid, func(c byte) bool { return c == 'w' }) {
 		wr := cellRectToDesign(r)

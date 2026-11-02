@@ -27,11 +27,15 @@ You are a killer at a party. Kill everybody (guests, guards, DJ and band) withou
 
 ## Editor
 
-- **Characters**: paint the figure (front, side, back) and mark head, torso, arms and legs. Animations are generated automatically; any frame can be repainted.
-- **Objects / animals**: animated frames, anchor, collision footprint and properties (solid, hide, phone, poisonable, explosive or electric trap, light, use points, crosses the street...).
-- **Levels**: paint the background, draw the logic (walls, fences, water, walking and dance zones), place objects, player start, guard routes, DJ and musicians, lights and police arrival. "Test" button.
-- Shortcuts: P pencil, E eraser, L line, R rectangle, O ellipse, F fill, I picker, M symmetry, Ctrl+Z/Ctrl+Y, Ctrl+S, wheel = zoom.
-- Drag PNG files onto the editor window to import your own art.
+Three tabs, each with big icon buttons and the same layout: what you have on the left, the drawing in the middle, the options on the right.
+
+- **Characters**: choose the kind first (protagonist, person, special person, killer, special type — guard, medic, firefighter, phone technician — and police — police, FBI, military, SWAT, ranger), then pick one from the thumbnails. Draw it in **DRAWING** (pencil, eraser, picker and a palette) and tell the game which pixel is which body part in **PARTS** (with an automatic assignment button). Sex, held object and size are set on the right, with an animated preview.
+- **Objects and animals**: choose *objects* or *animals* and the kind (furniture, decoration, nature, vehicles, traps, usables, lights). The options change with the kind: vehicle speed, trap effect, what a usable does (drink, toilet, sit, hide, phone, poisonable), light distance / strength / colour, animation.
+  **PAINT** draws the picture; **LOGIC** places the anchor point, the use zone and the collision box.
+- **Scenarios**: list of your scenarios with thumbnails, name, save, new (always from a generated scenario, never empty), template (copy a game scenario), generator, import a PNG/JPG background and test. Drawing options: Background, Walls, Objects, Points and Settings.
+- **Roads**: in *Walls* paint a one-lane road and choose its direction (left, right, up, down); traffic drives along it.
+- **Languages**: Spanish or English, in the game's Settings and in the editor's top bar (all texts, messages and funny names are translated).
+- Import buttons open the system file dialog; you can also drag a PNG/JPG onto the window.
 - The content format is documented in [`ASSETS.md`](ASSETS.md).
 
 ## Building

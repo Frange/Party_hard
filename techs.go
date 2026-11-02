@@ -253,6 +253,9 @@ func (g *Game) techsArrive(v *Vehicle) {
 		sp.Hair = hx(pick(g.rng, hairTones))
 		sp.Name = "tecnico"
 		cs := newCharSet(&sp)
+		if len(g.as.techCS) > 0 {
+			cs = g.as.techCS[i%len(g.as.techCS)]
+		}
 		pos := g.lvl.NearestFree(Vec{origin.X + float64(i)*10, origin.Y - float64(i%2)*6})
 		t := &Tech{pos: pos, dir: DirDown, cs: cs, van: v}
 		g.techCrew = append(g.techCrew, t)

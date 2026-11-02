@@ -381,6 +381,8 @@ type Assets struct {
 	playerCS       *CharSet
 	copCS          *CharSet
 	medicCS        *CharSet
+	fireCS         []*CharSet // firefighters painted in the editor
+	techCS         []*CharSet // phone technicians painted in the editor
 	guardCS        []*CharSet
 	specialGuardCS []*CharSet
 	copAlt         []*CharSet
@@ -403,6 +405,8 @@ type Assets struct {
 type Game struct {
 	streakT                float64
 	cheerT                 float64
+	roadCars               []*RoadCar
+	roadT                  []float64
 	duet                   *duetScene
 	duetT                  float64
 	beams                  []beam
@@ -448,6 +452,12 @@ type Game struct {
 	dbgRing                int
 	dbgCheer               bool
 	dbgWith                []string
+	dbgRoad                bool
+	walkBot                bool
+	botE                   float64
+	botT                   float64
+	botDx, botDy           float64
+	stuckT                 float64
 	dbgSnake               bool
 	dbgSnakeOn             bool
 	kidPlan                []kidPlan
@@ -618,6 +628,9 @@ func newGame(mute bool) *Game {
 		}
 	}
 	if !noAssets && root != "" {
+		if n := refreshBakedAssets(root); n > 0 {
+			fmt.Println("assets: redrew", n, "characters that had their held object painted in")
+		}
 		if n := processToGenerate(root); n > 0 {
 			fmt.Println("togenerate: imported", n, "editable character models")
 		}
@@ -713,6 +726,7 @@ func (g *Game) loadLevel(i int) {
 		g.trainT = 2
 	}
 	g.gas, g.fw, g.pianos, g.floats, g.gasP = nil, nil, nil, nil, 0
+	g.roadCars, g.roadT = nil, nil
 	g.duet, g.duetT, g.beams = nil, 25+g.rng.Float64()*25, nil
 	if fastEv {
 		g.duetT = 3
@@ -854,6 +868,8 @@ func (g *Game) aliveCount() int {
 // ---------------------------------------------------------------------------
 
 func (g *Game) Update() error {
+	g.pickLanguage()
+	g.pickLanguage()
 	g.tick++
 	g.updateToasts(1.0 / 60)
 	g.syncMusic()
@@ -1200,6 +1216,13 @@ func (g *Game) updatePlay(dt float64) {
 		}
 		g.dbgWith = nil
 	}
+	if g.dbgRoad && g.time > 0.2 {
+		g.dbgRoad = false
+		d := g.lvl.Def
+		d.Roads = []RoadSeg{{R(40, 120, 700, 36), roadRight}, {R(40, 200, 700, 36), roadLeft}, {R(800, 30, 36, 460), roadDown}, {R(860, 30, 36, 460), roadUp}}
+		d.roadsDrawn = false
+		g.renderBG()
+	}
 	if g.dbgSnake && g.time > 0.3 {
 		g.scatterSnake()
 		g.dbgSnake = false
@@ -1260,6 +1283,7 @@ func (g *Game) updatePlay(dt float64) {
 		g.dbgRing = 0
 	}
 	g.updateAmbient(dt)
+	g.updateRoads(dt)
 	g.updateAnimals(dt)
 	g.updateParticles(dt)
 	if !g.camFixed {
@@ -1308,7 +1332,7 @@ func (g *Game) updatePlayer(dt float64) {
 		p.moving = false
 		return
 	}
-	if actInteract.just() {
+	if actInteract.just() || g.botPressE(dt) {
 		g.interact()
 	}
 	if p.hidden {
@@ -1331,6 +1355,9 @@ func (g *Game) updatePlayer(dt float64) {
 	if dx == 0 && dy == 0 {
 		dx, dy = padAxis()
 	}
+	if g.walkBot {
+		dx, dy = g.botMove(dt)
+	}
 	p.moving = dx != 0 || dy != 0
 	if actEvent.just() {
 		g.manualEvent()
@@ -1350,6 +1377,10 @@ func (g *Game) updatePlayer(dt float64) {
 			p.anim += dt * 5
 			return
 		}
+	}
+	if g.lvl.SolidP(p.pos.X, p.pos.Y) {
+		// somehow inside a solid (a teleport, a prop that appeared): never leave the player stuck
+		g.lvl.unstick(p)
 	}
 	speed := 46.0
 	p.running = false
@@ -1392,6 +1423,7 @@ func (g *Game) updatePlayer(dt float64) {
 		} else {
 			p.dir = DirDown
 		}
+		before := p.pos
 		nx := p.pos.X + dx*speed*paceK*dt
 		if !g.lvl.SolidP(nx, p.pos.Y) {
 			p.pos.X = nx
@@ -1401,6 +1433,7 @@ func (g *Game) updatePlayer(dt float64) {
 			p.pos.Y = ny
 		}
 		p.anim += dt * stridePhase(speed)
+		g.watchStuck(before, dx, dy, dt)
 	}
 	if actAttack.just() {
 		g.stab()

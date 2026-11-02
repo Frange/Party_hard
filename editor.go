@@ -48,6 +48,9 @@ func (g *Game) openEditor() {
 		}
 	}
 	g.ed.root = root
+	if n := exportMissingCharacters(root); n > 0 {
+		g.ed.say(fmt.Sprintf("%d personajes añadidos para poder editarlos", n))
+	}
 	g.ed.ch.reloadList()
 	g.ed.ob.reloadList()
 	g.ed.lv.reloadList()
@@ -101,19 +104,28 @@ func (g *Game) updateEditor() error {
 		ed.msgT--
 	}
 	// top bar
-	u.rect(0, 0, edW, 28, rgb(0x14141c))
-	tabs := []string{"Personajes", "Objetos / animales", "Escenarios", "Ayuda"}
-	for i, t := range tabs {
-		if u.button(6+i*150, 4, 146, 20, t, ed.tab == i) {
-			ed.tab = i
-		}
+	u.rect(0, 0, edW, edTop, rgb(0x0e0e14))
+	u.rect(0, edTop-1, edW, 1, uiLine)
+	u.add(func(d *ebiten.Image) { drawIcon(d, "star", 12, 8, 1.5, uiAccent, uiAccent) })
+	u.text(36, 11, "EDITOR", uiAccent)
+	tabs := []segItem{{"person", "Personajes"}, {"sofa", "Objetos y animales"}, {"world", "Escenarios"}}
+	if i := u.seg(110, 4, 560, 28, tabs, ed.tab); i >= 0 {
+		ed.tab = i
 	}
-	if u.button(edW-170, 4, 164, 20, "Volver al juego (F2)", false) || inpututil.IsKeyJustPressed(ebiten.KeyF2) && u.focus == "" {
+	langs := 0
+	if editorLang == "en" {
+		langs = 1
+	}
+	if i := u.seg(edW-310, 4, 100, 28, []segItem{{"", "ES"}, {"", "EN"}}, langs); i >= 0 {
+		editorLang = []string{"es", "en"}[i]
+		saveLanguages()
+	}
+	if u.iconBtn(edW-200, 4, 192, 28, "back", "Volver al juego", false, "F2") || inpututil.IsKeyJustPressed(ebiten.KeyF2) && u.focus == "" {
 		g.closeEditor()
 		return nil
 	}
 	if ed.msgT > 0 {
-		u.text(640, 8, ed.msg, uiAccent)
+		u.text(690, 11, ed.msg, uiAccent)
 	}
 	// global hotkeys (when no text field is focused)
 	if u.focus == "" {
@@ -122,13 +134,10 @@ func (g *Game) updateEditor() error {
 			ed.save()
 		}
 		if !ctrl {
-			for k, tool := range map[ebiten.Key]int{ebiten.KeyP: ToolPencil, ebiten.KeyE: ToolEraser, ebiten.KeyL: ToolLine, ebiten.KeyR: ToolRect, ebiten.KeyF: ToolFill, ebiten.KeyI: ToolPicker, ebiten.KeyO: ToolEllipse} {
+			for k, tool := range map[ebiten.Key]int{ebiten.KeyP: ToolPencil, ebiten.KeyE: ToolEraser, ebiten.KeyI: ToolPicker} {
 				if inpututil.IsKeyJustPressed(k) {
 					ed.pt.tool = tool
 				}
-			}
-			if inpututil.IsKeyJustPressed(ebiten.KeyM) {
-				ed.pt.mirror = !ed.pt.mirror
 			}
 		}
 	}
@@ -140,15 +149,16 @@ func (g *Game) updateEditor() error {
 		ed.ch.update(u)
 	case 1:
 		ed.ob.update(u)
-	case 2:
-		ed.lv.update(u)
 	default:
-		ed.helpTab(u)
+		ed.lv.update(u)
 	}
-	if u.tip != "" {
+	u.finishMenu()
+	if u.tip != "" && u.menu.id == "" {
 		t := u.tip
-		u.rect(u.mx+12, u.my+16, int(g.textW(t, 1))+10, 18, rgb(0x08080c))
-		u.text(u.mx+17, u.my+19, t, uiText)
+		tx := minI(u.mx+12, edW-int(g.textW(t, 1))-16)
+		u.round(tx, u.my+18, int(g.textW(t, 1))+12, 20, rgb(0x08080c))
+		u.roundFrame(tx, u.my+18, int(g.textW(t, 1))+12, 20, uiLine)
+		u.text(tx+6, u.my+22, t, uiText)
 	}
 	return nil
 }
@@ -169,40 +179,6 @@ func (g *Game) drawEditor(screen *ebiten.Image) {
 	for _, f := range g.ed.ui.cmds {
 		f(screen)
 	}
-}
-
-func (ed *Editor) helpTab(u *UI) {
-	lines := []string{
-		"EDITOR DE SPRITES Y ESCENARIOS",
-		"",
-		"Todo el contenido del juego vive en la carpeta 'assets' (junto al ejecutable). El juego la lee al arrancar,",
-		"así que puedes cambiar personajes, objetos y escenarios sin tocar código. La primera vez se crean con el contenido por defecto.",
-		"",
-		"  assets/sprites/main_character/  protagonista        assets/sprites/people/  invitados aleatorios",
-		"  assets/sprites/special_people/  famosos y personajes  assets/sprites/enemies/ guardias de seguridad",
-		"  assets/sprites/special_enemies/ guardias especiales   assets/sprites/police/  policías (role cop) y sanitarios (role medic)",
-		"  assets/sprites/objetos/         muebles, vehículos, animales, trampas      assets/backgrounds/  escenarios",
-		"",
-		"PERSONAJES: pinta el muñeco de pie (frente, perfil, espalda) y marca con 'Parte del cuerpo' qué es cabeza, torso, brazos y piernas.",
-		"  El programa genera solo todas las animaciones (andar, correr, bailar, beber, apuñalar...). Si un fotograma no te gusta,",
-		"  usa 'Editar este fotograma' para pintarlo a mano; se guarda en la carpeta anim/ del personaje y sustituye al generado.",
-		"  Los píxeles sin parte se asignan solos a la parte más cercana al guardar.",
-		"OBJETOS: pinta el sprite, marca el ancla (pies), la huella de colisión y las propiedades: sólido, esconderse, teléfono,",
-		"  ponche envenenable, trampa (explota / electrocuta), farola, puntos de uso (beber, baño, sofá) y fotogramas animados.",
-		"ESCENARIOS: pinta el fondo píxel a píxel (640x360), dibuja la lógica (paredes, vallas, agua, zonas de paseo y de baile),",
-		"  coloca objetos, el inicio del jugador, la ruta de los guardias, DJ y músicos, luces y la llegada de la policía. 'Probar' lo lanza.",
-		"",
-		"ATAJOS: P lápiz  E goma  L línea  R rectángulo  O elipse  F cubo  I cuentagotas  M simetría  Ctrl+Z / Ctrl+Y deshacer  Ctrl+S guardar",
-		"  Rueda del ratón: zoom en el lienzo.  Botón central o espacio+arrastrar: mover el lienzo.",
-	}
-	for i, l := range lines {
-		c := uiText
-		if i == 0 {
-			c = uiAccent
-		}
-		u.text(30, 50+i*18, l, c)
-	}
-	u.text(30, 50+len(lines)*18+10, "Carpeta de assets: "+ed.root, uiDim)
 }
 
 // ---------------------------------------------------------------------------
@@ -234,12 +210,14 @@ var _ = rand.Int
 func (ed *Editor) debugLoad(name string) {
 	switch ed.tab {
 	case 0:
-		for i, c := range charCategories {
-			if _, err := os.Stat(filepath.Join(spritesDir(ed.root, c), name)); err == nil {
-				ed.ch.catIdx = i
-				ed.ch.reloadList()
-				ed.ch.load(name)
-				return
+		for ti, t := range charTypes {
+			for si, sb := range t.subs {
+				if _, err := os.Stat(filepath.Join(spritesDir(ed.root, sb.folder), name)); err == nil && sb.matches(charRoleOf(filepath.Join(spritesDir(ed.root, sb.folder), name))) {
+					ed.ch.typeIdx, ed.ch.subIdx = ti, si
+					ed.ch.reloadList()
+					ed.ch.load(name)
+					return
+				}
 			}
 		}
 	case 1:

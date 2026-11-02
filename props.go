@@ -34,6 +34,8 @@ type PropKind struct {
 	Ambient   float64
 	Category  string
 	Item      string // pickup: "poison" or "disguise"
+	LightR    float64    // lamps: radius of the light (0 = default)
+	LightC    color.RGBA // lamps: colour and strength of the light (A == 0 = default)
 }
 
 func c(h uint32) color.RGBA { return rgb(h) }
@@ -447,6 +449,7 @@ func renderPropSprite(name string, k *PropKind, v int) *pixBuf {
 }
 
 func buildPropImages() map[string][]PropImg {
+	fitAllFootprints()
 	out := map[string][]PropImg{}
 	for name, k := range propKinds {
 		// Both branches go through stylizeSprite so exported, user-painted and

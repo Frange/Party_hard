@@ -179,17 +179,23 @@ func (r *Rig) blitRot(dst *pixBuf, l *rigLayer, pdx, pdy, theta, k float64) {
 		return
 	}
 	cs, sn := math.Cos(theta), math.Sin(theta)
-	R := math.Hypot(float64(l.w), float64(l.h)) + 2
 	lx, ly := l.px-float64(l.x0), l.py-float64(l.y0)
-	for y := int(math.Floor(pdy - R)); y <= int(math.Ceil(pdy+R)); y++ {
-		for x := int(math.Floor(pdx - R)); x <= int(math.Ceil(pdx+R)); x++ {
-			qx, qy := float64(x)+0.5-pdx, float64(y)+0.5-pdy
-			sx := qx*cs - qy*sn
-			sy := qx*sn + qy*cs
-			sy /= k
-			c := l.at(int(math.Floor(lx+sx)), int(math.Floor(ly+sy)))
-			if c.A != 0 {
-				dst.set(x, y, c)
+	// forward splat with sub-samples: a one pixel wide limb stays connected at any angle
+	const sub = 4
+	for y := 0; y < l.h; y++ {
+		for x := 0; x < l.w; x++ {
+			c := l.pix[y*l.w+x]
+			if c.A == 0 {
+				continue
+			}
+			for j := 0; j < sub; j++ {
+				for i := 0; i < 1; i++ {
+					sx := float64(x) + 0.5 - lx
+					sy := (float64(y) + (float64(j)+0.5)/sub - ly) * k
+					dx := sx*cs + sy*sn
+					dy := -sx*sn + sy*cs
+					dst.set(int(math.Floor(pdx+dx)), int(math.Floor(pdy+dy)), c)
+				}
 			}
 		}
 	}
@@ -354,7 +360,7 @@ func (r *Rig) render(vw int, p Pose) *pixBuf {
 // ---------------------------------------------------------------------------
 
 func newRigCharSet(ca *CharAsset) *CharSet {
-	spec := &CharSpec{Name: ca.Meta.Name, DisplayName: ca.Meta.DisplayName, Female: ca.Meta.Gender == "f"}
+	spec := &CharSpec{Name: ca.Meta.Name, DisplayName: ca.Meta.DisplayName, Female: ca.Meta.Gender == "f", noOverride: true}
 	rig := buildRig(ca)
 	spec.Stature = rig.topY - 10
 	cs := newCharSet(spec)
@@ -395,7 +401,11 @@ func (cs *CharSet) rigFrame(anim, vw, f int) *pixBuf {
 	case AnimPee:
 		return cs.rig.render(vw, peePose(f, cs.Spec.Female))
 	}
-	return cs.rig.render(vw, poseFor(anim, f))
+	b := cs.rig.render(vw, poseFor(anim, f))
+	if cs.Spec.Ride != 0 {
+		drawRide(b, cs.Spec, vw, b.w/2, 24) // the kids keep their scooter or skateboard
+	}
+	return b
 }
 
 var _ = os.Stat

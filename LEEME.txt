@@ -145,3 +145,31 @@ OBJETOS, TRAMPAS Y PUNTOS (ÚLTIMA VERSIÓN)
   responder mientras sigue aturdido por la puñalada anterior.
 - Los famosos se hablan entre sí (escenas de dos) y tienen momentos propios: Goku (Kamehameha), Freddie, Elvis, Santa,
   Thor, Sonic, Mario, Deadpool, Hulk y Michael Jackson.
+
+PARED INVISIBLE (CORREGIDO)
+---------------------------
+Causas encontradas y arregladas: (1) al salir de un escondite o saltar una ventana el personaje podía quedar colocado
+dentro de un objeto o pared y no se movía; (2) el objeto que cogías (veneno, disfraz) dejaba un bloque sólido invisible;
+(3) algunos objetos (halfpipe, chalet, jaula, caballo, lápida, coche de choque) tenían la zona sólida más abajo de su
+dibujo. Además, si alguna vez el personaje queda dentro de algo sólido, el juego lo saca solo al sitio libre más cercano.
+Prueba automática: `go test .` (collision_test.go) y el robot `-walkbot` (camina solo y avisa dónde se atasca).
+
+EDITOR RENOVADO
+---------------
+Tres pestañas (Personajes, Objetos y animales, Escenarios) con iconos y la misma distribución: lo que tienes a la
+izquierda, el dibujo en el centro y las opciones a la derecha. Ya no hay pestaña de Ayuda.
+- Personajes: eliges primero el tipo (protagonista, persona, persona especial, asesino, tipo especial: guardia,
+  médico, bombero, técnico; policía: policía, FBI, militar, SWAT, ranger) y luego el personaje. DIBUJO (lápiz, goma,
+  cuentagotas, paleta) y PARTES (cabeza, torso, brazos, piernas, con asignación automática). Sexo (hombre/mujer), objeto
+  en la mano y tamaño a la derecha. Los médicos, bomberos, técnicos, FBI, militares, SWAT y rangers dibujados ahí se usan en el juego.
+- Objetos y animales: tipos (muebles, decoración, naturaleza, vehículos, trampas, usables, luces). PINTAR y LÓGICA
+  (punto de apoyo, zona de uso, colisión). Las luces tienen distancia, intensidad y color.
+- Escenarios: lista con miniaturas, Nuevo (siempre con contenido), Plantilla, Generador, Importar imagen y Probar.
+
+CARRETERAS E IDIOMAS
+--------------------
+- Editor > Escenarios > Muros > CARRETERA (1 CARRIL): pinta una franja y elige hacia dónde van los coches (izquierda,
+  derecha, arriba o abajo). El juego dibuja el asfalto con sus flechas y los coches pasan en esa dirección; atropellan a
+  quien esté en la carretera.
+- AJUSTES > Idioma / Language: español o inglés. Cambia todos los textos, mensajes, frases y nombres graciosos.
+  El editor tiene su propio selector ES / EN arriba a la derecha.

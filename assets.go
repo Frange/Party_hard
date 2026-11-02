@@ -193,6 +193,8 @@ type CharMeta struct {
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
 	Weight      int    `json:"weight,omitempty"`
+	Edited      bool   `json:"edited,omitempty"`    // saved from the editor: the game uses this drawing for the character of the same name
+	ShopOnly    bool   `json:"shop_only,omitempty"` // exported later, to be edited: never picked as a random guest
 }
 
 type CharAsset struct {
@@ -363,6 +365,9 @@ type ObjMeta struct {
 	UseX     []int   `json:"use_x,omitempty"`
 	UseY     []int   `json:"use_y,omitempty"`
 	Ambient  float64 `json:"ambient_speed"` // >0: crosses the street now and then
+	LightR   int     `json:"light_r,omitempty"`     // light radius in pixels (0 = the default)
+	LightCol [3]int  `json:"light_col,omitempty"`   // light colour
+	LightA   int     `json:"light_a,omitempty"`     // light strength 0..255 (0 = the default)
 }
 
 type ObjAsset struct {
