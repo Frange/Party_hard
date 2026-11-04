@@ -102,6 +102,12 @@ var specialPool = []string{
 
 // quirkOf: characters with their own mad behaviour.
 func quirkOf(slug string) string {
+	if q, ok := monkeyQuirk[slug]; ok {
+		return q
+	}
+	if q, ok := skelQuirk[slug]; ok {
+		return q
+	}
 	switch slug {
 	case "michael_jackson":
 		return "mj"

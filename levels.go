@@ -177,7 +177,7 @@ func rooftop(title, intro string, neon bool) *LevelDef {
 		Title: title, Intro: intro,
 		W: 960, H: 540, Sky: "city", Police: "heli",
 		Start:  Vec{150, 150},
-		Pads:   []Vec{{770, 410}, {150, 440}},
+		Pads:   []Vec{{770, 410}, {172, 405}},
 		Guests: 36, CellSize: 28,
 	}
 	base := "rooftop"
@@ -194,7 +194,7 @@ func rooftop(title, intro string, neon bool) *LevelDef {
 		F(40, 64, 90, 426, "carpet"),
 		F(830, 64, 90, 426, "deck"),
 		FC(770-52, 410-52, 104, 104, "helipad", 0xe8e8f0),
-		FC(150-36, 440-36, 72, 72, "helipad", 0xe8e8f0),
+		FC(172-36, 405-36, 72, 72, "helipad", 0xe8e8f0),
 	}
 	if neon {
 		d.Floors[1] = F(40, 64, 90, 426, "rooftop2")
@@ -223,7 +223,7 @@ func level2() *LevelDef {
 	d.Props = []PropInst{
 		P("lift", 160, 112), P("ac", 232, 100), P("ac", 280, 100), P("ac", 328, 100), P("liberty", 372, 110),
 		P("dj", 480, 108), P("speaker", 420, 104), P("speaker", 540, 104),
-		P("bungalow", 790, 130), P("palm", 676, 130), P("plant", 400, 150),
+		P("minibar", 776, 130), P("palm", 676, 130), P("plant", 400, 150),
 		PV("sofa", 880, 160, 1), PV("sofa", 880, 280, 1), P("table", 770, 240), P("plant", 700, 200),
 		PV("buffet", 240, 340, 0), P("plant", 180, 300), P("plant", 300, 390),
 		PV("umbrella", 72, 190, 1), PV("umbrella", 72, 270, 2), PV("umbrella", 72, 350, 0),

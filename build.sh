@@ -46,6 +46,8 @@ rm -rf $OUT/tmp
 if [ -d assets ]; then
   for d in mac win; do
     cp -R assets $OUT/$d/assets
+    # personal data stays out of the packages: your own save and editor preferences
+    rm -f $OUT/$d/assets/progress.json $OUT/$d/assets/editor_prefs.json $OUT/$d/assets/.DS_Store
     cp LEEME.txt ASSETS.md $OUT/$d/
     mkdir -p $OUT/$d/music $OUT/$d/more $OUT/$d/DJ
     [ -d music ] && cp music/*.mp3 $OUT/$d/music/ 2>/dev/null || true

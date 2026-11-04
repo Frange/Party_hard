@@ -63,6 +63,8 @@ func (g *Game) bankPoints() {
 	}
 	g.banked = true
 	g.progress.Wallet += int(float64(g.points) * g.perkMoney)
+	g.stat("earned", g.points)  // total points ever earned (trophies "Primeros ahorros", "Multimillonario")
+	g.statMax("best", g.points) // best single party (trophies "Buena noche", "Noche de récord")
 	saveProgress(g.progress)
 }
 

@@ -436,10 +436,10 @@ func (g *Game) stepEvent(e *Event, dt float64) bool {
 					for _, o := range g.guests {
 						if !o.out() && o != v && dist(o.pos, vp) < 70 {
 							g.burst(Vec{o.pos.X, o.pos.Y - 14}, 8, 70, rgb(0xfff0a0), 0.35, 2, 0)
-							g.killGuest(o, false)
+							g.killGuestElec(o, false)
 						}
 					}
-					g.killGuest(v, false)
+					g.killGuestElec(v, false)
 					g.sayNews("kill", map[string]string{"actor": "Satanás", "victim": guestLabel(v)})
 					g.checkDone()
 				}
@@ -583,13 +583,13 @@ func (g *Game) updateZombie(gu *Guest, dt float64) {
 	}
 	if !have {
 		if len(gu.path) == 0 {
-			gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
+			gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
 		}
 	} else {
 		gu.repath -= dt
 		if gu.repath <= 0 || len(gu.path) == 0 {
 			gu.repath = 0.6
-			gu.path = g.lvl.Path(gu.pos, tp)
+			gu.path = g.lvl.PathG(gu.pos, tp)
 		}
 	}
 	gu.walk(speed, dt)

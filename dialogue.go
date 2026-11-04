@@ -101,13 +101,14 @@ func loadDialogueBank() DialogueBank {
 // line picks a random phrase for (category, situation); a category with
 // nothing for that situation falls back to "people", then a neutral filler.
 func (g *Game) line(category, situation string) string {
-	if lines := g.dialogue[category][situation]; len(lines) > 0 {
-		return lines[g.rng.Intn(len(lines))]
+	lines := g.dialogue[category][situation]
+	if len(lines) == 0 {
+		lines = g.dialogue["people"][situation]
 	}
-	if lines := g.dialogue["people"][situation]; len(lines) > 0 {
-		return lines[g.rng.Intn(len(lines))]
+	if len(lines) == 0 {
+		return "..."
 	}
-	return "..."
+	return g.freshPhrase(category+"/"+situation, lines, g.rng.Intn) // "" = nothing new to say
 }
 
 // guestCategory: "special_people" for a named/recognizable guest, "people" otherwise.

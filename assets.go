@@ -431,6 +431,24 @@ type LevelProp struct {
 	Var  int    `json:"var,omitempty"`
 }
 
+// LevelFloor and LevelRect describe the ground and the water of one of the game's own scenarios
+// (only used by the corrections of the originals, see level_override.go).
+type LevelFloor struct {
+	X     int    `json:"x"`
+	Y     int    `json:"y"`
+	W     int    `json:"w"`
+	H     int    `json:"h"`
+	Kind  string `json:"kind"`
+	Color uint32 `json:"color,omitempty"`
+}
+
+type LevelRect struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
 type LevelPoint struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -459,6 +477,7 @@ type LevelAnimal struct {
 type LevelMeta struct {
 	Animals    []LevelAnimal  `json:"animals,omitempty"`
 	Name       string         `json:"name"`
+	Override   string         `json:"override,omitempty"` // campaign key: this is a correction of one of the game's own scenarios
 	Title      string         `json:"title"`
 	Intro      string         `json:"intro"`
 	Police     string         `json:"police"` // car | heli
@@ -477,6 +496,8 @@ type LevelMeta struct {
 	Performers []LevelPerf    `json:"performers"`
 	Lights     []LevelLight   `json:"lights"`
 	Props      []LevelProp    `json:"props"`
+	Floors     []LevelFloor   `json:"floors,omitempty"` // originals only: the ground (helipads, dance floors, rugs...)
+	Pools      []LevelRect    `json:"pools,omitempty"`  // originals only: the water
 	// Logic layers, one string per row, one char per logicCell x logicCell native pixels.
 	// Solid: '.' free, '#' wall (blocks movement and sight), '=' low (blocks movement only), '~' water, ',' slow ground (walkable, 55% speed), 'w' window (blocks walking, E jumps through)
 	Solid []string `json:"solid"`

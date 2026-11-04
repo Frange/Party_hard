@@ -111,7 +111,7 @@ var trophyList = []Trophy{
 	{"t_sam", "Cazapatinetes", "Mata a Sam-sam 5 veces (se escapa rápido: ve por la espalda).", "kill_sam_sam", 5, evr("ev:scooters", "Suceso: Desfile de patinetes", "Una fila de niños en patinete cruza la fiesta a toda velocidad y la gente se aparta. Sale de vez en cuando.")},
 	{"t_cesar", "Cazatravesuras", "Mata a César 5 veces.", "kill_cesar", 5, evr("ev:prank", "Suceso: Lluvia de globos de agua", "Globos de agua caen sobre la fiesta y empapan a quien pillen debajo. Sale de vez en cuando.")},
 	{"t_diego", "Cazaskaters", "Mata a Diego 5 veces.", "kill_diego", 5, evr("ev:skate", "Suceso: Exhibición de skate", "Una pandilla de skaters cruza la fiesta haciendo saltos. Sale de vez en cuando.")},
-	{"t_pig", "Granjero furioso", "Mata a 15 cerdos.", "an_pig", 15, wr(shopAccess, "hat:tr_cerdo", "Gorro de cerdo", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatPig, hx(0xf0a0b4) }, "Orejas caídas y morro rosa. Dicen que te hace oler a beicon.")},
+	{"t_pig", "Granjero furioso", "Mata a 15 cerdos (compra antes los Cerdos en la tienda, en Animales).", "an_pig", 15, wr(shopAccess, "hat:tr_cerdo", "Gorro de cerdo", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatPig, hx(0xf0a0b4) }, "Orejas caídas y morro rosa. Dicen que te hace oler a beicon.")},
 	{"t_cat", "Séptima vida", "Mata a 20 gatos.", "an_cat", 20, wr(shopAccess, "hat:tr_gato", "Gorro de gato", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatCat, hx(0x7a7a86) }, "Con orejas puntiagudas. Te cae bien todo el mundo salvo los ratones.")},
 	{"t_dog", "Enemigo del perro", "Mata a 30 perros.", "an_dog", 30, wr(shopAccess, "hat:tr_perro", "Gorro de perro", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatDog, hx(0xa8703a) }, "Orejas largas y hocico negro. Mueve la cola solo en tu imaginación.")},
 	{"t_bird", "Cazapájaros", "Mata a 40 pájaros, gallinas o patos.", "an_bird", 40, wr(shopAccess, "hat:tr_pajaro", "Gorro de pájaro", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatBird, hx(0x60c0e8) }, "Cresta de plumas de colores y pico naranja. Pía sin que lo notes.")},
@@ -312,6 +312,14 @@ const trophyRows = 9
 
 func (g *Game) updateTrophies() {
 	g.time += 1.0 / 60
+	g.updateTrophyList()
+	if actBack.just() {
+		g.mode = ModeMenu
+	}
+}
+
+// updateTrophyList moves the selection (keys, wheel, mouse); shared by the screen and the in-game window.
+func (g *Game) updateTrophyList() {
 	n := len(trophyList)
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < trophyRows; i++ {
@@ -343,14 +351,16 @@ func (g *Game) updateTrophies() {
 	if g.trophySel >= g.trophyScroll+trophyRows {
 		g.trophyScroll = g.trophySel - trophyRows + 1
 	}
-	if actBack.just() {
-		g.mode = ModeMenu
-	}
 }
 
 func (g *Game) drawTrophies(dst *ebiten.Image) {
 	g.drawBedroom(dst)
 	g.drawLogo(dst, 160, 30)
+	g.drawTrophyPanel(dst)
+}
+
+// drawTrophyPanel is the list of trophies with the detail card (the screen and the in-game window).
+func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 	fillRect(dst, 230, 56, 700, 440, rgba(0x05070e, 228))
 	fillRect(dst, 230, 56, 700, 1, rgba(0x6a4ab0, 160))
 	fillRect(dst, 230, 495, 700, 1, rgba(0x6a4ab0, 160))

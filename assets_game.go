@@ -86,19 +86,26 @@ func (g *Game) newGuestCS() (*CharSet, string) {
 		if len(people)+len(special) > 0 {
 			var ca *CharAsset
 			isSpecial := len(special) > 0 && (len(people) == 0 || g.rng.Float64() < 0.4)
-			for try := 0; try < 12; try++ {
+			for try := 0; try < 24; try++ {
 				if isSpecial {
 					ca = special[g.rng.Intn(len(special))]
 				} else {
 					ca = people[g.rng.Intn(len(people))]
 				}
-				if !ca.Meta.ShopOnly { // those are only there to be edited
+				// those are only there to be edited; and a famous face turns up once per party
+				if !ca.Meta.ShopOnly && !(isSpecial && g.famousPick[ca.Meta.Name]) {
 					break
 				}
+			}
+			if isSpecial && (ca.Meta.ShopOnly || g.famousPick[ca.Meta.Name]) && len(people) > 0 {
+				isSpecial, ca = false, people[g.rng.Intn(len(people))] // the famous ones are all here already
 			}
 			name := ""
 			if isSpecial {
 				name = nameFromAsset(ca)
+				if g.famousPick != nil {
+					g.famousPick[ca.Meta.Name] = true
+				}
 			}
 			return g.rigFor(ca), name
 		}
@@ -363,9 +370,14 @@ func levelDefFromAsset(la *LevelAsset) *LevelDef {
 
 // rebuildLevels replaces the level list with the ones on disk (or the built-ins if there are none).
 func (g *Game) rebuildLevels() {
-	if g.store != nil && len(g.store.Levels) > 0 {
+	levelOverrides = map[string]*LevelAsset{}
+	var custom []*LevelAsset
+	if g.store != nil {
+		custom, levelOverrides = splitLevels(g.store.Levels)
+	}
+	if len(custom) > 0 {
 		var defs []*LevelDef
-		for _, la := range g.store.Levels {
+		for _, la := range custom {
 			defs = append(defs, levelDefFromAsset(la))
 		}
 		levelDefs = defs
@@ -380,7 +392,8 @@ func (g *Game) rebuildLevels() {
 // Exporting the built-in levels as editable backgrounds (needs a running game to read pixels)
 // ---------------------------------------------------------------------------
 
-func exportLevelDef(g *Game, def *LevelDef, name string) (*LevelAsset, error) {
+// renderDefBG paints the background of a scenario definition and returns its pixels.
+func renderDefBG(g *Game, def *LevelDef) []byte {
 	save := g.lvl
 	g.lvl = buildLevel(def)
 	g.renderBG()
@@ -388,9 +401,21 @@ func exportLevelDef(g *Game, def *LevelDef, name string) (*LevelAsset, error) {
 	g.lvl = save
 	pix := make([]byte, 4*screenW*screenH)
 	bgImg.ReadPixels(pix)
+	return pix
+}
+
+func exportLevelDef(g *Game, def *LevelDef, name string) (*LevelAsset, error) {
+	pix := renderDefBG(g, def)
+	la := levelAssetFromDef(def, name)
+	copy(la.BG.p, pix)
+	return la, nil
+}
+
+// levelAssetFromDef turns a level definition into the editable form: the points, the objects
+// and the logic grids. The background picture is left blank (exportLevelDef paints it).
+func levelAssetFromDef(def *LevelDef, name string) *LevelAsset {
 	la := newLevelAsset(name)
 	la.BG = newPix(screenW, screenH)
-	copy(la.BG.p, pix)
 	m := &la.Meta
 	m.Title, m.Intro, m.Police, m.Guests, m.Swim, m.Disco = def.Title, def.Intro, def.Police, def.Guests, def.Swim, def.Disco
 	m.Tint = [4]uint8{def.Tint.R, def.Tint.G, def.Tint.B, def.Tint.A}
@@ -425,6 +450,12 @@ func exportLevelDef(g *Game, def *LevelDef, name string) (*LevelAsset, error) {
 	for _, p := range def.Props {
 		q := toP(Vec{p.X, p.Y})
 		m.Props = append(m.Props, LevelProp{Kind: p.Kind, X: q.X, Y: q.Y, Var: p.Var})
+	}
+	for _, f := range def.Floors {
+		m.Floors = append(m.Floors, LevelFloor{X: int(math.Round(f.R.X * wk)), Y: int(math.Round(f.R.Y * wk)), W: int(math.Round(f.R.W * wk)), H: int(math.Round(f.R.H * wk)), Kind: f.Kind, Color: f.Color})
+	}
+	for _, p := range def.Pools {
+		m.Pools = append(m.Pools, LevelRect{X: int(math.Round(p.X * wk)), Y: int(math.Round(p.Y * wk)), W: int(math.Round(p.W * wk)), H: int(math.Round(p.H * wk))})
 	}
 	var danceRects []Rect
 	for _, f := range def.Floors {
@@ -488,7 +519,7 @@ func exportLevelDef(g *Game, def *LevelDef, name string) (*LevelAsset, error) {
 	for y := 0; y < ch; y++ {
 		m.Solid[y], m.Zone[y] = string(solid[y]), string(zone[y])
 	}
-	return la, nil
+	return la
 }
 
 func overlapArea(a, b Rect) float64 {

@@ -58,9 +58,10 @@ type Door struct {
 }
 
 type PropInst struct {
-	Kind string
-	X, Y float64
-	Var  int
+	Kind  string
+	X, Y  float64
+	Var   int
+	Scale float64 // 0 or 1 = normal size; the island draws its objects smaller (footprint, solids and use points follow)
 }
 
 type Perf struct {
@@ -129,6 +130,10 @@ type LevelDef struct {
 	Windows     []Rect // solid, but the player can jump through with E
 	Sign        string // a neon wall sign (gradient text with a glow backing), e.g. "PARTY HARD"
 	SignPos     Vec
+	PaintBG     func() *ebiten.Image // a background painted by code (built the first time the level is shown)
+	RoadCar     string               // vehicle that drives the roads (default: ordinary cars)
+	PropScale   float64              // props added to the level when it loads (phones, toilets, items) get this size too
+	CharScale   float64              // 0 or 1 = normal; below 1 every person is drawn smaller and walks slower (the island)
 }
 
 type Prop struct {
@@ -143,6 +148,7 @@ type Prop struct {
 	techBy  *Tech // a technician is on his way to repair this cut phone
 	shake   float64
 	Sort    float64
+	scale   float64 // see PropInst.Scale (0 = normal)
 	wreck   bool
 	fireOut bool    // flames put out by the firefighters
 	gone    bool    // picked up / removed
@@ -163,6 +169,8 @@ type Level struct {
 	Lights    []Vec
 	cw, ch    int
 	blocked   []bool
+	blockedG  []bool // the navigation grid of the guests: the skate bowls are closed to them
+	bowls     []Rect // the skate bowls: only the player, the kids, the police and the killers may step in
 	extraGrow float64
 	bg        *ebiten.Image
 	graded    bool // gradeBG applied (needs a running game, so it happens on first draw)
@@ -188,18 +196,23 @@ func buildLevel(def *LevelDef) *Level {
 		if k.hasFoot {
 			p.Foot = Rect{in.X + k.FootDX, in.Y + k.FootDY, k.FW, k.FH}
 		}
+		sc := 1.0
+		if in.Scale > 0 && in.Scale != 1 { // a smaller object: its footprint, solids and use points shrink around its anchor
+			sc, p.scale = in.Scale, in.Scale
+			p.Foot = Rect{in.X + (p.Foot.X-in.X)*sc, in.Y + (p.Foot.Y-in.Y)*sc, p.Foot.W * sc, p.Foot.H * sc}
+		}
 		l.Props = append(l.Props, p)
 		if !k.NoSolid {
 			l.solidsP = append(l.solidsP, p.Foot)
 			l.solidsN = append(l.solidsN, p.Foot)
 		}
 		for _, r := range k.Solids {
-			sr := Rect{in.X + r.X, in.Y + r.Y, r.W, r.H}
+			sr := Rect{in.X + r.X*sc, in.Y + r.Y*sc, r.W * sc, r.H * sc}
 			l.solidsP = append(l.solidsP, sr)
 			l.solidsN = append(l.solidsN, sr)
 		}
 		for _, u := range k.Use {
-			l.POIs[k.UseKind] = append(l.POIs[k.UseKind], Vec{in.X + u.X, in.Y + u.Y})
+			l.POIs[k.UseKind] = append(l.POIs[k.UseKind], Vec{in.X + u.X*sc, in.Y + u.Y*sc})
 		}
 		if k.Light {
 			l.Lights = append(l.Lights, Vec{in.X, in.Y - 44})
@@ -253,6 +266,7 @@ func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds 
 	if k == nil {
 		return false
 	}
+	fitAllFootprints()
 	var have []Vec
 	for _, p := range l.Props {
 		if match(p) {
@@ -266,63 +280,76 @@ func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds 
 	for len(have) < n {
 		var best Vec
 		bd := -1.0
-		try := func(p Vec) {
-			for _, o := range []Vec{{0, 0}, {16, 0}, {-16, 0}, {0, -14}, {0, 10}, {14, 10}, {-14, 10}} {
-				if !l.Free(Vec{p.X + o.X, p.Y + o.Y}) {
-					return
-				}
-			}
-			if mg > 0 {
-				for _, o := range []Vec{{mg, 0}, {-mg, 0}, {0, mg}, {0, -mg}, {mg, mg}, {-mg, mg}, {mg, -mg}, {-mg, -mg}} {
+		search := func(mg float64) {
+			try := func(p Vec) {
+				for _, o := range []Vec{{0, 0}, {16, 0}, {-16, 0}, {0, -14}, {0, 10}, {14, 10}, {-14, 10}} {
 					if !l.Free(Vec{p.X + o.X, p.Y + o.Y}) {
 						return
 					}
 				}
-			}
-			if l.badGround(p) || l.InPool(p) || p.X < 40 || p.X > l.W-40 || p.Y < 70 || p.Y > l.H-30 {
-				return
-			}
-			for _, d := range l.Def.Dance {
-				if d.Grow(14).Has(p.X, p.Y) {
+				if mg > 0 {
+					for _, o := range []Vec{{mg, 0}, {-mg, 0}, {0, mg}, {0, -mg}, {mg, mg}, {-mg, mg}, {mg, -mg}, {-mg, -mg}} {
+						if !l.Free(Vec{p.X + o.X, p.Y + o.Y}) {
+							return
+						}
+					}
+				}
+				if l.badGround(p) || l.InPool(p) || p.X < 40 || p.X > l.W-40 || p.Y < 70 || p.Y > l.H-30 {
 					return
 				}
+				for _, d := range l.Def.Dance {
+					if d.Grow(14).Has(p.X, p.Y) {
+						return
+					}
+				}
+				if !reach[int(p.Y/navCell)*l.cw+int(p.X/navCell)] {
+					return
+				}
+				if l.propClashes(name, k, p, 0) {
+					return
+				}
+				md := 1e9
+				for _, h := range near {
+					md = math.Min(md, dist(h, p))
+				}
+				if len(near) == 0 {
+					md = dist(p, l.Def.Start)
+				}
+				if md < 26 { // never pile two things on the same spot
+					return
+				}
+				if md > bd {
+					best, bd = p, md
+				}
 			}
-			if !reach[int(p.Y/navCell)*l.cw+int(p.X/navCell)] {
-				return
+			if len(spots) > 0 {
+				for _, r := range spots {
+					for y := r.Y + 10; y < r.Y+r.H; y += 28 {
+						for x := r.X + 10; x < r.X+r.W; x += 28 {
+							try(Vec{x, y})
+						}
+					}
+				}
 			}
-			md := 1e9
-			for _, h := range near {
-				md = math.Min(md, dist(h, p))
-			}
-			if len(near) == 0 {
-				md = dist(p, l.Def.Start)
-			}
-			if md > bd {
-				best, bd = p, md
-			}
-		}
-		if len(spots) > 0 {
-			for _, r := range spots {
-				for y := r.Y + 10; y < r.Y+r.H; y += 28 {
-					for x := r.X + 10; x < r.X+r.W; x += 28 {
+			if bd < 0 {
+				for y := 80.0; y < l.H-30; y += 30 {
+					for x := 50.0; x < l.W-50; x += 30 {
 						try(Vec{x, y})
 					}
 				}
 			}
 		}
-		if bd < 0 {
-			for y := 80.0; y < l.H-30; y += 30 {
-				for x := 50.0; x < l.W-50; x += 30 {
-					try(Vec{x, y})
-				}
-			}
-		}
+		search(mg)
 		if bd < 0 {
 			break
 		}
 		p := &Prop{Name: name, K: k, X: best.X, Y: best.Y, Foot: Rect{best.X - k.FW/2, best.Y - k.FH, k.FW, k.FH}, Sort: best.Y + k.SortOff}
 		if k.hasFoot {
 			p.Foot = Rect{best.X + k.FootDX, best.Y + k.FootDY, k.FW, k.FH}
+		}
+		if sc := l.Def.PropScale; sc > 0 && sc != 1 { // same size as the rest of the level
+			p.scale = sc
+			p.Foot = Rect{best.X + (p.Foot.X-best.X)*sc, best.Y + (p.Foot.Y-best.Y)*sc, p.Foot.W * sc, p.Foot.H * sc}
 		}
 		l.Props = append(l.Props, p)
 		if !k.NoSolid { // pick-up items are not solid: a solid would stay behind, invisible, once they are taken
@@ -334,6 +361,24 @@ func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds 
 		added = true
 	}
 	return added
+}
+
+// propClashes: would a prop of this kind standing at p stand on something already in the level?
+// The solid grid is not rebuilt between two placements, so the props themselves are compared.
+func (l *Level) propClashes(name string, k *PropKind, p Vec, skip int) bool {
+	in := PropInst{Kind: name, X: p.X, Y: p.Y}
+	foot, base := instFoot(in, k), instBase(in, k)
+	for _, o := range l.Props {
+		if pairClash(name, k, foot, base, o.Name, o.K, o.Foot, o.base()) {
+			return true
+		}
+	}
+	for _, w := range l.Walls {
+		if w.Style != WallVoid && wallClash(name, k, foot, base, w) {
+			return true
+		}
+	}
+	return groundClash(l.Def, name, k, foot, p) != ""
 }
 
 // reachFrom flood-fills the navigation grid from a point.
@@ -365,6 +410,7 @@ func (l *Level) reachFrom(from Vec) []bool {
 }
 
 func (l *Level) initNav() {
+	defer l.initBowlNav()
 	l.cw = int(math.Ceil(l.W / navCell))
 	l.ch = int(math.Ceil(l.H / navCell))
 	l.blocked = make([]bool, l.cw*l.ch)
@@ -638,7 +684,20 @@ func (l *Level) badGround(p Vec) bool {
 			return true
 		}
 	}
+	for _, rs := range d.Roads { // nothing is planted on the roads of the level
+		if rs.R.Grow(8).Has(p.X, p.Y) {
+			return true
+		}
+	}
 	return false
+}
+
+// sc is the size factor of the prop (1 = normal).
+func (p *Prop) sc() float64 {
+	if p.scale > 0 {
+		return p.scale
+	}
+	return 1
 }
 
 // RoadSeg is a one-lane road painted in the editor: traffic drives through the rectangle in Dir.

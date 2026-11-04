@@ -3,6 +3,7 @@ package main
 import (
 	"image/color"
 	"math"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -1837,6 +1838,19 @@ type CharSet struct {
 }
 
 func newCharSet(s *CharSpec) *CharSet {
+	if !s.noOverride && s.Skin.A == 0 {
+		// a nearly empty spec (copied from an asset-drawn character, whose spec only carries the name)
+		// would paint an invisible body: build the character's own look instead
+		var sp CharSpec
+		if f := presetByName(s.Name); s.Name != "" && f != nil {
+			sp = f(rand.New(rand.NewSource(7)))
+		} else {
+			sp = genericSpec(rand.New(rand.NewSource(7)))
+			sp.Name = s.Name
+		}
+		sp.Carry, sp.CarryCol = s.Carry, s.CarryCol
+		s = &sp
+	}
 	if !s.noOverride && s.Name != "" {
 		if cs := overrideCharSet(s); cs != nil {
 			return cs

@@ -14,8 +14,8 @@ type Progress struct {
 	Stats    map[string]int    `json:"stats"`
 	Trophies map[string]bool   `json:"trophies"`
 	Wallet   int               `json:"wallet"`
-	MaxStart int               `json:"maxStart"` // people at the start of a party (0 = 40)
-	MaxTotal int               `json:"maxTotal"` // people at most in a whole party (0 = 60)
+	GuestMin int               `json:"guestMin"` // fewest guests at the start of a party (0 = 40)
+	GuestMax int               `json:"guestMax"` // most guests at the start of a party (0 = 60)
 	Owned    []string          `json:"owned"`
 	Equip    map[string]string `json:"equip"`
 }
@@ -74,23 +74,25 @@ func (g *Game) unlockNext() {
 	}
 }
 
-// maxStart / maxTotal: how many people a party starts with and may ever hold.
+// maxStart / guestMax: the fewest and the most guests a party starts with (40 and 60 by
+// default, changeable in the settings; the number of each party is drawn between them).
+// maxTotal adds some room on top for the people who arrive during the party.
 func (g *Game) maxStart() int {
-	if g.progress.MaxStart <= 0 {
+	if g.progress.GuestMin <= 0 {
 		return 40
 	}
-	return g.progress.MaxStart
+	return clampI(g.progress.GuestMin, 10, 100)
 }
 
-func (g *Game) maxTotal() int {
-	if g.progress.MaxTotal <= 0 {
-		return 60
+func (g *Game) guestMax() int {
+	hi := g.progress.GuestMax
+	if hi <= 0 {
+		hi = 60
 	}
-	if g.progress.MaxTotal < g.maxStart() {
-		return g.maxStart()
-	}
-	return g.progress.MaxTotal
+	return clampI(maxI(hi, g.maxStart()), 10, 100)
 }
+
+func (g *Game) maxTotal() int { return g.guestMax() + 25 }
 
 // progressFrozen: while the DEBUG mode is in use nothing is written to disk, so the real game is untouched.
 var progressFrozen bool

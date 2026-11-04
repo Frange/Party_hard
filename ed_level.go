@@ -57,7 +57,8 @@ type LevEd struct {
 	kinds                        []string
 	kindSel                      int
 	kindScr                      int
-	moveMode                     bool
+	objTool                      int // Objetos tab: 0 place, 1 move, 2 move a zone
+	mv                           lvMove
 	selInst                      int
 	dragInst                     bool
 	curVar                       int
@@ -77,11 +78,13 @@ type LevEd struct {
 	introTxt                     string
 	thumbs                       map[string]*ebiten.Image
 	importCh                     chan *droppedImage
-	imported                     bool // came from a picture: saved in the imports folder
+	overrideKey                  string // set while a correction of one of the game's scenarios is open (debug mode)
+	imported                     bool   // came from a picture: saved in the imports folder
 	propThumbs                   map[string]*ebiten.Image
 	wasRoad                      bool
-	needFit                      bool // centre and fit the picture at the next frame
-	started                      bool // the first scenario of the session was generated
+	prefZoom                     float64 // zoom the user chose, remembered between sessions
+	needFit                      bool    // centre and fit the picture at the next frame
+	started                      bool    // the first scenario of the session was generated
 }
 
 func newLevEd(ed *Editor) *LevEd {
@@ -92,7 +95,12 @@ func newLevEd(ed *Editor) *LevEd {
 }
 
 func (l *LevEd) reloadList() {
-	l.list = backgroundNames(l.ed.root)
+	l.list = nil
+	for _, n := range backgroundNames(l.ed.root) {
+		if !isCampaignKey(n) { // the corrections of the originals have their own list (debug mode)
+			l.list = append(l.list, n)
+		}
+	}
 	l.refreshKinds()
 }
 
@@ -111,11 +119,13 @@ func (l *LevEd) newBlank() {
 
 func (l *LevEd) setLevel(la *LevelAsset) {
 	l.imported = false
+	l.overrideKey = la.Meta.Override
 	l.la = la
 	l.solid, l.zone = toGrid(la.Meta.Solid), toGrid(la.Meta.Zone)
 	l.titleTxt, l.introTxt = la.Meta.Title, la.Meta.Intro
 	l.selInst, l.routeIdx = -1, 0
 	l.undoL = nil
+	l.mv = lvMove{}
 	l.ed.pt.clearHistory()
 	l.needFit = true
 	l.cv.setPix(la.BG)
@@ -163,6 +173,17 @@ func (l *LevEd) save() {
 		return
 	}
 	l.syncMeta()
+	if l.overrideKey != "" { // a correction of an original: always saved under its own key
+		l.la.Meta.Name, l.la.Meta.Override = l.overrideKey, l.overrideKey
+		if err := saveLevelAsset(l.ed.root, l.la); err != nil {
+			l.ed.say("Error al guardar: " + err.Error())
+			return
+		}
+		l.name = l.overrideKey
+		l.ed.say("Original corregido y guardado en " + l.la.Dir)
+		return
+	}
+	l.la.Meta.Floors, l.la.Meta.Pools = nil, nil // only the corrections of originals use them
 	l.la.Meta.Name = name
 	if l.la.Meta.Title == "" {
 		l.la.Meta.Title = name
@@ -324,39 +345,42 @@ func blankRows() []string {
 
 func (l *LevEd) updateObjects(u *UI, x, y int, inside bool) {
 	m := &l.la.Meta
+	switch l.objTool {
+	case 1:
+		mask := maskProps
+		if l.overrideKey != "" { // ground and water only exist in the game's own scenarios
+			mask |= maskGround
+		}
+		l.updateMoveTool(u, x, y, inside, mask)
+		return
+	case 2:
+		l.updateZone(u, x, y, inside)
+		return
+	}
 	if inside {
-		if l.moveMode {
-			if u.pressed {
-				l.selInst, _ = nearestIdx(len(m.Props), func(i int) float64 { return math.Hypot(float64(m.Props[i].X-x), float64(m.Props[i].Y-y)) })
-				if l.selInst >= 0 {
-					if d := math.Hypot(float64(m.Props[l.selInst].X-x), float64(m.Props[l.selInst].Y-y)); d > 20 {
-						l.selInst = -1
-					} else {
-						l.dragInst = true
-					}
-				}
-			}
-			if l.dragInst && u.down && l.selInst >= 0 && l.selInst < len(m.Props) {
-				m.Props[l.selInst].X, m.Props[l.selInst].Y = x, y
-			}
-		} else if u.pressed && l.kindSel >= 0 && l.kindSel < len(l.kinds) {
+		if u.pressed && l.kindSel >= 0 && l.kindSel < len(l.kinds) {
+			before := l.takeSnap(false)
 			m.Props = append(m.Props, LevelProp{Kind: l.kinds[l.kindSel], X: x, Y: y, Var: l.curVar})
+			l.pushMoveUndo(before)
 			l.selInst = len(m.Props) - 1
 		}
 		if u.rpressed {
 			if i, d := nearestIdx(len(m.Props), func(i int) float64 { return math.Hypot(float64(m.Props[i].X-x), float64(m.Props[i].Y-y)) }); i >= 0 && d < 24 {
+				before := l.takeSnap(false)
 				m.Props = append(m.Props[:i], m.Props[i+1:]...)
+				l.pushMoveUndo(before)
 				l.selInst = -1
 			}
 		}
-	}
-	if u.released {
-		l.dragInst = false
 	}
 }
 
 func (l *LevEd) updatePoints(u *UI, x, y int, inside bool) {
 	m := &l.la.Meta
+	if l.ptTool == ptMoveTool {
+		l.updateMoveTool(u, x, y, inside, maskPoints)
+		return
+	}
 	if !inside {
 		return
 	}

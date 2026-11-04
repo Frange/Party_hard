@@ -60,6 +60,8 @@ type UI struct {
 	tip      string
 	grab     string // widget currently dragged
 	menu     menuState
+
+	filterCache map[string]*filterEntry
 }
 
 func (u *UI) begin() {
@@ -324,6 +326,9 @@ type Canvas struct {
 	grid   bool
 	img    *ebiten.Image
 	dirty  bool
+
+	bgImg, gridImg *ebiten.Image // cached checker and grid pictures
+	bgKey, gridKey [4]int
 }
 
 func (c *Canvas) setPix(b *pixBuf) {
@@ -444,36 +449,91 @@ func (c *Canvas) draw(d *ebiten.Image, w, h int, checker bool) {
 	ix, iy := float64(c.x+c.px), float64(c.y+c.py)
 	bg := canvasBGs[clampI(cvBG, 0, len(canvasBGs)-1)]
 	if checker {
-		if bg.a == bg.b {
-			fillRect(vp, ix, iy, float64(w*c.zoom), float64(h*c.zoom), rgb(bg.a))
-		} else {
-			for yy := 0; yy < h; yy++ {
-				for xx := 0; xx < w; xx++ {
-					col := rgb(bg.a)
-					if (xx+yy)%2 == 0 {
-						col = rgb(bg.b)
-					}
-					fillRect(vp, ix+float64(xx*c.zoom), iy+float64(yy*c.zoom), float64(c.zoom), float64(c.zoom), col)
-				}
-			}
-		}
+		// one cached picture scaled up instead of a rectangle per pixel
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(float64(c.zoom), float64(c.zoom))
+		op.GeoM.Translate(ix, iy)
+		vp.DrawImage(c.bgImage(w, h, bg), op)
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(c.zf(), c.zf())
 	op.GeoM.Translate(ix, iy)
 	vp.DrawImage(c.img, op)
 	if c.grid && cvGrid && c.zoom >= 6 && c.fz == 0 {
-		gc := color.RGBA{255, 255, 255, 22}
-		if bg.light {
-			gc = color.RGBA{0, 0, 0, 40}
-		}
-		for xx := 0; xx <= w; xx++ {
-			fillRect(vp, ix+float64(xx*c.zoom), iy, 1, float64(h*c.zoom), gc)
-		}
-		for yy := 0; yy <= h; yy++ {
-			fillRect(vp, ix, iy+float64(yy*c.zoom), float64(w*c.zoom), 1, gc)
+		vp.DrawImage(c.gridImage(w, h, c.zoom, bg.light), &ebiten.DrawImageOptions{GeoM: translateGeo(ix, iy)})
+	}
+}
+
+func translateGeo(x, y float64) ebiten.GeoM {
+	var g ebiten.GeoM
+	g.Translate(x, y)
+	return g
+}
+
+// bgImage is the picture of the transparent background (w x h pixels, drawn scaled).
+func (c *Canvas) bgImage(w, h int, bg canvasBG) *ebiten.Image {
+	key := [4]int{w, h, cvBG, 1}
+	if c.bgImg != nil && c.bgKey == key {
+		return c.bgImg
+	}
+	pix := make([]byte, w*h*4)
+	for yy := 0; yy < h; yy++ {
+		for xx := 0; xx < w; xx++ {
+			col := rgb(bg.a)
+			if bg.a != bg.b && (xx+yy)%2 == 0 {
+				col = rgb(bg.b)
+			}
+			i := (yy*w + xx) * 4
+			pix[i], pix[i+1], pix[i+2], pix[i+3] = col.R, col.G, col.B, 255
 		}
 	}
+	if c.bgImg != nil {
+		c.bgImg.Deallocate()
+	}
+	c.bgImg = ebiten.NewImage(w, h)
+	c.bgImg.WritePixels(pix)
+	c.bgKey = key
+	return c.bgImg
+}
+
+// gridImage is the pixel grid for a w x h picture at this zoom, as one transparent picture.
+func (c *Canvas) gridImage(w, h, zoom int, light bool) *ebiten.Image {
+	l := 0
+	if light {
+		l = 1
+	}
+	key := [4]int{w, h, zoom, l}
+	if c.gridImg != nil && c.gridKey == key {
+		return c.gridImg
+	}
+	gw, gh := w*zoom+1, h*zoom+1
+	pix := make([]byte, gw*gh*4)
+	// premultiplied: white at alpha 22, or black at alpha 40
+	r, a := byte(22), byte(22)
+	if light {
+		r, a = 0, 40
+	}
+	set := func(x, y int) {
+		i := (y*gw + x) * 4
+		pix[i], pix[i+1], pix[i+2], pix[i+3] = r, r, r, a
+	}
+	for xx := 0; xx <= w; xx++ {
+		for y := 0; y < gh; y++ {
+			set(xx*zoom, y)
+		}
+	}
+	for yy := 0; yy <= h; yy++ {
+		for x := 0; x < gw; x++ {
+			set(x, yy*zoom)
+		}
+	}
+	if c.gridImg != nil {
+		c.gridImg.Deallocate()
+	}
+	c.gridImg = ebiten.NewImage(gw, gh)
+	c.gridImg.WritePixels(pix)
+	c.gridKey = key
+	return c.gridImg
 }
 
 // ---------------------------------------------------------------------------

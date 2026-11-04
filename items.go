@@ -205,6 +205,16 @@ func (g *Game) drawUseMarks(dst *ebiten.Image) {
 			g.drawTextC(dst, "["+actionHint(actInteract)+"] "+lab, x, y-16, col, 1)
 		}
 	}
+	// with poison in the pocket the guest within reach can be offered a drink
+	if gu := g.poisonTarget(); gu != nil {
+		col := rgb(0x60ff80)
+		x, y := g.wx(gu.pos.X), g.wy(gu.pos.Y)-48+math.Sin(g.time*4)*2
+		for i := 0.0; i < 4; i++ {
+			fillRect(dst, x-i, y-4+i, 1+2*i, 1, col)
+			fillRect(dst, x-3+i, y+i, 7-2*i, 1, col)
+		}
+		g.drawTextC(dst, "["+actionHint(actInteract)+"] Ofrecer copa envenenada", x, y-16, col, 1)
+	}
 }
 
 // ---- items ----------------------------------------------------------------------------
@@ -214,8 +224,9 @@ func (g *Game) pickItem(pr *Prop) {
 	g.snd.Play("spark")
 	switch pr.K.Item {
 	case "poison":
-		g.p.item = "poison"
-		g.say("Tienes veneno: úsalo en una bebida (cuenco, ponche, buffet)")
+		g.p.item, g.p.doses = "poison", poisonDoses
+		g.say("Tienes veneno: da copas a la gente o échalo en el ponche")
+		g.say(dosesText(g.p.doses))
 	case "disguise":
 		g.p.item = "disguise"
 		g.say("Tienes un disfraz: se usa solo cuando te buscan")
@@ -461,7 +472,7 @@ func (l *Level) ensureItems() bool {
 		for _, p := range l.Props[before:] {
 			seeds = append(seeds, Vec{p.X, p.Y})
 			for _, u := range p.K.Use {
-				l.POIs[p.K.UseKind] = append(l.POIs[p.K.UseKind], Vec{p.X + u.X, p.Y + u.Y})
+				l.POIs[p.K.UseKind] = append(l.POIs[p.K.UseKind], Vec{p.X + u.X*p.sc(), p.Y + u.Y*p.sc()})
 			}
 		}
 	}

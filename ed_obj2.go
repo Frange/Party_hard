@@ -111,15 +111,15 @@ func (o *ObjEd) leftColumn(u *UI) {
 	budget := 8
 	mk := func(i int) thumb {
 		n := o.list[i]
-		t := thumb{label: n}
-		dir := spriteDirOf(o.ed.root, "objetos", n)
-		if _, ok := o.thumbs[dir]; ok || budget > 0 {
-			if !ok {
+		return thumb{label: n, lazy: func() *ebiten.Image {
+			if _, ok := o.thumbs[o.ed.spriteDir("objetos", n)]; !ok {
+				if budget <= 0 {
+					return nil
+				}
 				budget--
 			}
-			t.img = o.thumbFor(n)
-		}
-		return t
+			return o.thumbFor(n)
+		}}
 	}
 	if i := u.searchGrid("objfind", x, y, w, gridH, 4, &o.find, o.list, mk, o.sel, &o.scroll); i >= 0 {
 		o.sel = i

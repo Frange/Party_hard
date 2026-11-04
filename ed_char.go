@@ -21,7 +21,8 @@ type CharEd struct {
 	importCh   chan *droppedImage
 	list       []string
 	listSel    int
-	imported   bool // came from a picture: saved in the imports folder
+	partsImg   *ebiten.Image // cached overlay of the part colours
+	imported   bool          // came from a picture: saved in the imports folder
 	find       string
 	listScroll int
 	name       string
@@ -69,10 +70,11 @@ func newCharEd(ed *Editor) *CharEd {
 func (c *CharEd) category() string { return c.sub().folder }
 
 func (c *CharEd) reloadList() {
+	c.ed.dirCache = nil
 	sub := c.sub()
 	var out []string
 	for _, n := range spriteNames(c.ed.root, sub.folder) {
-		if sub.matches(charRoleOf(spriteDirOf(c.ed.root, sub.folder, n))) {
+		if sub.matches(c.ed.roleOf(c.ed.spriteDir(sub.folder, n))) {
 			out = append(out, n)
 		}
 	}
@@ -187,6 +189,7 @@ func (c *CharEd) save() {
 	c.ca.Meta.Role = c.sub().role
 	c.ca.Meta.Edited = true
 	c.ca.Meta.ShopOnly = false
+	c.ed.roleCache = nil
 	if c.ca.Meta.Gender == "" {
 		c.ca.Meta.Gender = "m"
 	}

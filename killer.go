@@ -333,12 +333,43 @@ func (g *Game) slasherWitness(s *Slasher, at Vec) {
 }
 
 // slasherPick: the player if he is close, otherwise the closest reachable victim.
+// nearestSeen is the closest guest or guard the killer can see in front of him (nil, nil if none).
+func (g *Game) nearestSeen(s *Slasher) (*Guest, *Guard, float64) {
+	var bg *Guest
+	var bd *Guard
+	best := 1e9
+	for _, gu := range g.guests {
+		if gu.out() {
+			continue
+		}
+		if d := dist(gu.pos, s.pos); d < best && g.sees(s.pos, s.dir, gu.pos, 110, guestDot) {
+			best, bg, bd = d, gu, nil
+		}
+	}
+	for _, gd := range g.guards {
+		if gd.dead {
+			continue
+		}
+		if d := dist(gd.pos, s.pos); d < best && g.sees(s.pos, s.dir, gd.pos, 110, guestDot) {
+			best, bg, bd = d, nil, gd
+		}
+	}
+	return bg, bd, best
+}
+
 func (g *Game) slasherPick(s *Slasher) {
 	p := g.p
-	// like everybody else, the killer only notices what is in front of him
-	if !p.dead && !p.hidden && g.sees(s.pos, s.dir, p.pos, 110, guestDot) {
+	// like everybody else, the killer only notices what is in front of him, and goes for the
+	// closest person he sees: the player has no priority over the people standing in front of him
+	og, od, dOther := g.nearestSeen(s)
+	if !p.dead && !p.hidden && g.sees(s.pos, s.dir, p.pos, 110, guestDot) && dist(p.pos, s.pos) <= dOther {
 		s.lostT = 0
 		s.tgtP, s.tgtG, s.tgtD = true, nil, nil
+		return
+	}
+	if og != nil || od != nil {
+		s.tgtP, s.alert = false, false
+		s.tgtG, s.tgtD = og, od
 		return
 	}
 	if s.tgtP && !p.dead && !p.hidden {
@@ -462,7 +493,7 @@ func (g *Game) updateReport(gu *Guest, dt float64) {
 	gu.repath -= dt
 	if gu.repath <= 0 {
 		gu.repath = 0.5
-		gu.path = g.lvl.Path(gu.pos, c.pos)
+		gu.path = g.lvl.PathG(gu.pos, c.pos)
 	}
 	gu.walk(guestRunSpeed, dt)
 	if dist(gu.pos, c.pos) < 28 {

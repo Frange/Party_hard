@@ -2,6 +2,8 @@ package main
 
 import (
 	"math/rand"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // ---------------------------------------------------------------------------
@@ -213,14 +215,12 @@ func (g *Game) armGuest(gu *Guest, pr *Prop) {
 	gu.armed = true
 	gu.rampage = 2 + g.rng.Intn(3)
 	if gu.cs != nil && gu.cs.Spec != nil {
-		spec := *gu.cs.Spec
-		spec.Carry = HoldKnife
+		hold := HoldKnife
 		if pr.Var == 1 {
-			spec.Carry = HoldGun
+			hold = HoldGun
 		}
-		spec.CarryCol = hx(0xe8eef8)
 		gu.origCS = gu.cs
-		gu.cs = newCharSet(&spec)
+		gu.cs = armedSet(gu.cs, hold)
 	}
 	gu.icon, gu.iconT = "!!!", 3
 	g.snd.Play("alert")
@@ -400,4 +400,24 @@ func (g *Game) spawnWally() {
 	if pos, ok := g.outdoorSpot(); ok {
 		g.animals = append(g.animals, &Animal{kind: animDog, pos: g.lvl.NearestFree(pos), face: 1, area: Rect{pos.X - 100, pos.Y - 60, 200, 120}, seed: g.rng.Float64() * 10, timer: g.rng.Float64() * 3, coat: 2, label: "Woof"})
 	}
+}
+
+// armedSet is the same character holding a weapon. The guests of the real game are drawn from the
+// asset folders (rigs) and their CharSpec is nearly empty: building a new procedural set from it
+// would paint an invisible body with only the knife showing.
+func armedSet(src *CharSet, hold int) *CharSet {
+	cs := *src
+	cs.cache = map[int]*ebiten.Image{}
+	if cs.rig != nil {
+		r := *cs.rig
+		r.carry = hold
+		cs.rig = &r
+		sp := *src.Spec
+		cs.Spec = &sp
+		return &cs
+	}
+	spec := *src.Spec
+	spec.Carry = hold
+	spec.CarryCol = hx(0xe8eef8)
+	return newCharSet(&spec)
 }

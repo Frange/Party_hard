@@ -36,6 +36,8 @@ func newSounds(muted bool) *Sounds {
 	s.sfx["ring"] = mix(tone(1200, 0.07, 0.35, 30, 0), shift(tone(1200, 0.07, 0.35, 30, 0), 0.12))
 	s.sfx["splash"] = toPCM(lowpass(noise(0.35, 0.7, 7), 6))
 	s.sfx["thud"] = mix(tone(70, 0.2, 0.7, 12, 0), lowpass(noise(0.1, 0.3, 25), 4))
+	// a glass breaking: a burst of hiss over a few bright pings, then the little bits falling
+	s.sfx["glass"] = mix(noise(0.3, 0.5, 14), tone(2600, 0.12, 0.35, 22, 0), shift(tone(3400, 0.1, 0.3, 22, 0), 0.04), shift(tone(2100, 0.14, 0.3, 18, 0), 0.09), shift(noise(0.12, 0.35, 20), 0.14), shift(tone(3900, 0.06, 0.25, 30, 0), 0.19))
 	s.sfx["boom"] = mix(lowpass(noise(0.7, 1.0, 4), 3), tone(50, 0.6, 0.9, 4, 0))
 	s.sfx["siren"] = siren(2.4)
 	s.sfx["win"] = mix(tone(523, 0.15, 0.4, 6, 0), shift(tone(659, 0.15, 0.4, 6, 0), 0.15), shift(tone(784, 0.15, 0.4, 6, 0), 0.30), shift(tone(1046, 0.4, 0.4, 4, 0), 0.45))

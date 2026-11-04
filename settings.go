@@ -109,12 +109,11 @@ func (g *Game) updateSettings() {
 		}
 		if step != 0 {
 			if g.setSel == setRowStart {
-				g.progress.MaxStart = clampI(g.maxStart()+step, 10, 150)
-				if g.progress.MaxTotal > 0 && g.progress.MaxTotal < g.progress.MaxStart {
-					g.progress.MaxTotal = g.progress.MaxStart
-				}
+				lo := clampI(g.maxStart()+step, 10, 100)
+				g.progress.GuestMin = lo
+				g.progress.GuestMax = maxI(g.guestMax(), lo) // the minimum never goes above the maximum
 			} else {
-				g.progress.MaxTotal = clampI(g.maxTotal()+step, maxI(10, g.maxStart()), 200)
+				g.progress.GuestMax = clampI(g.guestMax()+step, g.maxStart(), 100)
 			}
 			saveProgress(g.progress)
 		}
@@ -188,9 +187,9 @@ func (g *Game) drawSettings(dst *ebiten.Image) {
 			col = rgb(0xff6a8a)
 		}
 		if i == setRowStart || i == setRowMax {
-			label, val := "Personajes al empezar la fiesta", g.maxStart()
+			label, val := "Invitados mínimo", g.maxStart()
 			if i == setRowMax {
-				label, val = "Máximo de personajes en total", g.maxTotal()
+				label, val = "Invitados máximo", g.guestMax()
 			}
 			g.drawText(dst, label, 252, y, col, 1.3)
 			g.drawTextC(dst, fmt.Sprintf("◄ %d ►", val), 760, y, rgb(0xffe060), 1.3)

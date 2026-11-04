@@ -47,16 +47,24 @@ var campaignN int
 
 func resolveCampaign(e campaignEntry) *LevelDef {
 	if e.level != nil {
-		return e.level()
+		d := e.level()
+		resolveOverlaps(d)
+		addMurray(d)
+		return d
 	}
-	return genNamed(e.kind, e.seed, e.title)
+	d := genNamed(e.kind, e.seed, e.title)
+	addMurray(d)
+	return d
 }
 
 func builtinLevels() []*LevelDef {
 	var out []*LevelDef
-	for _, e := range campaignLevels {
+	for i, e := range campaignLevels {
 		if d := resolveCampaign(e); d != nil {
 			d.Icon = e.icon
+			if la := levelOverrides[campaignKey(i)]; la != nil {
+				applyLevelOverride(d, la)
+			}
 			out = append(out, d)
 		}
 	}

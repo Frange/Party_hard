@@ -150,8 +150,9 @@ func genSki(rng *rand.Rand) *LevelDef {
 	pl.at("speaker", 402, 200, 0)
 	d.Performers = []Perf{{Vec{336, 186}, "dj", DirDown}}
 	pl.at("igloo", 120, 180, 0)
-	pl.at("goal", 606, 306, 0)
-	pl.at("goal", 836, 306, 0)
+	// the rink is a landscape one: the goals stand upright at its two ends (goal line at x=592 and x=846)
+	pl.at("goalv", 579, 344, 0)
+	pl.at("goalv", 860, 344, 1)
 	pl.avoid = append(pl.avoid, Vec{330, 160}, Vec{336, 230}, Vec{120, 180}, Vec{720, 306}, Vec{frontX, 330}, Vec{frontX, 420})
 	pl.scatter(R(30, 60, 900, 380), 14, 70, "pine")
 	pl.scatter(R(30, 60, 900, 380), 5, 80, "snowman")

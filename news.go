@@ -104,6 +104,7 @@ func defaultNewsBank() NewsBank {
 		"killer_catch":        {"¡La policía ha detenido al asesino!", "Han atrapado al asesino", "El asesino queda bajo custodia"},
 		"kill":                {"{actor} ha matado a {victim}", "{actor} ha acabado con {victim}", "Han visto a {actor} matando a {victim}", "{actor} ha asesinado a {victim}"},
 		"kill_player":         {"Has matado a {victim}", "{victim} no lo vio venir", "Un sospechoso menos: {victim}", "{victim} ha caído"},
+		"electrocuted":        {"{victim} se ha electrocutado: queda en los huesos", "¡Zas! {victim} se ha quedado en los huesos", "Una descarga deja a {victim} en el esqueleto", "{victim} se ha puesto muy eléctrico"},
 		"dj_dead":             {"¡Han matado al DJ! Ahora suena punk rock", "El DJ ha muerto. ¿Quién pondrá la música ahora?"},
 		"vehicle_wreck_crew":  {"¡El tanque ha aplastado un vehículo de emergencias con su tripulación!", "¡El tanque ha hecho pedazos un vehículo de emergencias, con todos dentro!"},
 		"vehicle_wreck_empty": {"¡El tanque ha aplastado el vehículo de emergencias!", "El tanque deja el vehículo de emergencias hecho chatarra"},
@@ -147,14 +148,19 @@ func (g *Game) sayNews(category string, vars map[string]string) {
 	if len(lines) == 0 {
 		return
 	}
-	i := g.rng.Intn(len(lines))
-	if len(lines) > 1 && i == g.newsLast[category] {
-		i = (i + 1) % len(lines)
+	// pick a variant that has not been on screen lately; with none, say nothing
+	start := g.rng.Intn(len(lines))
+	for n := 0; n < len(lines); n++ {
+		i := (start + n) % len(lines)
+		s := lines[i]
+		for k, v := range vars {
+			s = strings.ReplaceAll(s, "{"+k+"}", v)
+		}
+		if sayRecent(s) {
+			continue
+		}
+		g.newsLast[category] = i
+		g.say(s)
+		return
 	}
-	g.newsLast[category] = i
-	s := lines[i]
-	for k, v := range vars {
-		s = strings.ReplaceAll(s, "{"+k+"}", v)
-	}
-	g.say(s)
 }

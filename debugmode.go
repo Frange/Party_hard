@@ -157,6 +157,8 @@ func menuLabel(id int) string {
 		return "TIENDA"
 	case menuTrophies:
 		return "TROFEOS"
+	case menuScenes:
+		return "ESCENAS"
 	case menuSettings:
 		return "AJUSTES"
 	}
@@ -204,19 +206,29 @@ func (g *Game) debugRows() []debugRow {
 		{"Velocidad x2", func() string { return onOff(d.speed) }, flip(&d.speed)},
 		{"Nadie llama a la policía", func() string { return onOff(d.noPolice) }, flip(&d.noPolice)},
 		{"Sucesos y llegadas muy rápidos", func() string { return onOff(d.fastEv) }, flip(&d.fastEv)},
+		{"Ir a la última fiesta: Isla Nublar (Jurassic Park)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
+		{"Ver la intro", func() string { return "" }, func() { g.playScene(sceneIntro, ModeDebug) }},
+		{"Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
+		{"Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
+		{"Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
+		{"Ver el interludio 1 (coche, tras la plaza de toros)", func() string { return "" }, func() { g.playScene(sceneInter1, ModeDebug) }},
+		{"Ver el interludio 2 (barco, tras la discoteca)", func() string { return "" }, func() { g.playScene(sceneInter2, ModeDebug) }},
 		{"Salir del DEBUG (recupera tu partida real)", func() string { return "" }, func() { g.debugEnd(); g.mode = ModeMenu }},
 		{"Volver al menú", func() string { return "" }, func() { g.mode = ModeMenu }},
 	}
 }
 
-const debugRowH = 27.0
+const (
+	debugRowH = 21.5
+	debugRow0 = 92.0
+)
 
 func (g *Game) updateDebug() {
 	rows := g.debugRows()
 	n := len(rows)
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < n; i++ {
-			if y := 108 + float64(i)*debugRowH; mx >= 150 && mx <= 810 && my >= y-4 && my < y+debugRowH-4 {
+			if y := debugRow0 + float64(i)*debugRowH; mx >= 150 && mx <= 810 && my >= y-4 && my < y+debugRowH-4 {
 				return i
 			}
 		}
@@ -239,19 +251,19 @@ func (g *Game) updateDebug() {
 func (g *Game) drawDebug(dst *ebiten.Image) {
 	g.drawBedroom(dst)
 	fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, 190))
-	fillRect(dst, 130, 40, 700, 470, rgb(0x0a0c14))
-	fillRect(dst, 130, 40, 700, 2, rgb(0xffa030))
-	fillRect(dst, 130, 508, 700, 2, rgb(0xffa030))
-	g.drawTextC(dst, "MODO DEBUG", 480, 52, rgb(0xffa030), 2.4)
-	g.drawTextC(dst, "Todo es temporal: no se guarda nada y tu partida real no cambia.", 480, 84, rgb(0xb8b0d0), 1.1)
+	fillRect(dst, 130, 28, 700, 504, rgb(0x0a0c14))
+	fillRect(dst, 130, 28, 700, 2, rgb(0xffa030))
+	fillRect(dst, 130, 530, 700, 2, rgb(0xffa030))
+	g.drawTextC(dst, "MODO DEBUG", 480, 36, rgb(0xffa030), 2.2)
+	g.drawTextC(dst, "Todo es temporal: no se guarda nada y tu partida real no cambia.", 480, 70, rgb(0xb8b0d0), 1.1)
 	for i, r := range g.debugRows() {
-		y := 108 + float64(i)*debugRowH
+		y := debugRow0 + float64(i)*debugRowH
 		col := rgb(0x3fb59a)
 		if i == g.dbgSel {
 			col = rgb(0xff6a8a)
-			fillRect(dst, 140, y-4, 680, debugRowH-2, rgba(0x6a4ab0, 70))
+			fillRect(dst, 140, y-3, 680, debugRowH-1, rgba(0x6a4ab0, 70))
 		}
-		g.drawText(dst, r.label, 156, y+2, col, 1.3)
+		g.drawText(dst, r.label, 156, y, col, 1.3)
 		if v := r.val(); v != "" {
 			vc := rgb(0x8a86a0)
 			if v == "SÍ" || v[0] == '+' || v == "TODOS ganados" {
@@ -259,11 +271,11 @@ func (g *Game) drawDebug(dst *ebiten.Image) {
 			} else if v == "NINGUNO" {
 				vc = rgb(0xff8070)
 			}
-			g.drawText(dst, v, 700, y+2, vc, 1.3)
+			g.drawText(dst, v, 700, y, vc, 1.3)
 		}
 	}
 	if debugSnap != nil {
-		g.drawTextC(dst, "SESIÓN DEBUG ACTIVA · nada se guarda hasta que salgas", 480, 488, color.RGBA{255, 160, 48, 255}, 1.1)
+		g.drawTextC(dst, "SESIÓN DEBUG ACTIVA · nada se guarda hasta que salgas", 480, 498, color.RGBA{255, 160, 48, 255}, 1.1)
 	}
-	g.drawTextC(dst, "↑↓ elegir   Enter / ←→ / clic: cambiar   Esc: volver", 480, 470, rgb(0xf0e060), 1.1)
+	g.drawTextC(dst, "↑↓ elegir   Enter / ←→ / clic: cambiar   Esc: volver", 480, 514, rgb(0xf0e060), 1.1)
 }

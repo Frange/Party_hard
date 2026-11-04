@@ -58,7 +58,7 @@ func (g *Game) stepGhost(e *Event, dt float64) bool {
 			}
 			tgt := Vec{e.x + float64(i-2)*22, e.y + 40}
 			if dist(gu.pos, Vec{e.x, e.y}) > 70 {
-				gu.path = g.lvl.Path(gu.pos, g.lvl.NearestFree(tgt))
+				gu.path = g.lvl.PathG(gu.pos, g.lvl.NearestFree(tgt))
 				gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 0.5, true
 			} else {
 				gu.state, gu.timer = gIdle, 0.7
@@ -114,7 +114,7 @@ func (g *Game) drawGhost(dst *ebiten.Image, e *Event) {
 // ---- T-Rex --------------------------------------------------------------
 
 func (g *Game) startRex(e *Event) bool {
-	if len(g.liveGuests()) < 6 {
+	if g.isIsland() || len(g.liveGuests()) < 6 { // the island has its own rex
 		return false
 	}
 	p := g.lvl.RandomRoam(g.rng)

@@ -30,30 +30,9 @@ func init() {
 		b.rect(4, 26, 38, 1, c(0x6a727c))
 		b.rect(4, 30, 38, 1, c(0x6a727c))
 	}}
-	pk["bungalow"] = &PropKind{W: 178, H: 84, FW: 168, FH: 16, UseKind: "drink", Use: []Vec{{-56, 18}, {-18, 18}, {18, 18}, {56, 18}}, Draw: func(b *pixBuf, v int) {
-		for x := 0; x < 178; x++ {
-			h := 30 + (x*7)%5
-			b.rect(x, 0, 1, h, c(0x8a5a2a))
-			if x%3 == 0 {
-				b.rect(x, 2, 1, h-2, c(0x6a4220))
-			}
-			if x%5 == 1 {
-				b.rect(x, 4, 1, 8, c(0xa87238))
-			}
-		}
-		b.rect(0, 0, 178, 3, c(0x6a4220))
-		b.rect(2, 30, 4, 54, c(0x5a3a1a))
-		b.rect(172, 30, 4, 54, c(0x5a3a1a))
-		b.rect(56, 34, 66, 11, c(0x2a1a10))
-		b.rect(58, 36, 62, 7, c(0xe8802a))
-		b.rect(62, 38, 54, 3, c(0x2a1a10))
-		cols := []uint32{0x3a9a5a, 0xd0a030, 0xc04040, 0x3a7ac0, 0xe0e0e0}
-		for i, x := 0, 10; x < 168; x, i = x+9, i+1 {
-			b.rect(x, 48, 3, 9, c(cols[i%5]))
-		}
-		b.cube(6, 58, 166, 26, 10, c(0xb27a48), c(0x5a3520))
-		b.rect(6, 80, 166, 2, c(0xc9a640))
-	}}
+	pk["bungalow"] = &PropKind{W: 178, H: 84, FW: 168, FH: 16, UseKind: "drink", Use: []Vec{{-56, 18}, {-18, 18}, {18, 18}, {56, 18}}, Draw: bungalowDraw(178)}
+	// the same tiki bar at half the width, for tight rooftops
+	pk["minibar"] = &PropKind{W: 90, H: 84, FW: 84, FH: 16, UseKind: "drink", Use: []Vec{{-24, 18}, {0, 18}, {24, 18}}, Draw: bungalowDraw(90)}
 	pk["liberty"] = &PropKind{W: 36, H: 72, FW: 20, FH: 8, Draw: func(b *pixBuf, v int) {
 		b.cube(8, 56, 20, 16, 4, c(0xb4b4c0), c(0x8a8a98))
 		b.rect(12, 28, 12, 28, c(0x5aa890))
@@ -388,4 +367,34 @@ func genBodyBag() *pixBuf {
 	b.rect(4, 7, 24, 1, c(0x8a8a96))
 	b.rect(4, 5, 24, 1, c(0x4a4a58))
 	return b
+}
+
+// bungalowDraw paints the tiki bar hut at the given width.
+func bungalowDraw(w int) func(b *pixBuf, v int) {
+	return func(b *pixBuf, v int) {
+		for x := 0; x < w; x++ {
+			h := 30 + (x*7)%5
+			b.rect(x, 0, 1, h, c(0x8a5a2a))
+			if x%3 == 0 {
+				b.rect(x, 2, 1, h-2, c(0x6a4220))
+			}
+			if x%5 == 1 {
+				b.rect(x, 4, 1, 8, c(0xa87238))
+			}
+		}
+		b.rect(0, 0, w, 3, c(0x6a4220))
+		b.rect(2, 30, 4, 54, c(0x5a3a1a))
+		b.rect(w-6, 30, 4, 54, c(0x5a3a1a))
+		sw := w * 66 / 178
+		sx := (w - sw) / 2
+		b.rect(sx, 34, sw, 11, c(0x2a1a10))
+		b.rect(sx+2, 36, sw-4, 7, c(0xe8802a))
+		b.rect(sx+6, 38, sw-12, 3, c(0x2a1a10))
+		cols := []uint32{0x3a9a5a, 0xd0a030, 0xc04040, 0x3a7ac0, 0xe0e0e0}
+		for i, x := 0, 10; x < w-10; x, i = x+9, i+1 {
+			b.rect(x, 48, 3, 9, c(cols[i%5]))
+		}
+		b.cube(6, 58, w-12, 26, 10, c(0xb27a48), c(0x5a3520))
+		b.rect(6, 80, w-12, 2, c(0xc9a640))
+	}
 }

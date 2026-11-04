@@ -3,6 +3,7 @@ package main
 import (
 	"image/color"
 	"math"
+	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -128,9 +129,28 @@ func (g *Game) updateRoads(dt float64) {
 		case r > 0.68 && propKinds["motorbike"] != nil:
 			name = "motorbike"
 		}
+		if def.RoadCar == "" {
+			name = g.roadSpecialPick(name)
+		}
+		if def.RoadCar != "" && propKinds[def.RoadCar] != nil {
+			name = def.RoadCar // a venue with its own vehicles (the jeeps of the island)
+		}
 		length := 36.0
 		if k := propKinds[name]; k != nil {
 			length = float64(k.W)
+		}
+		switch name {
+		case "tank":
+			length = 84
+		case "tow":
+			length = 58
+		case "horse":
+			length = 50
+		}
+		if !s.horizontal() {
+			if d := vehViewDefs[name]; d != nil {
+				length = float64(d.h) // seen head on a vehicle is only as long as it is tall on screen
+			}
 		}
 		g.roadCars = append(g.roadCars, &RoadCar{seg: i, pos: start, lat: lat, v0: 55 + g.rng.Float64()*55, name: name, col: g.rng.Intn(4), length: length})
 	}
@@ -230,8 +250,108 @@ func (g *Game) roadRunOver(c *RoadCar, s RoadSeg) {
 	}
 }
 
+// vehNoseLeft: the sprites of the car family are drawn with the nose on the left; every other
+// vehicle (vans, trucks, bus, bikes, the Rocket League cars...) has its nose on the right.
+var vehNoseLeft = map[string]bool{"car": true, "taxi": true, "homercar": true, "wackypink": true, "wackymean": true, "tank": true, "tow": true}
+
+// vehMirror: does the sprite of this vehicle have to be mirrored to point where it drives?
+func vehMirror(name string, movingRight bool) bool {
+	if vehNoseLeft[name] {
+		return movingRight
+	}
+	return !movingRight
+}
+
+// roadSpecialPick now and then swaps the plain car for a set piece: the tank (twice per party at
+// most), a horse with its rider, the tow truck, or one of the ambient vehicles that have views.
+func (g *Game) roadSpecialPick(name string) string {
+	switch r := g.rng.Float64(); {
+	case r < 0.03 && g.tankN < 2:
+		g.tankN++
+		return "tank"
+	case r < 0.09:
+		return "horse"
+	case r < 0.13:
+		return "tow"
+	case r < 0.30:
+		var custom []string
+		for n, k := range propKinds {
+			if k.Ambient > 0 && vehViewDefs[n] != nil && !roadSpecials[n] {
+				custom = append(custom, n)
+			}
+		}
+		if len(custom) > 0 {
+			sort.Strings(custom)
+			return custom[g.rng.Intn(len(custom))]
+		}
+	}
+	return name
+}
+
+// drawRoadSpecial draws the tank, the tow truck and the horse on a road. Horizontally they use their
+// side sprites; vertically the front or rear view, according to where they are heading.
+func (g *Game) drawRoadSpecial(dst *ebiten.Image, c *RoadCar, s RoadSeg, at Vec) {
+	bob := math.Round(math.Sin(c.pos * 0.35))
+	if !s.horizontal() {
+		vp, ok := vehicleView(c.name, c.col, s.Dir == roadDown)
+		if !ok {
+			return
+		}
+		if c.name != "horse" {
+			bob = 0
+		}
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(math.Round(g.wx(at.X)-vp.ox), math.Round(g.wy(at.Y+10)-vp.oy+bob))
+		dst.DrawImage(vp.img, op)
+		return
+	}
+	right := s.Dir != roadLeft
+	x, y := g.wx(at.X), g.wy(at.Y+8)
+	op := &ebiten.DrawImageOptions{}
+	switch c.name {
+	case "tank":
+		im := g.as.tank
+		w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
+		if vehMirror("tank", right) {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+		}
+		op.GeoM.Translate(math.Round(x-w/2), math.Round(y-h))
+		dst.DrawImage(im, op)
+	case "tow":
+		pi := towSide()
+		w := float64(pi.img.Bounds().Dx())
+		if vehMirror("tow", right) {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+			op.GeoM.Translate(math.Round(x-(w-pi.ox)), math.Round(y-pi.oy))
+		} else {
+			op.GeoM.Translate(math.Round(x-pi.ox), math.Round(y-pi.oy))
+		}
+		dst.DrawImage(pi.img, op)
+	case "horse":
+		pi := g.as.props["horse"][0]
+		w := float64(pi.img.Bounds().Dx())
+		if !right {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+		}
+		op.GeoM.Translate(math.Round(x-w/2), math.Round(y-pi.oy+bob))
+		dst.DrawImage(pi.img, op)
+		dir := DirLeft
+		if right {
+			dir = DirRight
+		}
+		g.drawActor(dst, g.as.cowCS, AnimIdle, 0, Vec{at.X, at.Y + 8 - 16}, dir, bob, false)
+	}
+}
+
 func (g *Game) drawRoadCar(dst *ebiten.Image, c *RoadCar) {
 	s := g.lvl.Def.Roads[c.seg]
+	if roadSpecials[c.name] {
+		g.drawRoadSpecial(dst, c, s, c.at(s))
+		return
+	}
 	imgs := g.as.props[c.name]
 	if len(imgs) == 0 {
 		return
@@ -242,7 +362,7 @@ func (g *Game) drawRoadCar(dst *ebiten.Image, c *RoadCar) {
 	op := &ebiten.DrawImageOptions{}
 	if s.horizontal() {
 		x, y := g.wx(at.X), g.wy(at.Y+8)
-		if s.Dir == roadLeft {
+		if vehMirror(c.name, s.Dir != roadLeft) {
 			op.GeoM.Scale(-1, 1)
 			op.GeoM.Translate(w, 0)
 			op.GeoM.Translate(math.Round(x-(w-pi.ox)), math.Round(y-pi.oy))
@@ -252,13 +372,23 @@ func (g *Game) drawRoadCar(dst *ebiten.Image, c *RoadCar) {
 		dst.DrawImage(pi.img, op)
 		return
 	}
-	// vertical: the side view turned a quarter, about the middle of the picture
-	op.GeoM.Translate(-w/2, -h/2)
-	if s.Dir == roadDown {
-		op.GeoM.Rotate(math.Pi / 2)
-	} else {
-		op.GeoM.Rotate(-math.Pi / 2)
+	// vertical road: seen head on when it comes down toward the camera, from behind when it goes up
+	if vp, ok := vehicleView(c.name, c.col, s.Dir == roadDown); ok {
+		op.GeoM.Translate(math.Round(g.wx(at.X)-vp.ox), math.Round(g.wy(at.Y+10)-vp.oy))
+		dst.DrawImage(vp.img, op)
+		return
 	}
+	// no such view: the side view turned a quarter, about the middle of the picture
+	op.GeoM.Translate(-w/2, -h/2)
+	// the nose of a right-facing sprite goes down with +90 degrees, a left-facing one with -90
+	turn := math.Pi / 2
+	if s.Dir != roadDown {
+		turn = -turn
+	}
+	if vehNoseLeft[c.name] {
+		turn = -turn
+	}
+	op.GeoM.Rotate(turn)
 	op.GeoM.Translate(math.Round(g.wx(at.X)), math.Round(g.wy(at.Y)-6))
 	dst.DrawImage(pi.img, op)
 }

@@ -129,7 +129,7 @@ func animLabel(a int) string {
 
 // thumbFor loads (once) the front picture of a character for the list.
 func (c *CharEd) thumbFor(folder, name string) *ebiten.Image {
-	dir := spriteDirOf(c.ed.root, folder, name)
+	dir := c.ed.spriteDir(folder, name)
 	if im, ok := c.thumbs[dir]; ok {
 		return im
 	}
@@ -208,15 +208,15 @@ func (c *CharEd) leftColumn(u *UI) {
 	folder := c.sub().folder
 	mk := func(i int) thumb {
 		n := c.list[i]
-		t := thumb{label: n}
-		dir := spriteDirOf(c.ed.root, folder, n)
-		if _, ok := c.thumbs[dir]; ok || budget > 0 {
-			if !ok {
+		return thumb{label: n, lazy: func() *ebiten.Image {
+			if _, ok := c.thumbs[c.ed.spriteDir(folder, n)]; !ok {
+				if budget <= 0 {
+					return nil
+				}
 				budget--
 			}
-			t.img = c.thumbFor(folder, n)
-		}
-		return t
+			return c.thumbFor(folder, n)
+		}}
 	}
 	if i := u.searchGrid("charfind", x, y, w, gridH, 4, &c.find, c.list, mk, c.listSel, &c.listScroll); i >= 0 {
 		c.listSel = i
@@ -348,19 +348,28 @@ func (c *CharEd) canvasArea(u *UI) {
 		cv.draw(d, buf.w, buf.h, true)
 		vp := d.SubImage(imageRect(cv.x, cv.y, cv.vw, cv.vh)).(*ebiten.Image)
 		if showParts && buf.pid != nil {
-			for yy := 0; yy < buf.h; yy++ {
-				for xx := 0; xx < buf.w; xx++ {
-					id := buf.pid[yy*buf.w+xx]
-					if buf.p[(yy*buf.w+xx)*4+3] == 0 {
-						continue
-					}
-					pc := partColors[id]
-					if id == 0 {
-						pc = color.RGBA{255, 0, 255, 255}
-					}
-					fillRect(vp, float64(cv.x+cv.px+xx*cv.zoom), float64(cv.y+cv.py+yy*cv.zoom), float64(cv.zoom), float64(cv.zoom), color.RGBA{pc.R / 2, pc.G / 2, pc.B / 2, 150})
+			// the part colours as one small picture (one pixel per drawing pixel), scaled up
+			pix := make([]byte, buf.w*buf.h*4)
+			for i := 0; i < buf.w*buf.h; i++ {
+				if buf.p[i*4+3] == 0 {
+					continue
 				}
+				id := buf.pid[i]
+				pc := partColors[id]
+				if id == 0 {
+					pc = color.RGBA{255, 0, 255, 255}
+				}
+				// premultiplied: colour at half strength, alpha 150
+				pix[i*4], pix[i*4+1], pix[i*4+2], pix[i*4+3] = uint8(int(pc.R)/2*150/255), uint8(int(pc.G)/2*150/255), uint8(int(pc.B)/2*150/255), 150
 			}
+			if c.partsImg == nil || c.partsImg.Bounds().Dx() != buf.w || c.partsImg.Bounds().Dy() != buf.h {
+				c.partsImg = ebiten.NewImage(buf.w, buf.h)
+			}
+			c.partsImg.WritePixels(pix)
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(float64(cv.zoom), float64(cv.zoom))
+			op.GeoM.Translate(float64(cv.x+cv.px), float64(cv.y+cv.py))
+			vp.DrawImage(c.partsImg, op)
 		}
 		if !showParts {
 			pt.previewShape(func(x, y int) {

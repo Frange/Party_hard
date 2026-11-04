@@ -31,6 +31,10 @@ const (
 	ModeConfirm
 	ModeTrophies
 	ModeDebug
+	ModeEnding    // the story ending (ending.go)
+	ModeIntro     // the intro of a new game (intro.go)
+	ModeScenes    // the cinematics you can watch again (scenes.go)
+	ModeInterlude // the story interludes (interlude.go)
 )
 
 // main menu rows (ModeMenu); the level grid lives in ModeLevelSelect
@@ -40,6 +44,7 @@ const (
 	menuRandom
 	menuShop
 	menuTrophies
+	menuScenes
 	menuSettings
 	menuQuit
 	menuRows
@@ -68,6 +73,9 @@ const (
 )
 
 func (g *Game) sees(from Vec, dir Dir, to Vec, rng, minDot float64) bool {
+	if g.visK > 0 {
+		rng *= g.visK
+	}
 	d := dist(from, to)
 	if d > rng {
 		return false
@@ -118,6 +126,7 @@ const (
 )
 
 type Guest struct {
+	famousOK          bool // forced on purpose (debug -with): not a duplicate to swap
 	chant             bool
 	tech              bool   // on the way to the yellow phone to call the technicians
 	quirk             string // special behaviour: mj, mask, taz, beavis, butthead, gb
@@ -148,7 +157,10 @@ type Guest struct {
 	iconT             float64
 	dead              bool
 	gone              bool
-	poison            float64
+	poison            float64 // poison: seconds left to live (see poison.go)
+	poisonT0          float64 // ... and how many it started with
+	poisonTick        float64 // time to the next symptom
+	offered           bool    // being handed a poisoned drink by the player
 	scanT             float64
 	tgt               *Guest
 	tgtPlayer         bool
@@ -188,7 +200,7 @@ type Guest struct {
 func (gu *Guest) out() bool { return gu.dead || gu.gone }
 
 // paceK slows everybody who walks (player, guests, guards, police) a bit more.
-const paceK = 0.86
+var paceK = 0.86
 
 func (gu *Guest) walk(speed, dt float64) bool {
 	if gu.quirk == "kid" {
@@ -311,6 +323,8 @@ type Vehicle struct {
 	hold    float64
 	unit    int // unitPolice/unitFBI/unitMilitary/unitSWAT/unitRangers
 	dead    bool
+	lane    bool    // boat / shuttle set up for a lane that runs up or down the screen (airseaviews.go)
+	vdir    float64 // +1 it arrives moving down the screen, -1 moving up
 }
 
 // HudMsg is one line in the small news queue drawn under the criminality stars.
@@ -333,6 +347,8 @@ type Body struct {
 	counted  bool     // already added to the located-kills total
 	label    string   // name shown when the mouse is over the body
 	byPlayer bool     // only the player's own kills (and traps/poison he set) raise the criminality
+	skeleton bool     // electrocuted: it lies there as a burnt skeleton (skeleton.go)
+	born     float64  // g.time when it fell
 }
 
 type Particle struct {
@@ -358,6 +374,7 @@ type Player struct {
 	hidden   bool
 	hideProp *Prop
 	carrying *Body
+	doses    int // doses left in the poison bottle
 	cooldown float64
 	stabT    float64
 	stamina  float64
@@ -452,13 +469,18 @@ type Game struct {
 	dbgRing                int
 	dbgCheer               bool
 	dbgWith                []string
+	famousOwned            map[string]*Guest // who holds each famous name in this party
+	famousPick             map[string]bool   // famous characters already chosen as ordinary guests
+	startTarget            int
 	dbgRoad                bool
+	dbgRoadCars            []string
 	walkBot                bool
 	botE                   float64
 	botT                   float64
 	botDx, botDy           float64
 	stuckT                 float64
 	dbgSnake               bool
+	dbgPoison              bool // -poisonnow: poison in the pocket and four poisoned guests next to the player
 	dbgSnakeOn             bool
 	kidPlan                []kidPlan
 	techCaller             *Guest
@@ -540,6 +562,11 @@ type Game struct {
 	shake        float64
 	flash        float64
 
+	rex                                         *JRex
+	jpDinos                                     []*jpDino
+	jpEggs                                      []*jpEgg
+	gibs                                        []Gib
+	charSc, visK                                float64 // size of the people on this level (1 = normal) and what it does to how far they see
 	cam                                         Vec
 	camI                                        Vec
 	msgs                                        []HudMsg
@@ -566,9 +593,19 @@ type Game struct {
 	rexImg                                      [2]*ebiten.Image
 	talkX, talkY, talkT                         float64
 	talkN, talkKind                             int
+	bedQuiet                                    bool // the bedroom of the ending: no party outside
+	end                                         *endState
+	intro                                       *introState
+	inter                                       *interState
+	sceneReplay                                 bool // a cinematic is being watched again: it returns to sceneBack
+	sceneBack                                   Mode
+	sceneSel                                    int
+	bedEmpty, bedNoTalk                         bool // the intro: he is out of bed / nobody mutters
 	trophyDirty                                 bool
 	toasts                                      []trophyToast
 	trophySel, trophyScroll                     int
+	trophyOv                                    bool    // the in-game trophies window is open (the game is paused)
+	trophyHudA                                  float64 // 1 = solid, lower while the player walks under the counter
 	tierBase                                    map[string][]CharSpec
 	loseReason                                  string
 	kills                                       int
@@ -669,6 +706,10 @@ func newGame(mute bool) *Game {
 			case "body_bag":
 				as.bag = oa.Frames[0].img()
 			case "heli":
+				// the exported copy of the built-in helicopter keeps its liveries; only a redrawn one replaces them
+				if sameSprite(oa.Frames[0], genHeli().scaled(wk).outlinedSel(0.45)) {
+					break
+				}
 				as.heli = oa.Frames[0].img()
 				as.heliU = [6]*ebiten.Image{}
 				as.heliOX, as.heliOY = float64(oa.Meta.AnchorX), float64(oa.Meta.AnchorY)
@@ -693,8 +734,19 @@ func (g *Game) loadLevel(i int) {
 	g.banked = false
 	g.applyShop()
 	g.levelIdx = i
-	def := levelDefs[i]
+	g.charSc, g.visK, paceK = 1, 1, 0.86
+	var def *LevelDef
+	if i == specialJurassic {
+		def = jurassicLevel() // the last party: not part of the campaign list
+	} else {
+		def = levelDefs[i]
+	}
+	if def.CharScale > 0 && def.CharScale != 1 {
+		g.charSc, g.visK, paceK = def.CharScale, math.Sqrt(def.CharScale), 0.86*def.CharScale
+	}
 	nickRNG, nickUsed = g.rng, map[string]bool{}
+	g.famousOwned, g.famousPick = map[string]*Guest{}, map[string]bool{}
+	g.pickStartTarget()
 	g.lvl = buildLevel(def)
 	if nd := g.planBand(def); nd != nil {
 		def = nd
@@ -714,6 +766,7 @@ func (g *Game) loadLevel(i int) {
 	}
 	g.towT = 20 + g.rng.Float64()*15
 	g.spawnAnimals()
+	g.spawnJurassic()
 	g.wanted, g.kills = 0, 0
 	g.policeCalled, g.pendingCar, g.pendingAmb, g.ambCalled, g.ambCount = false, -1, -1, false, 0
 	g.points, g.titleT = 0, 4.5
@@ -750,6 +803,7 @@ func (g *Game) loadLevel(i int) {
 		g.ambT = 3
 	}
 	g.msgs, g.shake, g.flash = nil, 0, 0
+	sayReset()
 	for k := 0; k < def.Guests*14/10; k++ {
 		var pos Vec
 		for tries := 0; tries < 40; tries++ {
@@ -811,8 +865,19 @@ func (g *Game) loadLevel(i int) {
 	}
 	g.scatterWeapons()
 	g.trimGuests()
+	g.fillGuests(def.Start)
+	g.uniqueFamous()
 	g.total = len(g.guests) + len(g.guards)
 	g.cam = g.camTarget()
+}
+
+// beginNewGame: the first time ever, the intro comes before the first party.
+func (g *Game) beginNewGame() {
+	if !g.seen("seen_intro") {
+		g.startIntro()
+		return
+	}
+	g.startLevel(0)
 }
 
 func (g *Game) startLevel(i int) {
@@ -837,12 +902,7 @@ func (g *Game) startRandomLevel() {
 
 // say queues a short news line under the criminality stars. Up to 2 lines
 // show at once; older ones are dropped so newer news is never hidden.
-func (g *Game) say(s string) {
-	g.msgs = append(g.msgs, HudMsg{s, 4.5})
-	if len(g.msgs) > 2 {
-		g.msgs = g.msgs[len(g.msgs)-2:]
-	}
-}
+func (g *Game) say(s string) { g.sayOffer(s) }
 
 // aliveCount: guests and guards left to kill.
 func (g *Game) aliveCount() int {
@@ -899,6 +959,9 @@ func (g *Game) Update() error {
 	if g.mode == ModeEditor {
 		return g.updateEditor()
 	}
+	if g.updateTrophyHud() {
+		return nil
+	}
 	switch g.mode {
 	case ModeMenu:
 		g.time += 1.0 / 60
@@ -938,7 +1001,7 @@ func (g *Game) Update() error {
 					g.confirmT, g.confirmSel = 0, 0
 					g.mode = ModeConfirm
 				} else {
-					g.startLevel(0)
+					g.beginNewGame()
 				}
 			case menuRandom:
 				g.startRandomLevel()
@@ -948,6 +1011,9 @@ func (g *Game) Update() error {
 			case menuTrophies:
 				g.trophySel, g.trophyScroll = 0, 0
 				g.mode = ModeTrophies
+			case menuScenes:
+				g.sceneSel = 0
+				g.mode = ModeScenes
 			case menuSettings:
 				g.setSel, g.setCol, g.capturing = 0, 0, false
 				g.mode = ModeSettings
@@ -960,6 +1026,15 @@ func (g *Game) Update() error {
 		}
 	case ModeTrophies:
 		g.updateTrophies()
+	case ModeEnding:
+		g.updateEnding()
+	case ModeIntro:
+		g.updateIntro()
+	case ModeInterlude:
+		g.updateInterlude()
+	case ModeScenes:
+		g.time += 1.0 / 60
+		g.updateScenes()
 	case ModeDebug:
 		g.time += 1.0 / 60
 		g.updateDebug()
@@ -1031,7 +1106,7 @@ func (g *Game) Update() error {
 		g.time += 1.0 / 60
 		g.updateParticles(1.0 / 60)
 		if actConfirm.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			g.startLevel(g.levelIdx + 1)
+			g.afterLevel()
 		}
 	case ModeFinal:
 		g.time += 1.0 / 60
@@ -1163,6 +1238,7 @@ func (g *Game) updatePlay(dt float64) {
 	for len(g.msgs) > 0 && g.msgs[0].t <= 0 {
 		g.msgs = g.msgs[1:]
 	}
+	g.sayPromote()
 	if g.shake > 0 {
 		g.shake -= dt
 	}
@@ -1208,6 +1284,7 @@ func (g *Game) updatePlay(dt float64) {
 			if f := presetByName(sl); f != nil && i < len(pool) {
 				spec := f(g.rng)
 				gu := pool[i]
+				gu.famousOK = true
 				gu.cs, gu.name = newCharSet(&spec), nameFromSpec(&spec)
 				gu.quirkInit = false
 				gu.pos = g.lvl.NearestFree(Vec{g.p.pos.X + float64(i)*30 - 60, g.p.pos.Y - 70})
@@ -1222,12 +1299,34 @@ func (g *Game) updatePlay(dt float64) {
 		d.Roads = []RoadSeg{{R(40, 120, 700, 36), roadRight}, {R(40, 200, 700, 36), roadLeft}, {R(800, 30, 36, 460), roadDown}, {R(860, 30, 36, 460), roadUp}}
 		d.roadsDrawn = false
 		g.renderBG()
+		// debug: -roadcars a,b,c parks those vehicles along the test roads (slowly), to look at them
+		for i, n := range g.dbgRoadCars {
+			si := i % 4
+			s := d.Roads[si]
+			start, lat := roadStart(s)
+			slot := float64(i / 4)
+			g.roadCars = append(g.roadCars, &RoadCar{seg: si, pos: start + roadSign(s)*(60+slot*120+float64(si)*20), lat: lat, v0: 1, name: n, length: 40})
+		}
+	}
+	if g.dbgPoison && g.time > 0.5 {
+		g.dbgPoison = false
+		g.p.item, g.p.doses = "poison", poisonDoses
+		for i, gu := range g.guests {
+			if i >= 4 {
+				break
+			}
+			gu.pos = g.lvl.NearestFree(Vec{g.p.pos.X + float64(i-1)*26, g.p.pos.Y + 34})
+			gu.state, gu.path, gu.timer, gu.perf = gIdle, nil, 3, ""
+			gu.poison = 7 + float64(i)*5
+			gu.poisonT0, gu.poisonTick = gu.poison, 1
+		}
 	}
 	if g.dbgSnake && g.time > 0.3 {
 		g.scatterSnake()
 		g.dbgSnake = false
 		g.dbgSnakeOn = true
 	}
+	g.debugZapStep()
 	if g.dbgCheer && g.time > 1 {
 		g.dbgCheer, g.cheerT = false, 0
 	}
@@ -1256,6 +1355,7 @@ func (g *Game) updatePlay(dt float64) {
 		g.titleT -= dt
 	}
 	g.updateProps(dt)
+	g.uniqueFamous() // nobody famous twice in the same party, whoever added them
 	g.checkTrophies()
 	g.maybeAmbulance()
 	g.updateStars(dt)
@@ -1285,6 +1385,8 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateAmbient(dt)
 	g.updateRoads(dt)
 	g.updateAnimals(dt)
+	g.updateJurassic(dt)
+	g.watchAllStuck(dt)
 	g.updateParticles(dt)
 	if !g.camFixed {
 		t := g.camTarget()
@@ -1480,7 +1582,7 @@ func (g *Game) danceRoll() {
 				side = -1
 			}
 			t := Vec{p.pos.X + side*(22+g.rng.Float64()*10), p.pos.Y + (g.rng.Float64()-0.5)*14}
-			gu.path = g.lvl.Path(gu.pos, t)
+			gu.path = g.lvl.PathG(gu.pos, t)
 			gu.state, gu.danceEnd = gDanceWith, g.time+p.danceT+2+g.rng.Float64()*3
 			gu.icon, gu.iconT = g.line(guestCategory(gu), "dance_join"), 1.5
 		case r < 0.55:
@@ -1493,7 +1595,7 @@ func (g *Game) danceRoll() {
 					far = c
 				}
 			}
-			gu.path = g.lvl.Path(gu.pos, far)
+			gu.path = g.lvl.PathG(gu.pos, far)
 			gu.state, gu.next, gu.dur = gGoto, gIdle, 1
 		default:
 			gu.icon, gu.iconT = g.line(guestCategory(gu), "dance_annoyed"), 2
@@ -1560,7 +1662,13 @@ func (g *Game) stab() {
 }
 
 func (g *Game) spawnBody(pos Vec, cs *CharSet, dir Dir) {
-	g.bodies = append(g.bodies, &Body{pos: pos, cs: cs, dir: dir, fallT: 0.45, byPlayer: (g.killByPlayer || g.credit) && !g.noHeat})
+	nb := &Body{pos: pos, cs: cs, dir: dir, fallT: 0.45, byPlayer: (g.killByPlayer || g.credit) && !g.noHeat, born: g.time}
+	g.bodies = append(g.bodies, nb)
+	if elecDeathNext {
+		elecDeathNext = false
+		g.makeSkeletonBody(nb)
+		return
+	}
 	g.decals = append(g.decals, Decal{pos: pos, kind: 0, r: 9 + g.rng.Float64()*4})
 	g.burst(Vec{pos.X, pos.Y - 14}, 18, 80, rgb(0xb01818), 0.7, 2, 220)
 }
@@ -1647,9 +1755,18 @@ func (g *Game) checkDone() {
 			g.stat(fmt.Sprintf("won_%d", g.levelIdx), 1)
 			g.stat("distinct", 1)
 		}
-		if g.levelIdx+1 < len(levelDefs) {
+		switch {
+		case g.levelIdx == specialJurassic: // the last party is over: the secret ending
+			g.startEnding(true)
+		case campaignN > 0 && g.levelIdx == campaignN-1: // the 21st party closes the story
+			if g.allTrophies() {
+				g.startInvite() // ...unless you own every trophy: one more party, on the island
+			} else {
+				g.startEnding(false)
+			}
+		case g.levelIdx+1 < len(levelDefs):
 			g.mode = ModeLevelDone
-		} else {
+		default:
 			g.mode = ModeFinal
 		}
 	}
@@ -1729,6 +1846,9 @@ func (g *Game) witness() {
 }
 
 func (g *Game) alarm(gu *Guest, txt string) {
+	if kidRiding(gu) {
+		return // busy with his tricks in the bowl: he warns nobody and runs from nobody
+	}
 	if gu.perf != "" {
 		gu.icon, gu.iconT = txt, 1.4
 		return
@@ -1747,7 +1867,7 @@ func (g *Game) alarm(gu *Guest, txt string) {
 	gu.timer = 1.0 + g.rng.Float64()*1.3
 	gu.icon, gu.iconT = txt, 1.4
 	gu.path = nil
-	g.snd.Play("alert")
+	// no beep here: with a crowd (zombies, the T-Rex, a fight) the guests warn each other non stop
 }
 
 func (g *Game) callerAvailable() bool {
@@ -1864,11 +1984,12 @@ func (g *Game) interact() {
 					g.say("Necesitas un frasco de veneno: búscalo por la fiesta")
 					return
 				}
-				p.item = ""
+				g.useDoses(poisonBowlDoses)
 				g.award(Vec{pr.X, pr.Y}, 15, "veneno")
 				pr.armT = 40
 				g.snd.Play("splash")
 				g.say("Has envenenado el ponche")
+				g.say(dosesText(p.doses))
 			}})
 		case (pr.Name == "closet" || pr.Name == "wardrobe") && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
@@ -1943,6 +2064,10 @@ func (g *Game) interact() {
 				}})
 			}
 		}
+	}
+	if gu := g.poisonTarget(); gu != nil {
+		gu := gu
+		cs = append(cs, candidate{dist(gu.pos, p.pos) - 3, func() { g.offerPoison(gu) }})
 	}
 	if len(cs) == 0 {
 		if p.carrying != nil {
@@ -2052,7 +2177,8 @@ func (g *Game) triggerTrap(pr *Prop) {
 		for _, gu := range g.guests {
 			if !gu.out() && g.lvl.InPool(gu.pos) {
 				g.burst(Vec{gu.pos.X, gu.pos.Y - 12}, 10, 70, rgb(0xd0f4ff), 0.4, 2, 0)
-				g.killGuest(gu, false)
+				g.killGuestElec(gu, false)
+				g.sayNews("electrocuted", map[string]string{"victim": guestLabel(gu)})
 				g.stat("traps", 1)
 			}
 		}
@@ -2134,7 +2260,7 @@ func (g *Game) guestPick(gu *Guest) {
 	d := g.lvl.Def
 	if l := gu.leader; l != nil && !l.out() && gu.need < 1 && g.rng.Float64() < 0.8 {
 		// the group sticks together behind its leader
-		gu.path = g.lvl.Path(gu.pos, g.lvl.NearestFree(Vec{l.pos.X + g.rng.Float64()*50 - 25, l.pos.Y + g.rng.Float64()*30 - 10}))
+		gu.path = g.lvl.PathG(gu.pos, g.lvl.NearestFree(Vec{l.pos.X + g.rng.Float64()*50 - 25, l.pos.Y + g.rng.Float64()*30 - 10}))
 		gu.state, gu.next, gu.dur = gGoto, gIdle, 2+g.rng.Float64()*2
 		return
 	}
@@ -2145,7 +2271,7 @@ func (g *Game) guestPick(gu *Guest) {
 		gu.hurry, gu.hurryT = true, 0
 		gu.icon, gu.iconT = []string{"WC!", "¡NO AGUANTO!", "¡BAÑO!"}[g.rng.Intn(3)], 2.5
 		if target, ok := g.poiRandom("toilet"); ok {
-			gu.path = g.lvl.Path(gu.pos, target)
+			gu.path = g.lvl.PathG(gu.pos, target)
 			gu.state, gu.next, gu.dur = gGoto, gToilet, 6+g.rng.Float64()*4
 			return
 		}
@@ -2212,7 +2338,7 @@ func (g *Game) guestPick(gu *Guest) {
 		if g.rng.Float64() < 0.8 && g.trafficNear(Vec{gu.pos.X, cy}) {
 			break
 		}
-		if path := g.lvl.Path(gu.pos, Vec{gu.pos.X + g.rng.Float64()*80 - 40, cy}); path != nil {
+		if path := g.lvl.PathG(gu.pos, Vec{gu.pos.X + g.rng.Float64()*80 - 40, cy}); path != nil {
 			gu.path = path
 			gu.state, gu.next, gu.dur = gGoto, gIdle, 3
 			return
@@ -2225,7 +2351,7 @@ func (g *Game) guestPick(gu *Guest) {
 	if !ok {
 		target = g.lvl.RandomRoam(g.rng)
 	}
-	gu.path = g.lvl.Path(gu.pos, target)
+	gu.path = g.lvl.PathG(gu.pos, target)
 	gu.state, gu.next, gu.dur = gGoto, next, dur
 }
 
@@ -2244,6 +2370,9 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 	g.updateGreeting(gu, dt)
 	g.updateStar(gu, dt)
 	if gu.out() {
+		return
+	}
+	if g.lvl != nil && len(g.lvl.bowls) > 0 && g.bowlGuest(gu, dt) {
 		return
 	}
 	gu.moving = false
@@ -2265,23 +2394,15 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			gu.icon = ""
 		}
 	}
-	if gu.poison > 0 {
-		gu.poison -= dt
-		if gu.poison <= 0 {
-			g.credit = true
-			g.killGuest(gu, false)
-			g.credit = false
-			g.stat("poison", 1)
-			g.sayNews("kill", map[string]string{"actor": "El veneno", "victim": guestLabel(gu)})
-			return
-		}
+	if gu.poison > 0 && g.updatePoison(gu, dt) {
+		return
 	}
 	g.maybePickWeapon(gu)
 	if g.mode == ModePlay && gu.iconT <= 0 && gu.perf == "" && (gu.state == gIdle || gu.state == gDance || gu.state == gLounge || gu.state == gGoto) && g.rng.Float64() < dt*0.003 {
 		gu.icon, gu.iconT = g.chatterLine(gu), 2.8
 	}
 	if gu.chant && gu.icon == "" && g.rng.Float64() < 0.0015 && !gu.out() {
-		gu.icon, gu.iconT = chants[g.rng.Intn(len(chants))], 2.5
+		gu.icon, gu.iconT = g.freshPhrase("chants", chants, g.rng.Intn), 2.5
 	}
 	if gu.state != gSleep && gu.perf == "" {
 		gu.need += dt * (0.006 + 0.004*gu.off/6)
@@ -2342,7 +2463,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		gu.repath -= dt
 		if gu.repath <= 0 {
 			gu.repath = 0.6
-			gu.path = g.lvl.Path(gu.pos, p.pos)
+			gu.path = g.lvl.PathG(gu.pos, p.pos)
 		}
 		gu.walk(guestSpeed, dt)
 		if dist(gu.pos, p.pos) < 24 || gu.timer <= 0 {
@@ -2409,9 +2530,13 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			g.snd.Play("glug")
 			gu.drunk++
 			poisoned := false
+			if gu.offered {
+				g.startPoison(gu)
+				poisoned = true
+			}
 			for _, pr := range g.lvl.Props {
 				if pr.K.Poison && pr.armT > 0 && distRect(gu.pos, pr.Foot) < 30 && gu.poison <= 0 {
-					gu.poison = 4 + g.rng.Float64()*5
+					g.startPoison(gu)
 					poisoned = true
 				}
 			}
@@ -2438,7 +2563,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		gu.timer -= dt
 		if gu.timer <= 0 {
 			g.decals = append(g.decals, Decal{pos: Vec{gu.pos.X, gu.pos.Y + 4}, kind: 2, r: 8})
-			if g.rng.Float64() < 0.6 {
+			if gu.poison <= 0 && g.rng.Float64() < 0.6 {
 				gu.state, gu.timer = gSleep, 12+g.rng.Float64()*12
 			} else {
 				gu.state, gu.timer = gIdle, 2
@@ -2523,7 +2648,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		gu.repath -= dt
 		if gu.repath <= 0 {
 			gu.repath = 0.3
-			gu.path = g.lvl.Path(gu.pos, g.p.pos)
+			gu.path = g.lvl.PathG(gu.pos, g.p.pos)
 		}
 		gu.walk(56, dt)
 		if gu.timer <= 0 || g.p.hidden {
@@ -2546,7 +2671,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 	case gScared:
 		gu.timer -= dt
 		if len(gu.path) == 0 {
-			gu.path = g.lvl.Path(gu.pos, g.farRoam(gu.pos))
+			gu.path = g.lvl.PathG(gu.pos, g.farRoam(gu.pos))
 		}
 		gu.walk(guestRunSpeed, dt)
 		if gu.timer <= 0 {
@@ -2562,7 +2687,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			break
 		}
 		if len(gu.path) == 0 || gu.timer <= 0 {
-			gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
+			gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
 			gu.timer = 3
 		}
 		gu.walk(57, dt)
@@ -2587,7 +2712,7 @@ func (g *Game) phoneSpot(from Vec) *Prop {
 
 func (g *Game) guestReact(gu *Guest) {
 	if pr := g.phoneSpot(gu.pos); pr != nil {
-		gu.path = g.lvl.Path(gu.pos, Vec{pr.X, pr.Y + 14})
+		gu.path = g.lvl.PathG(gu.pos, Vec{pr.X, pr.Y + 14})
 		gu.state = gToPhone
 		return
 	}
@@ -2602,7 +2727,7 @@ func (g *Game) guestFlee(gu *Guest) {
 			break
 		}
 	}
-	gu.path = g.lvl.Path(gu.pos, t)
+	gu.path = g.lvl.PathG(gu.pos, t)
 	gu.state = gFlee
 }
 
@@ -2719,7 +2844,7 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 	gu.repath -= dt
 	if gu.repath <= 0 {
 		gu.repath = 0.4
-		gu.path = g.lvl.Path(gu.pos, tp)
+		gu.path = g.lvl.PathG(gu.pos, tp)
 	}
 	speed := 32.0
 	if gu.tgtPlayer {
@@ -3271,6 +3396,9 @@ func (g *Game) updateVehicles(dt float64) {
 		if heli {
 			v.rot += dt * 30
 		}
+		if !heli {
+			laneRemap(def, v)
+		}
 		switch v.state {
 		case 0:
 			if heli {
@@ -3278,6 +3406,8 @@ func (g *Game) updateVehicles(dt float64) {
 				if v.y >= v.ty {
 					v.y, v.state = v.ty, 1
 				}
+			} else if v.lane {
+				laneStep(def, v, dt)
 			} else {
 				v.x -= 130 * dt
 				if v.x <= v.tx {
@@ -3392,6 +3522,10 @@ func (g *Game) updateVehicles(dt float64) {
 			if heli {
 				v.y -= 100 * dt
 				if v.y < -140 {
+					continue
+				}
+			} else if v.lane {
+				if laneStep(def, v, dt) {
 					continue
 				}
 			} else {
@@ -3938,9 +4072,10 @@ func (g *Game) maybeTow(dt float64) {
 	g.towT = 10 + g.rng.Float64()*8
 	for _, lane := range [2]bool{true, false} {
 		haveWreck := false
+		wy := 0.0
 		for _, w := range g.wrecks {
 			if g.towLane(w.Y) == lane {
-				haveWreck = true
+				haveWreck, wy = true, w.Y
 				break
 			}
 		}
@@ -3958,10 +4093,12 @@ func (g *Game) maybeTow(dt float64) {
 			continue
 		}
 		a := &Ambient{kind: ambTow, col: g.rng.Intn(4)}
+		// it drives along the very lane of the wreck (levels with custom lane widths or several
+		// lanes would otherwise have it pass beside the wreck without ever picking it up)
 		if lane {
-			a.y, a.x, a.vx = def.CarFrom.Y+g.laneOff(), -100, 70
+			a.y, a.x, a.vx = wy, -100, 70
 		} else {
-			a.y, a.x, a.vx = def.CarFrom.Y-g.laneOff(), 1060, -70
+			a.y, a.x, a.vx = wy, 1060, -70
 		}
 		g.amb = append(g.amb, a)
 	}
@@ -4088,6 +4225,7 @@ func (g *Game) updateAmbient(dt float64) {
 			}
 		}
 	}
+	g.maybeTow(dt) // (it was never called before: the tow trucks never showed up)
 	out := g.amb[:0]
 	for _, a := range g.amb {
 		g.driveAmbient(a, dt)
@@ -4174,14 +4312,7 @@ func (g *Game) testLevel(name string) {
 	g.rigCache = map[*CharAsset]*CharSet{}
 	g.setupCast()
 	g.rebuildLevels()
-	idx := 0
-	if g.store != nil {
-		for i, la := range g.store.Levels {
-			if la.Meta.Name == name {
-				idx = i
-			}
-		}
-	}
+	idx := g.levelIndexByName(name)
 	g.fromEditor = true
 	ebiten.SetWindowSize(gameWinW, gameWinH)
 	ebiten.SetWindowTitle("Party Hard - probando escenario (Esc vuelve al editor)")
@@ -4514,7 +4645,7 @@ func (g *Game) otherCuffed() bool {
 // trimGuests enforces the people limit at the start of a party: ordinary
 // guests are dropped at random; specials (performers, groups, lifeguards) stay.
 func (g *Game) trimGuests() {
-	limit := g.maxStart()
+	limit := g.startTarget
 	for len(g.guests) > limit {
 		var cand []int
 		for i, gu := range g.guests {
@@ -4570,12 +4701,14 @@ func (g *Game) updateConfirm() {
 		case g.confirmSel == 0:
 			g.mode = ModeMenu
 		case ready:
-			g.progress = Progress{Unlocked: 1, MaxStart: g.progress.MaxStart, MaxTotal: g.progress.MaxTotal}
+			old := g.progress
+			g.progress = Progress{Unlocked: 1, GuestMin: g.progress.GuestMin, GuestMax: g.progress.GuestMax}
+			keepSeen(&g.progress, old) // the cinematics you have seen stay seen
 			saveProgress(g.progress)
 			g.syncShop()
 			g.shopCache, g.tierBase = nil, nil
 			g.applyShop()
-			g.startLevel(0)
+			g.beginNewGame()
 		}
 	}
 }

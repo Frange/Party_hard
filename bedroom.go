@@ -15,6 +15,7 @@ var partyColors = []uint32{0xe03a8a, 0x3a6ae0, 0x3ad0a8, 0xf0c030, 0x9a4ae0, 0xe
 // can be seen through the window.
 func (g *Game) drawBedroom(dst *ebiten.Image) {
 	t := g.time
+	quiet := g.bedQuiet     // the ending: the neighbours are asleep too
 	gold := g.allTrophies() // everything won: a golden room, the party in the window is dead and he sleeps in peace
 	wall, floor := rgb(0x16202c), rgb(0x0d1420)
 	if gold {
@@ -118,6 +119,17 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 		fe(872+float64(k)*3, 70+float64(k)*14+math.Sin(t*2+float64(k))*3, 7, 9, rgba(c, 230))
 		fr(872+float64(k)*3, 79+float64(k)*14, 1, 20-float64(k)*8, rgba(0xc8c8d8, 140))
 	}
+	if quiet { // the house across the street: lights out, music off
+		fr(586, 92, 290, 106, rgb(0x14122a))
+		fr(580, 84, 302, 10, rgb(0x1e1a34))
+		for i := 0; i < 5; i++ {
+			fr(600+float64(i)*56, 98, 14, 10, rgb(0x1c1a30))
+		}
+		fr(rx-3, ry-3, rw+6, rh+6, rgb(0x0a0814))
+		fr(rx, ry, rw, rh, rgb(0x120a1c))
+		fr(rx+rw/2-26, ry+rh-30, 52, 26, rgb(0x1a1226))
+		fr(rx+rw/2-22, ry+rh-26, 44, 18, rgb(0x2a2a4a)) // a pile of tired people on the sofa, asleep
+	}
 	// colour spill of the party into the night
 	pc := partyColors[ci%len(partyColors)]
 	// curtains and frame
@@ -135,7 +147,11 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	fillRect(dst, bx0-52, 330, 40, 4, rgb(0x4a3528))
 	fillRect(dst, bx0-44, 352, 24, 16, rgb(0x14100c))
 	fillRect(dst, bx0-44, 306, 24, 18, rgb(0x0a0a0e)) // alarm clock
-	g.drawText(dst, "3:47", bx0-42, 310, rgb(0xff3030), 0.9)
+	clock := "3:47"
+	if quiet {
+		clock = "6:30"
+	}
+	g.drawText(dst, clock, bx0-42, 310, rgb(0xff3030), 0.9)
 	fillRect(dst, bx0-48, 398, 6, 20, rgb(0x2a1e18))
 	fillRect(dst, bx0-22, 398, 6, 20, rgb(0x2a1e18))
 	fillRect(dst, bx0-12, 250, 14, 190, rgb(0x3a2a1e)) // headboard
@@ -150,7 +166,9 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	fillRect(dst, bx0+8, by0+10, 58, 4, rgb(0xc4ccdc))
 	fillRect(dst, bx0+8, by1-14, 58, 4, rgb(0x8a92a4))
 	fillRect(dst, bx0+62, by0+10, 4, by1-by0-20, rgb(0x8a92a4))
-	g.drawSleeper(dst, bx0-30, (by0+by1)/2, t)
+	if !g.bedEmpty {
+		g.drawSleeper(dst, bx0-30, (by0+by1)/2, t)
+	}
 	// blanket over the legs, moving with every turn
 	wob := math.Sin(t*2) * 1.5
 	fillRect(dst, 600, 320+wob, bx1-600, 110, rgb(0x3a6aa0))
@@ -171,9 +189,13 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	} else {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x02040a, 100))
 	}
-	fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgba(pc, 16)) // the party's lights on the sheets
+	if !quiet {
+		fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgba(pc, 16)) // the party's lights on the sheets
+	}
 	dst.DrawImage(g.as.vignette, nil)
-	g.drawSleeperTalk(dst)
+	if !g.bedEmpty && !g.bedNoTalk {
+		g.drawSleeperTalk(dst)
+	}
 }
 
 // drawSleeper draws the hero lying in bed; every few seconds he flips over
@@ -186,7 +208,7 @@ func (g *Game) drawSleeper(dst *ebiten.Image, cx, cy, t float64) {
 	const period, turn = 6.8, 0.9
 	n := int(t / period)
 	ph := math.Mod(t, period)
-	calm := g.allTrophies()
+	calm := g.allTrophies() || g.bedQuiet
 	if calm {
 		n, ph = 0, 0 // he lies on his back, not turning
 	}

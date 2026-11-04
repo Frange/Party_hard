@@ -44,6 +44,9 @@ func (l *LevEd) fitZoom() {
 			best = z
 		}
 	}
+	if l.prefZoom > 0 {
+		best = l.prefZoom
+	}
 	l.cv.fz = best
 	l.cv.px = int((float64(l.cv.vw) - screenW*best) / 2)
 	l.cv.py = int((float64(l.cv.vh) - screenH*best) / 2)
@@ -65,6 +68,7 @@ func (l *LevEd) stepZoom(dir int, mx, my int) {
 	}
 	ix, iy := float64(mx-cv.x-cv.px)/cur, float64(my-cv.y-cv.py)/cur
 	cv.fz = nz
+	l.prefZoom = nz
 	cv.px = mx - cv.x - int(ix*nz)
 	cv.py = my - cv.y - int(iy*nz)
 }
@@ -163,14 +167,15 @@ func (l *LevEd) leftColumn(u *UI) {
 	budget := 3
 	mk := func(i int) thumb {
 		n := l.list[i]
-		t := thumb{label: n}
-		if _, ok := l.thumbs[n]; ok || budget > 0 {
-			if !ok {
+		return thumb{label: n, lazy: func() *ebiten.Image {
+			if _, ok := l.thumbs[n]; !ok {
+				if budget <= 0 {
+					return nil
+				}
 				budget--
 			}
-			t.img = l.thumbFor(n)
-		}
-		return t
+			return l.thumbFor(n)
+		}}
 	}
 	if len(l.list) == 0 {
 		u.round(x, y, w, gridH, rgb(0x101018))
@@ -195,14 +200,16 @@ func (l *LevEd) leftColumn(u *UI) {
 		l.newFromGenerator(kinds[rand.Intn(len(kinds))])
 	}
 	y += 40
+	tplList := templateEntries()
 	var tpl []segItem
-	defs := builtinLevels()
-	for _, d := range defs {
-		tpl = append(tpl, segItem{"world", d.Title})
+	for _, e := range tplList {
+		tpl = append(tpl, segItem{"world", e.title})
 	}
-	if i := u.menuBtn(x, y, bw, 34, "folder", "Plantilla", "lvtpl", tpl, "Copia uno de los escenarios del juego para cambiarlo"); i >= 0 && i < len(defs) {
-		def := defs[i]
-		if la, err := exportLevelDef(l.ed.g, def, "copia_"+safeName(def.Title)); err == nil {
+	if i := u.menuBtn(x, y, bw, 34, "folder", "Plantilla", "lvtpl", tpl, "Copia uno de los escenarios del juego para cambiarlo"); i >= 0 && i < len(tplList) {
+		def := tplList[i].def()
+		if def == nil {
+			l.ed.say("No se pudo crear la plantilla")
+		} else if la, err := exportLevelDef(l.ed.g, def, "copia_"+safeName(def.Title)); err == nil {
 			l.setLevel(la)
 			l.name = la.Meta.Name
 			l.sel = -1
@@ -228,6 +235,9 @@ func (l *LevEd) leftColumn(u *UI) {
 	if u.iconBtn(x, y, w, 44, "play", "Probar escenario", false, "Guarda y lo juega; con Esc vuelves al editor") {
 		l.save()
 		l.ed.g.testLevel(safeName(l.name))
+	}
+	if l.ed.debug {
+		l.debugBlock(u, x, y+54, w)
 	}
 }
 
@@ -281,7 +291,9 @@ func (l *LevEd) centre(u *UI) {
 	if u.focus == "" {
 		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyMeta)
 		if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyZ) {
-			if l.mode == 0 {
+			if l.mode == 2 || l.mode == 3 {
+				l.moveUndo()
+			} else if l.mode == 0 {
 				pt.doUndo(l.la.BG)
 				cv.dirty = true
 			} else if len(l.undoL) > 0 {
@@ -290,16 +302,21 @@ func (l *LevEd) centre(u *UI) {
 				l.solid, l.zone = s[0], s[1]
 			}
 		}
-		if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyY) && l.mode == 0 {
-			pt.doRedo(l.la.BG)
-			cv.dirty = true
+		if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			if l.mode == 2 || l.mode == 3 {
+				l.moveRedo()
+			} else if l.mode == 0 {
+				pt.doRedo(l.la.BG)
+				cv.dirty = true
+			}
 		}
+		l.moveKeys(u)
 		for i := 0; i < 5; i++ {
 			if inpututil.IsKeyJustPressed(ebiten.Key1 + ebiten.Key(i)) {
 				l.mode = i
 			}
 		}
-		if (inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace)) && l.mode == 2 && l.selInst >= 0 && l.selInst < len(m.Props) {
+		if (inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace)) && l.mode == 2 && l.objTool == 0 && l.selInst >= 0 && l.selInst < len(m.Props) {
 			m.Props = append(m.Props[:l.selInst], m.Props[l.selInst+1:]...)
 			l.selInst = -1
 		}
@@ -333,6 +350,10 @@ func (l *LevEd) centre(u *UI) {
 	case 3:
 		l.updatePoints(u, x, yy, inside && inCanvas)
 	}
+	if l.mv.needDraw && !l.mv.drag && l.mv.zmode != 2 && !u.down {
+		l.mv.needDraw = false
+		l.redrawOriginal()
+	}
 	if cv.dirty {
 		cv.refresh(l.la.BG)
 	}
@@ -347,8 +368,8 @@ func (l *LevEd) centre(u *UI) {
 	help := map[int][]string{
 		0: {"FONDO: pinta el suelo y las paredes como quieras. Los objetos se colocan aparte (opción Objetos)."},
 		1: {"MUROS: dibuja lo que bloquea el paso (muros, vallas, agua) y las zonas donde pasea y baila la gente.", "Clic izquierdo pinta, clic derecho borra."},
-		2: {"OBJETOS: elige uno a la derecha y haz clic en el escenario para ponerlo. Clic derecho: borrarlo."},
-		3: {"PUNTOS: dónde aparece el jugador, por dónde llega la policía, rutas de guardias, DJ, luces y animales."},
+		2: {"OBJETOS: Colocar (clic), Mover (arrastrar objetos y suelos) o Zona (mover un rectángulo entero). Elige arriba a la derecha."},
+		3: {"PUNTOS: dónde aparece el jugador, por dónde llega la policía, rutas de guardias, DJ, luces y animales. «Mover» los arrastra."},
 		4: {"AJUSTES: título, invitados, hora del día y carretera."},
 	}[l.mode]
 	for i, s := range help {
@@ -369,6 +390,7 @@ func (l *LevEd) drawCanvas(u *UI) {
 	mode := l.mode
 	rd, rx0, ry0 := l.rdrag, l.rx0, l.ry0
 	g := l.ed.g
+	hls := l.highlights()
 	u.add(func(d *ebiten.Image) {
 		view.draw(d, screenW, screenH, false)
 		vp := d.SubImage(imageRect(view.x, view.y, view.vw, view.vh)).(*ebiten.Image)
@@ -434,6 +456,17 @@ func (l *LevEd) drawCanvas(u *UI) {
 		if showPts {
 			drawLevelPoints(vp, &meta, sx, sy, z, mode == 3)
 		}
+		for _, h := range hls {
+			bx, by, bw, bh := sx(h.x), sy(h.y), float64(h.w)*z, float64(h.h)*z
+			fillRect(vp, bx, by, bw, bh, color.RGBA{h.col.R * 38 / 255, h.col.G * 38 / 255, h.col.B * 38 / 255, 38}) // premultiplied
+			fillRect(vp, bx, by, bw, 1, h.col)
+			fillRect(vp, bx, by+bh-1, bw, 1, h.col)
+			fillRect(vp, bx, by, 1, bh, h.col)
+			fillRect(vp, bx+bw-1, by, 1, bh, h.col)
+			if h.label != "" {
+				g.plainText(vp, h.label, bx, by-14, h.col)
+			}
+		}
 		if mode == 0 {
 			pt.previewShape(func(px, py int) {
 				fillRect(vp, sx(px), sy(py), math.Max(1, z), math.Max(1, z), color.RGBA{pt.col.R, pt.col.G, pt.col.B, 160})
@@ -460,6 +493,10 @@ func (l *LevEd) fondoPanel(u *UI) {
 	y := edTop + 12
 	u.heading(x+4, y, lvRW-8, "PINTAR EL FONDO")
 	y += 22
+	if l.overrideKey != "" {
+		u.text(x+4, y, "Original del juego: este dibujo no se guarda", uiRed)
+		y += 18
+	}
 	for i, t := range []struct {
 		tool       int
 		icon, name string
@@ -581,10 +618,20 @@ func (l *LevEd) objetosPanel(u *UI) {
 	y := edTop + 12
 	u.heading(x+4, y, lvRW-8, "OBJETOS")
 	y += 22
-	if i := u.seg(x, y, lvRW-4, 30, []segItem{{"pencil", "Colocar"}, {"hand", "Mover"}}, map[bool]int{false: 0, true: 1}[l.moveMode]); i >= 0 {
-		l.moveMode = i == 1
+	if i := u.seg(x, y, lvRW-4, 30, []segItem{{"pencil", "Colocar"}, {"hand", "Mover"}, {"target", "Zona"}}, l.objTool); i >= 0 && i != l.objTool {
+		l.objTool = i
+		l.mv.zhas, l.mv.zmode, l.mv.drag = false, 0, false
+		l.selectItem(lvItem{})
 	}
 	y += 38
+	switch l.objTool {
+	case 1:
+		l.movePanel(u, x, y, maskProps|l.groundMask())
+		return
+	case 2:
+		l.zonePanel(u, x, y)
+		return
+	}
 	mkKind := func(i int) thumb {
 		t := thumb{label: l.kinds[i]}
 		if imgs := l.ed.g.as.props[l.kinds[i]]; len(imgs) > 0 {
@@ -608,6 +655,97 @@ func (l *LevEd) objetosPanel(u *UI) {
 	u.text(x+4, y+32, "Supr: borra el seleccionado", uiDim)
 }
 
+// groundMask: the ground and the water can be moved only in the game's own scenarios.
+func (l *LevEd) groundMask() int {
+	if l.overrideKey != "" {
+		return maskGround
+	}
+	return 0
+}
+
+// movePanel: the list of everything that can be grabbed, and how to move it.
+func (l *LevEd) movePanel(u *UI, x, y, mask int) {
+	m := &l.la.Meta
+	items := l.listItems(mask)
+	labels := make([]string, len(items))
+	sel := -1
+	for i, it := range items {
+		labels[i] = it.label(m)
+		if it == l.mv.sel {
+			sel = i
+		}
+	}
+	u.heading(x+4, y, lvRW-8, "ELEMENTOS DEL ESCENARIO")
+	y += 22
+	rows := 18
+	if i := u.list(x, y, lvRW-4, rows, labels, sel, &l.mv.elScroll); i >= 0 {
+		l.selectItem(items[i])
+	}
+	y += rows*18 + 8
+	if l.mv.sel.kind == itProp && l.selInst >= 0 && l.selInst < len(m.Props) {
+		u.stepper(x+4, y, "Versión", &l.curVar, 0, 9, 1)
+		m.Props[l.selInst].Var = l.curVar
+		y += 28
+	}
+	if l.mv.sel.kind != itNone {
+		if u.iconBtn(x, y, lvRW-4, 28, "trash", "Quitar el seleccionado", false, "Supr") {
+			l.deleteSelected()
+		}
+		y += 34
+	}
+	u.text(x+4, y, "Arrastra una cosa en el escenario.", uiDim)
+	u.text(x+4, y+16, "Flechas: 1 celda (Mayús: 1 píxel).", uiDim)
+	u.text(x+4, y+32, "Ctrl+Z / Ctrl+Y: deshacer y rehacer.", uiDim)
+	if l.overrideKey != "" {
+		u.text(x+4, y+52, "Original del juego: al soltar un suelo", uiAccent)
+		u.text(x+4, y+68, "o el agua se repinta el fondo.", uiAccent)
+	}
+}
+
+// zonePanel: moving a rectangle of the scenario with everything in it.
+func (l *LevEd) zonePanel(u *UI, x, y int) {
+	mv := &l.mv
+	u.heading(x+4, y, lvRW-8, "MOVER UNA ZONA")
+	y += 22
+	for i, s := range []string{
+		"1. Arrastra sobre el escenario para",
+		"    elegir un rectángulo.",
+		"2. Arrastra dentro para moverlo con",
+		"    todo lo que lleva dentro.",
+	} {
+		u.text(x+4, y+i*16, s, uiDim)
+	}
+	y += 76
+	if u.iconBtn(x, y, lvRW-4, 30, "plus", "Copiar en vez de mover", mv.zcopy, "También con Alt apretado") {
+		mv.zcopy = !mv.zcopy
+	}
+	y += 36
+	if mv.zhas {
+		if u.iconBtn(x, y, lvRW-4, 30, "trash", "Vaciar la zona", false, "Supr") {
+			l.zoneDelete()
+		}
+		y += 36
+		r := mv.zrect
+		u.text(x+4, y, fmt.Sprintf("Zona: %d x %d píxeles", r[2]-r[0], r[3]-r[1]), uiText)
+		zc := l.captureZone(r)
+		u.text(x+4, y+16, fmt.Sprintf("Dentro: %d objetos, %d puntos", len(zc.props), len(zc.pts)), uiDim)
+		y += 38
+	} else {
+		u.text(x+4, y, "Aún no hay zona elegida.", uiDim)
+		y += 24
+	}
+	u.text(x+4, y, "Lleva consigo: el dibujo del fondo,", uiDim)
+	u.text(x+4, y+16, "muros, agua, suelo lento, carreteras,", uiDim)
+	u.text(x+4, y+32, "zonas, objetos y puntos.", uiDim)
+	u.text(x+4, y+54, "Flechas: 1 celda · Supr: vacía la zona", uiDim)
+	u.text(x+4, y+70, "Esc: quita la selección", uiDim)
+	if l.overrideKey != "" {
+		u.text(x+4, y+94, "Original del juego: el dibujo del fondo", uiAccent)
+		u.text(x+4, y+110, "no se mueve; sí suelos, agua, muros,", uiAccent)
+		u.text(x+4, y+126, "objetos y puntos.", uiAccent)
+	}
+}
+
 func (l *LevEd) puntosPanel(u *UI) {
 	m := &l.la.Meta
 	x := lvRX
@@ -625,6 +763,7 @@ func (l *LevEd) puntosPanel(u *UI) {
 		{"bulb", "Luces", "Focos de colores"},
 		{"paw", "Animales", "Dónde viven los animales"},
 		{"road", "Zona de parada", "Dónde paran la policía y las ambulancias"},
+		{"hand", "Mover", "Arrastra cualquier punto: inicio, policía, helipuertos, rutas, músicos, luces, animales"},
 	}
 	bw := (lvRW - 4) / 2
 	for i, t := range tools {
@@ -636,6 +775,8 @@ func (l *LevEd) puntosPanel(u *UI) {
 	y += ((len(tools)+1)/2)*34 + 8
 	u.rect(x, y-4, lvRW-4, 1, uiLine)
 	switch l.ptTool {
+	case ptMoveTool:
+		l.movePanel(u, x, y+4, maskPoints)
 	case 0:
 		u.text(x+4, y, "Clic: dónde aparece el jugador.", uiDim)
 	case 8:
@@ -809,4 +950,33 @@ func (l *LevEd) ajustesPanel(u *UI) {
 	if i := u.seg(x, y, lvRW-4, 26, []segItem{{"", "Ambos"}, {"right", "Derecha"}, {"left", "Izquierda"}}, tr); i >= 0 {
 		m.Traffic = []string{"", "right", "left"}[i]
 	}
+}
+
+// tplEntry is one game scenario that can be copied as a template. Building a scenario
+// (generating it and checking that every point can be reached) takes a good fraction of a
+// second, so only the title is known up front and the scenario is built when it is chosen.
+type tplEntry struct {
+	title string
+	def   func() *LevelDef
+}
+
+var tplCache []tplEntry
+
+func templateEntries() []tplEntry {
+	if tplCache != nil {
+		return tplCache
+	}
+	for _, e := range campaignLevels {
+		e := e
+		title := e.title
+		if e.level != nil {
+			title = e.level().Title
+		}
+		tplCache = append(tplCache, tplEntry{title, func() *LevelDef { return resolveCampaign(e) }})
+	}
+	for _, e := range extraLevels {
+		e := e
+		tplCache = append(tplCache, tplEntry{e.title, func() *LevelDef { return genNamed(e.kind, e.seed, e.title) }})
+	}
+	return tplCache
 }

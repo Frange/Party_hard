@@ -159,7 +159,7 @@ func (g *Game) updateDuets(dt float64) {
 	for i, gu := range []*Guest{a, b} {
 		gu.partner = nil
 		slot := g.lvl.NearestFree(Vec{mid.X + float64(i*2-1)*13, mid.Y})
-		gu.path = g.lvl.Path(gu.pos, slot)
+		gu.path = g.lvl.PathG(gu.pos, slot)
 		gu.state, gu.next, gu.dur, gu.fun = gGoto, gFun, 30, 17
 		gu.dAnim = AnimIdle
 		gu.hurry, gu.hurryT = false, -99
@@ -294,7 +294,7 @@ func (g *Game) updateStar(gu *Guest, dt float64) {
 		gu.icon, gu.iconT = "¡YAHOO!", 2
 	case "deadpool":
 		gu.starAct, gu.dAnim = 4.5, AnimTalk
-		gu.icon, gu.iconT = deadpoolLines[g.rng.Intn(len(deadpoolLines))], 3
+		gu.icon, gu.iconT = g.freshPhrase("deadpool", deadpoolLines, g.rng.Intn), 3
 	case "hulk":
 		gu.starAct, gu.dAnim = 2.2, AnimPanic
 		gu.icon, gu.iconT = "¡HULK... APLASTA!", 2.2
@@ -388,7 +388,7 @@ func (g *Game) starAct(gu *Guest, sl string, dt float64) {
 				g.snd.Play("zap")
 				g.flash = 0.18
 				g.burst(Vec{v.pos.X, v.pos.Y - 14}, 16, 100, rgb(0xfff0a0), 0.4, 2, 0)
-				g.killGuest(v, false)
+				g.killGuestElec(v, false)
 				g.sayNews("kill", map[string]string{"actor": "El rayo de Thor", "victim": guestLabel(v)})
 				g.checkDone()
 			}
@@ -396,7 +396,7 @@ func (g *Game) starAct(gu *Guest, sl string, dt float64) {
 	case "sonic":
 		if !gu.starDone {
 			gu.starDone = true
-			gu.path = g.lvl.Path(gu.pos, g.farRoam(gu.pos))
+			gu.path = g.lvl.PathG(gu.pos, g.farRoam(gu.pos))
 			gu.state, gu.next, gu.dur, gu.fun = gGoto, gIdle, 2, 0
 			gu.hurry, gu.hurryT = true, -99
 			gu.starT = g.time + 60 + g.rng.Float64()*60

@@ -148,7 +148,7 @@ func genRiderFrame(frame, coat int, sancho bool) *pixBuf {
 func buildRiderSprites(out AnimalSprites) {
 	for coat := 0; coat < 3; coat++ {
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fPeck0, fPeck1} {
-			out[animalKey(animDeer, coat, f)] = genDeerFrame(f, coat).outlinedSel(0.4).img()
+			out[animalKey(animDeer, coat, f)] = genDeerFrame(f, coat).scaled(0.8).outlinedSel(0.4).img()
 			out[animalKey(animQuijote, coat, f)] = genRiderFrame(f, coat, false).scaled(0.8).outlinedSel(0.4).img()
 			out[animalKey(animSancho, coat, f)] = genRiderFrame(f, coat, true).scaled(0.8).outlinedSel(0.4).img()
 		}

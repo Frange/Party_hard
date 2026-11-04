@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -19,6 +20,36 @@ import (
 
 // gameWin* remember the game window size to restore it when leaving the editor.
 var gameWinW, gameWinH int
+
+var benchStop func()
+
+// roleOf is charRoleOf with a cache (it opens and decodes a meta.json per character).
+func (ed *Editor) roleOf(dir string) string {
+	if r, ok := ed.roleCache[dir]; ok {
+		return r
+	}
+	if ed.roleCache == nil {
+		ed.roleCache = map[string]string{}
+	}
+	r := charRoleOf(dir)
+	ed.roleCache[dir] = r
+	return r
+}
+
+// spriteDir is spriteDirOf with a cache: the lists ask for it for every thumbnail on every
+// frame and each answer costs a disk lookup. reloadList clears the cache.
+func (ed *Editor) spriteDir(cat, name string) string {
+	k := cat + "/" + name
+	if d, ok := ed.dirCache[k]; ok {
+		return d
+	}
+	if ed.dirCache == nil {
+		ed.dirCache = map[string]string{}
+	}
+	d := spriteDirOf(ed.root, cat, name)
+	ed.dirCache[k] = d
+	return d
+}
 
 type Editor struct {
 	g    *Game
@@ -32,6 +63,20 @@ type Editor struct {
 	ob   *ObjEd
 	lv   *LevEd
 	imp  *ImportDlg // the "adjust picture" window while it is open
+
+	debug          bool // editor debug mode: the game's own scenarios can be corrected
+	konami         int
+	demoMove       string
+	pendingOrig    int // debug flag: open this original scenario on the first frame
+	dirCache       map[string]string
+	prefSaved      string // what editor_prefs.json holds (as JSON)
+	prefPending    string
+	prefAt         int
+	prefTick       int
+	roleCache      map[string]string
+	benchN         int // debug: quit after this many frames and print the average cost
+	benchU, benchD time.Duration
+	benchF         int
 }
 
 func (g *Game) openEditor() {
@@ -43,6 +88,7 @@ func (g *Game) openEditor() {
 		ed.ob = newObjEd(ed)
 		ed.lv = newLevEd(ed)
 		g.ed = ed
+		ed.loadPrefs()
 		ed.ch.reloadList()
 		if len(ed.ch.list) > 0 {
 			ed.ch.load(ed.ch.list[0])
@@ -100,6 +146,20 @@ func (ed *Editor) say(s string) { ed.msg, ed.msgT = s, 240 }
 
 func (g *Game) updateEditor() error {
 	ed := g.ed
+	if ed.benchN > 0 {
+		t0 := time.Now()
+		defer func() {
+			ed.benchU += time.Since(t0)
+			ed.benchF++
+			if ed.benchF == ed.benchN {
+				fmt.Printf("editor bench: %d frames, update %.2f ms, draw %.2f ms per frame\n", ed.benchF, float64(ed.benchU.Microseconds())/1000/float64(ed.benchF), float64(ed.benchD.Microseconds())/1000/float64(ed.benchF))
+				if benchStop != nil {
+					benchStop()
+				}
+				os.Exit(0)
+			}
+		}()
+	}
 	u := ed.ui
 	u.begin()
 	if ed.msgT > 0 {
@@ -112,6 +172,11 @@ func (g *Game) updateEditor() error {
 		}
 		ed.imp.update(u)
 		return nil
+	}
+	if ed.pendingOrig > 0 {
+		ed.lv.loadOriginal(ed.pendingOrig - 1)
+		ed.pendingOrig = 0
+		ed.lv.demo(ed.demoMove)
 	}
 	// top bar
 	u.rect(0, 0, edW, edTop, rgb(0x0e0e14))
@@ -137,6 +202,12 @@ func (g *Game) updateEditor() error {
 	if ed.msgT > 0 {
 		u.text(690, 11, ed.msg, uiAccent)
 	}
+	if ed.debug {
+		u.round(edW-402, 6, 84, 24, rgb(0x8a1f3a))
+		u.textC(edW-360, 11, "DEBUG", uiText)
+		u.tooltip(edW-402, 6, 84, 24, "Modo debug del editor: puedes corregir los escenarios originales del juego")
+	}
+	ed.konamiStep(u)
 	// global hotkeys (when no text field is focused)
 	if u.focus == "" {
 		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyMeta)
@@ -154,6 +225,7 @@ func (g *Game) updateEditor() error {
 	if drops := droppedPNGs(); len(drops) > 0 {
 		ed.requestImport(drops)
 	}
+	ed.savePrefs()
 	switch ed.tab {
 	case 0:
 		ed.ch.update(u)
@@ -185,6 +257,10 @@ func (ed *Editor) save() {
 }
 
 func (g *Game) drawEditor(screen *ebiten.Image) {
+	if g.ed.benchN > 0 {
+		t0 := time.Now()
+		defer func() { g.ed.benchD += time.Since(t0) }()
+	}
 	screen.Fill(uiBG)
 	for _, f := range g.ed.ui.cmds {
 		f(screen)
@@ -299,5 +375,35 @@ func (ed *Editor) handleDrops(drops []droppedImage) {
 		ed.ob.importDrops(drops)
 	case 2:
 		ed.lv.importDrops(drops)
+	}
+}
+
+// konamiStep watches the arrow keys for up, up, down, down, left, right, left, right.
+// It only listens while no text field has the focus.
+func (ed *Editor) konamiStep(u *UI) {
+	if u.focus != "" || ed.debug {
+		ed.konami = 0
+		return
+	}
+	seq := []ebiten.Key{ebiten.KeyArrowUp, ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight, ebiten.KeyArrowLeft, ebiten.KeyArrowRight}
+	for _, k := range []ebiten.Key{ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight} {
+		if !inpututil.IsKeyJustPressed(k) {
+			continue
+		}
+		switch {
+		case k == seq[ed.konami]:
+			ed.konami++
+		case k == ebiten.KeyArrowUp:
+			ed.konami = 1
+		default:
+			ed.konami = 0
+		}
+		break
+	}
+	if ed.konami >= len(seq) {
+		ed.konami = 0
+		ed.debug = true
+		ed.say("MODO DEBUG DESBLOQUEADO")
+		ed.g.snd.Play("win")
 	}
 }

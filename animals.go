@@ -63,8 +63,9 @@ type Animal struct {
 	sprayT float64
 	repath float64
 	dead   bool
-	label  string // proper name shown on hover (Woof)
-	home   bool   // placed by the level (stable, paddock): keeps to its own area
+	label  string  // proper name shown on hover (Woof)
+	home   bool    // placed by the level (stable, paddock): keeps to its own area
+	vert   float64 // -1 walking up the screen, +1 down, 0 sideways or standing (the horse then shows its back or its front)
 }
 
 // frames of each animal sprite
@@ -318,7 +319,7 @@ func buildAnimalSprites() AnimalSprites {
 			out[animalKey(animHen, coat, f)] = genHenFrame(f, coat).outlinedSel(0.4).img()
 		}
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fSit} {
-			out[animalKey(animDog, coat, f)] = genDogFrame(f, coat).scaled(0.62).outlinedSel(0.4).img()
+			out[animalKey(animDog, coat, f)] = genDogFrame(f, coat).scaled(0.5).outlinedSel(0.4).img()
 		}
 	}
 	buildMoreAnimalSprites(out)
@@ -395,8 +396,16 @@ func (g *Game) updateAnimals(dt float64) {
 }
 
 func (g *Game) animalWalk(a *Animal, speed, dt float64) bool {
-	prev := a.pos.X
+	prev, prevY := a.pos.X, a.pos.Y
 	_, arr := follow(&a.pos, new(Dir), &a.path, speed, dt)
+	if dy, dx := a.pos.Y-prevY, a.pos.X-prev; math.Abs(dy) > math.Abs(dx)*1.4 && math.Abs(dy) > 1e-6 {
+		a.vert = math.Copysign(1, dy)
+	} else {
+		a.vert = 0
+	}
+	if a.pos.Y != prevY {
+		a.moving = true
+	}
 	if a.pos.X != prev {
 		a.moving = true
 		if a.pos.X < prev {
@@ -574,7 +583,6 @@ func (g *Game) updateDog(a *Animal, dt float64) {
 	d := dist(g.p.pos, a.pos)
 	if d < 55 && !g.p.hidden && a.iconT <= 0 && g.rng.Float64() < 0.02 {
 		a.icon, a.iconT = "WOOF!", 1.4
-		g.snd.Play("alert")
 	}
 	switch a.state {
 	case aIdle, aGraze:
@@ -653,6 +661,18 @@ func (g *Game) drawAnimal(dst *ebiten.Image, a *Animal) {
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	x, y := g.wx(a.pos.X), g.wy(a.pos.Y)
 	fillShadow(dst, x, y)
+	if a.vert != 0 && a.moving && animalKinds[a.kind] == "horse" {
+		// walking up or down the screen: its back or its chest, not the profile
+		vp := horseFreeView(a.coat, a.vert > 0)
+		bob := math.Round(math.Sin(a.anim * 9))
+		vop := &ebiten.DrawImageOptions{}
+		vop.GeoM.Translate(math.Round(x-vp.ox), math.Round(y-vp.oy+2+bob))
+		dst.DrawImage(vp.img, vop)
+		if a.iconT > 0 && a.icon != "" {
+			g.bubble(a, bubFiller, Vec{a.pos.X, a.pos.Y - 4}, a.icon, false, -h*0.2)
+		}
+		return
+	}
 	op := &ebiten.DrawImageOptions{}
 	// sprites face right
 	if a.face < 0 {
@@ -662,6 +682,6 @@ func (g *Game) drawAnimal(dst *ebiten.Image, a *Animal) {
 	op.GeoM.Translate(math.Round(x-w/2), math.Round(y-h+2))
 	dst.DrawImage(im, op)
 	if a.iconT > 0 && a.icon != "" {
-		g.drawBubble(dst, Vec{a.pos.X, a.pos.Y - 4}, a.icon, false, -float64(h)*0.2)
+		g.bubble(a, bubFiller, Vec{a.pos.X, a.pos.Y - 4}, a.icon, false, -float64(h)*0.2)
 	}
 }

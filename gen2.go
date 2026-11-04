@@ -758,6 +758,7 @@ func genByKind(rng *rand.Rand, kind string) *LevelDef {
 	d := genByKind0(rng, kind)
 	genExotic(rng, d, kind)
 	pruneWallProps(d)
+	resolveOverlaps(d)
 	return d
 }
 
@@ -903,13 +904,13 @@ func genSkatepark(rng *rand.Rand) *LevelDef {
 	)
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
-	pl.at("halfpipe", 220, 170, 0)
-	pl.at("ramp", 460, 150, 0)
-	pl.at("ramp", 540, 150, 1)
-	pl.at("rail", 300, 290, 0)
-	pl.at("rail", 540, 300, 0)
-	pl.at("halfpipe", 760, 300, 1)
-	pl.avoid = append(pl.avoid, Vec{220, 170}, Vec{460, 150}, Vec{540, 150}, Vec{300, 290}, Vec{540, 300}, Vec{760, 300})
+	// three bowls (round, kidney and rounded square) with kids riding them, and two rails
+	pl.at("skatebowl", 200, 190, 0)
+	pl.at("skatebowl", 480, 180, 1)
+	pl.at("skatebowl", 760, 200, 2)
+	pl.at("rail", 330, 310, 0)
+	pl.at("rail", 640, 310, 0)
+	pl.avoid = append(pl.avoid, Vec{200, 190}, Vec{480, 180}, Vec{760, 200}, Vec{330, 310}, Vec{640, 310})
 	pl.at("dj", 110, 360, 0)
 	pl.at("speaker", 62, 356, 0)
 	pl.at("speaker", 160, 356, 0)

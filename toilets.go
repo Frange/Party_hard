@@ -17,7 +17,7 @@ func (l *Level) ensureToilets(n int) bool {
 		for _, p := range l.Props[before:] {
 			if p.Name == "portapotty" {
 				for _, u := range k.Use {
-					l.POIs["toilet"] = append(l.POIs["toilet"], Vec{p.X + u.X, p.Y + u.Y})
+					l.POIs["toilet"] = append(l.POIs["toilet"], Vec{p.X + u.X*p.sc(), p.Y + u.Y*p.sc()})
 				}
 			}
 		}

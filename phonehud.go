@@ -70,7 +70,7 @@ func (g *Game) drawCallHud(dst *ebiten.Image) {
 	t := g.time
 	jump := math.Abs(math.Sin(t*11)) * 9
 	ang := math.Sin(t*26) * 0.38
-	cx, cy := float64(screenW)-52, 52-jump
+	cx, cy := float64(screenW)-52, 78-jump
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(-w/2, -h/2)
@@ -92,5 +92,5 @@ func (g *Game) drawCallHud(dst *ebiten.Image) {
 			}
 		}
 	}
-	g.bigText(dst, label, cx, 80, ring, color.RGBA{40, 0, 0, 255}, 1.5)
+	g.bigText(dst, label, cx, 106, ring, color.RGBA{40, 0, 0, 255}, 1.5)
 }

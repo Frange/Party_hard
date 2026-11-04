@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"image/color"
 	"math"
 	"strings"
@@ -124,7 +125,8 @@ func (u *UI) stepper(x, y int, label string, val *int, lo, hi, step int) bool {
 // thumb is one cell of a thumbnail grid.
 type thumb struct {
 	label string
-	img   *ebiten.Image // nil while it loads
+	img   *ebiten.Image        // nil while it loads
+	lazy  func() *ebiten.Image // asked for only when the cell is on screen
 }
 
 // thumbGrid shows a scrollable grid of thumbnails with their names and
@@ -148,6 +150,9 @@ func (u *UI) thumbGrid(x, y, w, h int, cols int, items []thumb, sel int, scroll 
 				break
 			}
 			it := items[idx]
+			if it.img == nil && it.lazy != nil {
+				it.img = it.lazy()
+			}
 			cx, cy := x+4+c*cw, y+3+r*ch
 			hot := u.in(cx, cy, cw-2, ch-2)
 			switch {
@@ -294,12 +299,7 @@ func (u *UI) searchGrid(id string, x, y, w, h, cols int, find *string, names []s
 	} else if *find != "" && u.iconBtn2(x+w-18, y+1, 18, 18) {
 		*find, *scroll = "", 0
 	}
-	var idx []int
-	for i, n := range names {
-		if matchFind(n, *find) {
-			idx = append(idx, i)
-		}
-	}
+	idx := u.filtered(id, names, *find)
 	items := make([]thumb, len(idx))
 	selPos := -1
 	for p, i := range idx {
@@ -329,4 +329,36 @@ func (u *UI) iconBtn2(x, y, w, h int) bool {
 	}
 	u.textC(x+w/2, y+3, "x", uiText)
 	return hot && u.pressed
+}
+
+// filtered returns the indices of names that match the search text. The answer is kept
+// until the text or the names change, so a long list is not re-filtered on every frame.
+func (u *UI) filtered(id string, names []string, find string) []int {
+	h := fnv.New64a()
+	for _, n := range names {
+		h.Write([]byte(n))
+		h.Write([]byte{0})
+	}
+	sum := h.Sum64()
+	if c := u.filterCache[id]; c != nil && c.find == find && c.sum == sum && c.n == len(names) {
+		return c.idx
+	}
+	var idx []int
+	for i, n := range names {
+		if matchFind(n, find) {
+			idx = append(idx, i)
+		}
+	}
+	if u.filterCache == nil {
+		u.filterCache = map[string]*filterEntry{}
+	}
+	u.filterCache[id] = &filterEntry{find, sum, len(names), idx}
+	return idx
+}
+
+type filterEntry struct {
+	find string
+	sum  uint64
+	n    int
+	idx  []int
 }

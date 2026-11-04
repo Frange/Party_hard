@@ -767,27 +767,56 @@ var iconArt = map[string][]string{
 	},
 }
 
-// icon draws one of the icons at (x,y) with the given pixel scale.
+type iconKey struct {
+	name         string
+	main, accent color.RGBA
+}
+
+var iconImgs = map[iconKey]*ebiten.Image{}
+
+// icon draws one of the icons at (x,y) with the given pixel scale. Each icon is painted
+// once into a small picture (one pixel per art pixel) and then drawn scaled, instead of
+// one rectangle per pixel on every frame.
 func drawIcon(d *ebiten.Image, name string, x, y, s float64, main, accent color.RGBA) {
 	art := iconArt[name]
 	if art == nil {
 		return
 	}
-	light := shade(main, 1.25)
-	for r, row := range art {
-		for c := 0; c < len(row); c++ {
-			var col color.RGBA
-			switch row[c] {
-			case '#':
-				col = main
-			case 'o':
-				col = accent
-			case '+':
-				col = light
-			default:
-				continue
+	k := iconKey{name, main, accent}
+	im := iconImgs[k]
+	if im == nil {
+		w := 0
+		for _, row := range art {
+			if len(row) > w {
+				w = len(row)
 			}
-			fillRect(d, x+float64(c)*s, y+float64(r)*s, s, s, col)
 		}
+		light := shade(main, 1.25)
+		pix := make([]byte, w*len(art)*4)
+		for r, row := range art {
+			for c := 0; c < len(row); c++ {
+				var col color.RGBA
+				switch row[c] {
+				case '#':
+					col = main
+				case 'o':
+					col = accent
+				case '+':
+					col = light
+				default:
+					continue
+				}
+				i := (r*w + c) * 4
+				a := int(col.A)
+				pix[i], pix[i+1], pix[i+2], pix[i+3] = uint8(int(col.R)*a/255), uint8(int(col.G)*a/255), uint8(int(col.B)*a/255), col.A
+			}
+		}
+		im = ebiten.NewImage(w, len(art))
+		im.WritePixels(pix)
+		iconImgs[k] = im
 	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(s, s)
+	op.GeoM.Translate(x, y)
+	d.DrawImage(im, op)
 }

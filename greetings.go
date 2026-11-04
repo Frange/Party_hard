@@ -64,11 +64,14 @@ func (g *Game) updateGreeting(gu *Guest, dt float64) {
 	if g.rng.Float64() > 0.015 {
 		return
 	}
-	line := greetLines[g.rng.Intn(len(greetLines))]
+	line := g.freshPhrase("greet", greetLines, g.rng.Intn)
 	if gu.cs != nil && gu.cs.Spec != nil {
 		if l := catchphrases[gu.cs.Spec.Name]; len(l) > 0 && g.rng.Float64() < 0.75 {
-			line = l[g.rng.Intn(len(l))]
+			line = g.freshPhrase("catch/"+gu.cs.Spec.Name, l, g.rng.Intn)
 		}
+	}
+	if line == "" {
+		return // nothing new to say
 	}
 	gu.icon, gu.iconT, gu.lastGreet = line, 2.6, g.time
 }

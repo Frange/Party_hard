@@ -108,6 +108,7 @@ func (o *ObjEd) curType() objType {
 }
 
 func (o *ObjEd) reloadList() {
+	o.ed.dirCache = nil
 	o.entries = nil
 	for _, n := range spriteNames(o.ed.root, "objetos") {
 		data, err := os.ReadFile(filepath.Join(spriteDirOf(o.ed.root, "objetos", n), "meta.json"))
@@ -204,7 +205,7 @@ func (o *ObjEd) afterLoad() {
 }
 
 func (o *ObjEd) thumbFor(name string) *ebiten.Image {
-	dir := spriteDirOf(o.ed.root, "objetos", name)
+	dir := o.ed.spriteDir("objetos", name)
 	if im, ok := o.thumbs[dir]; ok {
 		return im
 	}

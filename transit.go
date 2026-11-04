@@ -121,6 +121,11 @@ var transitImgs = map[string]*ebiten.Image{}
 func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
 	body, trim, long, label, labCol := transitStyle(v)
 	sea := g.lvl.Def.Transit == "sea"
+	laneRemap(g.lvl.Def, v)
+	if v.lane { // the lane runs up or down the screen: bow or stern to the camera
+		g.drawTransitView(dst, v, sea, body, trim, long, label, labCol)
+		return
+	}
 	key := fmt.Sprintf("%v%x%x%x%x%v", sea, body.R, body.G, body.B, trim.R+trim.G+trim.B, long)
 	im := transitImgs[key]
 	if im == nil {

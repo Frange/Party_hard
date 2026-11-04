@@ -397,14 +397,14 @@ func buildMoreAnimalSprites(out AnimalSprites) {
 	for coat := 0; coat < 3; coat++ {
 		for f := fStand; f <= fKick; f++ {
 			out[animalKey(animBull, coat, f)] = genBullFrame(f, coat).outlinedSel(0.4).img()
-			out[animalKey(animKangaroo, coat, f)] = genKangarooFrame(f, coat).outlinedSel(0.4).img()
+			out[animalKey(animKangaroo, coat, f)] = genKangarooFrame(f, coat).scaled(0.8).outlinedSel(0.4).img()
 		}
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fGraze, fWarn} {
 			out[animalKey(animElephant, coat, f)] = genElephantFrame(f, coat).outlinedSel(0.4).img()
 			out[animalKey(animGiraffe, coat, f)] = genGiraffeFrame(f, coat).outlinedSel(0.4).img()
 		}
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fSit} {
-			out[animalKey(animCat, coat, f)] = genCatFrame(f, coat).outlinedSel(0.4).img()
+			out[animalKey(animCat, coat, f)] = genCatFrame(f, coat).scaled(0.8).outlinedSel(0.4).img()
 		}
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fPeck0, fPeck1} {
 			out[animalKey(animChick, coat, f)] = genChickFrame(f).img()

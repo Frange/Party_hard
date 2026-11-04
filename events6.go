@@ -25,9 +25,14 @@ func (g *Game) updateBubbles(dt float64) {
 	g.bubbles = out
 }
 
+type worldBubbleKey struct {
+	pos Vec
+	txt string
+}
+
 func (g *Game) drawBubbles(dst *ebiten.Image) {
 	for _, b := range g.bubbles {
-		g.drawBubble(dst, b.pos, b.txt, false, 0)
+		g.bubble(worldBubbleKey{b.pos, b.txt}, bubGuest, b.pos, b.txt, false, 0)
 	}
 }
 
@@ -86,7 +91,7 @@ func (g *Game) startSport(e *Event) bool {
 		}
 		a := float64(len(e.crew)) * 2 * math.Pi / float64(n)
 		slot := g.lvl.NearestFree(Vec{spot.X + math.Cos(a)*40, spot.Y + math.Sin(a)*32})
-		gu.path = g.lvl.Path(gu.pos, slot)
+		gu.path = g.lvl.PathG(gu.pos, slot)
 		gu.state, gu.next, gu.dur, gu.fun = gGoto, gFun, dur, 15
 		gu.hurry, gu.hurryT = true, -99
 		e.crew = append(e.crew, gu)
@@ -326,11 +331,11 @@ func (g *Game) stepTheme(e *Event, dt float64) bool {
 			}
 			if len(pools) > 0 && g.lvl.Def.Swim && i%3 != 0 {
 				t := g.lvl.RandomIn(g.rng, pools[g.rng.Intn(len(pools))].Grow(-8))
-				gu.path = g.lvl.Path(gu.pos, t)
+				gu.path = g.lvl.PathG(gu.pos, t)
 				gu.state, gu.next, gu.dur = gGoto, gSwim, 14+g.rng.Float64()*10
 			} else if sunOK {
 				t := g.lvl.NearestFree(Vec{sun.X + float64(i%4)*24 - 36, sun.Y + float64(i/4)*18})
-				gu.path = g.lvl.Path(gu.pos, t)
+				gu.path = g.lvl.PathG(gu.pos, t)
 				gu.state, gu.next, gu.dur, gu.fun = gGoto, gFun, 20+g.rng.Float64()*10, 16
 				gu.icon, gu.iconT = []string{"¡Qué calorcito!", "A broncearse", "Protector, ¿quién?"}[g.rng.Intn(3)], 2.5
 			}

@@ -126,6 +126,9 @@ func (g *Game) bigText(dst *ebiten.Image, s string, cx, y float64, col, outline 
 func (g *Game) renderBG() {
 	l := g.lvl
 	def := l.Def
+	if def.BGImg == nil && def.PaintBG != nil {
+		def.BGImg = def.PaintBG()
+	}
 	if def.BGImg != nil {
 		l.bg = def.BGImg
 		if !def.roadsDrawn {
@@ -590,11 +593,18 @@ func (g *Game) drawImg(dst, im *ebiten.Image, x, y float64, ox, oy float64) {
 // drawActor draws a character animation frame with feet at logic position pos.
 func (g *Game) drawActor(dst *ebiten.Image, cs *CharSet, anim int, phase float64, pos Vec, dir Dir, yoff float64, swim bool) {
 	cx, cy := g.wx(pos.X), g.wy(pos.Y)
+	sc := g.charSc
+	if sc <= 0 {
+		sc = 1
+	}
 	if !swim {
-		fillShadow(dst, cx, cy)
+		fillShadow(dst, cx, cy, sc)
 	}
 	img, flip := cs.img(anim, dir, phase)
 	op := &ebiten.DrawImageOptions{}
+	if sc != 1 {
+		op.Filter = ebiten.FilterLinear // smaller people: smooth the shrinking
+	}
 	if g.zombieTint {
 		op.ColorScale.Scale(0.62, 1, 0.66, 1)
 	}
@@ -606,7 +616,11 @@ func (g *Game) drawActor(dst *ebiten.Image, cs *CharSet, anim int, phase float64
 		op.GeoM.Scale(-1, 1)
 		op.GeoM.Translate(charW, 0)
 	}
-	op.GeoM.Translate(cx-charCX, cy-charBase+yoff)
+	op.GeoM.Translate(-charCX, -charBase+yoff)
+	if sc != 1 {
+		op.GeoM.Scale(sc, sc)
+	}
+	op.GeoM.Translate(cx, cy)
 	dst.DrawImage(img, op)
 	if swim {
 		for i := 0; i < 2; i++ {
@@ -625,8 +639,12 @@ func (g *Game) drawLying(dst *ebiten.Image, cs *CharSet, sleep bool, pos Vec) {
 	g.drawImg(dst, im, cx, cy, float64(w)/2, float64(h)-2)
 }
 
-func fillShadow(dst *ebiten.Image, cx, cy float64) {
-	for i, w := range []float64{15, 10} {
+func fillShadow(dst *ebiten.Image, cx, cy float64, k ...float64) {
+	s := 1.0
+	if len(k) > 0 {
+		s = k[0]
+	}
+	for i, w := range []float64{15 * s, 10 * s} {
 		a := uint8(40 + i*30)
 		fillRect(dst, cx-w/2, cy-1+float64(i), w, 1, color.RGBA{0, 0, 0, a})
 		fillRect(dst, cx-w/2+1, cy-2+float64(i)*2, w-2, 1, color.RGBA{0, 0, 0, a})
@@ -640,21 +658,31 @@ func (g *Game) drawRing(dst *ebiten.Image, pos Vec) {
 	}
 }
 
-func (g *Game) drawBubble(dst *ebiten.Image, pos Vec, txt string, red bool, up float64) {
-	w := math.Round(g.textW(txt, 1)) + 8
-	cx := g.wx(pos.X)
+// drawBubbleBox paints one bubble chosen by the manager (see bubbles.go).
+func (g *Game) drawBubbleBox(dst *ebiten.Image, r bubReq) {
+	w := r.w
+	cx := r.cx
 	x := clampF(cx-math.Round(w/2), 2, screenW-w-2)
-	y := g.wy(pos.Y) - 52 - up
+	y := r.y - r.shift
 	col := rgb(0x8a3ae0)
-	if red {
+	if r.red {
 		col = rgb(0xc42a2a)
 	}
-	fillRect(dst, x+1, y, w-2, 13, col)
-	fillRect(dst, x, y+1, w, 11, col)
+	h := r.h
+	if h == 0 {
+		h = 13
+	}
+	fillRect(dst, x+1, y, w-2, h, col)
+	fillRect(dst, x, y+1, w, h-2, col)
 	fillRect(dst, x+2, y+1, w-4, 1, shade(col, 1.35))
-	fillRect(dst, cx-2, y+13, 4, 1, col)
-	fillRect(dst, cx-1, y+14, 2, 1, col)
-	g.drawText(dst, txt, x+4, y, rgb(0xffffff), 1)
+	if r.shift == 0 {
+		fillRect(dst, cx-2, y+h, 4, 1, col)
+		fillRect(dst, cx-1, y+h+1, 2, 1, col)
+	}
+	for i, l := range r.lines {
+		lw := math.Round(g.textW(l, 1))
+		g.drawText(dst, l, x+math.Round((w-lw)/2), y+float64(i)*bubLineH, rgb(0xffffff), 1)
+	}
 }
 
 func (g *Game) glowAt(dst *ebiten.Image, wp Vec, r float64, col color.RGBA) {
@@ -685,6 +713,9 @@ func (g *Game) guestPose(gu *Guest) (int, float64) {
 	}
 	if gu.stabT > 0 {
 		return AnimStab, math.Min(2, (0.25-gu.stabT)/0.25*3)
+	}
+	if gu.poison > 0 && !gu.moving && (gu.state == gIdle || gu.state == gLounge) {
+		return AnimTired, t*2 + gu.off // dizzy, leaning on nothing
 	}
 	if gu.moving {
 		switch {
@@ -836,6 +867,10 @@ func (g *Game) drawBody(dst *ebiten.Image, b *Body) {
 		g.drawImg(dst, g.as.bag, g.wx(b.pos.X), g.wy(b.pos.Y), float64(w)/2, float64(h)-1)
 		return
 	}
+	if b.skeleton {
+		g.drawSkeletonBody(dst, b)
+		return
+	}
 	if b.fallT > 0 {
 		f := math.Min(2, (0.45-b.fallT)/0.45*3)
 		g.drawActor(dst, b.cs, AnimFall, f, b.pos, b.dir, 0, false)
@@ -871,6 +906,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	screen.Fill(rgb(0x08060c))
+	if g.mode == ModeEnding || g.mode == ModeIntro || g.mode == ModeInterlude {
+		if g.mode == ModeIntro {
+			g.drawIntro(screen)
+		} else if g.mode == ModeInterlude {
+			g.drawInterlude(screen)
+		} else {
+			g.drawEnding(screen)
+		}
+		if g.shot != "" && g.tick == g.shotTick {
+			g.saveShot(screen)
+		}
+		return
+	}
 	g.camI = Vec{}
 	if g.shake > 0 {
 		k := math.Min(1, g.shake*3) * 3
@@ -934,6 +982,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				g.drawLying(screen, gu.cs, true, gu.pos)
 				return
 			}
+			if kidRiding(gu) {
+				g.drawSkater(screen, gu)
+				return
+			}
 			anim, phase := g.guestPose(gu)
 			swim := g.lvl.InPool(gu.pos)
 			pos := gu.pos
@@ -951,6 +1003,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				pos.X += v.X * 3
 				pos.Y += v.Y * 3
 			}
+			pos.X += poisonedStagger(gu, g.time)
 			g.drawActor(screen, gu.cs, anim, phase, pos, gu.dir, yoff, swim)
 		}})
 	}
@@ -1069,8 +1122,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		an := an
 		items = append(items, drawItem{an.pos.Y, func() { g.drawAnimal(screen, an) }})
 	}
+	items = g.jurassicItems(screen, items)
 	p := g.p
-	if g.mode != ModeMenu && g.mode != ModeLevelSelect && g.mode != ModeSettings && g.mode != ModeShop && g.mode != ModeConfirm && g.mode != ModeTrophies && g.mode != ModeDebug && !p.hidden {
+	if g.mode != ModeMenu && g.mode != ModeLevelSelect && g.mode != ModeSettings && g.mode != ModeShop && g.mode != ModeConfirm && g.mode != ModeTrophies && g.mode != ModeScenes && g.mode != ModeDebug && !p.hidden {
 		items = append(items, drawItem{p.pos.Y + 0.2, func() {
 			if p.dead || p.knockT > 0 {
 				g.drawLying(screen, p.cs, false, p.pos)
@@ -1125,22 +1179,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	for _, gu := range g.guests {
 		if !gu.out() && gu.icon != "" {
-			g.drawBubble(screen, gu.pos, gu.icon, gu.icon == "!!!", float64(gu.cs.Spec.Stature)*-0.6)
+			pri := bubGuest
+			if gu.icon == "!!!" {
+				pri = bubAlarm
+			}
+			g.bubble(gu, pri, gu.pos, gu.icon, gu.icon == "!!!", float64(gu.cs.Spec.Stature)*-0.6)
 		}
 	}
 	for _, gd := range g.guards {
 		if !gd.dead && gd.icon != "" {
-			g.drawBubble(screen, gd.pos, gd.icon, true, 0)
+			g.bubble(gd, bubAuth, gd.pos, gd.icon, true, 0)
 		}
 	}
 	for _, c := range g.cops {
 		if c.icon != "" {
-			g.drawBubble(screen, c.pos, c.icon, true, 0)
+			g.bubble(c, bubAuth, c.pos, c.icon, true, 0)
 		}
 	}
 	if s := g.slasher; s != nil && s.icon != "" {
-		g.drawBubble(screen, s.pos, s.icon, true, -6)
+		g.bubble(s, bubAuth, s.pos, s.icon, true, -6)
 	}
+	g.flushBubbles(screen)
 	for _, pt := range g.parts {
 		a := pt.life / pt.max
 		c := pt.col
@@ -1163,6 +1222,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawLevelSelect(screen)
 	case ModeTrophies:
 		g.drawTrophies(screen)
+	case ModeScenes:
+		g.drawScenes(screen)
 	case ModeConfirm:
 		g.drawConfirm(screen)
 	case ModeShop:
@@ -1183,6 +1244,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				fmt.Sprintf("Víctimas: %d de %d   Puntos: %d", g.total-g.aliveCount(), g.total, g.points), "R / ENTER: reintentar    ESC: menú")
 		}
 	}
+	g.drawTrophyHud(screen)
 	g.drawToast(screen)
 	if g.shot != "" && g.tick == g.shotTick {
 		g.saveShot(screen)
@@ -1203,7 +1265,7 @@ func (g *Game) drawAmbient(dst *ebiten.Image, a *Ambient) {
 		}
 		pi := g.as.props[name][v%len(g.as.props[name])]
 		op := &ebiten.DrawImageOptions{}
-		if flip {
+		if vehMirror(name, flip) {
 			op.GeoM.Scale(-1, 1)
 			op.GeoM.Translate(float64(pi.img.Bounds().Dx()), 0)
 			op.GeoM.Translate(math.Round(x-(float64(pi.img.Bounds().Dx())-pi.ox)), math.Round(y-pi.oy))
@@ -1253,7 +1315,7 @@ func (g *Game) drawAmbient(dst *ebiten.Image, a *Ambient) {
 		op := &ebiten.DrawImageOptions{}
 		w := float64(pi.img.Bounds().Dx())
 		y -= a.hop
-		if flip {
+		if vehMirror(a.name, flip) {
 			op.GeoM.Scale(-1, 1)
 			op.GeoM.Translate(w, 0)
 			op.GeoM.Translate(math.Round(x-(w-pi.ox)), math.Round(y-pi.oy))
@@ -1280,21 +1342,20 @@ func (g *Game) drawAmbient(dst *ebiten.Image, a *Ambient) {
 		g.drawImg(dst, im, x, yy, w/2, h/2)
 		fillRect(dst, x-5, yy+h/2, 10, 3, color.RGBA{60, 90, 70, 60})
 	case ambTow:
-		pi := g.as.props["car"][0]
+		pi := towSide()
 		op := &ebiten.DrawImageOptions{}
 		if a.loaded {
-			// the wrecked car rides behind the truck, trailing opposite its travel
-			bx := x - 16
+			// the wrecked car rides on the flat bed, at the back of the truck (opposite its travel)
+			bx := x + 12
 			if flip {
-				bx = x + 16
+				bx = x - 12
 			}
 			wi := g.as.props["car"][4]
 			bop := &ebiten.DrawImageOptions{}
 			bop.ColorScale.Scale(0.3, 0.26, 0.26, 1)
-			bop.GeoM.Translate(math.Round(bx-wi.ox), math.Round(y-wi.oy))
+			bop.GeoM.Translate(math.Round(bx-wi.ox), math.Round(y-wi.oy-9))
 			dst.DrawImage(wi.img, bop)
 		}
-		op.ColorScale.Scale(1.3, 0.95, 0.35, 1)
 		if flip {
 			op.GeoM.Scale(-1, 1)
 			op.GeoM.Translate(float64(pi.img.Bounds().Dx()), 0)
@@ -1343,7 +1404,18 @@ func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(math.Round(cx-g.as.heliOX), math.Round(cy-g.as.heliOY))
 	img := g.as.heli
-	if u := g.heliImg(v); u != nil {
+	view, front := false, false
+	if g.as.heliU[0] != nil { // the stock helicopter: coming down or going up it is seen from the front / the rear
+		if fl, fr := heliFlying(v); fl {
+			view, front = true, fr
+			img = heliViewImg(heliLiveryIdx(v), front)
+			op.GeoM.Reset()
+			op.GeoM.Translate(math.Round(cx-(heliViewCX*wk+1)), math.Round(cy-(heliViewCY*wk+1)))
+		}
+	}
+	if view {
+		// livery already in the view
+	} else if u := g.heliImg(v); u != nil {
 		img = u
 	} else if v.kind == 3 {
 		op.ColorScale.Scale(1, 0.92, 0.92, 1)
@@ -1351,7 +1423,7 @@ func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
 	if v.kind == 5 {
 		op.ColorScale.Scale(0.3, 0.26, 0.34, 1)
 	}
-	if v.kind == 2 && g.heliImg(v) == nil {
+	if v.kind == 2 && g.heliImg(v) == nil && !view {
 		switch v.unit {
 		case unitFBI:
 			op.ColorScale.Scale(0.2, 0.22, 0.3, 1)
@@ -1364,7 +1436,7 @@ func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
 		}
 	}
 	dst.DrawImage(img, op)
-	if v.kind == 3 && g.heliImg(v) == nil {
+	if v.kind == 3 && g.heliImg(v) == nil && !view {
 		fillRect(dst, math.Round(cx-5), math.Round(cy-5), 7, 2, rgb(0xd02828))
 		fillRect(dst, math.Round(cx-3), math.Round(cy-7), 3, 6, rgb(0xd02828))
 	}
@@ -1382,6 +1454,9 @@ func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
 		}
 	}
 	tail := Vec{cx + 48*wk, cy - 16*wk}
+	if view {
+		tail = Vec{cx, cy - 18*wk} // from the rear the tail rotor hangs at the top of the fin
+	}
 	tp := &ebiten.DrawImageOptions{}
 	tp.GeoM.Scale(1.5, 9)
 	tp.GeoM.Translate(-0.75, -4.5)
@@ -1410,6 +1485,9 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 	if k.Poison && pr.armT > 0 {
 		v = 1
 	}
+	if pr.Name == "murray" {
+		v = g.murrayTalk(pr)
+	}
 	if pr.Name == "hen" && k.Native == nil {
 		v = (int(g.time*2.5) + int(pr.X)) % 2
 	}
@@ -1433,7 +1511,14 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 	if pr.shake > g.time {
 		sx = float64(g.tick/2%2)*2 - 1
 	}
-	op.GeoM.Translate(math.Round(x-pi.ox+sx), math.Round(y-pi.oy))
+	if pr.scale > 0 && pr.scale != 1 { // a smaller object (the island): shrink around the anchor
+		op.Filter = ebiten.FilterLinear
+		op.GeoM.Translate(-pi.ox, -pi.oy)
+		op.GeoM.Scale(pr.scale, pr.scale)
+		op.GeoM.Translate(math.Round(x+sx), math.Round(y))
+	} else {
+		op.GeoM.Translate(math.Round(x-pi.ox+sx), math.Round(y-pi.oy))
+	}
 	if pr.used && k.Trap != "" {
 		op.ColorScale.Scale(0.35, 0.3, 0.3, 1)
 	}
@@ -1442,13 +1527,18 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 	}
 	// tall things turn see-through while somebody is standing behind them
 	if pi.img.Bounds().Dy() >= 34 && g.mode == ModePlay {
-		tgt := 0.0
+		tgt, rate, amp := 0.0, 0.2, 0.55
+		if pr.Name == "jp_gate" { // the gate of the island stays the main thing: only a faint see-through, gone at once
+			rate, amp = 0.2, 0.22
+		}
 		if g.actorBehind(pr, pi) {
 			tgt = 1
+		} else if pr.Name == "jp_gate" {
+			rate = 0.6
 		}
-		pr.fade += (tgt - pr.fade) * 0.2
+		pr.fade += (tgt - pr.fade) * rate
 		if pr.fade > 0.02 {
-			op.ColorScale.ScaleAlpha(float32(1 - 0.55*pr.fade))
+			op.ColorScale.ScaleAlpha(float32(1 - amp*pr.fade))
 		}
 	}
 	if pr.wreck {
@@ -1814,7 +1904,7 @@ func starLabel(kind int) string {
 }
 
 func (g *Game) drawHUD(dst *ebiten.Image) {
-	if g.mode == ModeMenu || g.mode == ModeLevelSelect || g.mode == ModeSettings || g.mode == ModeShop || g.mode == ModeConfirm || g.mode == ModeTrophies || g.mode == ModeDebug {
+	if g.mode == ModeMenu || g.mode == ModeLevelSelect || g.mode == ModeSettings || g.mode == ModeShop || g.mode == ModeConfirm || g.mode == ModeTrophies || g.mode == ModeScenes || g.mode == ModeDebug {
 		return
 	}
 	alive := g.aliveCount()
@@ -1864,6 +1954,9 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 		name, col := "VENENO", rgb(0x60ff80)
 		if it == "disguise" {
 			name, col = "DISFRAZ", rgb(0xd090ff)
+		}
+		if it == "poison" && g.p.doses > 0 {
+			name += " x" + itoa(g.p.doses)
 		}
 		g.drawText(dst, "OBJETO: "+name, 10, 88, col, 1)
 	}

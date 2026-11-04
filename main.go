@@ -10,6 +10,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -34,6 +36,20 @@ func main() {
 	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
 	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
 	impSave := flag.String("edsave", "", "after -edaccept, save it with this name (debug)")
+	benchF := flag.Int("edbench", 0, "editor: run this many frames, print ms per frame and quit (debug)")
+	trophyOvF := flag.Bool("trophyov", false, "open the trophies window at once (debug)")
+	profF := flag.String("cpuprofile", "", "write a CPU profile to this file (debug)")
+	jurF := flag.Bool("jurassic", false, "start the island of the last party directly (debug)")
+	debugEd := flag.Int("edorig", 0, "editor: debug mode on, open the n-th (1..21) original scenario (debug)")
+	scenesF := flag.Int("scenes", 0, "open the scenes list; 1 pretends the first ending was seen, 2 pretends everything was (debug)")
+	interF := flag.Int("interlude", 0, "play a story interlude directly: 5 (car) or 10 (boat) (debug)")
+	introF := flag.Bool("intro", false, "play the intro directly (debug)")
+	endF := flag.Int("ending", 0, "play the ending directly: 1 without every trophy, 2 with them, 3 the invitation (debug)")
+	vlaneF := flag.Bool("vlane", false, "boat / space levels: the vehicles arrive down a vertical lane (debug)")
+	demoMove := flag.String("eddemo", "", "editor debug: with -edorig, move the first 'pool' or 'helipad' of the original by (+60,+40)")
+	objTool := flag.Int("edobjtool", 0, "editor debug: Objetos tool (0 place, 1 move, 2 zone)")
+	ptTool := flag.Int("edpttool", 0, "editor debug: Puntos tool")
+	bowlKidsF := flag.Bool("bowlkids", false, "the kids go to the skate bowls at once and all the time (debug)")
 	shot := flag.String("shot", "", "save a screenshot to this PNG and exit, debug")
 	shotTick := flag.Int("shottick", 120, "frame for the screenshot")
 	camx := flag.Float64("camx", -1, "fixed camera x, debug")
@@ -49,11 +65,14 @@ func main() {
 	cutF := flag.Bool("cutphones", false, "cut every red phone a few seconds after the start (debug)")
 	kidsF := flag.Bool("kidsnow", false, "the three kids arrive a few seconds after the start (debug)")
 	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
+	zapF := flag.Bool("zapnow", false, "electrocute a few guests next to the player a moment after the start (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
+	poisonF := flag.Bool("poisonnow", false, "poison in the pocket and four poisoned guests next to the player (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
 	solidsF := flag.Bool("solids", false, "draw every solid rectangle in red (debug)")
 	walkF := flag.Bool("walkbot", false, "the player walks about at random and logs where he gets stuck (debug)")
+	roadCarsF := flag.String("roadcars", "", "with -testroad: park these vehicles (comma separated) on the roads (debug)")
 	roadF := flag.Bool("testroad", false, "add four one-lane roads to the level (debug)")
 	langF := flag.String("lang", "", "game language for this run: es | en (debug)")
 	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
@@ -79,6 +98,9 @@ func main() {
 	expM := flag.String("exportmusic", "", "render a batch of mp3 songs into this folder (needs ffmpeg) and exit")
 	batchF := flag.Int("musicbatch", 2, "batch number for -exportmusic (a new number gives new songs)")
 	flag.Parse()
+	if *bowlKidsF {
+		bowlRateDiv = 0.5
+	}
 	if *expM != "" {
 		exportMusic(*expM, *batchF)
 		return
@@ -145,6 +167,19 @@ func main() {
 			g.ed.debugLoad(*edload)
 		}
 		g.ed.lv.mode = *edmode
+		g.ed.benchN = *benchF
+		g.ed.lv.objTool, g.ed.lv.ptTool = *objTool, *ptTool
+		if *debugEd > 0 {
+			g.ed.debug = true
+			g.ed.pendingOrig = *debugEd
+			g.ed.demoMove = *demoMove
+		}
+		if *profF != "" {
+			if pf, err := os.Create(*profF); err == nil {
+				pprof.StartCPUProfile(pf)
+				benchStop = pprof.StopCPUProfile
+			}
+		}
 		if *impF != "" {
 			if b, err := loadImageAny(*impF); err == nil {
 				g.ed.requestImport([]droppedImage{{name: strings.ToLower(*impF), b: b}})
@@ -177,6 +212,46 @@ func main() {
 	if *level > 0 {
 		g.startLevel(*level - 1)
 	}
+	if *scenesF > 0 {
+		progressFrozen = true
+		g.progress.Stats = map[string]int{"seen_end1": 1}
+		if *scenesF > 1 {
+			g.progress.Stats = map[string]int{"seen_end1": 1, "seen_end2": 1, "seen_invite": 1, "seen_interlude5": 1}
+		}
+		g.sceneSel = *edtab
+		g.mode = ModeScenes
+	}
+	if *introF {
+		progressFrozen = true
+		g.startIntro()
+	}
+	if *interF > 0 {
+		progressFrozen = true
+		if *interF >= 10 {
+			g.startInterlude(interBoat, 10)
+		} else {
+			g.startInterlude(interCar, 5)
+		}
+	}
+	if *endF > 0 {
+		progressFrozen = true
+		switch *endF {
+		case 1:
+			g.startEnding(false)
+		case 2:
+			g.startEnding(true)
+		default:
+			g.startInvite()
+		}
+	}
+	if *jurF {
+		progressFrozen = true
+		g.startLevel(specialJurassic)
+	}
+	if *vlaneF && g.lvl != nil && g.lvl.Def.Transit != "" {
+		d := g.lvl.Def
+		d.CarFrom, d.CarTo, d.ParkX0, d.ParkX1 = Vec{935, -60}, Vec{935, 420}, 0, 0
+	}
 	g.forceEv = *eventF
 	g.forceAmb = *ambF
 	if *settingsF || *credF {
@@ -202,13 +277,18 @@ func main() {
 	}
 	g.dbgCops = *copsF
 	g.dbgCheer = *cheerF
+	debugZap = *zapF
 	g.dbgRoad = *roadF
+	if *roadCarsF != "" {
+		g.dbgRoadCars = strings.Split(*roadCarsF, ",")
+	}
 	g.walkBot = *walkF
 	dbgSolids = *solidsF
 	if *withF != "" {
 		g.dbgWith = strings.Split(*withF, ",")
 	}
 	g.dbgSnake = *snakeF
+	g.dbgPoison = *poisonF
 	g.dbgRing = *ringF
 	if *kidsF {
 		g.kidPlan = []kidPlan{{"sam_sam", 3, false}, {"cesar", 6, false}, {"diego", 9, false}}
@@ -233,8 +313,9 @@ func main() {
 		g.cam = Vec{*camx, *camy}
 	}
 	g.shot, g.shotTick = *shot, *shotTick
-	if *shot != "" {
-		progressFrozen = true // screenshots never touch the real progress
+	g.trophyOv = *trophyOvF
+	if *shot != "" || *benchF > 0 {
+		progressFrozen = true // screenshots and benchmarks never touch the real progress
 	}
 	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
 		log.Fatal(err)
@@ -247,9 +328,14 @@ func checkLevels() {
 	defs := builtinLevels()
 	if st := loadAssetStore(); st != nil && len(st.Levels) > 0 && !noAssets {
 		applyObjects(st.Objs)
-		defs = nil
-		for _, la := range st.Levels {
-			defs = append(defs, levelDefFromAsset(la))
+		custom, ov := splitLevels(st.Levels)
+		levelOverrides = ov
+		defs = builtinLevels()
+		if len(custom) > 0 {
+			defs = nil
+			for _, la := range custom {
+				defs = append(defs, levelDefFromAsset(la))
+			}
 		}
 		fmt.Println("checking", len(defs), "levels from", st.Root)
 	}

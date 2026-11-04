@@ -170,8 +170,8 @@ func genBudgieFrame(frame, coat int) *pixBuf {
 func buildCritterSprites(out AnimalSprites) {
 	for coat := 0; coat < 3; coat++ {
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fPeck0, fPeck1} {
-			out[animalKey(animRabbit, coat, f)] = genRabbitFrame(f, coat).outlinedSel(0.4).img()
-			out[animalKey(animPig, coat, f)] = genPigFrame(f, coat).outlinedSel(0.4).img()
+			out[animalKey(animRabbit, coat, f)] = genRabbitFrame(f, coat).scaled(0.8).outlinedSel(0.4).img()
+			out[animalKey(animPig, coat, f)] = genPigFrame(f, coat).scaled(0.75).outlinedSel(0.4).img()
 			out[animalKey(animDuck, coat, f)] = genDuckFrame(f, coat).outlinedSel(0.4).img()
 			out[animalKey(animBudgie, coat, f)] = genBudgieFrame(f, coat).outlinedSel(0.4).img()
 		}
@@ -327,6 +327,20 @@ func (g *Game) scatterCritters() {
 			a.face = 1
 		}
 		g.animals = append(g.animals, a)
+	}
+	// once the pigs are bought they must really show up, or the pig trophy could never be won
+	if animalAllowed(animPig) {
+		for i, n := 0, 1+g.rng.Intn(2); i < n; i++ {
+			pos, ok := g.outdoorSpot()
+			if !ok {
+				break
+			}
+			a := &Animal{kind: animPig, pos: g.lvl.NearestFree(pos), face: -1, area: Rect{pos.X - 80, pos.Y - 50, 160, 100}, seed: g.rng.Float64() * 10, timer: g.rng.Float64() * 3, coat: g.rng.Intn(3)}
+			if g.rng.Intn(2) == 0 {
+				a.face = 1
+			}
+			g.animals = append(g.animals, a)
+		}
 	}
 }
 

@@ -16,20 +16,20 @@ var jokeLines = DialogueBank{
 		"calling_police": {"¿Policía? Hay un loco suelto", "¡Alo, alo, emergencias!", "¡Que manden a todos!", "Sí, vengan, hay un problema... gordo", "¡Diga que traigan café!"},
 		"accused":        {"¡Era ese, lo juro!", "¡Lo he visto con el cuchillo!", "¡Mira qué cara de asesino tiene!", "¡Ese tiene pinta rara!", "¡Detengan al sospechoso... del abrigo!"},
 		"chatter": {
-			"Creo que he perdido el móvil... o me lo han robado",
+			"He perdido el móvil... o me lo han robado",
 			"Me han dicho que habría pizza", "Mi ex está aquí. Mi ex y su nuevo ex", "Yo vine solo a por el hielo",
 			"¿Alguien ha visto mis llaves?", "Esta canción me recuerda a mi divorcio", "He bailado tanto que ya no siento las piernas",
-			"Dicen que hay un asesino, pero yo vengo por el catering", "¿Hay wifi?", "Mi madre cree que estoy en la biblioteca",
+			"¿Un asesino? Yo vengo por el catering", "¿Hay wifi?", "Mi madre cree que estoy en la biblioteca",
 			"¡Qué buena está la fiesta!", "Me voy a casa. (No me voy a casa)", "¿Esto es una fiesta o un casting?",
 			"He perdido un zapato y no sé dónde", "¿Quién ha puesto reguetón?", "Le he dicho a mi jefe que estaba enfermo",
-			"Una vez bailé con un famoso. Era su doble", "Lo bueno de beber agua es que lo hacemos todos... ah no", "No me juzgues, es mi cuarta croqueta",
+			"Una vez bailé con un famoso. Era su doble", "Beber agua: lo hacemos todos... ah no", "No me juzgues, es mi cuarta croqueta",
 			"Hoy me siento imparable", "Si hay barra libre, yo me quedo a vivir", "Tengo mucho sueño pero mucho más ron",
 			"¿A que no sabes qué me ha pasado hoy?", "¡Hay que repetir esto cada semana!", "¿Alguien tiene un cargador?",
 			"Mi horóscopo decía «cuidado con los extraños»", "He leído que reír alarga la vida", "No tengo ni idea de quién cumple años",
-			"Mi perro baila mejor que tú", "Esta es la mejor fiesta de mi vida (la anterior también)", "Qué raro, huele a quemado",
+			"Mi perro baila mejor que tú", "La mejor fiesta de mi vida (la anterior también)", "Qué raro, huele a quemado",
 			"Me han invitado por error y me quedo", "Voy a hacer un brindis... pero luego", "¡Fotos, fotos! ¡Sonríe!",
-			"Si me ves llorar, es por la cebolla del chiringuito", "El que no baila, que se tire a la piscina", "A mí me gustan las fiestas con final feliz",
-			"Mañana empiezo la dieta", "Mi madre me dijo que no hablara con extraños; aquí estamos", "Hoy cuenta como cardio",
+			"Si lloro, es por la cebolla del chiringuito", "El que no baila, que se tire a la piscina", "A mí me gustan las fiestas con final feliz",
+			"Mañana empiezo la dieta", "Mamá dijo: no hables con extraños. Hola", "Hoy cuenta como cardio",
 			"Cada vez que cierro los ojos, veo cócteles", "¿Vendrá la policía? Qué ilusión", "Te juro que no soy borracho, soy simpático",
 		},
 		"chatter_house":   {"Qué bonita la casa. ¿Es de alquiler?", "El baño está libre, creo", "¿Quién ha roto el jarrón? Yo no", "Este sofá es increíblemente cómodo"},
@@ -93,7 +93,9 @@ func (g *Game) chatterLine(gu *Guest) string {
 	if g.rng.Float64() < 0.3 {
 		key := "chatter_" + g.lvl.Def.Icon
 		if lines := g.dialogue["people"][key]; len(lines) > 0 {
-			return lines[g.rng.Intn(len(lines))]
+			if l := g.freshPhrase("people/"+key, lines, g.rng.Intn); l != "" {
+				return l
+			}
 		}
 	}
 	if gu.name != "" && g.rng.Float64() < 0.5 {

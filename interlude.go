@@ -1,0 +1,856 @@
+package main
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"math"
+	"math/rand"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// ---------------------------------------------------------------------------
+// The two story interludes, between parties 5 and 6 (a car) and 10 and 11 (a boat).
+//
+// The hero walks down the street furious, muttering, steam coming out of his head,
+// while the places of the parties he has already finished pass by behind him as
+// flashbacks (their real backgrounds, rendered by the game). At the end he gets
+// into a car / a boat, the camera follows it and the next party begins.
+// ---------------------------------------------------------------------------
+
+const (
+	interCar  = 1
+	interBoat = 2
+)
+
+type interState struct {
+	kind    int
+	next    int // the level that starts afterwards
+	t       float64
+	skipArm float64
+	canvas  *ebiten.Image
+	bgs     []*ebiten.Image // the flashbacks
+	names   []string
+	hero    *CharSet
+	did     map[string]bool
+	step    int
+}
+
+// the timeline, in seconds
+const (
+	itDecel0  = 19.5 // the street slows down
+	itStop    = 25.0 // it has stopped: the vehicle is right there
+	itBoard0  = 25.2 // he walks to it
+	itOpen    = 26.4 // the door opens / he jumps
+	itIn      = 27.0 // he is inside
+	itDepart  = 28.4 // it leaves, the camera follows
+	itFadeOut = 33.5
+	interLen  = 35.0
+)
+
+const (
+	interGround = 432.0 // the floor line of the street, in screen pixels
+	interScale  = 4.0   // the hero is drawn at 4x
+	interHeroX  = 330.0
+	interV      = 90.0 // street speed while he walks, px/s
+)
+
+// interlude places: the campaign levels already beaten
+func interludePlaces(kind int) []int {
+	if kind == interBoat {
+		return []int{5, 6, 7, 8, 9}
+	}
+	return []int{0, 1, 2, 3, 4}
+}
+
+func (g *Game) startInterlude(kind, next int) {
+	g.inter = &interState{kind: kind, next: next, did: map[string]bool{}}
+	g.mode = ModeInterlude
+	g.sceneReplay = false
+	g.snd.StopMusic()
+	g.bedQuiet, g.bedEmpty, g.bedNoTalk = false, false, false
+	if kind == interBoat {
+		g.markSeen("seen_interlude10")
+	} else {
+		g.markSeen("seen_interlude5")
+	}
+	g.inter.hero = g.heroWithKnife()
+}
+
+// finishInterlude: the real thing goes on to the next party, a replay goes back.
+func (g *Game) finishInterlude() {
+	in := g.inter
+	g.inter = nil
+	if g.sceneReplay {
+		g.loadLevel(0) // the flashbacks used the level slot
+		g.leaveScene()
+		return
+	}
+	if in != nil {
+		g.startLevel(in.next)
+	}
+}
+
+// afterLevel: what comes when a finished party is left behind: maybe a story interlude.
+func (g *Game) afterLevel() {
+	if kind, ok := g.interludeAfter(g.levelIdx); ok {
+		g.startInterlude(kind, g.levelIdx+1)
+		return
+	}
+	g.startLevel(g.levelIdx + 1)
+}
+
+// interludeAfter: the interlude that follows campaign level i, if it has not been seen yet.
+func (g *Game) interludeAfter(i int) (int, bool) {
+	switch {
+	case i == 4 && !g.seen("seen_interlude5"):
+		return interCar, true
+	case i == 9 && !g.seen("seen_interlude10"):
+		return interBoat, true
+	}
+	return 0, false
+}
+
+// loadFlashback prepares one of the memories (one per frame, while the screen is black).
+func (g *Game) loadFlashback(in *interState) {
+	places := interludePlaces(in.kind)
+	i := len(in.bgs)
+	if i >= len(places) {
+		return
+	}
+	idx := places[i]
+	if idx >= len(levelDefs) {
+		idx = len(levelDefs) - 1
+	}
+	def := levelDefs[idx]
+	in.bgs = append(in.bgs, g.buildFlashback(def, int64(idx)*7919+13))
+	in.names = append(in.names, def.Title)
+}
+
+// buildFlashback: the party as it was left. The real background, its objects, and what the hero
+// did there: bodies, pools of blood, police tape and an abandoned police car; all of it graded
+// like an old memory (cold, washed out).
+func (g *Game) buildFlashback(def *LevelDef, seed int64) *ebiten.Image {
+	save := g.lvl
+	g.lvl = buildLevel(def)
+	g.renderBG()
+	bg := g.lvl.bg
+	g.lvl = save
+	m := ebiten.NewImage(screenW, screenH)
+	m.DrawImage(bg, nil)
+	// the objects of the place
+	props := append([]PropInst(nil), def.Props...)
+	sortPropsByY(props)
+	for _, pr := range props {
+		imgs := g.as.props[pr.Kind]
+		if len(imgs) == 0 {
+			continue
+		}
+		pi := imgs[pr.Var%len(imgs)]
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(math.Round(pr.X-pi.ox), math.Round(pr.Y-pi.oy))
+		m.DrawImage(pi.img, op)
+	}
+	rng := rand.New(rand.NewSource(seed))
+	// the spots where things happened: inside the walkable areas
+	var spots []Vec
+	for n := 0; n < 60 && len(spots) < 14; n++ {
+		var p Vec
+		if len(def.Roam) > 0 {
+			r := def.Roam[rng.Intn(len(def.Roam))]
+			p = Vec{r.X + 12 + rng.Float64()*math.Max(1, r.W-24), r.Y + 12 + rng.Float64()*math.Max(1, r.H-24)}
+		} else {
+			p = Vec{80 + rng.Float64()*800, 80 + rng.Float64()*380}
+		}
+		spots = append(spots, p)
+	}
+	// pools and splashes of blood
+	for i, p := range spots {
+		r := 7 + rng.Float64()*10
+		filledEllipse(m, p.X, p.Y+3, r, r*0.55, rgba(0x6a0c14, 170))
+		filledEllipse(m, p.X+2, p.Y+2, r*0.6, r*0.35, rgba(0x8a1420, 190))
+		for q := 0; q < 6; q++ {
+			a := rng.Float64() * 2 * math.Pi
+			d := r * (0.8 + rng.Float64()*1.3)
+			fillRect(m, math.Round(p.X+math.Cos(a)*d), math.Round(p.Y+3+math.Sin(a)*d*0.5), 2, 2, rgba(0x7a1018, 200))
+		}
+		_ = i
+	}
+	// the bodies
+	for i := 0; i < len(spots) && i < 9; i++ {
+		spec := genericSpec(rng)
+		cs := newCharSet(&spec)
+		im := cs.lying(false)
+		if im == nil {
+			continue
+		}
+		w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
+		op := &ebiten.DrawImageOptions{}
+		if rng.Intn(2) == 0 {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(w, 0)
+		}
+		op.GeoM.Translate(math.Round(spots[i].X-w/2), math.Round(spots[i].Y-h/2))
+		m.DrawImage(im, op)
+	}
+	// police tape between two corners of the place, and the abandoned police car
+	tape := func(a, b Vec) {
+		d := dist(a, b)
+		for s := 0.0; s < d; s += 5 {
+			u := s / d
+			col := rgb(0xf0d020)
+			if int(s/5)%2 == 0 {
+				col = rgb(0x14141a)
+			}
+			fillRect(m, math.Round(a.X+(b.X-a.X)*u), math.Round(a.Y+(b.Y-a.Y)*u), 4, 3, col)
+		}
+	}
+	for i := 0; i+1 < len(spots) && i < 6; i += 2 {
+		tape(spots[i], spots[i+1])
+	}
+	if imgs := g.as.props["car"]; len(imgs) > 4 && len(spots) > 0 {
+		pi := imgs[4]
+		p := spots[len(spots)-1]
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(math.Round(p.X-pi.ox), math.Round(p.Y-pi.oy))
+		m.DrawImage(pi.img, op)
+		fillRect(m, p.X-3, p.Y-pi.oy-2, 6, 3, rgb(0x3a6aff)) // the light still turning
+	}
+	// the grade of a memory: washed out, cold, darker
+	pix := make([]byte, 4*screenW*screenH)
+	m.ReadPixels(pix)
+	for i := 0; i < len(pix); i += 4 {
+		r, gg, b := float64(pix[i]), float64(pix[i+1]), float64(pix[i+2])
+		l := 0.3*r + 0.59*gg + 0.11*b
+		nr := l*0.74 + r*0.26
+		ng := l*0.86 + gg*0.14
+		nb := l*1.05 + b*0.2
+		pix[i], pix[i+1], pix[i+2] = clampU8(nr*0.82), clampU8(ng*0.88), clampU8(nb*0.98)
+	}
+	out := ebiten.NewImage(screenW, screenH)
+	out.WritePixels(pix)
+	m.Deallocate()
+	return out
+}
+
+func clampU8(v float64) byte {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return byte(v)
+}
+
+func sortPropsByY(p []PropInst) {
+	for i := 1; i < len(p); i++ {
+		for j := i; j > 0 && p[j].Y < p[j-1].Y; j-- {
+			p[j], p[j-1] = p[j-1], p[j]
+		}
+	}
+}
+
+func (g *Game) updateInterlude() {
+	in := g.inter
+	if in == nil {
+		g.leaveScene()
+		return
+	}
+	if len(in.bgs) < len(interludePlaces(in.kind)) { // still preparing the memories
+		g.loadFlashback(in)
+		return
+	}
+	const dt = 1.0 / 60
+	in.t += dt
+	g.time = in.t
+	if in.skipArm > 0 {
+		in.skipArm -= dt
+	}
+	if actBack.just() || actConfirm.just() || ebitenClick() {
+		if in.skipArm > 0 {
+			g.finishInterlude()
+			return
+		}
+		in.skipArm = 2.2
+	}
+	once := func(key string, at float64, name string) {
+		if in.t >= at && !in.did[key] {
+			in.did[key] = true
+			g.snd.Play(name)
+		}
+	}
+	// stomps: one with every step while he is walking
+	if in.t < itBoard0 {
+		if st := int(g.interPhase(in) * 2 / float64(animFrames[AnimWalk])); st != in.step && in.t > 1 {
+			in.step = st
+			g.snd.Play("thud")
+		}
+	}
+	once("open", itOpen, "alert")
+	once("in", itIn, "thud")
+	once("go", itDepart, "boom")
+	if in.t >= interLen {
+		g.finishInterlude()
+	}
+}
+
+// interScroll: how far the street has moved by time t.
+func interScroll(t float64) float64 {
+	const dec = itStop - itDecel0
+	base := interV*itDecel0 + interV*dec/2
+	switch {
+	case t < itDecel0:
+		return interV * t
+	case t < itStop:
+		u := t - itDecel0
+		return interV*itDecel0 + interV*u - interV*u*u/(2*dec)
+	case t < itDepart:
+		return base
+	}
+	u := t - itDepart
+	const a = 150.0
+	if u < 3 {
+		return base + 0.5*a*u*u
+	}
+	return base + 0.5*a*9 + a*3*(u-3)
+}
+
+// the vehicle waits at this world position; at the stop it is at stopX on the screen
+const interStopX = 520.0
+
+func interVehicleX(t float64) float64 {
+	base := interScroll(itStop)
+	x := interStopX + (base - interScroll(t)) // world position minus scroll
+	if t > itDepart {                         // it pulls forward a little while the street rushes by
+		x = interStopX + 70*introEase((t-itDepart)/2.5)
+	}
+	return x
+}
+
+func (g *Game) interPhase(in *interState) float64 {
+	sp := 30.0
+	return interScroll(in.t) / interScale * stridePhase(sp) / sp
+}
+
+func (g *Game) drawInterlude(dst *ebiten.Image) {
+	in := g.inter
+	if in == nil {
+		return
+	}
+	dst.Fill(rgb(0x05060c))
+	if len(in.bgs) < len(interludePlaces(in.kind)) {
+		g.drawTextC(dst, "...", 480, 250, rgb(0x8a86a0), 2)
+		return
+	}
+	if in.canvas == nil {
+		in.canvas = ebiten.NewImage(screenW, screenH)
+	}
+	c := in.canvas
+	t := in.t
+	c.Fill(rgb(0x070a1c))
+	g.interPanel(c, in)
+	g.interStreet(c, in)
+	g.interVehicleAndHero(c, in)
+	// camera: a little shake with every stomp, a slow zoom when he leaves
+	ox, oy := 0.0, 0.0
+	z := 1.0
+	if t < itBoard0 && t > 1 {
+		k := math.Exp(-math.Mod(g.interPhase(in)*2/float64(animFrames[AnimWalk]), 1) * 7)
+		oy = k * 3
+		ox = math.Sin(t*50) * k
+	}
+	if t > itIn {
+		z = 1 + 0.06*introEase((t-itIn)/3)
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-480, -300)
+	op.GeoM.Scale(z, z)
+	op.GeoM.Translate(480+ox, 300+oy)
+	dst.DrawImage(c, op)
+	g.interCaption(dst, in)
+	if t < 1 {
+		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-t))))
+	}
+	if t > itFadeOut {
+		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*math.Min(1, (t-itFadeOut)/1.4))))
+	}
+	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
+	col := rgba(0x8a86a0, 170)
+	if in.skipArm > 0 {
+		hint, col = "Otra vez para saltar", rgb(0xffe060)
+	}
+	g.drawTextC(dst, hint, 480, 524, col, 1)
+}
+
+// ---- the present and the memories ------------------------------------------------------------
+
+const (
+	interSlot   = 4.2  // seconds per memory
+	interMem    = 0.62 // the part of each slot that is the memory; the rest is the present
+	interPanelH = 336.0
+)
+
+// interSky: the present, the night above the street: sky, moon and the city going by.
+func (g *Game) interSky(c *ebiten.Image, in *interState) {
+	W := interScroll(in.t)
+	for y := 0.0; y < interPanelH; y += 4 {
+		fillRect(c, 0, y, screenW, 4, mixc(rgb(0x070a1c), rgb(0x1c2a58), y/interPanelH))
+	}
+	for i := 0; i < 80; i++ {
+		x, y := float64((i*97)%screenW), float64((i*53)%200)
+		a := uint8(90 + 120*math.Abs(math.Sin(in.t*1.2+float64(i))))
+		fillRect(c, x, y+16, 2, 2, rgba(0xdce4ff, a))
+	}
+	filledEllipse(c, 800, 90, 34, 34, rgb(0xeae6d4)) // moon
+	filledEllipse(c, 788, 82, 32, 32, rgb(0x14244c))
+	off := W * 0.3
+	for k := -1; k < 40; k++ { // far skyline
+		bx := float64(k)*52 - math.Mod(off, 52)
+		idx := int(math.Floor(off/52)) + k + 1000
+		h := 60 + jpHash(idx, 3, 101)*150
+		fillRect(c, bx, interPanelH-h, 48, h, rgb(0x0c1226))
+		for wy := interPanelH - h + 8; wy < interPanelH-12; wy += 14 {
+			for wx := bx + 6; wx < bx+42; wx += 12 {
+				if jpHash(int(wx)+idx, int(wy), 103) > 0.9 {
+					fillRect(c, wx, wy, 4, 6, rgb(0xe8c860))
+				}
+			}
+		}
+	}
+	for k := -1; k < 14; k++ { // nearer houses
+		hx := float64(k)*150 - math.Mod(W*0.6, 150)
+		idx := int(math.Floor(W*0.6/150)) + k + 500
+		hh := 110 + jpHash(idx, 9, 105)*40
+		col := []uint32{0x2a2438, 0x2a3446, 0x38283a, 0x2a3a32}[((idx%4)+4)%4]
+		fillRect(c, hx, interPanelH-hh, 124, hh, rgb(col))
+		fillRect(c, hx-6, interPanelH-hh-14, 136, 16, shade(rgb(col), 0.7))
+		for r := 0; r < 2; r++ {
+			for q := 0; q < 3; q++ {
+				wc := rgb(0x161a2c)
+				if jpHash(idx*3+q, r, 107) > 0.88 {
+					wc = rgb(0x5a4a22)
+				}
+				fillRect(c, hx+14+float64(q)*34, interPanelH-hh+20+float64(r)*44, 20, 28, wc)
+			}
+		}
+	}
+	// the dark band that joins the sky and the street
+	for y := 300.0; y < interPanelH; y += 3 {
+		fillRect(c, 0, y, screenW, 3, rgba(0x070a1c, uint8(255*math.Min(1, (y-300)/40))))
+	}
+}
+
+// interPanel alternates the present (the night street) with the memories of the parties he has beaten.
+func (g *Game) interPanel(c *ebiten.Image, in *interState) {
+	t := in.t
+	g.interSky(c, in)
+	n := len(in.bgs)
+	k := (t - 1) / interSlot
+	if k < 0 || int(k) >= n {
+		return
+	}
+	cur := int(k)
+	u := k - float64(cur)
+	if u >= interMem+0.1 {
+		return
+	}
+	a := math.Min(1, u/0.07) * (1 - math.Max(0, math.Min(1, (u-interMem)/0.1)))
+	uu := math.Min(1, u/interMem)
+	z := 1.02 + 0.1*uu
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.Translate(-480, -270)
+	op.GeoM.Scale(z, z)
+	op.GeoM.Translate(480-(uu-0.5)*28+math.Sin(t*41)*0.8, 238+math.Cos(t*37)*0.8)
+	op.ColorScale.ScaleAlpha(float32(a))
+	sub := c.SubImage(image.Rect(0, 0, screenW, int(interPanelH))).(*ebiten.Image)
+	sub.DrawImage(in.bgs[cur], op)
+	// the look of a memory: grain, soft dark edges, a light leak
+	for i := 0; i < 220; i++ {
+		x := jpHash(i, g.tick, 111) * screenW
+		y := jpHash(i, g.tick, 113) * interPanelH
+		col := rgba(0xffffff, uint8(40*a))
+		if i%2 == 0 {
+			col = rgba(0x000000, uint8(70*a))
+		}
+		fillRect(sub, x, y, 2, 2, col)
+	}
+	for i := 0.0; i < 90; i += 3 { // blurred borders
+		al := uint8(230 * a * math.Pow(1-i/90, 2))
+		fillRect(sub, i, 0, 3, interPanelH, rgba(0x05060f, al))
+		fillRect(sub, screenW-3-i, 0, 3, interPanelH, rgba(0x05060f, al))
+		fillRect(sub, 0, i*0.8, screenW, 3, rgba(0x05060f, al))
+	}
+	vo := &ebiten.DrawImageOptions{}
+	vo.GeoM.Scale(1, interPanelH/screenH)
+	vo.ColorScale.ScaleAlpha(float32(a))
+	sub.DrawImage(g.as.vignette, vo)
+	if u < 0.12 { // the flash that opens the memory
+		fillRect(sub, 0, 0, screenW, interPanelH, rgba(0xdce8ff, uint8(200*(1-u/0.12))))
+	}
+	if u > interMem-0.03 && u < interMem+0.08 { // and the one that closes it
+		fillRect(sub, 0, 0, screenW, interPanelH, rgba(0xdce8ff, uint8(160*(1-math.Abs(u-interMem-0.025)/0.055))))
+	}
+	lk := math.Mod(t*0.7, 1) // a light leak crossing the picture
+	fillRect(sub, lk*screenW-60, 0, 90, interPanelH, rgba(0xffd8a0, uint8(26*a)))
+	// the film strip and the name of the place
+	fillRect(c, 0, 0, screenW, 16, rgba(0x040408, uint8(255*a)))
+	fillRect(c, 0, interPanelH-18, screenW, 18, rgba(0x040408, uint8(255*a)))
+	for x := -math.Mod(interScroll(t)*0.3, 28); x < screenW; x += 28 {
+		fillRect(c, x, 4, 12, 8, rgba(0x20202c, uint8(255*a)))
+		fillRect(c, x, interPanelH-14, 12, 8, rgba(0x20202c, uint8(255*a)))
+	}
+	g.drawText(c, in.names[cur], 24, 268, rgba(0xf4f0ff, uint8(255*a)), 2)
+	g.drawText(c, fmt.Sprintf("RECUERDO %d/%d", cur+1, n), 24, 296, rgba(0xf0e060, uint8(230*a)), 1.2)
+}
+
+// ---- the street / the pier -----------------------------------------------------------------------
+
+func (g *Game) interStreet(c *ebiten.Image, in *interState) {
+	W := interScroll(in.t)
+	if in.kind == interBoat {
+		g.interPier(c, in, W)
+		return
+	}
+	fillRect(c, 0, interPanelH, screenW, interGround-interPanelH, rgb(0x0a0e24))
+	// far trees and lamps (slower than the road)
+	for k := -1; k < 8; k++ {
+		wx := float64(k)*190 - math.Mod(W*0.55, 190)
+		h := 70 + jpHash(k+int(W*0.55/190), 5, 81)*50
+		filledEllipse(c, wx, interGround-30-h/2, 34, h/2, rgb(0x0c1a1c))
+		fillRect(c, wx-3, interGround-40, 6, 40, rgb(0x120e12))
+	}
+	for k := -1; k < 5; k++ {
+		wx := float64(k)*260 - math.Mod(W, 260) + 90
+		fillRect(c, wx, interGround-150, 5, 150, rgb(0x2a2a36))
+		fillRect(c, wx-26, interGround-154, 32, 6, rgb(0x2a2a36))
+		g.glowAt(c, Vec{wx - 14, interGround - 144}, 90, color.RGBA{255, 214, 120, 70})
+		fillRect(c, wx-24, interGround-150, 18, 3, rgb(0xfff0b0))
+	}
+	// pavement, kerb and road
+	fillRect(c, 0, interGround, screenW, 36, rgb(0x4a4658))
+	fillRect(c, 0, interGround, screenW, 3, rgb(0x6a6680))
+	fillRect(c, 0, interGround+36, screenW, screenH-interGround-36, rgb(0x1e1e28))
+	for x := -math.Mod(W, 120); x < screenW; x += 120 {
+		fillRect(c, x, interGround+42, 64, 4, rgb(0xb8aa60))
+		fillRect(c, x+30, interGround+2, 2, 34, rgb(0x5a566c)) // joints of the paving
+	}
+	// the litter of the parties he has left behind
+	for k := 0; k < 30; k++ {
+		wx := float64(k)*173 + jpHash(k, 9, 83)*60 - W
+		if wx < -20 || wx > screenW+20 {
+			continue
+		}
+		switch k % 3 {
+		case 0:
+			fillRect(c, wx, interGround+20, 9, 12, rgb(0xd8503a))
+		case 1:
+			filledEllipse(c, wx, interGround+26, 9, 6, rgb(0xe03a8a))
+		default:
+			fillRect(c, wx, interGround+18, 4, 14, rgb(0x3aa050))
+		}
+	}
+}
+
+func (g *Game) interPier(c *ebiten.Image, in *interState, W float64) {
+	// the sea, with waves that run past as the boat moves
+	for y := interPanelH; y < screenH; y += 4 {
+		fillRect(c, 0, y, screenW, 4, mixc(rgb(0x0a1a3a), rgb(0x0a3a5a), (y-interPanelH)/200))
+	}
+	for k := 0; k < 50; k++ {
+		wx := math.Mod(float64(k)*131-W*0.8+jpHash(k, 3, 91)*80, screenW+60)
+		wy := 392 + jpHash(k, 4, 93)*140
+		fillRect(c, wx, wy, 18+jpHash(k, 5, 95)*20, 2, rgba(0xbfe8ff, 90))
+	}
+	// the pier: planks up to where the boat is moored
+	end := interVehicleX(in.t) - 50
+	if in.t < itDepart {
+		fillRect(c, 0, interGround, math.Max(0, end), 22, rgb(0x6a4a2c))
+		fillRect(c, 0, interGround, math.Max(0, end), 3, rgb(0x8a6a44))
+		for x := -math.Mod(W, 36); x < end; x += 36 {
+			fillRect(c, x, interGround, 2, 22, rgb(0x3a2a1a))
+		}
+		for x := -math.Mod(W, 160) + 40; x < end; x += 160 { // posts
+			fillRect(c, x, interGround+22, 10, 60, rgb(0x2a1e14))
+		}
+		fillRect(c, 0, interGround-52, math.Max(0, end), 4, rgb(0x8a8a9a)) // the rail
+		for x := -math.Mod(W, 80); x < end; x += 80 {
+			fillRect(c, x, interGround-52, 4, 52, rgb(0x8a8a9a))
+		}
+	}
+}
+
+// ---- hero and vehicle ----------------------------------------------------------------------
+
+func (g *Game) interHeroPos(in *interState) (x, y float64) {
+	t := in.t
+	x, y = interHeroX, interGround+12
+	if t > itBoard0 {
+		to := interStopX + 100 // the door (car) / the place he jumps from (boat)
+		if in.kind == interBoat {
+			to = interStopX - 70
+		}
+		u := introEase((t - itBoard0) / (itOpen - itBoard0 + 0.4))
+		x = interHeroX + (to-interHeroX)*u
+	}
+	if in.kind == interBoat && t > itOpen {
+		u := math.Min(1, (t-itOpen)/(itIn-itOpen))
+		x += 100 * u
+		y += 12*u - math.Sin(math.Pi*u)*60 // a jump down into the boat
+	}
+	return
+}
+
+func (g *Game) interVehicleAndHero(c *ebiten.Image, in *interState) {
+	t := in.t
+	vx := interVehicleX(t)
+	hx, hy := g.interHeroPos(in)
+	drawHero := func(alpha float64) {
+		if alpha <= 0 {
+			return
+		}
+		cs := in.hero
+		if cs == nil {
+			cs = g.as.playerCS
+		}
+		if cs == nil {
+			return
+		}
+		anim, ph := AnimWalk, g.interPhase(in)
+		if t > itBoard0 {
+			ph = t * 7
+		}
+		if t > itIn || (in.kind == interBoat && t > itOpen) {
+			anim, ph = AnimIdle, 0
+		}
+		img, flip := cs.img(anim, DirRight, ph)
+		if img == nil {
+			return
+		}
+		bob := 0.0
+		if t < itBoard0 { // furious stomping: he bobs and leans forward
+			bob = -math.Abs(math.Sin(ph*math.Pi*2/float64(animFrames[AnimWalk]))) * 5
+		}
+		fillShadow(c, hx, hy)
+		op := &ebiten.DrawImageOptions{}
+		if flip {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(charW, 0)
+		}
+		op.GeoM.Translate(-charCX, -charBase)
+		op.GeoM.Scale(interScale, interScale)
+		if t < itBoard0 {
+			op.GeoM.Rotate(0.07) // leaning into it
+		}
+		op.GeoM.Translate(math.Round(hx), math.Round(hy+bob))
+		op.ColorScale.ScaleAlpha(float32(alpha))
+		c.DrawImage(img, op)
+		g.interAnger(c, hx, hy+bob, t)
+	}
+	if in.kind == interBoat {
+		hAlpha := 1.0
+		g.interBoat(c, in, vx, func() { drawHero(hAlpha) })
+		return
+	}
+	alpha := 1.0
+	if t > itOpen+0.4 {
+		alpha = 1 - introEase((t-itOpen-0.4)/0.7)
+	}
+	// the car goes first (the hero walks up to its door on the near side)
+	g.interCar(c, in, vx, func() { drawHero(alpha) })
+}
+
+// interAnger: the steam and the frown.
+func (g *Game) interAnger(c *ebiten.Image, x, y, t float64) {
+	if t > itBoard0+0.8 {
+		return
+	}
+	top := y - 31*interScale
+	for i := int(t*6) - 7; i <= int(t*6); i++ {
+		age := t - float64(i)/6
+		if age < 0 || age > 1.2 {
+			continue
+		}
+		side := -1.0
+		if i%2 == 0 {
+			side = 1
+		}
+		px := x + side*(14+jpHash(i, 2, 97)*8) + math.Sin(age*5+float64(i))*4
+		py := top - 4 - age*55 // the steam rises from the top of his head, never over the face
+		r := 6 + age*9
+		filledEllipse(c, px, py, r, r*0.8, rgba(0xdce0ee, uint8(170*(1-age/1.2))))
+	}
+	// the frown: two dark brows slanting down towards the nose (he faces right); no marks on the face
+	fillRect(c, math.Round(x+10), math.Round(top-2), 6, 3, rgb(0x10101a))
+	fillRect(c, math.Round(x+15), math.Round(top), 6, 3, rgb(0x10101a))
+}
+
+// ---- the car ---------------------------------------------------------------------------------
+
+func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func()) {
+	t := in.t
+	y := interGround + 46 // the wheels touch the road
+	if x < -300 || x > screenW+80 {
+		hero()
+		return
+	}
+	body, dark, glass := rgb(0xd8742a), rgb(0x8a3c14), rgb(0x9ad0f0)
+	// a little engine shake while it idles
+	if t >= itStop && t < itDepart {
+		y += math.Round(math.Sin(t*38) * 1)
+	}
+	// the hero stands in front of the car, on the pavement: drawn before the near door
+	hero()
+	// wheels, body and cabin
+	body2 := func(dx, dy, w, h float64, col color.RGBA) { fillRect(c, x+dx, y+dy, w, h, col) }
+	body2(8, -62, 164, 40, body) // lower body
+	body2(0, -48, 180, 26, body)
+	body2(0, -26, 180, 4, dark)
+	body2(30, -102, 100, 42, body) // cabin
+	body2(40, -94, 36, 30, glass)  // windows
+	body2(84, -94, 38, 30, glass)
+	body2(76, -102, 4, 42, dark)
+	body2(170, -50, 10, 12, rgb(0xf8f0a0))
+	body2(-6, -36, 8, 12, rgb(0x9a9aa4)) // bumper
+	body2(176, -36, 8, 12, rgb(0x9a9aa4))
+	body2(2, -46, 6, 8, rgb(0xd02a2a))      // tail light
+	for _, wx := range []float64{38, 138} { // wheels
+		filledEllipse(c, x+wx, y-14, 19, 19, rgb(0x14141a))
+		filledEllipse(c, x+wx, y-14, 9, 9, rgb(0x9a9aa4))
+		a := t*14 + wx
+		if t < itDepart {
+			a = 0
+		}
+		fillRect(c, x+wx+math.Cos(a)*7-1, y-14+math.Sin(a)*7-1, 2, 2, rgb(0x3a3a44))
+	}
+	// the near door, which opens for him
+	o := 0.0
+	if t > itOpen {
+		o = introEase((t - itOpen) / 0.6)
+	}
+	if t > itIn+0.6 {
+		o = 1 - introEase((t-itIn-0.6)/0.5)
+	}
+	dw := 56.0
+	dx := 84.0
+	fillRect(c, x+dx, y-80, dw, 52, rgb(0x241a14)) // the dark inside
+	if o > 0.05 {
+		fillRect(c, x+dx+6, y-72, dw-12, 24, rgb(0x6a4a3a))
+	}
+	leaf := dw * (1 - 0.85*o)
+	fillRect(c, x+dx+dw-leaf, y-80, leaf, 52, body)
+	fillRect(c, x+dx+dw-leaf, y-80, leaf, 3, dark)
+	fillRect(c, x+dx+dw-leaf+2, y-76, leaf-8, 22, glass)
+	fillRect(c, x+dx+dw-leaf+4, y-52, 8, 3, dark) // the handle
+	// after the door closes, you can see his head in the window
+	if t > itIn+1 {
+		filledEllipse(c, x+105, y-84, 8, 9, rgb(0xe0b088))
+		fillRect(c, x+98, y-94, 14, 5, rgb(0x2a1a14))
+	}
+	// exhaust
+	if t >= itStop {
+		for i := 0; i < 7; i++ {
+			age := math.Mod(t*1.6+float64(i)/7, 1)
+			filledEllipse(c, x-12-age*60, y-18-age*18, 4+age*8, 4+age*7, rgba(0xc8c8d4, uint8(160*(1-age))))
+		}
+	}
+}
+
+// ---- the boat --------------------------------------------------------------------------------------
+
+func (g *Game) interBoat(c *ebiten.Image, in *interState, x float64, hero func()) {
+	t := in.t
+	y := interGround + 40
+	if x < -300 || x > screenW+80 {
+		hero()
+		return
+	}
+	bob := math.Round(math.Sin(t*2.4) * 2)
+	if t > itDepart {
+		bob = -math.Round(math.Min(6, (t-itDepart)*3)) // it lifts its bow
+	}
+	y += bob
+	white, navy, red := rgb(0xf0f0f6), rgb(0x1a3a7a), rgb(0xc8302a)
+	// wake and foam
+	if t >= itDepart {
+		for i := 0; i < 14; i++ {
+			age := math.Mod(t*2+float64(i)/14, 1)
+			filledEllipse(c, x-age*190, y+8+age*5, 8+age*18, 4+age*3, rgba(0xdcf4ff, uint8(180*(1-age))))
+		}
+	}
+	// hull: wedge pointing right
+	for r := 0.0; r < 30; r++ {
+		w := 214 - r*1.0
+		off := r * 0.25
+		fillRect(c, x+off, y-32+r, w, 1, white)
+		if r > 20 {
+			fillRect(c, x+off, y-32+r, w, 1, navy)
+		}
+	}
+	fillRect(c, x, y-34, 222, 3, rgb(0xc8c8d8)) // the gunwale
+	fillRect(c, x+20, y-30, 150, 3, red)        // the stripe
+	// the hero stands in the boat: drawn behind the front of the hull
+	hero()
+	// seat and windscreen, drawn over his legs
+	fillRect(c, x+150, y-64, 4, 32, rgb(0x9ad0f0)) // windscreen
+	fillRect(c, x+150, y-64, 40, 4, rgb(0xb8d8f0))
+	fillRect(c, x+156, y-60, 32, 26, rgba(0x9ad0f0, 120))
+	fillRect(c, x+40, y-40, 70, 8, rgb(0x5a3a2a)) // bench
+	fillRect(c, x-8, y-48, 10, 32, rgb(0x2a2a34)) // the outboard motor
+	fillRect(c, x-10, y-24, 14, 6, rgb(0x14141a))
+	fillRect(c, x+200, y-60, 3, 28, rgb(0x9a9aa4)) // a little flag
+	fillRect(c, x+203, y-60, 14, 9, red)
+	// the bow in front of him, so he seems to be inside
+	fillRect(c, x, y-32, 150, 6, white)
+	if in.t > itIn {
+		fillRect(c, x, y-34, 150, 4, rgb(0xc8c8d8))
+	}
+}
+
+// ---- captions ---------------------------------------------------------------------------------
+
+var interMutters = [3][]string{
+	interCar:  {"Otra fiesta más...", "Ni un día de descanso.", "¿Nadie conoce el botón de silencio?", "Me llaman aguafiestas. Con razón."},
+	interBoat: {"¿Otra más? Qué sorpresa.", "Mi cuchillo y yo, hartos.", "Esto es peor que mi vecino.", "Y ahora, agua. Genial."},
+}
+
+func (g *Game) interCaption(dst *ebiten.Image, in *interState) {
+	t := in.t
+	var line string
+	switch {
+	case t < 2:
+		line = ""
+	case t < itDecel0:
+		if in.kind == interBoat {
+			line = "Cinco fiestas más a la espalda, y ni una gracias."
+		} else {
+			line = "Cinco fiestas menos. Cada una, un poco peor que la anterior."
+		}
+	case t < itBoard0+1:
+		if in.kind == interBoat {
+			line = "El siguiente sitio no se llega andando."
+		} else {
+			line = "La siguiente fiesta queda lejos. Toca coche."
+		}
+	case t < itDepart:
+		line = "Que nadie lo toque, que va con mala cara."
+	case t < itFadeOut-1:
+		line = "Rumbo a la siguiente fiesta."
+	}
+	if line != "" { // under the street: it never covers the hero or the vehicle
+		w := g.textW(tr(line), 1.5) + 40
+		fillRect(dst, 480-w/2, 488, w, 32, rgba(0x000000, 170))
+		g.drawTextC(dst, line, 480, 495, rgb(0xf4f0ff), 1.5)
+	}
+	// he mutters
+	if t > 2 && t < itBoard0 {
+		const per = 3.8
+		k := int((t - 2) / per)
+		if u := t - 2 - float64(k)*per; u < 2.4 {
+			lines := interMutters[in.kind]
+			hx, hy := g.interHeroPos(in)
+			g.speechBubble(dst, hx+10, hy-34*interScale-4, lines[k%len(lines)])
+		}
+	}
+}

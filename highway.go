@@ -40,8 +40,6 @@ func genHighway(rng *rand.Rand) *LevelDef {
 	)
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
-	pl.at("bridge", 470, 285, 0)
-	pl.avoid = append(pl.avoid, Vec{470, 285})
 	// north verge: the stage and the bar
 	pl.at("dj", 480, 78, 0)
 	pl.at("speaker", 410, 76, 0)

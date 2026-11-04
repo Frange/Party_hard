@@ -205,7 +205,7 @@ func (g *Game) updateTech(dt float64) {
 			gu.state = gToPhone
 			gu.path = nil
 			if tp != nil {
-				gu.path = g.lvl.Path(gu.pos, Vec{tp.X, tp.Y + 14})
+				gu.path = g.lvl.PathG(gu.pos, Vec{tp.X, tp.Y + 14})
 			}
 			gu.icon, gu.iconT = "¡Está cortado!", 2.2
 			g.snd.Play("alert")

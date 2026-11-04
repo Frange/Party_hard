@@ -39,6 +39,9 @@ func (g *Game) updateKid(gu *Guest) {
 	if g.mode != ModePlay || gu.out() || g.p.dead || g.p.hidden || gu.perf != "" {
 		return
 	}
+	if kidRiding(gu) {
+		return // busy with his tricks in a bowl: he does not notice the player
+	}
 	switch gu.state {
 	case gSleep, gKiss, gVomit, gLift, gZombie, gKiller, gPunch, gFun, gReport, gAlarm, gToPhone, gCall:
 		return
@@ -66,7 +69,7 @@ func (g *Game) updateKid(gu *Guest) {
 	}
 	g.detachPartner(gu)
 	gu.state, gu.timer = gScared, 4+g.rng.Float64()*3
-	gu.path = g.lvl.Path(gu.pos, best)
+	gu.path = g.lvl.PathG(gu.pos, best)
 	gu.icon, gu.iconT = []string{"¡Aaah!", "¡Corre!", "¡Viene!", "¡Socorro!"}[g.rng.Intn(4)], 1.2
 }
 
@@ -197,7 +200,7 @@ func (g *Game) kidOnFoot(slug, name string) {
 	if gu == nil {
 		return
 	}
-	gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
+	gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
 	gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
 	if slug == "diego" {
 		g.say(name + " llega en su monopatín por la acera")
@@ -210,7 +213,7 @@ func (g *Game) kidOnFoot(slug, name string) {
 func (g *Game) kidFromVehicle(v *Vehicle) {
 	slug := kidSlugs[v.alt%len(kidSlugs)]
 	if gu := g.addKidAt(slug, Vec{v.x - 12, v.y - 24}); gu != nil {
-		gu.path = g.lvl.Path(gu.pos, g.lvl.RandomRoam(g.rng))
+		gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
 		gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
 	}
 	g.snd.Play("alert")
