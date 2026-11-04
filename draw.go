@@ -2128,12 +2128,12 @@ func (g *Game) drawMenu(dst *ebiten.Image) {
 		g.drawText(dst, s, 110, y, col, 2.2)
 	}
 	if g.menuMsgT > 0 {
-		g.drawTextC(dst, g.menuMsg, 520, 262, rgb(0xffa030), 1.6)
+		g.drawTextC(dst, g.menuMsg, 660, 262, rgb(0xffa030), 1.6)
 	}
 	if gold {
 		g.drawText(dst, "★ LEYENDA DE LA FIESTA ★", 110, 118, rgb(0xffe070), 1.3)
 	}
-	g.drawTextC(dst, "Nadie te dejó dormir. Ahora nadie saldrá de la fiesta.", 520, 232, rgba(0xe0d8f0, 200), 1)
+	g.drawTextC(dst, "Nadie te dejó dormir. Ahora nadie saldrá de la fiesta.", 640, 232, rgba(0xe0d8f0, 200), 1)
 	g.drawText(dst, actionHint(actConfirm)+"  seleccionar     "+actionHint(actBack)+"  volver", screenW-330, screenH-24, rgb(0x8a86a0), 1)
 	g.drawText(dst, "M: sonido   F11: pantalla completa", 8, screenH-24, rgb(0x5a5670), 1)
 	g.drawText(dst, "Versión "+gameVersion+" · hecho por Frange", 8, screenH-66, rgb(0xb8b0d0), 1)

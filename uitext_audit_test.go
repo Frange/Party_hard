@@ -274,6 +274,22 @@ func auditShots() []auditShot {
 			}
 		}
 	}
+	for _, two := range []bool{false, true} { // the JUGADORES row selected, with its funny line
+		for _, dbg := range []bool{false, true} {
+			two, dbg := two, dbg
+			add(fmt.Sprintf("main menu JUGADORES selected two=%v debug=%v", two, dbg), true, func(g *Game) {
+				auditReset(g)
+				twoPlayerMode = two
+				g.debugMenu = dbg
+				g.mode = ModeMenu
+				for i, id := range g.menuList() {
+					if id == menuPlayers {
+						g.mainSel = i
+					}
+				}
+			})
+		}
+	}
 	add("title", false, func(g *Game) {
 		auditReset(g)
 		g.startTitle()

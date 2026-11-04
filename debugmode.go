@@ -143,7 +143,7 @@ func (g *Game) konamiStep() {
 // ---- the main menu rows, with the hidden one on top when it is unlocked ----------
 
 func (g *Game) menuList() []int {
-	l := []int{menuContinue, menuNewGame, menuPlayers, menuRandom, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+	l := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
 	if !g.hasSave() {
 		l = l[1:] // the first time: there is nothing to continue
 	}
@@ -163,8 +163,6 @@ func menuLabel(id int) string {
 		return "NUEVO JUEGO"
 	case menuPlayers:
 		return "JUGADORES"
-	case menuRandom:
-		return "ALEATORIO"
 	case menuShop:
 		return "TIENDA"
 	case menuTrophies:

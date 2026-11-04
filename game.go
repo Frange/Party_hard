@@ -42,7 +42,6 @@ const (
 const (
 	menuContinue = iota
 	menuNewGame
-	menuRandom
 	menuShop
 	menuTrophies
 	menuScenes
@@ -1046,8 +1045,6 @@ func (g *Game) Update() error {
 				} else {
 					g.beginNewGame()
 				}
-			case menuRandom:
-				g.startRandomLevel()
 			case menuShop:
 				g.shopTab, g.shopSel, g.shopScroll, g.shopMsg = 0, 0, 0, ""
 				g.mode = ModeShop

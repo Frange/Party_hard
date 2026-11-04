@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 	"unicode/utf8"
 )
@@ -41,7 +42,7 @@ func TestMenuListClearOfBeds(t *testing.T) {
 		uiLang = lang
 		for _, dbg := range []bool{false, true} {
 			for _, save := range []bool{false, true} {
-				list := []int{menuContinue, menuNewGame, menuPlayers, menuRandom, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+				list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
 				if !save {
 					list = list[1:]
 				}
@@ -76,46 +77,81 @@ func TestMenuListClearOfBeds(t *testing.T) {
 	}
 }
 
-// the funny line of the JUGADORES row sits in the gap between its row and the next, clear of the logo,
-// of the window and of the bed, in both languages and with the DEBUG row.
+// the funny line of the JUGADORES row stays at least 4 px (real distance between ink rectangles, shadow
+// included) from every other row of the list, from the logo, from the centred sentence and from the beds,
+// in both languages, with and without DEBUG / a save, with the real positions drawPlayersRow uses.
 func TestPlayersNoteClear(t *testing.T) {
 	g := textGame()
 	defer func(l string) { uiLang = l }(uiLang)
 	const logoBottom = 30 + 34 + 70 + 4 + 3 // the ring of the logo, with its bob
+	type rc struct{ x0, y0, x1, y1 float64 }
+	gap := func(a, b rc) float64 { // the distance between two rectangles (0 if they touch or overlap)
+		dx := math.Max(0, math.Max(a.x0-b.x1, b.x0-a.x1))
+		dy := math.Max(0, math.Max(a.y0-b.y1, b.y0-a.y1))
+		return math.Hypot(dx, dy)
+	}
 	for _, lang := range []string{"es", "en"} {
 		uiLang = lang
 		for _, dbg := range []bool{false, true} {
 			for _, save := range []bool{false, true} {
-				g.debugMenu = dbg
-				list := []int{menuContinue, menuNewGame, menuPlayers, menuRandom, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
-				if !save {
-					list = list[1:]
-				}
-				if dbg {
-					list = append([]int{menuDebug}, list...)
-				}
-				for i, id := range list {
-					if id != menuPlayers {
-						continue
+				for _, two := range []bool{false, true} {
+					g.debugMenu = dbg
+					list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+					if !save {
+						list = list[1:]
 					}
-					y := menuRowY(i, len(list))
-					nextTop := menuRowY(i+1, len(list)) + 5 // the glyphs of the next row start 5 px below its y
-					rowBot := y + 24
-					for _, note := range []string{"tú solito", "¡el doble de caos!"} {
-						x, ny := playersNotePos(y, menuRowY(1, len(list))-menuRowY(0, len(list)))
+					if dbg {
+						list = append([]int{menuDebug}, list...)
+					}
+					for i, id := range list {
+						if id != menuPlayers {
+							continue
+						}
+						y := menuRowY(i, len(list))
+						x := 110 + g.textW(menuLabel(id), 2.2) + 14 + g.textW("◄", 2.2) + 8
+						note := "tú solito"
+						if two {
+							x += 24
+							note = "¡el doble de caos!"
+						}
+						val := "1"
+						if two {
+							val = "2"
+						}
+						x += g.textW(val, 2.2) + 8 + g.textW("►", 2.2)
 						w := g.textW(note, 1)
-						top, bot := ny+3, ny+12 // the glyphs of the line
-						if top < rowBot || bot > nextTop {
-							t.Errorf("%s dbg=%v save=%v: %q (%.0f..%.0f) is not in the gap %.0f..%.0f", lang, dbg, save, note, top, bot, rowBot, nextTop)
+						bedLeft := menuBedsX(two)[0][0] - 14
+						if two {
+							bedLeft = 1e9
 						}
-						if top < logoBottom {
-							t.Errorf("%s: %q overlaps the logo", lang, note)
+						nx, ny := playersNotePos(x, y, w, bedLeft)
+						n := rc{nx, ny + 3, nx + w + 1, ny + 12 + 1} // glyphs of the line + shadow
+						var others []rc
+						for j, id2 := range list {
+							if j == i {
+								continue
+							}
+							y2 := menuRowY(j, len(list))
+							others = append(others, rc{110, y2 + 5, 110 + g.textW(menuLabel(id2)+" ◄", 2.2) + 1, y2 + 24})
 						}
-						if x+w > menuBedsX(true)[0][0]-14 && bot > 250 && top < 440 {
-							t.Errorf("%s: %q (to x=%.0f) reaches the first headboard", lang, note, x+w)
+						sw := g.textW("Nadie te dejó dormir. Ahora nadie saldrá de la fiesta.", 1)
+						others = append(others, rc{640 - sw/2, 232 + 3, 640 + sw/2, 232 + 13})
+						others = append(others, rc{0, 0, screenW, logoBottom})
+						mw := g.textW("Termina la fiesta actual antes de empezar otra", 1.6)
+						others = append(others, rc{660 - mw/2, 262 + 4, 660 + mw/2, 262 + 20}) // the message of the menu
+						bx := menuBedsX(two)[0][0] - 14
+						top := 250.0
+						if two {
+							top += menuBedShiftYFor(y)
 						}
-						if x+w > menuListRight {
-							t.Errorf("%s: %q is %.0f px wide, wider than the list", lang, note, w)
+						others = append(others, rc{bx, top, bx + 60, 480})
+						for k, o := range others {
+							if d := gap(n, o); d < 4 {
+								t.Errorf("%s two=%v dbg=%v save=%v: %q %v is %.1f px from %v (item %d), needs >= 4", lang, two, dbg, save, note, n, d, o, k)
+							}
+						}
+						if n.x1 > 1100 {
+							t.Errorf("%s: note too far right", lang)
 						}
 					}
 				}

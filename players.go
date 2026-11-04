@@ -227,13 +227,25 @@ func (g *Game) drawPlayersRow(dst *ebiten.Image, label string, y float64, sel bo
 	g.drawText(dst, val, x, y, rgb(0xffe060), 2.2)
 	x += g.textW(val, 2.2) + 8
 	g.drawText(dst, "►", x, y, arrow, 2.2)
-	if sel { // a funny line in the gap between this row and the next one, clear of the logo, the window and the bed
-		n := len(g.menuList())
-		nx, ny := playersNotePos(y, menuRowY(1, n)-menuRowY(0, n))
+	if sel { // a funny line to the right of the row, level with the big text: never between two rows
+		bedLeft := 1e9 // with two players the beds slide down clear of the row
+		if !twoPlayerMode {
+			bedLeft = menuBedsX(false)[0][0] - 14
+		}
+		nx, ny := playersNotePos(x+g.textW("►", 2.2), y, g.textW(note, 1), bedLeft)
 		g.drawText(dst, note, nx, ny, rgb(0x8a86a0), 1)
 	}
 }
 
-// playersNotePos is where the funny line of the JUGADORES row goes: aligned with the labels, in the
-// gap of the list between the row and the next one (rows are 33 to 40 px apart, the big text is 22 px tall).
-func playersNotePos(y, pitch float64) (x, ny float64) { return 110, y + math.Floor(8+pitch/2) }
+// playersNotePos is where the funny line of the JUGADORES row goes, given the right end of the last arrow,
+// the row's y, the width of the line and the x where the headboard of the bed starts: 12 px to the right of
+// the arrow and 8 px below the row's y (small glyphs centred on the big ones). It is on the same line as the
+// row, so it never touches the rows above or below (the gap between rows was too tight: 33 px with DEBUG and
+// a save). If it would end over the bed (1 player, the row low because of DEBUG), it is lifted above the bed.
+func playersNotePos(arrowEnd, y, w, bedLeft float64) (x, ny float64) {
+	x, ny = math.Floor(arrowEnd)+12, y+8
+	if x+w+4 > bedLeft {
+		ny = math.Min(ny, menuBedTop-4-13) // its glyphs and shadow end 13 px below ny
+	}
+	return x, ny
+}
