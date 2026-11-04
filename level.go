@@ -151,6 +151,8 @@ type Prop struct {
 	scale   float64 // see PropInst.Scale (0 = normal)
 	wreck   bool
 	fireOut bool    // flames put out by the firefighters
+	burn    float64 // 0..1: how charred this prop is after a fire (fire.go)
+	lit     bool    // it is burning right now
 	gone    bool    // picked up / removed
 	fade    float64 // 0..1: how see-through this tall prop is while someone stands behind it
 }

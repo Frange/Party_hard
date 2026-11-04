@@ -37,9 +37,12 @@ TIENDA
 ------
 Los puntos de cada fiesta (ganes o pierdas) se guardan en tu cartera (progress.json).
 En el menú, TIENDA permite comprar: personajes principales, ropa (sombreros, gafas, trajes),
-objetos (zapatillas, pulmones, guantes), animales, asesinos nuevos y tipos de policía.
-Al empezar solo hay policía local; FBI, ejército, SWAT y Power Rangers salen (según las
-estrellas) cuando los desbloqueas. Los animales y asesinos no comprados no aparecen.
+objetos (zapatillas, pulmones, guantes), animales, asesinos nuevos y uniformes de policía.
+Los tipos de policía ya no se compran: al empezar solo hay policía local, y los demás se
+desbloquean con trofeos según las personas que hayas matado en total: FBI a las 500, ejército
+a las 1000, SWAT a las 1500 y Power Rangers a las 2000 (salen según las estrellas). La pestaña
+POLICÍAS de la tienda muestra tu progreso. Quien ya los había comprado los conserva.
+Los animales y asesinos no comprados no aparecen.
 
 BANDAS
 ------
@@ -184,3 +187,73 @@ IMPORTAR IMÁGENES
   "imports" (junto a "assets"), no en "assets". El juego y el editor leen las dos. "imports" está en .gitignore:
   nunca se sube al repositorio. Los zips del juego tampoco la incluyen.
 - Editor > dibujo: botón Cuadrícula y selector de fondo transparente para ver bien lo que pintas.
+
+MÚSICA DE LAS INTROS
+--------------------
+- Carpeta "intros" (junto a "assets"): pon ahí tus mp3 para las escenas de la historia y se usan en lugar de la música
+  sintetizada. Se nombran con el número de la escena: 1_intro.mp3 (la primera intro), 2_interludio_A.mp3 (tras la fiesta 5),
+  3_interludio_B.mp3 (tras la 10), 4_final.mp3, 5_final_secreto.mp3, 6_invitacion.mp3 y 7_cohete.mp3 (el interludio del cohete, tras la fiesta 20). Si repites el número
+  (2_interludio_A_2.mp3...) se elige una al azar.
+- Sin archivo suena la música sintetizada: la primera intro con el "pum pum" del bajo de la fiesta de al lado y una melodía pegadiza encima (los altavoces
+  y la habitación se mueven al ritmo) y las demás con melodías alegres sin bombo: una marcha de dibujos animados en los
+  interludios (con una versión más pícara en los recuerdos), una nana tierna en el final, una fanfarria en el final secreto
+  y un tema de aventura en la invitación.
+- Para 1_intro.mp3 el ritmo visual sigue 124 BPM; con otro tempo crea un archivo 1_intro.bpm que contenga solo el número.
+- La carpeta "intros" no se sube al repositorio (las canciones pueden tener copyright).
+
+ESTILOS DE MÚSICA
+-----------------
+Cada fiesta tiene su propio género. Si no has puesto un mp3 en la carpeta "music" para esa fiesta, el juego toca su
+música sintetizada en ese estilo (al empezar sale un letrero pequeño con el género). Tabla Nivel -> Género:
+   1 Fiesta en casa: House                 12 Parque de skate: Punk
+   2 Miami Beach: Reggaetón                13 Cementerio: Metal
+   3 Neón brillante: Synthwave             14 Cine: Orquestal
+   4 Diana (rancho): Country               15 Circuito: Electrónica
+   5 Plaza de toros: Pasodoble             16 Estación de esquí: Pop
+   6 Torre Eiffel: Clásica (vals)          17 Fiesta en la azotea: Hip-hop (lo-fi)
+   7 Crucero nocturno: Disco               18 Casino: Jazz (swing)
+   8 Parque de atracciones: Chiptune       19 Autopista: Rock
+   9 Estadio: Pop                          20 Estación de tren: Rap (boom bap)
+  10 Discoteca: Techno                     21 Estación espacial: Electrónica
+  11 Festival: Electrónica                 Isla Nublar (secreto): Orquestal épica
+En el modo aleatorio: pub = rock, plaza europea = pasodoble, centro comercial = pop. Si muere el DJ, entra el punk; una
+banda de otro estilo (Metallica = metal, The Beatles = pop, Elvis = country, Lost Prophets y Despistaos = rock) toca el
+suyo, y las bandas punk tocan el estilo de la fiesta. Si pones tus propios mp3 ("music/N_nombre.mp3"), mandan ellos:
+la tabla te sirve para saber qué canción poner en cada pantalla.
+Cada fiesta tiene además su TIPO de fiesta (con nombre gracioso), que sale en la pantalla ELIGE LA FIESTA bajo el
+nombre ("Botellón de salón · House") y en el letrero del principio. Tipos: 1 Botellón de salón, 2 Chiringuito sin ley,
+3 Rave de neón, 4 Hoguera con botas, 5 Fiesta de capotes, 6 Cena de gala con vals, 7 Fiesta del capitán, 8 Feria sin
+cinturón, 9 Final de copa, 10 Sesión de madrugada, 11 Festival de barro, 12 Jam en el bowl, 13 Velatorio con riffs,
+14 Sesión golfa, 15 Carrera sin freno, 16 Après-ski con chocolate, 17 Terraza con piscina, 18 Noche de corbata,
+19 Atasco con altavoces, 20 Fiesta sin billete, 21 Rave de gravedad cero, Isla Nublar: Última fiesta jurásica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
+NOMBRES DE LOS MP3: si la última palabra del nombre es un género ("13_cementerio_metal.mp3"), el juego lo compara con
+el de la fiesta: si coincide suena (y el letrero lo dice); si es de otro estilo (por ejemplo restos de un lote antiguo
+como "13_cine_electro.mp3") se IGNORA con un aviso en la consola y suena la música del juego. Un nombre sin género
+("5_fiesta.mp3") suena siempre. La carpeta "more" se filtra igual. Mira music/README.md.
+
+INVITADOS POR FIESTA
+--------------------
+- Cada fiesta empieza con entre 45 y 60 invitados (aleatorio). En AJUSTES puedes cambiar "Invitados mínimo" e "Invitados máximo".
+- El máximo es un tope estricto: nunca hay más invitados vivos a la vez, contando a los que llegan durante la fiesta
+  (autobús, taxis, tren, grupos temáticos, Cazafantasmas, etc.). Si un grupo no cabe, llegan sólo los que caben.
+  No cuentan guardias, policía, animales, el asesino especial ni el T-Rex.
+- Los personajes famosos (Sonic, Shrek...) sólo aparecen una vez por fiesta.
+
+
+UNO O DOS JUGADORES
+-------------------
+- Menú principal > JUGADORES: ◄ 1 / 2 ► (←/→ o Enter). Por defecto 1. La elección se guarda en settings.json.
+- Con 2 jugadores cada uno juega con lo que prefieras: dos en el teclado (J1: W A S D, Espacio, E, F, Shift izq.;
+  J2: flechas, Shift der., "." golpear, "," usar, "/" bailar), uno en teclado y otro con mando, o los dos con mando.
+  Por defecto es automático: sin mandos, los dos comparten teclado; con un mando, J1 teclado y J2 mando; con dos, uno
+  cada uno. Los mandos se detectan al enchufarlos o desenchufarlos, sin reiniciar.
+- AJUSTES > JUGADORES: "Entrada J1" y "Entrada J2" (Auto, Teclado, Mando 1, Mando 2; Enter = "pulsa un botón para
+  unirte"). AJUSTES > CONTROLES DEL JUGADOR 2: sus teclas y botones (Tecla 1, Tecla 2, Mando). Atrás y Confirmar son
+  comunes. Los poderes de leyenda (I O K L) y el suceso (V) son de toda la fiesta: los puede usar cualquiera de los dos
+  (con el teclado compartido es la misma tecla; con mando, el botón de cada jugador).
+- Al empezar una fiesta de dos jugadores salen unos segundos las teclas de cada uno (azul el J1, rojo el J2).
+- Cosas que cada jugador hace por su cuenta: esconderse, bailar (cada uno molesta a la gente con sus propios bailes),
+  cortar teléfonos, coger objetos, meterse en la piscina. Las marcas de "usar" salen con la tecla de cada jugador y un
+  cuadradito de su color. La trampa de gas y el fuego afectan a los dos por separado, y el disfraz sólo lo usa quien
+  lo lleva: la policía pierde el rastro cuando ya no queda nadie buscado sin cambiar de aspecto.
+- Los bocadillos esquivan a los dos jugadores. Los anillos de color van a la escala de la gente (Isla Nublar).

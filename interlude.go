@@ -35,6 +35,11 @@ type interState struct {
 	hero    *CharSet
 	did     map[string]bool
 	step    int
+	music   bool     // the music of the interlude has been started
+	guard   *CharSet // the station guard of the rocket interlude
+	guardX  float64
+	two     bool        // the two player version (interlude2p.go)
+	heroes  [2]*CharSet // both heroes, each with his knife
 }
 
 // the timeline, in seconds
@@ -58,8 +63,11 @@ const (
 
 // interlude places: the campaign levels already beaten
 func interludePlaces(kind int) []int {
-	if kind == interBoat {
+	switch kind {
+	case interBoat:
 		return []int{5, 6, 7, 8, 9}
+	case interRocket:
+		return []int{15, 16, 17, 18, 19} // the last parties: the ski station, the roof, the casino, the motorway, the train station
 	}
 	return []int{0, 1, 2, 3, 4}
 }
@@ -70,18 +78,31 @@ func (g *Game) startInterlude(kind, next int) {
 	g.sceneReplay = false
 	g.snd.StopMusic()
 	g.bedQuiet, g.bedEmpty, g.bedNoTalk = false, false, false
-	if kind == interBoat {
+	switch kind {
+	case interBoat:
 		g.markSeen("seen_interlude10")
-	} else {
+	case interRocket:
+		g.markSeen("seen_interlude20")
+	default:
 		g.markSeen("seen_interlude5")
 	}
 	g.inter.hero = g.heroWithKnife()
+	if g.scene2P() {
+		in := g.inter
+		in.two = true
+		in.heroes[0], in.heroes[1] = g.sceneHero(0, true), g.sceneHero(1, true)
+		if in.heroes[0] != nil {
+			in.hero = in.heroes[0]
+		}
+	}
 }
 
 // finishInterlude: the real thing goes on to the next party, a replay goes back.
 func (g *Game) finishInterlude() {
 	in := g.inter
 	g.inter = nil
+	g.snd.StopThump()
+	g.snd.StopScene()
 	if g.sceneReplay {
 		g.loadLevel(0) // the flashbacks used the level slot
 		g.leaveScene()
@@ -94,6 +115,12 @@ func (g *Game) finishInterlude() {
 
 // afterLevel: what comes when a finished party is left behind: maybe a story interlude.
 func (g *Game) afterLevel() {
+	if g.levelIdx == specialJurassic { // the island has no "next party": back to the list
+		g.loadLevel(0)
+		g.mode = ModeLevelSelect
+		g.menuSel = campaignN + 1
+		return
+	}
 	if kind, ok := g.interludeAfter(g.levelIdx); ok {
 		g.startInterlude(kind, g.levelIdx+1)
 		return
@@ -108,6 +135,8 @@ func (g *Game) interludeAfter(i int) (int, bool) {
 		return interCar, true
 	case i == 9 && !g.seen("seen_interlude10"):
 		return interBoat, true
+	case i == 19 && !g.seen("seen_interlude20"):
+		return interRocket, true
 	}
 	return 0, false
 }
@@ -275,12 +304,35 @@ func (g *Game) updateInterlude() {
 		}
 		in.skipArm = 2.2
 	}
+	if in.kind == interRocket { // its own timeline (interlude_rocket.go)
+		g.updateRocket(in)
+		return
+	}
 	once := func(key string, at float64, name string) {
 		if in.t >= at && !in.did[key] {
 			in.did[key] = true
 			g.snd.Play(name)
 		}
 	}
+	// the music: a cartoon march (or the song of the intros folder) and, in step with it, a sneaky minor version
+	// of the same tune that takes over while a memory is on screen
+	if !in.music {
+		in.music = true
+		if in.kind == interBoat {
+			g.sceneMusic(sceneInterB, ambInterB)
+		} else {
+			g.sceneMusic(sceneInterA, ambInterA)
+		}
+		if !g.snd.SceneIsSong("base") {
+			mem := ambMemA
+			if in.kind == interBoat {
+				mem = ambMemB
+			}
+			g.snd.StartScene("memory", "memory:"+mem, ambientBuilder(mem), "", true) // same tempo and bar as the base
+		}
+	}
+	g.snd.SetSceneVolume("base", interBaseVol(in.t, len(in.bgs)))
+	g.snd.SetSceneVolume("memory", interMemVol(in.t, len(in.bgs)))
 	// stomps: one with every step while he is walking
 	if in.t < itBoard0 {
 		if st := int(g.interPhase(in) * 2 / float64(animFrames[AnimWalk])); st != in.step && in.t > 1 {
@@ -344,6 +396,10 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 		g.drawTextC(dst, "...", 480, 250, rgb(0x8a86a0), 2)
 		return
 	}
+	if in.kind == interRocket {
+		g.drawRocketScene(dst, in)
+		return
+	}
 	if in.canvas == nil {
 		in.canvas = ebiten.NewImage(screenW, screenH)
 	}
@@ -352,6 +408,9 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 	c.Fill(rgb(0x070a1c))
 	g.interPanel(c, in)
 	g.interStreet(c, in)
+	if in.two {
+		g.interTwoStreetGags(c, in)
+	}
 	g.interVehicleAndHero(c, in)
 	// camera: a little shake with every stomp, a slow zoom when he leaves
 	ox, oy := 0.0, 0.0
@@ -398,11 +457,6 @@ func (g *Game) interSky(c *ebiten.Image, in *interState) {
 	for y := 0.0; y < interPanelH; y += 4 {
 		fillRect(c, 0, y, screenW, 4, mixc(rgb(0x070a1c), rgb(0x1c2a58), y/interPanelH))
 	}
-	for i := 0; i < 80; i++ {
-		x, y := float64((i*97)%screenW), float64((i*53)%200)
-		a := uint8(90 + 120*math.Abs(math.Sin(in.t*1.2+float64(i))))
-		fillRect(c, x, y+16, 2, 2, rgba(0xdce4ff, a))
-	}
 	filledEllipse(c, 800, 90, 34, 34, rgb(0xeae6d4)) // moon
 	filledEllipse(c, 788, 82, 32, 32, rgb(0x14244c))
 	off := W * 0.3
@@ -442,23 +496,59 @@ func (g *Game) interSky(c *ebiten.Image, in *interState) {
 	}
 }
 
+// interMemory: which memory is on screen at time t (of n), how far into it (u) and how opaque it is (a).
+func interMemory(t float64, n int) (cur int, u, a float64, ok bool) {
+	k := (t - 1) / interSlot
+	if k < 0 || int(k) >= n {
+		return
+	}
+	cur = int(k)
+	u = k - float64(cur)
+	if u >= interMem+0.1 {
+		return
+	}
+	a = math.Min(1, u/0.07) * (1 - math.Max(0, math.Min(1, (u-interMem)/0.1)))
+	return cur, u, a, true
+}
+
+// interFade: the music comes in during the first seconds and goes away as the vehicle leaves.
+func interFade(t float64) float64 {
+	v := math.Min(1, t/2.5)
+	if t > itBoard0 {
+		v *= 1 - introEase((t-itBoard0)/(itFadeOut-itBoard0))
+	}
+	return v
+}
+
+// interBaseVol: the cartoon march of the street. In a memory the music cuts to the sneaky version (quick cross-fade).
+func interBaseVol(t float64, n int) float64 {
+	v := 0.55
+	if _, _, a, ok := interMemory(t, n); ok {
+		v *= 1 - a
+	}
+	return v * interFade(t)
+}
+
+// interMemVol: the tense, funny version of the same tune that takes over in the memories: silent in the street.
+func interMemVol(t float64, n int) float64 {
+	if _, _, a, ok := interMemory(t, n); ok {
+		return 0.6 * a * interFade(t)
+	}
+	return 0
+}
+
 // interPanel alternates the present (the night street) with the memories of the parties he has beaten.
 func (g *Game) interPanel(c *ebiten.Image, in *interState) {
 	t := in.t
 	g.interSky(c, in)
 	n := len(in.bgs)
-	k := (t - 1) / interSlot
-	if k < 0 || int(k) >= n {
+	cur, u, a, ok := interMemory(t, n)
+	if !ok {
 		return
 	}
-	cur := int(k)
-	u := k - float64(cur)
-	if u >= interMem+0.1 {
-		return
-	}
-	a := math.Min(1, u/0.07) * (1 - math.Max(0, math.Min(1, (u-interMem)/0.1)))
+	breath := (0.5 - 0.5*math.Cos(2*math.Pi*t/6)) * a // a slow breath of the memory: no drum here
 	uu := math.Min(1, u/interMem)
-	z := 1.02 + 0.1*uu
+	z := 1.02 + 0.1*uu + 0.012*breath
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 	op.GeoM.Translate(-480, -270)
 	op.GeoM.Scale(z, z)
@@ -466,16 +556,7 @@ func (g *Game) interPanel(c *ebiten.Image, in *interState) {
 	op.ColorScale.ScaleAlpha(float32(a))
 	sub := c.SubImage(image.Rect(0, 0, screenW, int(interPanelH))).(*ebiten.Image)
 	sub.DrawImage(in.bgs[cur], op)
-	// the look of a memory: grain, soft dark edges, a light leak
-	for i := 0; i < 220; i++ {
-		x := jpHash(i, g.tick, 111) * screenW
-		y := jpHash(i, g.tick, 113) * interPanelH
-		col := rgba(0xffffff, uint8(40*a))
-		if i%2 == 0 {
-			col = rgba(0x000000, uint8(70*a))
-		}
-		fillRect(sub, x, y, 2, 2, col)
-	}
+	// the look of a memory: soft dark edges and a light leak (no grain: no loose white dots)
 	for i := 0.0; i < 90; i += 3 { // blurred borders
 		al := uint8(230 * a * math.Pow(1-i/90, 2))
 		fillRect(sub, i, 0, 3, interPanelH, rgba(0x05060f, al))
@@ -491,6 +572,9 @@ func (g *Game) interPanel(c *ebiten.Image, in *interState) {
 	}
 	if u > interMem-0.03 && u < interMem+0.08 { // and the one that closes it
 		fillRect(sub, 0, 0, screenW, interPanelH, rgba(0xdce8ff, uint8(160*(1-math.Abs(u-interMem-0.025)/0.055))))
+	}
+	if breath > 0.02 { // the lights of the party, a faint tint that swells and fades slowly
+		fillRect(sub, 0, 0, screenW, interPanelH, rgba(partyColors[int(t/6)%len(partyColors)], uint8(34*breath)))
 	}
 	lk := math.Mod(t*0.7, 1) // a light leak crossing the picture
 	fillRect(sub, lk*screenW-60, 0, 90, interPanelH, rgba(0xffd8a0, uint8(26*a)))
@@ -648,9 +732,19 @@ func (g *Game) interVehicleAndHero(c *ebiten.Image, in *interState) {
 		c.DrawImage(img, op)
 		g.interAnger(c, hx, hy+bob, t)
 	}
+	drawBoth := func(alpha float64) {
+		drawHero(alpha)
+		if in.two {
+			a2 := alpha
+			if in.kind != interBoat && t > itOpen+0.1 { // the red one is in the car before the blue one
+				a2 = 1 - introEase((t-itOpen-0.1)/0.5)
+			}
+			g.interDrawHero2(c, in, a2)
+		}
+	}
 	if in.kind == interBoat {
 		hAlpha := 1.0
-		g.interBoat(c, in, vx, func() { drawHero(hAlpha) })
+		g.interBoat(c, in, vx, func() { drawBoth(hAlpha) })
 		return
 	}
 	alpha := 1.0
@@ -658,7 +752,7 @@ func (g *Game) interVehicleAndHero(c *ebiten.Image, in *interState) {
 		alpha = 1 - introEase((t-itOpen-0.4)/0.7)
 	}
 	// the car goes first (the hero walks up to its door on the near side)
-	g.interCar(c, in, vx, func() { drawHero(alpha) })
+	g.interCar(c, in, vx, func() { drawBoth(alpha) })
 }
 
 // interAnger: the steam and the frown.
@@ -699,6 +793,10 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 	// a little engine shake while it idles
 	if t >= itStop && t < itDepart {
 		y += math.Round(math.Sin(t*38) * 1)
+	}
+	if in.two && t > itOpen+0.3 && t < itDepart { // the two of them fight for the wheel inside: the car rocks
+		y += math.Round(math.Sin(t*31) * 2.5)
+		x += math.Round(math.Cos(t*23) * 2)
 	}
 	// the hero stands in front of the car, on the pavement: drawn before the near door
 	hero()
@@ -744,7 +842,9 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 	fillRect(c, x+dx+dw-leaf+2, y-76, leaf-8, 22, glass)
 	fillRect(c, x+dx+dw-leaf+4, y-52, 8, 3, dark) // the handle
 	// after the door closes, you can see his head in the window
-	if t > itIn+1 {
+	if t > itIn+1 && in.two {
+		g.interTwoCarHeads(c, in, x, y)
+	} else if t > itIn+1 {
 		filledEllipse(c, x+105, y-84, 8, 9, rgb(0xe0b088))
 		fillRect(c, x+98, y-94, 14, 5, rgb(0x2a1a14))
 	}
@@ -792,6 +892,9 @@ func (g *Game) interBoat(c *ebiten.Image, in *interState, x float64, hero func()
 	fillRect(c, x+20, y-30, 150, 3, red)        // the stripe
 	// the hero stands in the boat: drawn behind the front of the hull
 	hero()
+	if in.two {
+		g.interTwoBoatProps(c, in, x, y)
+	}
 	// seat and windscreen, drawn over his legs
 	fillRect(c, x+150, y-64, 4, 32, rgb(0x9ad0f0)) // windscreen
 	fillRect(c, x+150, y-64, 40, 4, rgb(0xb8d8f0))
@@ -842,6 +945,11 @@ func (g *Game) interCaption(dst *ebiten.Image, in *interState) {
 		w := g.textW(tr(line), 1.5) + 40
 		fillRect(dst, 480-w/2, 488, w, 32, rgba(0x000000, 170))
 		g.drawTextC(dst, line, 480, 495, rgb(0xf4f0ff), 1.5)
+	}
+	if in.two { // each in his own voice
+		g.interTwoSay(dst, in)
+		g.interTwoBoardSay(dst, in)
+		return
 	}
 	// he mutters
 	if t > 2 && t < itBoard0 {

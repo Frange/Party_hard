@@ -292,8 +292,11 @@ func (g *Game) rexCandidates() []rexPrey {
 		out = append(out, rexPrey{id: t, at: func() Vec { return t.pos }, cs: t.cs, alive: func() bool { return t.state != 3 },
 			kill: func() { t.state = 3; g.spawnBody(t.pos, t.cs, t.dir); g.checkDone() }})
 	}
-	if p := g.p; p != nil && !p.dead && !p.hidden && !g.lvl.InPool(p.pos) {
-		out = append(out, rexPrey{id: p, at: func() Vec { return p.pos }, cs: p.cs, player: true, alive: func() bool { return !p.dead }})
+	for _, p := range g.players() {
+		p := p
+		if p != nil && !p.dead && !p.hidden && !g.lvl.InPool(p.pos) {
+			out = append(out, rexPrey{id: p, at: func() Vec { return p.pos }, cs: p.cs, player: true, alive: func() bool { return !p.dead }})
+		}
 	}
 	return out
 }
@@ -367,7 +370,6 @@ func (g *Game) rexPick() (rexPrey, bool) {
 
 func (g *Game) updateRex(dt float64) {
 	r := g.rex
-	p := g.p
 	r.phase += dt
 	if r.state == jrSleep {
 		r.timer -= dt
@@ -397,11 +399,17 @@ func (g *Game) updateRex(dt float64) {
 	r.roarIn -= dt
 	r.moving = false
 	// the player: caught if too near
-	if !p.dead && !g.invulnerable() && !p.hidden && !g.lvl.InPool(p.pos) && dist(Vec{r.pos.X, r.pos.Y - 6}, p.pos) < 30 {
-		g.lose("Te ha comido el T-Rex")
-		g.snd.Play("rex_bite")
-		g.rexSplat(p.pos, nil)
-		return
+	for _, pl := range g.players() {
+		if !pl.dead && !g.invulnerable() && !pl.hidden && !g.lvl.InPool(pl.pos) && dist(Vec{r.pos.X, r.pos.Y - 6}, pl.pos) < 30 {
+			if g.is2P() {
+				g.withPlayer(pl, func() { g.die("Te ha comido el T-Rex") })
+			} else {
+				g.lose("Te ha comido el T-Rex")
+			}
+			g.snd.Play("rex_bite")
+			g.rexSplat(pl.pos, nil)
+			return
+		}
 	}
 	switch r.state {
 	case jrRoar:

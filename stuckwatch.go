@@ -124,22 +124,29 @@ func (g *Game) watchAllStuck(dt float64) {
 			a.path = nil
 		}
 	}
-	if p := g.p; p != nil && !p.dead && p.knockT <= 0 && !p.hidden {
+	for _, p := range g.players() {
+		if p == nil || p.dead || p.knockT > 0 || p.hidden {
+			continue
+		}
 		// a direction is held and nothing happens
 		dx, dy := 0.0, 0.0
 		if g.walkBot {
 			dx, dy = g.botDx, g.botDy
+			if p != g.first() {
+				dx, dy = g.bot2Dx, g.bot2Dy
+			}
 		} else {
-			if actLeft.held() {
+			pi := g.playerIndex(p)
+			if actLeft.heldFor(pi) {
 				dx--
 			}
-			if actRight.held() {
+			if actRight.heldFor(pi) {
 				dx++
 			}
-			if actUp.held() {
+			if actUp.heldFor(pi) {
 				dy--
 			}
-			if actDown.held() {
+			if actDown.heldFor(pi) {
 				dy++
 			}
 		}

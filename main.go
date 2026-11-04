@@ -36,14 +36,22 @@ func main() {
 	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
 	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
 	impSave := flag.String("edsave", "", "after -edaccept, save it with this name (debug)")
+	gbenchF := flag.Int("gamebench", 0, "game: run this many frames, print ms per frame of Update and Draw and quit (debug)")
 	benchF := flag.Int("edbench", 0, "editor: run this many frames, print ms per frame and quit (debug)")
 	trophyOvF := flag.Bool("trophyov", false, "open the trophies window at once (debug)")
 	profF := flag.String("cpuprofile", "", "write a CPU profile to this file (debug)")
 	jurF := flag.Bool("jurassic", false, "start the island of the last party directly (debug)")
 	debugEd := flag.Int("edorig", 0, "editor: debug mode on, open the n-th (1..21) original scenario (debug)")
 	scenesF := flag.Int("scenes", 0, "open the scenes list; 1 pretends the first ending was seen, 2 pretends everything was (debug)")
-	interF := flag.Int("interlude", 0, "play a story interlude directly: 5 (car) or 10 (boat) (debug)")
+	interF := flag.Int("interlude", 0, "play a story interlude directly: 5 (car), 10 (boat) or 20 (rocket) (debug)")
+	endStageF := flag.Int("endstage", 0, "with -ending: start at this stage (1 walk, 2 door, 3 bed, 4 credits, 5 stinger, 6 final) (debug)")
+	endAtF := flag.Float64("endat", 0, "with -endstage: seconds into the stage (debug)")
+	jpUnlF := flag.Bool("jpunlocked", false, "pretend the island is unlocked and open the list of parties (debug)")
+	invAutoF := flag.Float64("inviteauto", 0, "the invitation presses continue by itself at this second (debug)")
+	firstRunF := flag.Bool("firstrun", false, "pretend it is the first time: empty progress in memory, nothing is saved (debug)")
 	introF := flag.Bool("intro", false, "play the intro directly (debug)")
+	titleF := flag.Bool("title", false, "show the title screen even with debug flags (debug)")
+	noTitleF := flag.Bool("notitle", false, "do not show the title screen when the program opens (debug)")
 	endF := flag.Int("ending", 0, "play the ending directly: 1 without every trophy, 2 with them, 3 the invitation (debug)")
 	vlaneF := flag.Bool("vlane", false, "boat / space levels: the vehicles arrive down a vertical lane (debug)")
 	demoMove := flag.String("eddemo", "", "editor debug: with -edorig, move the first 'pool' or 'helipad' of the original by (+60,+40)")
@@ -59,17 +67,27 @@ func main() {
 	edtab := flag.Int("edtab", 0, "editor tab to open (debug)")
 	eventF := flag.Int("event", 0, "start special event N (1 plane,2 ufo,3 superman,4 satan,5 god,6 zombie), debug")
 	settingsF := flag.Bool("settings", false, "open the settings screen (debug)")
+	menuDbgF := flag.Bool("menudebug", false, "main menu with the DEBUG row unlocked (debug, with -shot)")
+	mainSelF := flag.Int("mainsel", -1, "main menu: start with this row selected (debug, with -shot)")
+	playersF := flag.Int("players", 0, "1 or 2: the players switch of the main menu, without saving it (debug)")
+	setSelF := flag.Int("setsel", 0, "settings screen: the selected row (debug)")
 	ambF := flag.String("ambient", "", "send this ambient vehicle down the road at once (debug)")
 	iconF := flag.Bool("iconmode", false, "draw only the logo on a dark background (used to make the app icon)")
 	bandF := flag.Int("band", 0, "always play band N (1-11) in the party, debug")
 	cutF := flag.Bool("cutphones", false, "cut every red phone a few seconds after the start (debug)")
 	kidsF := flag.Bool("kidsnow", false, "the three kids arrive a few seconds after the start (debug)")
 	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
+	pyroF := flag.Bool("pyronow", false, "the arsonist walks into the party a moment after the start (debug)")
 	zapF := flag.Bool("zapnow", false, "electrocute a few guests next to the player a moment after the start (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
 	poisonF := flag.Bool("poisonnow", false, "poison in the pocket and four poisoned guests next to the player (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
+	twoDeadF := flag.Int("twodead", 0, "with two players: player 1 or 2 starts dead and the other calls the ambulance (debug)")
+	twoCuffF := flag.Bool("twocuff", false, "two players: the police are called at 3 s and both are suspects (debug)")
+	twoJailF := flag.Int("twojail", 0, "two players: player 1 is caught at 3 s (1) or has 5 s left of the minute in custody (2) (debug)")
+	coopDemoF := flag.Int("coopdemo", 0, "two players: 1 scoreboard, 2 dance duet and marked trap, 3 carrying the partner (debug)")
+	twopF := flag.Bool("twop", false, "start every party with two players, without saving the choice (debug)")
 	solidsF := flag.Bool("solids", false, "draw every solid rectangle in red (debug)")
 	walkF := flag.Bool("walkbot", false, "the player walks about at random and logs where he gets stuck (debug)")
 	roadCarsF := flag.String("roadcars", "", "with -testroad: park these vehicles (comma separated) on the roads (debug)")
@@ -82,6 +100,7 @@ func main() {
 	immF := flag.Bool("immune", false, "start with the immunity halo on (debug)")
 	trophyF := flag.Bool("trophyscreen", false, "open the trophies screen (debug)")
 	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
+	wardF := flag.Int("wardrobe", 0, "open the wardrobe with 1 or 2 players, with some clothes lent (debug, progress frozen)")
 	levelSel := flag.Bool("levelselect", false, "open the level select screen (debug)")
 	edload := flag.String("edload", "", "character/object/background to load in the editor, name (debug)")
 	edcarry := flag.String("edcarry", "", "held object to give the character in the editor (debug)")
@@ -140,9 +159,7 @@ func main() {
 
 	mw, mh := ebiten.ScreenSizeInFullscreen()
 	sc := math.Min(float64(mw)*0.92/screenW, float64(mh)*0.88/screenH)
-	if sc < 1 {
-		sc = 1
-	}
+	sc = wholeWindowScale(sc)
 	gameWinW, gameWinH = int(screenW*sc), int(screenH*sc)
 	ebiten.SetWindowSize(gameWinW, gameWinH)
 	ebiten.SetWindowTitle("Party Hard - Fiesta Nocturna")
@@ -160,6 +177,19 @@ func main() {
 		gameLang, editorLang = *langF, *langF
 	}
 	g := newGame(*mute)
+	if *twoDeadF > 0 {
+		dbgTwoDead, dbgTwoPlayers, twoPlayerMode = *twoDeadF, true, true
+	}
+	if *twoCuffF || *twoJailF > 0 {
+		dbgTwoPlayers, twoPlayerMode = true, true
+		dbgTwoCuff, dbgTwoJail = *twoCuffF, *twoJailF
+	}
+	if *twopF {
+		dbgTwoPlayers, twoPlayerMode = true, true // the choice is not saved: settings are only written when the menu switch is used
+	}
+	if *coopDemoF > 0 {
+		dbgTwoPlayers, twoPlayerMode, coopDemo = true, true, *coopDemoF
+	}
 	if *edit || defaultEditor {
 		g.openEditor()
 		g.ed.tab = *edtab
@@ -227,7 +257,9 @@ func main() {
 	}
 	if *interF > 0 {
 		progressFrozen = true
-		if *interF >= 10 {
+		if *interF >= 20 {
+			g.startInterlude(interRocket, 20)
+		} else if *interF >= 10 {
 			g.startInterlude(interBoat, 10)
 		} else {
 			g.startInterlude(interCar, 5)
@@ -243,6 +275,22 @@ func main() {
 		default:
 			g.startInvite()
 		}
+		if *endStageF > 0 && g.end != nil {
+			g.end.stage, g.end.t = *endStageF, *endAtF
+			g.end.total = *endAtF
+			g.end.heroX = 980 - *endAtF*870/endLenFor(endWalk, g.end.trueEnd)
+		}
+	}
+	invAutoAt = *invAutoF
+	if *jpUnlF {
+		progressFrozen = true
+		if g.progress.Stats == nil {
+			g.progress.Stats = map[string]int{}
+		}
+		g.progress.Stats["jp_unlocked"] = 1
+		g.progress.Unlocked = 21
+		g.mode = ModeLevelSelect
+		g.menuSel = campaignN + 1
 	}
 	if *jurF {
 		progressFrozen = true
@@ -254,9 +302,20 @@ func main() {
 	}
 	g.forceEv = *eventF
 	g.forceAmb = *ambF
+	if *playersF == 1 || *playersF == 2 {
+		twoPlayerMode = *playersF == 2
+	}
+	if *menuDbgF {
+		g.debugMenu = true
+	}
+	if *mainSelF >= 0 {
+		g.mainSel = *mainSelF
+	}
 	if *settingsF || *credF {
 		g.mode = ModeSettings
 		g.showCredits = *credF
+		g.setSel = *setSelF
+		dbgSetSel = *setSelF > 0
 	}
 	g.iconMode = *iconF
 	g.dbgCut = *cutF
@@ -278,6 +337,7 @@ func main() {
 	g.dbgCops = *copsF
 	g.dbgCheer = *cheerF
 	debugZap = *zapF
+	pyroNow = *pyroF
 	g.dbgRoad = *roadF
 	if *roadCarsF != "" {
 		g.dbgRoadCars = strings.Split(*roadCarsF, ",")
@@ -305,6 +365,23 @@ func main() {
 		g.progress.Wallet = 5000
 		g.shopTab = *edtab
 	}
+	if *wardF > 0 {
+		progressFrozen = true
+		n := *wardF
+		if n == 3 { // two players, with the second one on the screen
+			n, wardP = 2, 1
+		}
+		wardrobeNumPlayers = func(*Game) int { return n }
+		g.progress.Owned = append(g.progress.Owned, "hat:caproja", "cape:roja", "shoe:rojas", "out:teeroja", "out:teeverde", "glasses:none")
+		g.syncShop()
+		g.progress.Equip = map[string]string{}
+		g.progress.EquipP2 = nil
+		if n > 1 {
+			g.progress.EquipP2 = map[string]string{"hat": "hat:caproja", "cape": "cape:roja"}
+		}
+		g.applyShop()
+		g.mode, g.shopTab = ModeShop, shopWardrobe
+	}
 	if *levelSel {
 		g.mode = ModeLevelSelect
 	}
@@ -314,10 +391,27 @@ func main() {
 	}
 	g.shot, g.shotTick = *shot, *shotTick
 	g.trophyOv = *trophyOvF
-	if *shot != "" || *benchF > 0 {
+	if *shot != "" || *benchF > 0 || *gbenchF > 0 {
 		progressFrozen = true // screenshots and benchmarks never touch the real progress
 	}
-	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
+	if *firstRunF {
+		progressFrozen = true
+		g.progress = Progress{Unlocked: 1}
+		g.syncShop()
+		g.applyShop()
+	}
+	// the very first time (nothing saved, intro not seen): the program opens with the intro
+	// the title opens the program; any debug flag (a level, a shot, -intro...) skips it, except -title itself
+	if g.mode == ModeMenu && (*titleF || (!*noTitleF && plainStart())) {
+		g.startTitle()
+	} else if g.mode == ModeMenu && !noAssets && g.firstRun() {
+		g.bootIntro()
+	}
+	var rg ebiten.Game = g
+	if *gbenchF > 0 {
+		rg = &benchGame{Game: g, n: *gbenchF}
+	}
+	if err := ebiten.RunGame(rg); err != nil && err != ebiten.Termination {
 		log.Fatal(err)
 	}
 }
@@ -410,4 +504,19 @@ func genWhy(kind string, seed int64) {
 	d := genByKind(rng, kind)
 	genValidate(d)
 	fmt.Println(kind, "bad after prune:", genBad(d), "props", len(d.Props))
+}
+
+// plainStart: the program was started the way a player does, with no debug flag (only mute, language and noassets).
+func plainStart() bool { return plainStartFor(flag.CommandLine) }
+
+func plainStartFor(fs *flag.FlagSet) bool {
+	plain := true
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "mute", "lang", "noassets", "title", "notitle":
+		default:
+			plain = false
+		}
+	})
+	return plain
 }

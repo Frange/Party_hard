@@ -62,9 +62,13 @@ type fireRef struct {
 	prop    *Prop
 	wreck   Vec
 	claimed *Fireman
+	fire    *Fire // flames of the arsonist (fire.go)
 }
 
 func (f *fireRef) out(g *Game) bool {
+	if f.fire != nil {
+		return f.fire.out
+	}
 	if f.prop != nil {
 		return f.prop.fireOut
 	}
@@ -72,6 +76,10 @@ func (f *fireRef) out(g *Game) bool {
 }
 
 func (f *fireRef) extinguish(g *Game) {
+	if f.fire != nil {
+		f.fire.putOut(g, true)
+		return
+	}
 	if f.prop != nil {
 		f.prop.fireOut = true
 		return
@@ -101,11 +109,21 @@ func (g *Game) openFires() []*fireRef {
 			out = append(out, &fireRef{pos: Vec{pr.X, pr.Y}, prop: pr})
 		}
 	}
+	for _, bf := range g.blaze.fires {
+		if !bf.out {
+			out = append(out, &fireRef{pos: bf.pos, fire: bf})
+		}
+	}
 	return out
 }
 
 func (g *Game) updateFire(dt float64) {
-	if g.lvl == nil || g.lvl.Def.Police != "car" || g.mode != ModePlay {
+	if g.lvl == nil || g.mode != ModePlay {
+		return
+	}
+	// levels without a road for the engine still get firefighters when something burns: they run in on foot
+	onFoot := g.lvl.Def.Police != "car"
+	if onFoot && g.fireTruck == nil && len(g.fireCrew) == 0 && g.liveFires() == 0 {
 		return
 	}
 	if fastEv && !g.fireTested && g.time > 4 {
@@ -117,10 +135,17 @@ func (g *Game) updateFire(dt float64) {
 	if g.fireTruck == nil && len(fires) > 0 {
 		if g.fireWait <= 0 {
 			g.fireWait = 10 + g.rng.Float64()*6
+			if g.liveFires() > 0 {
+				g.fireWait = 6 + g.rng.Float64()*3 // somebody has just called: they are quicker for a blaze
+			}
 		}
 		g.fireWait -= dt
 		if g.fireWait <= 0 {
-			g.dispatchFire()
+			if onFoot {
+				g.dispatchFireOnFoot()
+			} else {
+				g.dispatchFire()
+			}
 			g.fireWait = 0
 		}
 	}
@@ -139,6 +164,20 @@ func (g *Game) updateFire(dt float64) {
 		g.fireTruck.state = 2
 		g.fireTruck = nil
 	}
+}
+
+// dispatchFireOnFoot: no engine can drive in (boats, helicopters, the island): the crew runs in from the edge.
+func (g *Game) dispatchFireOnFoot() {
+	def := g.lvl.Def
+	from := g.lvl.NearestFree(Vec{def.Start.X, def.Start.Y})
+	if def.CarFrom.X != 0 || def.CarFrom.Y != 0 {
+		from = g.lvl.NearestFree(Vec{def.CarFrom.X, def.CarFrom.Y})
+	}
+	home := &Vehicle{kind: 7, x: from.X, y: from.Y + 24, spawned: true, state: 1}
+	g.fireTruck = home
+	g.snd.Play("siren")
+	g.say("Los bomberos corren hacia el incendio")
+	g.firemenArrive(home)
 }
 
 func (g *Game) dispatchFire() {

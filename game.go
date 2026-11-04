@@ -35,6 +35,7 @@ const (
 	ModeIntro     // the intro of a new game (intro.go)
 	ModeScenes    // the cinematics you can watch again (scenes.go)
 	ModeInterlude // the story interludes (interlude.go)
+	ModeTitle     // the title shown when the program opens (title.go)
 )
 
 // main menu rows (ModeMenu); the level grid lives in ModeLevelSelect
@@ -50,11 +51,15 @@ const (
 	menuRows
 )
 
-const menuDebug = 100 // the hidden row that the Konami code opens
+const menuDebug = 100   // the hidden row that the Konami code opens
+const menuPlayers = 101 // 1 / 2 players switch (players.go)
 
 var px *ebiten.Image // 1x1 white pixel
 
 func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.RGBA) {
+	if textRec != nil && w >= 200 && h >= 100 {
+		textRec.fills = append(textRec.fills, panelRect{x, y, w, h, c.A == 255, len(textRec.texts)})
+	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(w, h)
 	op.GeoM.Translate(x, y)
@@ -126,7 +131,8 @@ const (
 )
 
 type Guest struct {
-	famousOK          bool // forced on purpose (debug -with): not a duplicate to swap
+	famousOK          bool    // forced on purpose (debug -with): not a duplicate to swap
+	py                *pyroSt // the arsonist (pyro.go): not counted as a guest, does not have to die
 	chant             bool
 	tech              bool   // on the way to the yellow phone to call the technicians
 	quirk             string // special behaviour: mj, mask, taz, beavis, butthead, gb
@@ -312,7 +318,8 @@ type Cop struct {
 }
 
 type Vehicle struct {
-	kind    int // 0 police car, 1 ambulance, 2 police heli, 3 medical heli
+	owner   *Slasher // two players: the killer that comes out of this vehicle
+	kind    int      // 0 police car, 1 ambulance, 2 police heli, 3 medical heli
 	x, y    float64
 	tx, ty  float64
 	state   int // 0 arriving, 1 parked, 2 leaving
@@ -325,6 +332,7 @@ type Vehicle struct {
 	dead    bool
 	lane    bool    // boat / shuttle set up for a lane that runs up or down the screen (airseaviews.go)
 	vdir    float64 // +1 it arrives moving down the screen, -1 moving up
+	revive  bool    // the ambulance a player called to bring his partner back (revive.go)
 }
 
 // HudMsg is one line in the small news queue drawn under the criminality stars.
@@ -365,24 +373,34 @@ type Decal struct {
 }
 
 type Player struct {
-	pos      Vec
-	dir      Dir
-	cs       *CharSet
-	style    int
-	anim     float64
-	moving   bool
-	hidden   bool
-	hideProp *Prop
-	carrying *Body
-	doses    int // doses left in the poison bottle
-	cooldown float64
-	stabT    float64
-	stamina  float64
-	dead     bool
-	knockT   float64
-	danceT   float64
-	running  bool
-	item     string // what he carries: "poison" or "disguise"
+	pos        Vec
+	dir        Dir
+	cs         *CharSet
+	style      int
+	anim       float64
+	moving     bool
+	hidden     bool
+	hideProp   *Prop
+	carrying   *Body
+	doses      int // doses left in the poison bottle
+	cooldown   float64
+	stabT      float64
+	stamina    float64
+	dead       bool
+	knockT     float64
+	danceT     float64
+	running    bool
+	item       string  // what he carries: "poison" or "disguise"
+	idx        int     // 0 = first player, 1 = second player (twoplayers.go)
+	immT       float64 // after a punch from the other player: seconds he cannot be punched again
+	msg        string  // a short cry over his head ("¡AUCH!")
+	msgT       float64
+	deathWhy   string // how he died (revive.go: some deaths cannot be undone by the ambulance)
+	disguised  bool   // he put a disguise on since the last case was closed (twoplayers.go)
+	danceSpot  Vec    // where he last danced, when and how many times in a row (each player annoys on his own)
+	danceLast  float64
+	danceCount int
+	jail       jailState // cuffs, custody and the prison break (twojail.go)
 }
 
 type Assets struct {
@@ -432,6 +450,7 @@ type Game struct {
 	fw                     []fwBox
 	pianos                 []pianoDrop
 	gasP                   float64
+	gasP2                  float64 // gas exposure of player 2 (twoplayers: each player breathes his own)
 	train                  *Train
 	trainT                 float64
 	bubbles                []worldBubble
@@ -453,6 +472,7 @@ type Game struct {
 	wreckOut               map[Vec]bool
 	fireTruck              *Vehicle
 	fireCrew               []*Fireman
+	blaze                  fireWorld // fire and the arsonist of this party (fire.go, pyro.go)
 	fireWait               float64
 	dbgCut                 bool
 	showCredits            bool
@@ -529,18 +549,23 @@ type Game struct {
 	tick                   int
 	time                   float64
 
-	p       *Player
-	guests  []*Guest
-	guards  []*Guard
-	cops    []*Cop
-	veh     []*Vehicle
-	bodies  []*Body
-	decals  []Decal
-	parts   []Particle
-	amb     []*Ambient
-	animals []*Animal
-	ambT    float64
-	towT    float64
+	p                     *Player
+	bot2T, bot2Dx, bot2Dy float64     // -walkbot with two players: the second bot
+	slot2                 slasherSlot // two players: the second special killer
+	coop                  coopState   // two players: the funny cooperative side (coop.go)
+	p1, p2                *Player     // two players: p1 is the first one even while the game runs "as" player 2
+	twoExtra              int         // two players: how many more guests may be at the party
+	guests                []*Guest
+	guards                []*Guard
+	cops                  []*Cop
+	veh                   []*Vehicle
+	bodies                []*Body
+	decals                []Decal
+	parts                 []Particle
+	amb                   []*Ambient
+	animals               []*Animal
+	ambT                  float64
+	towT                  float64
 
 	wanted       float64
 	seenNow      bool
@@ -548,7 +573,8 @@ type Game struct {
 	pendingCar   float64
 	pendingAmb   float64
 	ambCalled    bool
-	ambCount     int // ambulances sent in this case (a second one comes if the bodies keep piling up)
+	rev          reviveState // the ambulance a player calls for a dead partner (revive.go)
+	ambCount     int         // ambulances sent in this case (a second one comes if the bodies keep piling up)
 	ambAt        float64
 	points       int
 	credit       bool
@@ -556,6 +582,7 @@ type Game struct {
 	callerGuest  *Guest
 	callerGuard  *Guard
 	suspect      *Guest
+	lastKiller   lastKill // the last killer somebody saw: the police go after him (suspect.go)
 	alertPos     Vec
 	killPos      Vec
 	murderT      float64
@@ -597,7 +624,9 @@ type Game struct {
 	end                                         *endState
 	intro                                       *introState
 	inter                                       *interState
-	sceneReplay                                 bool // a cinematic is being watched again: it returns to sceneBack
+	sceneReplay                                 bool        // a cinematic is being watched again: it returns to sceneBack
+	title                                       *titleState // the title that opens the program (title.go)
+	introBoot                                   bool        // the intro that opens the program the first time: it ends in the main menu
 	sceneBack                                   Mode
 	sceneSel                                    int
 	bedEmpty, bedNoTalk                         bool // the intro: he is out of bed / nobody mutters
@@ -643,10 +672,12 @@ func newGame(mute bool) *Game {
 	g.news = loadNewsBank()
 	g.dialogue = loadDialogueBank()
 	g.progress = loadProgress()
+	g.trophyDirty = true // trophies reached with the saved stats (e.g. the police types) are granted at once
 	buildShopCatalog()
 	g.syncShop()
 	g.perkSpeed, g.perkStamina, g.perkCool, g.perkMoney = 1, 6, 1, 1
 	binds = loadBindings()
+	loadPlayerSettings() // 1 or 2 players, who plays with what, the keys of player 2 (players.go)
 	wb := newPix(1, 1)
 	wb.p[0], wb.p[1], wb.p[2], wb.p[3] = 255, 255, 255, 255
 	px = wb.img()
@@ -755,8 +786,10 @@ func (g *Game) loadLevel(i int) {
 	g.renderBG()
 	g.time = 0
 	g.p = &Player{pos: def.Start, dir: DirUp, cs: g.as.playerCS, stamina: g.perkStamina, style: g.rng.Intn(4)}
+	g.setupPlayers(def) // the second player, when there are two
 	g.guests, g.guards, g.cops, g.veh, g.bodies, g.decals, g.parts, g.amb, g.wrecks = nil, nil, nil, nil, nil, nil, nil, nil, nil
 	g.wreckOut, g.fireTruck, g.fireCrew, g.fireWait = nil, nil, nil, 0
+	g.blaze = fireWorld{}
 	g.techCaller, g.techVan, g.techCrew, g.techWait, g.techScanT = nil, nil, nil, 0, 0
 	g.evManual, g.evManualAt = 0, -999
 	g.pwEvAt, g.pwFamAt = -999, -999
@@ -771,14 +804,16 @@ func (g *Game) loadLevel(i int) {
 	g.policeCalled, g.pendingCar, g.pendingAmb, g.ambCalled, g.ambCount = false, -1, -1, false, 0
 	g.points, g.titleT = 0, 4.5
 	g.callerGuest, g.callerGuard, g.suspect = nil, nil, nil
+	g.lastKiller = lastKill{}
 	g.murderT = 80 + g.rng.Float64()*80
 	g.slasher, g.slasherDone, g.slasherT, g.slasherN = nil, false, 28+g.rng.Float64()*40, 0
+	g.slot2 = slasherSlot{t: 50 + g.rng.Float64()*50} // two players: the second killer comes later
 	g.streakT, g.streaked = 55+g.rng.Float64()*90, false
 	g.train, g.trainT = nil, 10+g.rng.Float64()*14
 	if fastEv {
 		g.trainT = 2
 	}
-	g.gas, g.fw, g.pianos, g.floats, g.gasP = nil, nil, nil, nil, 0
+	g.gas, g.fw, g.pianos, g.floats, g.gasP, g.gasP2 = nil, nil, nil, nil, 0, 0
 	g.roadCars, g.roadT = nil, nil
 	g.duet, g.duetT, g.beams = nil, 25+g.rng.Float64()*25, nil
 	if fastEv {
@@ -864,6 +899,7 @@ func (g *Game) loadLevel(i int) {
 		g.exhibitPlan, g.exhibitT = true, 8
 	}
 	g.scatterWeapons()
+	g.pyroPlan()
 	g.trimGuests()
 	g.fillGuests(def.Start)
 	g.uniqueFamous()
@@ -871,18 +907,15 @@ func (g *Game) loadLevel(i int) {
 	g.cam = g.camTarget()
 }
 
-// beginNewGame: the first time ever, the intro comes before the first party.
+// beginNewGame goes straight to the first party.
 func (g *Game) beginNewGame() {
-	if !g.seen("seen_intro") {
-		g.startIntro()
-		return
-	}
-	g.startLevel(0)
+	g.startLevel(0) // the intro of the very first run already played when the program opened (firstrun.go)
 }
 
 func (g *Game) startLevel(i int) {
 	g.loadLevel(i)
 	g.stat("played", 1)
+	saveProgress(g.progress) // from now on there is a game to continue
 	g.mode = ModePlay
 	g.snd.StartMusic()
 	g.say(g.lvl.Def.Intro)
@@ -908,7 +941,7 @@ func (g *Game) say(s string) { g.sayOffer(s) }
 func (g *Game) aliveCount() int {
 	n := 0
 	for _, gu := range g.guests {
-		if !gu.out() {
+		if !gu.out() && gu.py == nil { // the arsonist does not have to die for the party to end
 			n++
 		}
 	}
@@ -917,8 +950,10 @@ func (g *Game) aliveCount() int {
 			n++
 		}
 	}
-	if s := g.slasher; s != nil && (s.state == slHunt || s.state == slArrive) {
-		n++
+	for _, s := range g.allSlashers() {
+		if s.state == slHunt || s.state == slArrive {
+			n++
+		}
 	}
 	return n
 }
@@ -931,6 +966,8 @@ func (g *Game) Update() error {
 	g.pickLanguage()
 	g.pickLanguage()
 	g.tick++
+	inputP, twoInput = 0, g.is2P() && g.mode == ModePlay // two players: the keys and pads are split only while playing
+	refreshPlayerDevices()                               // two players: a pad plugged in or pulled out takes effect at once
 	g.updateToasts(1.0 / 60)
 	g.syncMusic()
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
@@ -988,8 +1025,14 @@ func (g *Game) Update() error {
 		if actUp.just() {
 			g.mainSel = (g.mainSel + rows - 1) % rows
 		}
+		if list[g.mainSel] == menuPlayers && (actLeft.just() || actRight.just()) {
+			g.togglePlayers()
+		}
+		refreshPlayerDevices() // pads can be plugged in or pulled out at any time
 		if actConfirm.just() || click {
 			switch list[g.mainSel] {
+			case menuPlayers:
+				g.togglePlayers()
 			case menuDebug:
 				g.dbgSel = 0
 				g.mode = ModeDebug
@@ -1030,6 +1073,8 @@ func (g *Game) Update() error {
 		g.updateEnding()
 	case ModeIntro:
 		g.updateIntro()
+	case ModeTitle:
+		g.updateTitle()
 	case ModeInterlude:
 		g.updateInterlude()
 	case ModeScenes:
@@ -1048,6 +1093,9 @@ func (g *Game) Update() error {
 	case ModeLevelSelect:
 		g.time += 1.0 / 60
 		rows := campaignN + 1 // the campaign slots + the fixed "ALEATORIO" row
+		if g.jpListed() {
+			rows++ // ...and the island, once it has been unlocked
+		}
 		click := g.mouseMenu(func(mx, my float64) int {
 			for i := 0; i < rows; i++ {
 				cx, y := levelColX[i/levelRowsPerCol], 118+float64(i%levelRowsPerCol)*34
@@ -1078,6 +1126,8 @@ func (g *Game) Update() error {
 		if actConfirm.just() || click {
 			if g.menuSel == campaignN {
 				g.startRandomLevel()
+			} else if g.menuSel == campaignN+1 && g.jpListed() {
+				g.startLevel(specialJurassic)
 			} else if g.menuSel < g.progress.Unlocked {
 				g.startLevel(g.menuSel)
 			}
@@ -1259,10 +1309,15 @@ func (g *Game) updatePlay(dt float64) {
 		g.startLevel(g.levelIdx)
 		return
 	}
-	g.updatePlayer(dt)
+	g.coopTrack(0, func() { g.updatePlayer(dt) })
+	if g.is2P() {
+		g.updateTwoPlayers(dt)
+		g.asPlayer(1, func() { g.coopTrack(1, func() { g.updatePlayer(dt) }) })
+		g.coopUpdate(dt)
+	}
 	g.seenNow = false
 	g.updateMurder(dt)
-	g.updateSlasher(dt)
+	g.updateSlashers(dt)
 	g.updateArrivals(dt)
 	g.updateStreaker()
 	g.updateBubbles(dt)
@@ -1270,9 +1325,11 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateTraps2(dt)
 	g.updateDuets(dt)
 	g.updateBeams(dt)
-	if g.p.item == "disguise" && g.wanted > 0 && !g.p.dead {
-		g.useDisguise()
-	}
+	g.eachPlayer(func(pl *Player) { // each player uses his own disguise when he is the wanted one
+		if pl.item == "disguise" && g.playerWantedNow(pl) && !pl.dead {
+			g.useDisguise()
+		}
+	})
 	if len(g.dbgWith) > 0 && g.time > 0.3 {
 		var pool []*Guest
 		for _, gu := range g.guests {
@@ -1335,10 +1392,14 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateExhibitionists()
 	g.updateEvents(1.0 / 60)
 	for _, gu := range g.guests {
+		restore := g.focus(gu.pos) // two players: each guest reacts to the one nearest to him
 		g.updateGuest(gu, dt)
+		restore()
 	}
 	for _, gd := range g.guards {
+		restore := g.focus(gd.pos)
 		g.updateGuard(gd, dt)
+		restore()
 	}
 	for _, c := range append([]*Cop(nil), g.cops...) {
 		g.updateCop(c, dt)
@@ -1356,17 +1417,24 @@ func (g *Game) updatePlay(dt float64) {
 	}
 	g.updateProps(dt)
 	g.uniqueFamous() // nobody famous twice in the same party, whoever added them
+	g.enforceGuestCap()
 	g.checkTrophies()
 	g.maybeAmbulance()
 	g.updateStars(dt)
+	g.updateSuspect()
+	g.updateJail(dt)
 	if !g.seenNow && g.wanted > 0 {
 		g.wanted -= dt
 		if !g.lawActive() {
 			g.wanted = 0 // nobody is left on the scene looking for you: the cuffs come off
 		}
+		if g.wanted <= 0 {
+			g.clearSuspects() // two players: the search is over for both
+		}
 	}
 	g.updateVehicles(dt)
 	g.updateFire(dt)
+	g.updatePyroWorld(dt)
 	g.updateTech(dt)
 	g.updateKidArrivals()
 	if g.dbgCops && g.time > 4 {
@@ -1423,6 +1491,14 @@ func (g *Game) updateParticles(dt float64) {
 
 func (g *Game) updatePlayer(dt float64) {
 	p := g.p
+	if p.dead {
+		p.moving = false
+		return
+	}
+	if p.jail.held { // in the hands of the police (two players): he cannot do anything
+		p.moving = false
+		return
+	}
 	if p.cooldown > 0 {
 		p.cooldown -= dt
 	}
@@ -1434,7 +1510,7 @@ func (g *Game) updatePlayer(dt float64) {
 		p.moving = false
 		return
 	}
-	if actInteract.just() || g.botPressE(dt) {
+	if actInteract.just() || (inputP == 0 && g.botPressE(dt)) {
 		g.interact()
 	}
 	if p.hidden {
@@ -1458,13 +1534,19 @@ func (g *Game) updatePlayer(dt float64) {
 		dx, dy = padAxis()
 	}
 	if g.walkBot {
-		dx, dy = g.botMove(dt)
+		if inputP == 0 {
+			dx, dy = g.botMove(dt)
+		} else {
+			dx, dy = g.botMove2(dt) // two players: the second one walks about at random too
+		}
 	}
 	p.moving = dx != 0 || dy != 0
-	if actEvent.just() {
-		g.manualEvent()
+	if inputP == 0 { // the event key and the legend powers are for the whole party: either player may use them
+		if actEvent.justEither() {
+			g.manualEvent()
+		}
+		g.updatePowers()
 	}
-	g.updatePowers()
 	if (actDance.just()) && p.carrying == nil && p.danceT <= 0 {
 		p.danceT = 4.5
 		g.say("¡A bailar!")
@@ -1495,12 +1577,14 @@ func (g *Game) updatePlayer(dt float64) {
 		p.stamina += dt * 0.9
 	}
 	speed *= g.perkSpeed
+	speed *= p.speedMul() // the ball and chain of the one who escaped (twojail.go)
 	if g.dbg.speed {
 		speed *= 2
 	}
 	if p.carrying != nil {
 		speed *= 0.75
 	}
+	speed *= g.coopSpeedMul(p) // two players: the partner on the shoulders slows him down
 	if g.lvl.InPool(p.pos) {
 		speed *= 0.6
 		p.running = false
@@ -1546,13 +1630,13 @@ func (g *Game) updatePlayer(dt float64) {
 func (g *Game) danceRoll() {
 	p := g.p
 	// dancing again and again in the same place ends up annoying somebody
-	if dist(p.pos, g.danceSpot) < 70 && g.time-g.danceLast < 90 {
-		g.danceCount++
+	if dist(p.pos, p.danceSpot) < 70 && g.time-p.danceLast < 90 && p.danceCount > 0 {
+		p.danceCount++
 	} else {
-		g.danceCount = 1
+		p.danceCount = 1
 	}
-	g.danceSpot, g.danceLast = p.pos, g.time
-	if g.danceCount >= 4 {
+	p.danceSpot, p.danceLast = p.pos, g.time
+	if p.danceCount >= 4 {
 		var best *Guest
 		for _, gu := range g.guests {
 			if !gu.out() && gu.perf == "" && gu.state != gPunch && dist(gu.pos, p.pos) < 170 && (best == nil || dist(gu.pos, p.pos) < dist(best.pos, p.pos)) {
@@ -1560,7 +1644,7 @@ func (g *Game) danceRoll() {
 			}
 		}
 		if best != nil {
-			g.danceCount = 0
+			p.danceCount = 0
 			best.icon, best.iconT = g.line(guestCategory(best), "dance_annoyed"), 2
 			best.state, best.timer = gPunch, 12
 		}
@@ -1613,6 +1697,9 @@ func (g *Game) stab() {
 		g.say("Suelta el cuerpo primero (E)")
 		return
 	}
+	if g.coopBlockStab(p) {
+		return
+	}
 	p.cooldown = 0.45 * g.perkCool
 	p.stabT = 0.18
 	var bestG *Guest
@@ -1634,8 +1721,11 @@ func (g *Game) stab() {
 			bestG, bestD, bd = nil, gd, d
 		}
 	}
-	if s := g.slasher; s != nil && s.state == slHunt && dist(p.pos, s.pos) < math.Min(bd, 28) {
-		g.hitSlasher()
+	if o := g.playerInReach(p, math.Min(bd, 26)); o != nil { // the other player: a punch, never a kill
+		g.hitPlayer(p, o)
+		return
+	}
+	if g.hitAnySlasher(p, math.Min(bd, 28)) {
 		return
 	}
 	if g.canKillCops() {
@@ -1679,6 +1769,12 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 	}
 	gu.dead = true
 	gu.icon = ""
+	if gu.py != nil { // the arsonist: he was not part of the guest count, now he is a body like any other
+		g.total++
+		if byPlayer {
+			g.stat("pyros", 1)
+		}
+	}
 	if gu.perf == "dj" && !g.djDead {
 		g.djDead = true
 		g.songIdx = g.rng.Intn(5)
@@ -1756,8 +1852,12 @@ func (g *Game) checkDone() {
 			g.stat("distinct", 1)
 		}
 		switch {
-		case g.levelIdx == specialJurassic: // the last party is over: the secret ending
-			g.startEnding(true)
+		case g.levelIdx == specialJurassic: // the last party is over: the secret ending (the first time)
+			if g.seen("seen_end2") && debugSnap == nil {
+				g.mode = ModeLevelDone // played again from the list: no new ending, it can be watched in SCENES
+			} else {
+				g.startEnding(true)
+			}
 		case campaignN > 0 && g.levelIdx == campaignN-1: // the 21st party closes the story
 			if g.allTrophies() {
 				g.startInvite() // ...unless you own every trophy: one more party, on the island
@@ -1791,9 +1891,15 @@ func (g *Game) die(reason string) {
 		return
 	}
 	g.p.dead = true
+	g.p.deathWhy = reason
 	g.p.hidden = false
+	g.p.carrying = nil
 	g.burst(Vec{g.p.pos.X, g.p.pos.Y - 14}, 22, 90, rgb(0xb01818), 0.8, 2, 220)
 	g.decals = append(g.decals, Decal{pos: g.p.pos, kind: 0, r: 11})
+	if g.is2P() && !g.allPlayersDead() { // two players: the other one goes on
+		g.say(g.playerName(g.p) + " ha caído... " + g.playerName(g.otherPlayer(g.p)) + " sigue")
+		return
+	}
 	g.lose(reason)
 }
 
@@ -1808,6 +1914,7 @@ func (g *Game) canWatch(gu *Guest) bool {
 // witness: whoever has the player in front of them at the moment of the kill notices.
 func (g *Game) witness() {
 	p := g.p
+	p.jail.killT = g.time + 0.001 // the last one to kill (twojail.go: who the police want if nobody saw it)
 	var seers []*Guest
 	for _, gu := range g.guests {
 		if g.canWatch(gu) && g.sees(gu.pos, gu.dir, p.pos, guestRange, guestDot) {
@@ -1815,6 +1922,15 @@ func (g *Game) witness() {
 			gu.sawPos = p.pos
 			seers = append(seers, gu)
 		}
+	}
+	saw := len(seers) > 0 || g.copSeesAt(p.pos)
+	for _, gd := range g.guards {
+		if !gd.dead && g.sees(gd.pos, gd.dir, p.pos, guardRange*1.4, guardDot) {
+			saw = true
+		}
+	}
+	if saw {
+		g.suspectSeen(suspPlayer, nil) // the last one seen killing is the one they want
 	}
 	if len(seers) > 0 && len(g.bodies) > 0 {
 		last := g.bodies[len(g.bodies)-1]
@@ -1938,6 +2054,9 @@ type candidate struct {
 
 func (g *Game) interact() {
 	p := g.p
+	if g.coopInteract(p) { // two players: pick up / put down the partner, distract a cop, high five
+		return
+	}
 	if p.hidden {
 		p.hidden = false
 		pr := p.hideProp
@@ -1964,6 +2083,8 @@ func (g *Game) interact() {
 					g.say("Escondido. Pulsa E para salir")
 				}})
 			}
+		case k.Phone && !pr.used && g.canCallAmbulance(p):
+			cs = append(cs, candidate{d - 6, func() { g.callAmbulance(p, pr) }})
 		case k.Phone && !pr.used && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				pr.used = true
@@ -1987,6 +2108,7 @@ func (g *Game) interact() {
 				g.useDoses(poisonBowlDoses)
 				g.award(Vec{pr.X, pr.Y}, 15, "veneno")
 				pr.armT = 40
+				g.coopOwn(pr, p)
 				g.snd.Play("splash")
 				g.say("Has envenenado el ponche")
 				g.say(dosesText(p.doses))
@@ -1994,7 +2116,7 @@ func (g *Game) interact() {
 		case (pr.Name == "closet" || pr.Name == "wardrobe") && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				if g.wanted > 0 {
-					g.wanted, g.seenNow = 0, false
+					g.shakeOffPolice(p)
 					g.say("Te has cambiado de ropa. Pierden tu pista")
 					g.snd.Play("spark")
 				} else {
@@ -2007,6 +2129,7 @@ func (g *Game) interact() {
 				if k.Trap == "electric" {
 					pr.armT = 1.5
 				}
+				g.coopOwn(pr, p)
 				g.say("Trampa activada. ¡Aléjate!")
 			}})
 		}
@@ -2127,6 +2250,7 @@ func (g *Game) updateProps(dt float64) {
 
 func (g *Game) triggerTrap(pr *Prop) {
 	pr.used = true
+	g.coopTrapFired(pr)
 	g.credit = true
 	defer func() { g.credit = false }()
 	centre := Vec{pr.X, pr.Y - 8}
@@ -2157,9 +2281,11 @@ func (g *Game) triggerTrap(pr *Prop) {
 			}
 		}
 		g.trapCops(centre, 64)
-		if !g.p.dead && dist(g.p.pos, centre) < 58 {
-			g.die("Has saltado por los aires con tu propia trampa")
-		}
+		g.eachPlayer(func(p *Player) {
+			if !p.dead && dist(p.pos, centre) < 58 && !g.coopSpare(p, centre) {
+				g.die("Has saltado por los aires con tu propia trampa")
+			}
+		})
 		for _, gu := range g.guests {
 			if !gu.out() && dist(gu.pos, centre) < 220 {
 				g.alarm(gu, "!?")
@@ -2376,6 +2502,10 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		return
 	}
 	gu.moving = false
+	if gu.py != nil {
+		g.updatePyro(gu, dt)
+		return
+	}
 	if gu.bitten > 0 {
 		g.venom(gu, dt)
 		if gu.out() {
@@ -2861,8 +2991,10 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 		v := gu.tgt
 		g.killGuest(v, false)
 		g.sayNews("kill", map[string]string{"actor": guestLabel(gu), "victim": guestLabel(v)})
+		saw := g.copSeesAt(v.pos)
 		for _, o := range g.guests {
 			if o != gu && g.canWatch(o) && g.sees(o.pos, o.dir, v.pos, guestRange, guestDot) {
+				saw = true
 				if len(g.bodies) > 0 {
 					g.knowBody(o, g.bodies[len(g.bodies)-1])
 				}
@@ -2872,6 +3004,9 @@ func (g *Game) updateKiller(gu *Guest, dt float64) {
 					g.alarm(o, "!?")
 				}
 			}
+		}
+		if saw && gu.armed {
+			g.suspectSeen(suspGuest, gu) // seen killing: the cuffs are for him now
 		}
 		if gu.armed && gu.rampage > 1 {
 			gu.rampage--
@@ -3164,7 +3299,7 @@ func (g *Game) raisePolice(at Vec, informed bool) {
 		// Another witness may refresh the search, but it must not summon a
 		// second, overlapping authority.
 		if informed {
-			g.wanted = math.Max(g.wanted, 32)
+			g.markPlayerWanted(32)
 			g.killPos = at
 		}
 		return
@@ -3192,8 +3327,11 @@ func (g *Game) raisePolice(at Vec, informed bool) {
 		}
 	}
 	if informed {
-		g.wanted = 70
-	} else if g.rng.Float64() < 0.45 {
+		if !g.playerCleared() {
+			g.wanted = 70
+			g.ensureSuspect()
+		}
+	} else if g.lastKiller.kind == suspNone && g.rng.Float64() < 0.45 {
 		var live []*Guest
 		for _, gu := range g.guests {
 			if !gu.out() {
@@ -3244,9 +3382,14 @@ func (g *Game) changeResponse(kind int) {
 // closeCase: the suspect has been taken, so the player's guilt disappears,
 // every authority walks back to its vehicle and the stars drop to zero.
 func (g *Game) closeCase() {
+	for _, pl := range g.players() {
+		pl.disguised = false
+		pl.jail.sus = false // the case is closed: nobody is a suspect any more
+	}
 	g.wanted, g.seenNow = 0, false
 	g.pendingCar, g.pendingUnit = -1, -1
 	g.suspect = nil
+	g.lastKiller = lastKill{}
 	g.stars, g.starsDecayT = 0, 0
 	for _, b := range g.bodies {
 		b.byPlayer = false
@@ -3267,7 +3410,7 @@ func (g *Game) closeCase() {
 }
 
 // mayLeave: the minimum stay on scene (20s) has passed.
-func (c *Cop) mayLeave() bool { return c.medic || c.onSceneT >= 20 }
+func (c *Cop) mayLeave() bool { return c.medic || (c.onSceneT >= 20 && !jailHold) }
 
 func (g *Game) vehDoor(c *Cop) Vec {
 	v := c.veh
@@ -3449,6 +3592,13 @@ func (g *Game) updateVehicles(dt float64) {
 				if !v.spawned {
 					v.spawned = true
 					g.techsArrive(v)
+				}
+				break
+			}
+			if v.revive { // the ambulance a player called for his dead partner (revive.go)
+				if !v.spawned {
+					v.spawned = true
+					g.reviveArrives(v)
 				}
 				break
 			}
@@ -3678,11 +3828,14 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 	}
 	g.copUnstick(c, dt)
+	if g.coopCopDistracted(c, dt) { // two players: the partner is distracting this officer
+		return
+	}
 	if g.copSlashHook(c, dt) {
 		return
 	}
 	g.copBrutal(c, dt)
-	p := g.p
+	p := g.copTarget(c) // two players: the suspect this officer goes after (twojail.go)
 	// police notice bodies lying around; while hunting the killer they only deal with the ones right next to them
 	bodyRange := copRange
 	if g.wanted > 0 {
@@ -3717,7 +3870,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		if chasing {
 			rng, dot = 150, -0.3
 		}
-		sees = !p.hidden && !p.dead && (g.wanted > 0 || p.carrying != nil) && g.sees(c.pos, c.dir, p.pos, rng, dot)
+		sees = !p.hidden && !p.dead && g.copInterest(p) && g.sees(c.pos, c.dir, p.pos, rng, dot)
 	}
 	if sees && c.state != cTired {
 		if !chasing {
@@ -3731,9 +3884,13 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		g.killPos = p.pos
 		c.lost = 0
 		g.seenNow = true
-		if g.wanted < 20 {
+		if p.carrying != nil && g.playerCleared() {
+			g.withPlayer(p, func() { g.suspectSeen(suspPlayer, nil) }) // a body on his shoulder is as good as seeing him kill
+		}
+		if g.wanted < 20 && !g.playerCleared() {
 			g.wanted = 20
 		}
+		g.markSuspect(p)
 	}
 	if !c.medic && c.state != cLeave && c.state != cChase && c.state != cTired {
 		// The FBI never gives up investigating on its own: it keeps searching
@@ -3818,7 +3975,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 		g.copWalk(c, copChaseSpeed, dt)
 		if sees && dist(c.pos, p.pos) < 13 {
-			g.die("¡La policía te ha atrapado!")
+			g.copCatch(c, p)
 		}
 	case cTired:
 		c.timer -= dt
@@ -3957,6 +4114,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 					g.policeCalled = false
 					g.suspect = nil
 					g.wanted = 0
+					g.clearSuspects()
 					g.stars, g.starsDecayT, g.respKind, g.pendingUnit = 0, 0, unitPolice, -1
 					for _, b := range g.bodies {
 						if !b.carried && !b.bagged {
@@ -4390,10 +4548,11 @@ func (g *Game) runOver(a *Ambient) {
 			g.snd.Play("thud")
 		}
 	}
-	p := g.p
-	if !p.dead && !p.hidden && math.Abs(p.pos.X-a.x) < 24 && math.Abs(p.pos.Y-a.y) < 10 {
-		g.die("Te ha atropellado un coche")
-	}
+	g.eachPlayer(func(p *Player) {
+		if !p.dead && !p.hidden && math.Abs(p.pos.X-a.x) < 24 && math.Abs(p.pos.Y-a.y) < 10 {
+			g.die("Te ha atropellado un coche")
+		}
+	})
 }
 
 func ambLength(a *Ambient) float64 {
@@ -4528,7 +4687,7 @@ func (g *Game) specialStunt(a *Ambient, dt float64, allowed *float64) {
 	case "taxi":
 		if passed && !a.done {
 			a.done = true
-			if g.rng.Float64() < 0.65 && g.total < g.maxTotal() {
+			if g.rng.Float64() < 0.65 && g.guestRoom() >= 1 {
 				a.wait = 3
 				n := 1 + g.rng.Intn(3)
 				side := 1.0
@@ -4659,6 +4818,20 @@ func (g *Game) trimGuests() {
 		i := cand[g.rng.Intn(len(cand))]
 		g.guests = append(g.guests[:i], g.guests[i+1:]...)
 	}
+	// the groups and special guests of the start never take the party over the cap either
+	for g.guestLive() > g.guestCap() {
+		cut := -1
+		for i := len(g.guests) - 1; i >= 0; i-- {
+			if !g.guests[i].out() && g.guests[i].perf == "" {
+				cut = i
+				break
+			}
+		}
+		if cut < 0 {
+			break
+		}
+		g.guests = append(g.guests[:cut], g.guests[cut+1:]...)
+	}
 }
 
 // hasProgress: is there anything a new game would erase?
@@ -4701,14 +4874,7 @@ func (g *Game) updateConfirm() {
 		case g.confirmSel == 0:
 			g.mode = ModeMenu
 		case ready:
-			old := g.progress
-			g.progress = Progress{Unlocked: 1, GuestMin: g.progress.GuestMin, GuestMax: g.progress.GuestMax}
-			keepSeen(&g.progress, old) // the cinematics you have seen stay seen
-			saveProgress(g.progress)
-			g.syncShop()
-			g.shopCache, g.tierBase = nil, nil
-			g.applyShop()
-			g.beginNewGame()
+			g.wipeProgress() // everything, the cinematics seen too: the intro plays again and the menu has no CONTINUAR
 		}
 	}
 }

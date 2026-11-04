@@ -284,7 +284,7 @@ var themeKits = []themeKit{
 }
 
 func (g *Game) startTheme(e *Event) bool {
-	if g.total+6 > g.maxTotal() {
+	if g.guestRoom() < 3 {
 		return false
 	}
 	kit := themeKits[g.rng.Intn(len(themeKits))]
@@ -294,7 +294,7 @@ func (g *Game) startTheme(e *Event) bool {
 			e.n = i
 		}
 	}
-	count := 5 + g.rng.Intn(3)
+	count := minI(5+g.rng.Intn(3), g.guestRoom())
 	st := g.lvl.Def.Start
 	for i := 0; i < count; i++ {
 		spec := kit.make(g, i)

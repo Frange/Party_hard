@@ -10,6 +10,34 @@ import (
 // partyColors cycle in the neighbours' disco.
 var partyColors = []uint32{0xe03a8a, 0x3a6ae0, 0x3ad0a8, 0xf0c030, 0x9a4ae0, 0xe05a30}
 
+// The intros make the neighbours' speakers pump with the beat (see audio.go): bedPumpOn turns it on,
+// bedPump is how hard the last kick hit (0..1) and bedBeatN the number of the beat. The menu leaves them off.
+var (
+	bedPumpOn bool
+	bedPump   float64
+	bedBeatN  int
+)
+
+// bedTwo draws the room with two beds (the cinematics of the two player mode); bedPillow is how much
+// each of them has the pillow pulled over his head (0..1).
+var (
+	bedTwo    bool
+	bedPoses  [2]bedPose
+	bedShiftX float64 // the two beds slid to the right (the menu, to leave room for its list)
+	bedShiftY float64 // and down, when a long row of the list (JUGADORES) is level with them
+)
+
+// bedPose is what one of the two sleepers is doing (bedroom2p.go).
+type bedPose struct {
+	sit     float64 // 0 lying .. 1 sitting up in bed
+	pillow  float64 // the pillow over the head
+	turn    float64 // seconds between two turns in bed (0 = lies still on his back)
+	earplug bool    // paper balls in the ears
+	fist    bool    // banging on the wall
+	puff    bool    // fuming
+	away    bool    // already out of bed
+}
+
 // drawBedroom is the title backdrop: our hero tries to sleep in his bed,
 // tossing and turning, while the house across the street throws a party that
 // can be seen through the window.
@@ -46,11 +74,6 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	for y := 0.0; y < gh; y += 2 {
 		fr(gx, gy+y, gw, 2, mixc(rgb(0x1a1440), rgb(0x0d1428), y/gh))
 	}
-	for i := 0; i < 26; i++ { // stars
-		sx, sy := gx+float64((i*97)%int(gw)), gy+float64((i*53)%60)
-		a := uint8(90 + 80*math.Abs(math.Sin(t*1.3+float64(i))))
-		fr(sx, sy, 1, 1, rgba(0xdce4ff, a))
-	}
 	fe(618, 66, 9, 9, rgb(0xe8e6d4)) // moon
 	fe(614, 63, 8, 8, rgb(0x1a1440))
 	// the house across the street
@@ -70,6 +93,9 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	fr(rx-3, ry-3, rw+6, rh+6, rgb(0x0a0814))
 	fr(rx, ry, rw, rh, rgb(0x2a1038))
 	ci := int(t * 2.4)
+	if bedPumpOn {
+		ci = bedBeatN // the floor changes colour on every kick
+	}
 	for cy := 0; cy < 3; cy++ { // flashing floor
 		for cx := 0; cx < 12; cx++ {
 			c := partyColors[(cx+cy*2+ci)%len(partyColors)]
@@ -95,6 +121,9 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 			continue
 		}
 		bob := math.Abs(math.Sin(t*6+float64(i)*1.7)) * 4
+		if bedPumpOn { // they jump on the kick
+			bob = bedPump * 5
+		}
 		by := ry + rh - 12 - bob
 		shirt := rgb(partyColors[(i*2+1)%len(partyColors)])
 		fr(dx-3, by-12, 6, 9, shirt)
@@ -102,6 +131,9 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 		fr(dx+1, by-3, 2, 6, rgb(0x14141c))
 		fe(dx, by-16, 3.2, 3.4, rgb(0xe0b088))
 		up := math.Sin(t*6+float64(i)*1.7) > 0
+		if bedPumpOn {
+			up = (bedBeatN+i)%2 == 0
+		}
 		if up {
 			fr(dx-6, by-20, 2, 10, shirt)
 			fr(dx+4, by-14, 2, 8, shirt)
@@ -111,6 +143,15 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 		}
 	}
 	for _, sx := range []float64{rx + 4, rx + rw - 18} { // speakers
+		if bedPumpOn { // the cone swells exactly on the kick of the sound
+			k := bedPump
+			fr(sx-k*2, ry+rh-40-k*2, 14+k*4, 30+k*4, rgb(0x1c1828))
+			fe(sx+7, ry+rh-18, 6+k*8, 6+k*8, rgba(0xff5aa0, uint8(150*k)))
+			fe(sx+7, ry+rh-18, 3+k*6, 3+k*6, rgb(0x5a5470))
+			fe(sx+7, ry+rh-18, 1+k*2, 1+k*2, rgb(0x8a84a0))
+			fe(sx+7, ry+rh-31, 2, 2, rgb(0x3a3648))
+			continue
+		}
 		fr(sx, ry+rh-40, 14, 30, rgb(0x14121c))
 		pul := 2 + 2*math.Abs(math.Sin(t*8))
 		fe(sx+7, ry+rh-18, pul+2, pul+2, rgb(0x3a3648))
@@ -143,40 +184,44 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 
 	// ---- the bed, in the middle, with the hero tossing and turning --------
 	const bx0, bx1, by0, by1 = 332.0, 712.0, 268.0, 440.0
-	fillRect(dst, bx0-52, 330, 40, 70, rgb(0x2e2119)) // bedside table
-	fillRect(dst, bx0-52, 330, 40, 4, rgb(0x4a3528))
-	fillRect(dst, bx0-44, 352, 24, 16, rgb(0x14100c))
-	fillRect(dst, bx0-44, 306, 24, 18, rgb(0x0a0a0e)) // alarm clock
-	clock := "3:47"
-	if quiet {
-		clock = "6:30"
+	if bedTwo { // the two player version: two separate beds with a table in between (bedroom2p.go)
+		g.drawTwoBedsShifted(dst, t, quiet, gold, bedShiftX, bedShiftY)
+	} else {
+		fillRect(dst, bx0-52, 330, 40, 70, rgb(0x2e2119)) // bedside table
+		fillRect(dst, bx0-52, 330, 40, 4, rgb(0x4a3528))
+		fillRect(dst, bx0-44, 352, 24, 16, rgb(0x14100c))
+		fillRect(dst, bx0-44, 306, 24, 18, rgb(0x0a0a0e)) // alarm clock
+		clock := "3:47"
+		if quiet {
+			clock = "6:30"
+		}
+		g.drawText(dst, clock, bx0-42, 310, rgb(0xff3030), 0.9)
+		fillRect(dst, bx0-48, 398, 6, 20, rgb(0x2a1e18))
+		fillRect(dst, bx0-22, 398, 6, 20, rgb(0x2a1e18))
+		fillRect(dst, bx0-12, 250, 14, 190, rgb(0x3a2a1e)) // headboard
+		fillRect(dst, bx0-12, 250, 14, 3, rgb(0x5a4030))
+		fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgb(0xaab4cc)) // mattress
+		fillRect(dst, bx0+2, by0, bx1-bx0, 6, rgb(0xc4cce0))
+		fillRect(dst, bx0+2, by1-6, bx1-bx0, 6, rgb(0x6a7690))
+		fillRect(dst, bx1, 300, 12, 150, rgb(0x3a2a1e)) // footboard
+		fillRect(dst, bx0-10, by1+4, 8, 18, rgb(0x2a1e18))
+		fillRect(dst, bx1, by1+4, 8, 18, rgb(0x2a1e18))
+		fillRect(dst, bx0+8, by0+10, 58, by1-by0-20, rgb(0xa2aabb)) // pillow, as wide as the bed
+		fillRect(dst, bx0+8, by0+10, 58, 4, rgb(0xc4ccdc))
+		fillRect(dst, bx0+8, by1-14, 58, 4, rgb(0x8a92a4))
+		fillRect(dst, bx0+62, by0+10, 4, by1-by0-20, rgb(0x8a92a4))
+		if !g.bedEmpty {
+			g.drawSleeper(dst, bx0-30, (by0+by1)/2, t)
+		}
+		// blanket over the legs, moving with every turn
+		wob := math.Sin(t*2) * 1.5
+		fillRect(dst, 600, 320+wob, bx1-600, 110, rgb(0x3a6aa0))
+		fillRect(dst, 600, 320+wob, bx1-600, 4, rgb(0x6a9ac8))
+		for x := 624.0; x < bx1-10; x += 44 {
+			fillRect(dst, x, 326+wob, 2, 98, rgb(0x2c5688))
+		}
+		fillRect(dst, 600, 424, bx1-600, 6, rgb(0x244a74))
 	}
-	g.drawText(dst, clock, bx0-42, 310, rgb(0xff3030), 0.9)
-	fillRect(dst, bx0-48, 398, 6, 20, rgb(0x2a1e18))
-	fillRect(dst, bx0-22, 398, 6, 20, rgb(0x2a1e18))
-	fillRect(dst, bx0-12, 250, 14, 190, rgb(0x3a2a1e)) // headboard
-	fillRect(dst, bx0-12, 250, 14, 3, rgb(0x5a4030))
-	fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgb(0xaab4cc)) // mattress
-	fillRect(dst, bx0+2, by0, bx1-bx0, 6, rgb(0xc4cce0))
-	fillRect(dst, bx0+2, by1-6, bx1-bx0, 6, rgb(0x6a7690))
-	fillRect(dst, bx1, 300, 12, 150, rgb(0x3a2a1e)) // footboard
-	fillRect(dst, bx0-10, by1+4, 8, 18, rgb(0x2a1e18))
-	fillRect(dst, bx1, by1+4, 8, 18, rgb(0x2a1e18))
-	fillRect(dst, bx0+8, by0+10, 58, by1-by0-20, rgb(0xa2aabb)) // pillow, as wide as the bed
-	fillRect(dst, bx0+8, by0+10, 58, 4, rgb(0xc4ccdc))
-	fillRect(dst, bx0+8, by1-14, 58, 4, rgb(0x8a92a4))
-	fillRect(dst, bx0+62, by0+10, 4, by1-by0-20, rgb(0x8a92a4))
-	if !g.bedEmpty {
-		g.drawSleeper(dst, bx0-30, (by0+by1)/2, t)
-	}
-	// blanket over the legs, moving with every turn
-	wob := math.Sin(t*2) * 1.5
-	fillRect(dst, 600, 320+wob, bx1-600, 110, rgb(0x3a6aa0))
-	fillRect(dst, 600, 320+wob, bx1-600, 4, rgb(0x6a9ac8))
-	for x := 624.0; x < bx1-10; x += 44 {
-		fillRect(dst, x, 326+wob, 2, 98, rgb(0x2c5688))
-	}
-	fillRect(dst, 600, 424, bx1-600, 6, rgb(0x244a74))
 
 	if gold {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x2a1800, 70))
@@ -189,11 +234,15 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	} else {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x02040a, 100))
 	}
-	if !quiet {
+	if !quiet && !bedTwo {
 		fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgba(pc, 16)) // the party's lights on the sheets
 	}
 	dst.DrawImage(g.as.vignette, nil)
-	if !g.bedEmpty && !g.bedNoTalk {
+	if !g.bedEmpty && !g.bedNoTalk && (!bedTwo || bedShiftX != 0) {
+		if bedTwo {
+			g.menuTwoOverlay(dst, t)
+			return
+		}
 		g.drawSleeperTalk(dst)
 	}
 }
@@ -251,17 +300,7 @@ func (g *Game) drawSleeper(dst *ebiten.Image, cx, cy, t float64) {
 	// above the head: first a few Zs, then he wakes up and complains; drawn
 	// last, over the night tint, so it stays sharp
 	g.talkX, g.talkY, g.talkT, g.talkN = cx+14*sc, cy-lift, t, n
-	ph2 := math.Mod(t, period)
-	switch {
-	case calm:
-		g.talkKind = 1
-	case ph2 < 2.3:
-		g.talkKind = 1
-	case ph2 < period-turn:
-		g.talkKind = 2
-	default:
-		g.talkKind = 3
-	}
+	_, g.talkKind = sleeperTalkState(t, calm)
 }
 
 func (g *Game) drawSleeperTalk(dst *ebiten.Image) {

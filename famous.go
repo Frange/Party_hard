@@ -110,9 +110,14 @@ func (g *Game) uniqueFamous() {
 // minimum and the maximum of the settings (40 to 60 by default).
 func (g *Game) pickStartTarget() {
 	lo, hi := g.maxStart(), g.guestMax()
+	g.twoExtra = 0
 	g.startTarget = lo
 	if hi > lo {
 		g.startTarget = lo + g.rng.Intn(hi-lo+1)
+	}
+	if g.wantTwoPlayers() { // two players: 20-30 more people at the party
+		g.twoExtra = extraGuest + g.rng.Intn(11)
+		g.startTarget += g.twoExtra
 	}
 }
 

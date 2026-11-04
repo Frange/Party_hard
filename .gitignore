@@ -5,6 +5,8 @@ DJ/*
 !DJ/README.md
 music/*
 !music/README.md
+intros/*
+!intros/README.md
 more/*
 !more/README.md
 music_anteriores/*
@@ -31,3 +33,6 @@ imports/
 # The editor remembers its last choices here
 editor_prefs.json
 assets/editor_prefs.json
+
+# Paquete genérico de plantillas (decisión del usuario: quitar si se quiere publicar)
+AI_with_Claude/

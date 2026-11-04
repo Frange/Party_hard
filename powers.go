@@ -72,10 +72,10 @@ func (g *Game) needLegend() bool {
 }
 
 func (g *Game) updatePowers() {
-	if g.mode != ModePlay || g.p.dead {
+	if g.mode != ModePlay || g.allPlayersDead() {
 		return
 	}
-	if actImmune.just() && !g.needLegend() {
+	if actImmune.justEither() && !g.needLegend() {
 		g.powerImmune = !g.powerImmune
 		if g.powerImmune {
 			g.say("Inmunidad activada: nada puede contigo y puedes matar policías")
@@ -84,13 +84,13 @@ func (g *Game) updatePowers() {
 			g.say("Inmunidad desactivada")
 		}
 	}
-	if actFamous.just() && !g.needLegend() {
+	if actFamous.justEither() && !g.needLegend() {
 		g.powerFamous()
 	}
-	if actKiller.just() && !g.needLegend() {
+	if actKiller.justEither() && !g.needLegend() {
 		g.powerKiller()
 	}
-	if actPowerEvent.just() && !g.needLegend() {
+	if actPowerEvent.justEither() && !g.needLegend() {
 		g.powerEvent()
 	}
 }
@@ -121,7 +121,7 @@ func (g *Game) powerFamous() {
 	if g.time-g.pwFamAt < 0.5 {
 		return
 	}
-	if g.total >= g.maxTotal()+40 {
+	if g.guestRoom() < 1 {
 		g.say("La fiesta ya no cabe ni un famoso más")
 		return
 	}
@@ -215,10 +215,18 @@ func (g *Game) stabCop(c *Cop) {
 // ---- the halo -----------------------------------------------------------------
 
 func (g *Game) drawHalo(dst *ebiten.Image) {
-	if !g.haloOn() || g.p.dead || g.p.hidden || g.mode != ModePlay {
+	if !g.haloOn() || g.mode != ModePlay {
 		return
 	}
-	x, y := g.wx(g.p.pos.X), g.wy(g.p.pos.Y)-42+math.Sin(g.time*3)*1.5
+	for _, pl := range g.players() { // the immunity is for the whole party: every living player gets the halo
+		if !pl.dead && !pl.hidden {
+			g.drawHaloAt(dst, pl)
+		}
+	}
+}
+
+func (g *Game) drawHaloAt(dst *ebiten.Image, pl *Player) {
+	x, y := g.wx(pl.pos.X), g.wy(pl.pos.Y)-42+math.Sin(g.time*3)*1.5
 	pulse := 0.5 + 0.5*math.Sin(g.time*4)
 	g.glowAt(dst, Vec{x - g.camI.X, y - g.camI.Y}, 20+pulse*4, color.RGBA{255, 210, 70, uint8(80 + pulse*40)})
 	for a := 0.0; a < 2*math.Pi; a += 0.16 {

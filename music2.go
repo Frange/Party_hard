@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"hash/fnv"
 	"math"
 	"math/rand"
 )
@@ -20,6 +19,8 @@ type songSpec struct {
 	scale []int
 	seed  int64
 	bars  int
+	// the new genres (genres.go): the key (semitones over the written one) and which reading of the tune
+	shift, variant int
 }
 
 var (
@@ -150,6 +151,9 @@ func noteSnip(freq, dur float64, kind int, decay float64) []float64 {
 }
 
 func renderSong(sp songSpec) []byte {
+	if _, ok := genreSongs[sp.style]; ok {
+		return genreSongPCM(sp)
+	}
 	rng := rand.New(rand.NewSource(sp.seed))
 	beat := 60 / sp.bpm
 	bars := sp.bars
@@ -298,27 +302,8 @@ func renderSong(sp songSpec) []byte {
 	return toPCM(sb.out)
 }
 
-// playlist returns the track specs for a level title: three songs in different styles.
-func playlistFor(title string) []songSpec {
-	h := fnv.New32a()
-	h.Write([]byte(title))
-	r := rand.New(rand.NewSource(int64(h.Sum32())))
-	styles := []string{"house", "electro", "techno", "disco", "reggaeton", "house", "electro"}
-	r.Shuffle(len(styles), func(i, j int) { styles[i], styles[j] = styles[j], styles[i] })
-	roots := []float64{55, 58.27, 61.74, 65.41, 73.42, 49, 51.91}
-	scales := [][]int{scaleMinor, scalePhryg, scaleMinor, scaleMajor}
-	var out []songSpec
-	for i := 0; i < 3; i++ {
-		st := styles[i]
-		bpm := map[string]float64{"house": 122, "electro": 128, "techno": 138, "disco": 116, "reggaeton": 94}[st] + float64(r.Intn(7)-3)
-		sc := scales[r.Intn(len(scales))]
-		if st == "disco" || st == "reggaeton" {
-			sc = scaleMinor
-		}
-		out = append(out, songSpec{style: st, bpm: bpm, root: roots[r.Intn(len(roots))], scale: sc, seed: int64(h.Sum32()) + int64(i)*101, bars: 8})
-	}
-	return out
-}
+// playlistFor returns the track specs for a level title: three songs of the genre of that party (genres.go).
+func playlistFor(title string) []songSpec { return genrePlaylist(title) }
 
 // punkPlaylist: several punk rock songs that rotate while the DJ is dead.
 func punkPlaylist() []songSpec {
@@ -363,13 +348,31 @@ func (g *Game) syncMusic() {
 		}
 	}
 	var sp songSpec
-	if g.djDead || g.band != nil {
+	if g.djDead || g.ownStyleBand() {
 		pl := punkPlaylist()
-		sp = pl[g.songIdx%len(pl)]
 		title = "punk"
+		if g.ownStyleBand() && !g.djDead {
+			pl = bandPlaylist(g.band.slug) // a famous band that is not punk keeps to its own style
+			title = "band-" + g.band.slug
+		}
+		sp = pl[g.songIdx%len(pl)]
 	} else {
 		pl := playlistFor(title)
 		sp = pl[g.songIdx%len(pl)]
+	}
+	if _, isGenre := genreSongs[sp.style]; isGenre {
+		// the new genres take about a second to render: a background thread does it and the
+		// music starts as soon as the song is there (the previous track plays meanwhile)
+		key := trackKey(sp.style, int(sp.seed%1000)*10+sp.variant, title)
+		pcm := genreReadyPCM(sp)
+		if key != genreLastWarm || pcm == nil { // (while it is not there the thread is asked again: it may have been busy)
+			genreLastWarm = key
+			genreWarm(append([]songSpec{sp}, genreSiblings(g, title)...))
+		}
+		if pcm != nil {
+			g.snd.SetTrack(key, func() []byte { return pcm })
+		}
+		return
 	}
 	g.snd.SetTrack(trackKey(sp.style, int(sp.seed%1000), title), func() []byte { return renderSong(sp) })
 }

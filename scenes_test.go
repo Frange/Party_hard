@@ -168,7 +168,7 @@ func TestIntroTimelineAndProportions(t *testing.T) {
 		t.Error("door animation wrong")
 	}
 	// the glass breaks only once and the beat falls off
-	if beatKick(0) < 0.99 || beatKick(introBeat-0.01) > 0.2 {
+	if beatKick(0) < 0.99 || beatKick(thumpBeat-0.01) > 0.2 {
 		t.Error("beat kick")
 	}
 }

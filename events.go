@@ -63,6 +63,7 @@ type Event struct {
 	t2       float64
 	herd     []herdRunner
 	crewFrom *Guest
+	boom     *f1Boom // the F1 car blowing up where it used to leave (carboom.go)
 }
 
 func (g *Game) liveGuests() []*Guest {

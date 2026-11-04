@@ -329,6 +329,9 @@ func (g *Game) updateExhibitionists() {
 	if g.exhibited || !g.exhibitPlan || g.time < g.exhibitT || g.testVictim != nil || g.mode != ModePlay {
 		return
 	}
+	if g.guestRoom() < 2 {
+		return
+	}
 	g.exhibited = true
 	for i := 0; i < 2; i++ {
 		spec := exhibitionistSpec(g.rng, i == 1)

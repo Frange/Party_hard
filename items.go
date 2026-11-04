@@ -151,6 +151,9 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 		}
 		return "Esconderse", rgb(0x70e0ff)
 	case k.Phone && !pr.used:
+		if g.canCallAmbulance(p) {
+			return "Llamar a la ambulancia", rgb(0x60ffa0)
+		}
 		return "Cortar cable", rgb(0xff6060)
 	case k.Item != "" && p.item != "":
 		return "", color.RGBA{}
@@ -174,9 +177,23 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 // drawUseMarks: a bobbing diamond over everything that can be used; close up
 // it turns into the key and the name of the action.
 func (g *Game) drawUseMarks(dst *ebiten.Image) {
-	if g.mode != ModePlay || g.p.dead || g.p.hidden {
+	if g.mode != ModePlay {
 		return
 	}
+	// with two players each one gets his own marks (the key and the colour are his): the diamond
+	// over a prop is drawn once, the text only when that player is close
+	drawn := map[*Prop]bool{}
+	for _, pl := range g.players() {
+		if pl == nil || pl.dead || pl.hidden {
+			continue
+		}
+		pl := pl
+		g.withPlayer(pl, func() { g.drawUseMarksFor(dst, pl, drawn) })
+	}
+}
+
+func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bool) {
+	hint := actionHintFor(actInteract, pl.idx)
 	for _, pr := range g.lvl.Props {
 		lab, col := g.useLabel(pr)
 		if lab == "" {
@@ -197,12 +214,20 @@ func (g *Game) drawUseMarks(dst *ebiten.Image) {
 		}
 		c := col
 		c.A = uint8(255 * a)
-		for i := 0.0; i < 4; i++ {
-			fillRect(dst, x-i, y-4+i, 1+2*i, 1, c)
-			fillRect(dst, x-3+i, y+i, 7-2*i, 1, c)
+		if !drawn[pr] {
+			drawn[pr] = true
+			for i := 0.0; i < 4; i++ {
+				fillRect(dst, x-i, y-4+i, 1+2*i, 1, c)
+				fillRect(dst, x-3+i, y+i, 7-2*i, 1, c)
+			}
 		}
 		if d < 30 {
-			g.drawTextC(dst, "["+actionHint(actInteract)+"] "+lab, x, y-16, col, 1)
+			txt := "[" + hint + "] " + lab
+			g.drawTextC(dst, txt, x, y-16, col, 1)
+			if g.is2P() { // a small square in the player's colour says whose key it is
+				pc := playerColor(pl.idx)
+				fillRect(dst, math.Round(x-g.textW(txt, 1)/2)-7, y-14, 4, 4, pc)
+			}
 		}
 	}
 	// with poison in the pocket the guest within reach can be offered a drink
@@ -213,7 +238,7 @@ func (g *Game) drawUseMarks(dst *ebiten.Image) {
 			fillRect(dst, x-i, y-4+i, 1+2*i, 1, col)
 			fillRect(dst, x-3+i, y+i, 7-2*i, 1, col)
 		}
-		g.drawTextC(dst, "["+actionHint(actInteract)+"] Ofrecer copa envenenada", x, y-16, col, 1)
+		g.drawTextC(dst, "["+hint+"] Ofrecer copa envenenada", x, y-16, col, 1)
 	}
 }
 
@@ -244,7 +269,12 @@ func (g *Game) useDisguise() {
 	}
 	g.p.cs = newCharSet(&spec)
 	g.p.item = ""
-	g.closeCase()
+	g.p.disguised = true
+	g.p.jail.sus = false // the cuffs mark leaves him (two players, twojail.go)
+	// the police lose the trail when nobody is left that they could still be after
+	if g.disguiseClosesCase() {
+		g.closeCase()
+	}
 	g.burst(Vec{g.p.pos.X, g.p.pos.Y - 16}, 20, 80, rgb(0xd090ff), 0.6, 2, 0)
 	g.snd.Play("spark")
 	g.say("¡Disfraz puesto! Ya no te buscan")
@@ -337,10 +367,18 @@ func (g *Game) updateTraps2(dt float64) {
 			}
 		}
 		g.credit = false
-		if p := g.p; !p.dead && dist(p.pos, c.pos) < 50 {
-			g.gasP += dt
-			if g.gasP > 3 {
-				g.die("Te has asfixiado con tu propia trampa de gas")
+		for _, pl := range g.players() { // every player breathes his own share
+			pl := pl
+			exp := &g.gasP
+			if pl.idx == 1 {
+				exp = &g.gasP2
+			}
+			if pl.dead || dist(pl.pos, c.pos) >= 50 {
+				continue
+			}
+			*exp += dt
+			if *exp > 3 && !g.coopSpare(pl, c.pos) {
+				g.withPlayer(pl, func() { g.die("Te has asfixiado con tu propia trampa de gas") })
 			}
 		}
 		g.trapCopsGas(c)
@@ -375,9 +413,11 @@ func (g *Game) updateTraps2(dt float64) {
 				}
 			}
 			g.trapCops(at, 30)
-			if p := g.p; !p.dead && dist(p.pos, at) < 20 {
-				g.die("Un cohete de tu trampa te ha dado")
-			}
+			g.eachPlayer(func(p *Player) {
+				if !p.dead && dist(p.pos, at) < 20 && !g.coopSpare(p, at) {
+					g.die("Un cohete de tu trampa te ha dado")
+				}
+			})
 			g.checkDone()
 		}
 		if f.t > 0 {
@@ -408,9 +448,11 @@ func (g *Game) updateTraps2(dt float64) {
 				}
 			}
 			g.trapCops(d.pos, 34)
-			if p := g.p; !p.dead && math.Abs(p.pos.X-d.pos.X) < 30 && math.Abs(p.pos.Y-d.pos.Y) < 20 {
-				g.die("Te ha caído un piano encima")
-			}
+			g.eachPlayer(func(p *Player) {
+				if !p.dead && math.Abs(p.pos.X-d.pos.X) < 30 && math.Abs(p.pos.Y-d.pos.Y) < 20 && !g.coopSpare(p, d.pos) {
+					g.die("Te ha caído un piano encima")
+				}
+			})
 			g.checkDone()
 		}
 		if d.t < 4 {

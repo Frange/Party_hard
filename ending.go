@@ -28,7 +28,8 @@ const (
 	endDoor
 	endBed // counting sheep
 	endCredits
-	endFinal // "¿ FINAL ?" / "FIN"
+	endStinger // only the secret ending: the scene after the credits
+	endFinal   // "¿ FINAL ?" / "FIN"
 )
 
 type endState struct {
@@ -40,6 +41,8 @@ type endState struct {
 	bed      *ebiten.Image
 	heroX    float64
 	skipLock float64
+	music    string   // the tune of this ending that is playing ("" = none yet)
+	x        endExtra // what the invitation and the two endings keep (ending2.go, invite.go)
 }
 
 const (
@@ -69,6 +72,8 @@ func (g *Game) startInvite() {
 }
 
 func (g *Game) leaveEnding() {
+	g.snd.StopThump()
+	g.snd.StopScene()
 	if g.sceneReplay { // watched again from the scenes list or from DEBUG: back where it came from
 		g.leaveScene()
 		return
@@ -81,18 +86,35 @@ func (g *Game) leaveEnding() {
 }
 
 // stage lengths in seconds
-func endLen(stage int) float64 {
+func endLen(stage int) float64 { return endLenFor(stage, false) }
+
+// endLenFor: the secret ending lasts longer than the normal one.
+func endLenFor(stage int, secret bool) float64 {
 	switch stage {
 	case endInvite:
-		return 6.5
+		return 1e9 // it waits for the player
 	case endWalk:
+		if secret {
+			return 21
+		}
 		return 15
 	case endDoor:
-		return 4.5
+		if secret {
+			return 9.5
+		}
+		return 6
 	case endBed:
+		if secret {
+			return 34
+		}
 		return 26
 	case endCredits:
-		return 34
+		if secret {
+			return 44
+		}
+		return 30
+	case endStinger:
+		return 8.5
 	}
 	return 1e9
 }
@@ -108,6 +130,21 @@ func (g *Game) updateEnding() {
 	e.total += dt
 	g.time = e.total
 	g.bedQuiet = e.stage == endBed
+	// the music of the ending: a lullaby (or the secret one, or the wind of the invitation), no drums
+	if want, n := endTune(e); want != e.music {
+		if e.music == "" || !g.snd.SceneIsSong("base") { // a song of the intros folder plays on through the stages
+			g.sceneMusic(n, want)
+		}
+		e.music = want
+	}
+	g.snd.SetSceneVolume("base", endMusicVol(e))
+	if e.stage == endInvite {
+		g.updateInvite(e) // the letter waits for the player; it never goes away by itself
+		return
+	}
+	// the quiet night: crickets when the music has gone and he sleeps
+	end := endLenFor(endBed, e.trueEnd)
+	g.cricket(e, (e.stage == endBed && e.t > end-8) || (e.stage == endFinal && e.t < 9) || e.stage == endStinger && e.t < 2.4)
 	if e.skipLock > 0 {
 		e.skipLock -= dt
 	}
@@ -128,37 +165,20 @@ func (g *Game) updateEnding() {
 		case e.stage == endFinal && e.t > 4:
 			g.leaveEnding()
 			return
-		case e.stage == endInvite:
-			if g.sceneReplay {
-				g.leaveEnding()
-				return
-			}
-			g.startLevel(specialJurassic)
-			g.end = nil
-			return
 		case e.stage != endFinal:
-			e.t = endLen(e.stage) // skip what is left of this part
+			e.t = endLenFor(e.stage, e.trueEnd) // skip what is left of this part
 			e.skipLock = 0.3
 		}
 	}
-	if e.t >= endLen(e.stage) {
+	if e.t >= endLenFor(e.stage, e.trueEnd) {
 		switch e.stage {
-		case endInvite:
-			if g.sceneReplay {
-				g.leaveEnding()
-				return
-			}
-			g.end = nil
-			g.startLevel(specialJurassic)
-			return
 		case endFinal:
 		default:
-			e.stage++
-			e.t = 0
+			e.stage, e.t = nextEndStage(e.stage, e.trueEnd), 0
 		}
 	}
 	if e.stage == endWalk {
-		e.heroX = 980 - e.t*58
+		e.heroX = 980 - e.t*870/endLenFor(endWalk, e.trueEnd)
 	}
 	if e.stage == endFinal && e.t > 11 && e.t < 11.1 {
 		g.snd.Play("win")
@@ -181,6 +201,8 @@ func (g *Game) drawEnding(dst *ebiten.Image) {
 		g.drawBedEnd(dst, e)
 	case endCredits:
 		g.drawEndCredits(dst, e)
+	case endStinger:
+		g.drawStinger(dst, e)
 	default:
 		g.drawEndFinal(dst, e)
 	}
@@ -189,44 +211,9 @@ func (g *Game) drawEnding(dst *ebiten.Image) {
 		hint = actionHint(actConfirm) + ": volver al menú"
 	}
 	if e.stage == endInvite {
-		hint = actionHint(actConfirm) + ": ir a la isla   " + actionHint(actBack) + ": mejor no"
-		if g.sceneReplay {
-			hint = actionHint(actConfirm) + " / " + actionHint(actBack) + ": volver"
-		}
+		return // the letter has its own hint
 	}
 	g.drawTextC(dst, hint, 480, 518, rgba(0x8a86a0, 190), 1)
-}
-
-// ---- the invitation ----------------------------------------------------------------------
-
-func (g *Game) drawInvite(dst *ebiten.Image, e *endState) {
-	dst.Fill(rgb(0x02060e))
-	for i := 0; i < 90; i++ { // stars
-		x, y := float64((i*137)%960), float64((i*71)%540)
-		a := uint8(80 + 120*math.Abs(math.Sin(e.total*1.4+float64(i))))
-		fillRect(dst, x, y, 1, 1, rgba(0xdce4ff, a))
-	}
-	k := math.Min(1, e.t/0.8)
-	// the envelope
-	cx, cy := 480.0, 250.0
-	fillRect(dst, cx-130, cy-80, 260, 160, rgb(0xe8dcb8))
-	fillRect(dst, cx-130, cy-80, 260, 3, rgb(0xfff6d8))
-	fillRect(dst, cx-130, cy+77, 260, 3, rgb(0xb8a878))
-	for i := 0.0; i < 130; i++ { // the flap
-		fillRect(dst, cx-130+i, cy-80+i*0.62, 1, 3, rgb(0xc8b888))
-		fillRect(dst, cx+130-i, cy-80+i*0.62, 1, 3, rgb(0xc8b888))
-	}
-	filledEllipse(dst, cx, cy, 16, 16, rgb(0xa82a22))
-	filledEllipse(dst, cx, cy, 11, 11, rgb(0xd04838))
-	g.drawTextC(dst, "J", cx, cy-9, rgb(0xf8d030), 1.4)
-	g.drawTextC(dst, "ESA MISMA NOCHE, EN EL BUZÓN...", 480, 70, rgba(0xf4f0ff, uint8(255*k)), 1.8)
-	if e.t > 1.5 {
-		g.drawTextC(dst, "Una invitación sin remitente. Huele a selva.", 480, 372, rgb(0xe8c870), 1.3)
-	}
-	if e.t > 3 {
-		g.drawTextC(dst, "Has conseguido TODOS los trofeos. Te toca la fiesta de verdad:", 480, 402, rgb(0xb8b0d0), 1.2)
-		g.drawTextC(dst, "ISLA NUBLAR", 480, 430, rgb(0x60e090), 2.4)
-	}
 }
 
 // ---- the walk home ----------------------------------------------------------------------
@@ -238,11 +225,6 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 	c.Fill(rgb(0x070a1c))
 	for y := 0.0; y < 150; y += 3 { // sky
 		fillRect(c, 0, y, endCW, 3, mixc(rgb(0x070a1c), rgb(0x1c2a58), y/150))
-	}
-	for i := 0; i < 70; i++ {
-		x, y := float64((i*97)%endCW), float64((i*53)%110)
-		a := uint8(90 + 120*math.Abs(math.Sin(t*1.2+float64(i))))
-		fillRect(c, x, y, 1, 1, rgba(0xdce4ff, a))
 	}
 	filledEllipse(c, 390, 40, 17, 17, rgb(0xeae6d4)) // the moon
 	filledEllipse(c, 384, 36, 16, 16, rgb(0x14244c))
@@ -335,6 +317,9 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 		open := 0.0
 		if e.stage == endDoor {
 			open = math.Min(1, e.t/0.8)
+			if e.t > 2.6 { // he is in: the door closes behind him
+				open = 1 - clampF((e.t-2.6)/0.45, 0, 1)
+			}
 		}
 		fillRect(c, hx-2, endGround-34, 22, 34, rgb(0x241a14))
 		if open > 0 { // the light of the hall
@@ -344,12 +329,24 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 		g.glowAt(c, Vec{hx + 9, endGround - 40}, 46, color.RGBA{255, 200, 90, 80})
 		fillRect(c, hx+22, endGround-30, 3, 5, rgb(0xfff0a0)) // porch lamp
 	}
-	// the hero
+	// the hero (and the gags of each ending around him)
+	g.endBehind(c, camX, t, e)
 	g.endHero(c, e, camX)
+	g.endFront(c, camX, t, e)
+	if e.stage == endDoor && e.t > 2.9 && e.t < 3.9 { // the ghosts bump into the shut door
+		if e.trueEnd {
+			g.drawText(c, "¡BUM!", hx+30, endGround-70-(e.t-2.9)*8, rgba(0xf8d030, uint8(255*(1-(e.t-2.9)))), 1)
+		}
+	}
 }
 
 func (g *Game) endHero(c *ebiten.Image, e *endState, camX float64) {
 	cs := g.as.playerCS
+	if g.scene2P() {
+		if c0 := g.sceneHero(0, false); c0 != nil {
+			cs = c0
+		}
+	}
 	if cs == nil {
 		return
 	}
@@ -384,6 +381,9 @@ func (g *Game) endHero(c *ebiten.Image, e *endState, camX float64) {
 	}
 	fillShadow(c, x, endGround+11)
 	c.DrawImage(img, op)
+	if g.scene2P() {
+		g.endHero2(c, e, camX)
+	}
 }
 
 func (g *Game) drawWalk(dst *ebiten.Image, e *endState) {
@@ -398,15 +398,18 @@ func (g *Game) drawWalk(dst *ebiten.Image, e *endState) {
 	// the camera zooms in on him: from the whole street to a close up
 	var zoom float64
 	if e.stage == endWalk {
-		zoom = 2 + math.Min(1.6, e.t/endLen(endWalk)*1.9)
+		zoom = 2 + math.Min(1.6, e.t/endLenFor(endWalk, e.trueEnd)*1.9)
 	} else {
-		zoom = 3.6 + math.Min(0.6, e.t*0.15)
+		zoom = 2.8 + math.Min(0.4, e.t*0.04) // wide enough to see his door and the neighbour's window
 	}
 	hx := e.heroX - camX
 	if e.stage == endDoor {
 		hx = 120 - camX
 	}
 	fx, fy := hx, endGround-20
+	if e.stage == endDoor {
+		fx = 178 - camX
+	}
 	dst.Fill(rgb(0x05060c))
 	ox, oy := 480-fx*zoom, 340-fy*zoom
 	ox = math.Max(screenW-endCW*zoom, math.Min(0, ox)) // never show past the edge of the street
@@ -416,21 +419,17 @@ func (g *Game) drawWalk(dst *ebiten.Image, e *endState) {
 	op.GeoM.Translate(ox, oy)
 	dst.DrawImage(e.canvas, op)
 	dst.DrawImage(g.as.vignette, nil)
+	e.x.camZ, e.x.camOX, e.x.camOY = zoom, ox, oy
 	// captions
-	var line string
-	switch {
-	case e.stage == endDoor:
-		line = "Llave, puerta, luz de la entrada... Qué silencio más bonito."
-	case e.t < 4.8:
-		line = "Después de acabar con todas las fiestas..."
-	case e.t < 9.5:
-		line = "La ciudad, por fin, en silencio. Sólo se oye un globo desinflándose."
-	default:
-		line = "Ya sólo queda una cosa por hacer: irse a casa a dormir."
-	}
+	line := g.walkCaption(e)
 	g.endCaption(dst, line)
-	if e.stage == endDoor && e.t > 2.6 { // fade out
-		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*math.Min(1, (e.t-2.6)/1.6))))
+	if g.scene2P() {
+		g.endTwoSay(dst, e)
+	}
+	if e.stage == endDoor { // fade out at the very end of the stage
+		if end := endLenFor(endDoor, e.trueEnd); e.t > end-1.6 {
+			fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*math.Min(1, (e.t-(end-1.6))/1.6))))
+		}
 	}
 	if e.stage == endWalk && e.t < 1 {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-e.t))))
@@ -446,6 +445,10 @@ func (g *Game) endCaption(dst *ebiten.Image, line string) {
 // ---- bed: counting sheep ----------------------------------------------------------------------
 
 func (g *Game) drawBedEnd(dst *ebiten.Image, e *endState) {
+	if g.scene2P() {
+		g.drawBedEnd2(dst, e)
+		return
+	}
 	if e.bed == nil {
 		e.bed = ebiten.NewImage(screenW, screenH)
 	}
@@ -474,16 +477,8 @@ func (g *Game) drawBedEnd(dst *ebiten.Image, e *endState) {
 			g.drawText(dst, "Z", 400+f*60+float64(i)*8, 300-f*80, rgba(0xe8f0ff, uint8(240*(1-f))), float64(3+i))
 		}
 	}
-	var line string
-	switch {
-	case e.t < 5:
-		line = "Cama. Almohada. Mantita. Ni un solo bajo de graves."
-	case e.t < 18:
-		line = "A ver... voy a contar ovejitas."
-	default:
-		line = "...tres mil... cuatro mil... ¡qué sueño!"
-	}
-	g.endCaption(dst, line)
+	g.endCaption(dst, g.bedCaption(e))
+	g.bedGags(dst, e)
 }
 
 func (g *Game) drawSheepCloud(dst *ebiten.Image, e *endState) {
@@ -529,6 +524,7 @@ func (g *Game) drawSheepCloud(dst *ebiten.Image, e *endState) {
 			jump = math.Sin((u-0.34)/0.32*math.Pi) * 34
 		}
 		g.drawSheep(dst, x, cy+22-jump, u, a)
+		g.sheepExtra(dst, x, cy+22-jump, int(k), e.trueEnd, a)
 	}
 	count := n + 1
 	if count > 10 {
@@ -563,23 +559,8 @@ func (g *Game) drawSheep(dst *ebiten.Image, x, y, u float64, a uint8) {
 
 func (g *Game) drawEndCredits(dst *ebiten.Image, e *endState) {
 	dst.Fill(rgb(0x04050c))
-	for i := 0; i < 120; i++ {
-		x, y := float64((i*137)%960), math.Mod(float64((i*71)%540)+e.total*(6+float64(i%5)*3), 540)
-		fillRect(dst, x, y, 1, 1, rgba(0xdce4ff, uint8(70+i%120)))
-	}
-	rows := [][2]string{
-		{"PARTY HARD", "Fiesta Nocturna"},
-		{"", ""},
-		{"Director", "Frange"},
-		{"IA", "Claude"},
-		{"Testers", "Diego, César y Samuel"},
-		{"Año", "2026"},
-		{"", ""},
-		{"Cameo no solicitado", "Un T-Rex con muy mala educación"},
-		{"Vecinos molestos", "Todos. Ya no."},
-		{"", ""},
-	}
-	y := 560 - e.t*26
+	rows := endCreditRows(e.trueEnd)
+	y := 560 - e.t*endCreditSpeed(e.trueEnd)
 	for _, r := range rows {
 		if r[0] == "" {
 			y += 28
@@ -604,10 +585,6 @@ func (g *Game) drawEndCredits(dst *ebiten.Image, e *endState) {
 
 func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 	dst.Fill(rgb(0x04050c))
-	for i := 0; i < 90; i++ {
-		x, y := float64((i*137)%960), float64((i*71)%540)
-		fillRect(dst, x, y, 1, 1, rgba(0xdce4ff, uint8(60+80*math.Abs(math.Sin(e.total*1.2+float64(i))))))
-	}
 	k := math.Min(1, e.t/1.4)
 	if e.trueEnd {
 		g.drawTextC(dst, "FIN", 480, 150, rgba(0xf8d030, uint8(255*k)), 8)
@@ -626,4 +603,41 @@ func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 	if e.t > 4.6 {
 		g.drawTextC(dst, "Gracias por jugar", 480, 400, rgba(0xf4f0ff, uint8(255*math.Min(1, (e.t-4.6)/1.2))), 2.6)
 	}
+}
+
+// endTune: the tune for this moment of the ending and the number of its scene (for the intros folder):
+// the invitation has its own, the secret ending a fanfare, the normal one a lullaby that goes calm at the end.
+func endTune(e *endState) (string, int) {
+	switch {
+	case e.stage == endInvite:
+		return ambInvite, sceneInviteN
+	case e.trueEnd:
+		return ambSecret, sceneSecretN
+	case e.stage == endFinal:
+		return ambEndCalm, sceneEndN
+	}
+	return ambEnd, sceneEndN
+}
+
+// endMusicVol: how loud the music of the ending is in each part: it comes up while he walks home,
+// is softest in the bed (the sheep), swells in the credits and dies away at the very end.
+func endMusicVol(e *endState) float64 {
+	switch e.stage {
+	case endInvite:
+		return 0.6 * math.Min(1, e.t/1.2)
+	case endWalk:
+		return 0.5 * math.Min(1, e.t/3)
+	case endDoor:
+		return 0.5
+	case endBed: // it dies away at the end: the silence
+		return 0.55 * (1 - clampF((e.t-(endLenFor(endBed, e.trueEnd)-9))/6, 0, 1))
+	case endCredits:
+		return 0.7
+	case endStinger:
+		return 0.12
+	}
+	if e.trueEnd {
+		return 0.7 * (1 - introEase(e.t/12))
+	}
+	return 0.6 * (1 - introEase(e.t/14))
 }

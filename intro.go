@@ -21,10 +21,14 @@ type introState struct {
 	t         float64
 	skipArm   float64 // seconds left in which a second press skips the whole thing
 	canvas    *ebiten.Image
-	beatNext  int
+	thump     bool            // the music of the neighbours' party has been started
+	song      bool            // ...and it is a song of the intros folder, not the synthesised loop
 	did       map[string]bool // one-shot sounds already played
 	cam       introCam
 	heroKnife *CharSet // the hero with the knife in his hand (the real held-item drawing)
+	two       bool     // the two player version (intro2p.go)
+	heroes    [2]*CharSet
+	heroesK   [2]*CharSet // ...and the same two with a knife in the hand
 }
 
 type introCam struct{ z, ox, oy float64 } // the transform of the last frame (for the speech bubble)
@@ -54,6 +58,14 @@ func (g *Game) startIntro() {
 	g.bedQuiet, g.bedEmpty, g.bedNoTalk = false, false, false
 	g.markSeen("seen_intro")
 	g.intro.heroKnife = g.heroWithKnife()
+	if g.scene2P() {
+		in := g.intro
+		in.two = true
+		for i := 0; i < 2; i++ {
+			in.heroes[i] = g.sceneHero(i, false)
+			in.heroesK[i] = g.sceneHero(i, true)
+		}
+	}
 }
 
 // heroWithKnife: the player\'s own look carrying a knife, so the knife is drawn in his hand by the
@@ -86,9 +98,16 @@ func knifeHeroSet(src *CharSet) *CharSet {
 // finishIntro: a real first game goes on to the first party, a replay goes back to where it came from.
 func (g *Game) finishIntro() {
 	g.intro = nil
+	g.snd.StopThump()
+	g.snd.StopScene()
+	resetThumpBeat()
 	g.bedEmpty, g.bedNoTalk = false, false
 	if g.sceneReplay {
 		g.leaveScene()
+		return
+	}
+	if g.introBoot {
+		g.leaveBootIntro()
 		return
 	}
 	g.startLevel(0)
@@ -122,17 +141,29 @@ func (g *Game) updateIntro() {
 			g.snd.Play(name)
 		}
 	}
-	if in.t < inBurst { // the neighbours' bass, a thump every beat
-		if b := int(in.t / introBeat); b >= in.beatNext {
-			in.beatNext = b + 1
-			g.snd.Play("thud")
-		}
+	// the neighbours' bass: one loop, one beat clock for the sound and the picture (see thumpPhase)
+	if !in.thump {
+		in.thump = true
+		in.song = g.introMusicStart()
+	}
+	if in.song {
+		g.snd.SetSceneVolume("base", introThumpVol(in.t))
+	} else {
+		g.snd.SetThumpVolume(introThumpVol(in.t))
 	}
 	for k := 0; k < 4; k++ {
 		once("sheep"+string(rune('0'+k)), inSheepStart+1.5+float64(k)*2+0.9, "spark")
 	}
 	once("burst", inBurst, "boom")
-	once("glass", inGlassLand, "glass")
+	if in.two {
+		once("catch", inGlassLand, "spark") // caught in mid air
+		once("glass", i2GlassBreak, "glass")
+		once("slipper", i2SlipHit, "thud")
+		once("slipperBack", i2SlipBack, "thud")
+		once("shove", i2Run, "thud")
+	} else {
+		once("glass", inGlassLand, "glass")
+	}
 	once("up", inStandUp, "alert")
 	once("knife", inKnife, "stab")
 	once("door", inWalk1, "thud")
@@ -143,12 +174,36 @@ func (g *Game) updateIntro() {
 	}
 }
 
-const introBeat = 1.25
+// beatKick: 1 on the beat, falling off quickly (the picture side of the kick drum of the loop).
+func beatKick(t float64) float64 { return thumpKick(t) }
 
-// beatKick: 1 on the beat, falling off quickly.
-func beatKick(t float64) float64 {
-	b := math.Mod(t, introBeat) / introBeat
-	return math.Exp(-b * 9)
+// introThumpVol: how loud the party next door is. It swells while he cannot sleep, drops when the
+// cloud pops, jumps when he opens the door onto the stairwell and is cut off when it closes behind him.
+func introThumpVol(t float64) float64 {
+	switch {
+	case t < inBurst:
+		return 0.30 + 0.70*math.Pow(t/inBurst, 1.2)
+	case t < inBurst+0.6:
+		return 0.15
+	case t < inWalk1:
+		return 0.15 + 0.35*introEase((t-inBurst-0.6)/2)
+	case t < inWalk1+1.7: // the door is open: the stairwell, the party at full blast
+		return 0.5 + 0.45*introEase((t-inWalk1)/0.5)
+	case t < inWalk1+2.4: // and it closes
+		return 0.95 - 0.83*introEase((t-inWalk1-1.7)/0.5)
+	case t < inCard:
+		return 0.12 * (1 - introEase((t-inWalk1-2.4)/(inCard-inWalk1-2.4)))
+	}
+	return 0
+}
+
+// introPump: the kick of the beat times how loud it is: the amount the room shakes this frame.
+func introPump(t float64) float64 { return beatKick(t) * introThumpVol(t) }
+
+// beatN: the number of the kick drum beat at scene time t (it changes exactly on the kick).
+func beatN(t float64) int {
+	n, _ := thumpPhase(t)
+	return n
 }
 
 func introEase(u float64) float64 {
@@ -182,6 +237,9 @@ func (g *Game) drawIntro(dst *ebiten.Image) {
 		g.introRoom(in.canvas, in)
 		// camera: the whole room, then a close up on the hero while he gets up and leaves
 		hx, hy, _ := introHeroPos(t)
+		if in.two {
+			hx, hy = introTwoCam(t)
+		}
 		z, fx, fy := 1.0, 480.0, 270.0
 		if t >= inBurst-0.4 {
 			k := introEase((t - (inBurst - 0.4)) / 1.8)
@@ -194,8 +252,8 @@ func (g *Game) drawIntro(dst *ebiten.Image) {
 		ox, oy := 480-fx*z, 270-fy*z
 		ox = math.Max(screenW-screenW*z, math.Min(0, ox))
 		oy = math.Max(screenH-screenH*z, math.Min(0, oy))
-		if t < inBurst { // the bass shakes the whole room
-			k := beatKick(t)
+		{ // the bass shakes the whole room
+			k := introPump(t)
 			ox += math.Sin(t*60) * 2.2 * k
 			oy += math.Cos(t*47) * 2.6 * k
 		}
@@ -227,7 +285,17 @@ func (g *Game) introRoom(c *ebiten.Image, in *introState) {
 	t := in.t
 	g.time = t
 	c.Fill(rgb(0x08060c))
+	bedPumpOn, bedPump, bedBeatN = true, introPump(t), beatN(t) // the speakers swell with the kick
+	if in.two {
+		bedTwo, bedPoses = true, [2]bedPose{introTwoBed(0, t), introTwoBed(1, t)}
+		g.drawBedroom(c)
+		bedTwo, bedPoses = false, [2]bedPose{}
+		bedPumpOn, bedPump = false, 0
+		g.introRoomTwo(c, in)
+		return
+	}
 	g.drawBedroom(c)
+	bedPumpOn, bedPump = false, 0
 	g.introDoor(c, t)
 	g.introGlass(c, t)
 	if t >= inStandUp {
@@ -244,10 +312,7 @@ func (g *Game) introRoom(c *ebiten.Image, in *introState) {
 // the glasses: two cups on the window sill only tremble; the one on the bedside table creeps to the
 // edge on the beats, falls and breaks. After that, only the bits are left on the floor.
 func (g *Game) introGlass(c *ebiten.Image, t float64) {
-	k := 0.0
-	if t < inBurst {
-		k = beatKick(t)
-	}
+	k := introPump(t)
 	// the cups on the sill
 	for i, x := range []float64{478, 536} {
 		jx := math.Round(math.Sin(t*55+float64(i)) * 1.2 * k)
@@ -266,7 +331,7 @@ func (g *Game) introGlass(c *ebiten.Image, t float64) {
 		g.drawGlass(c, gx0+slide, gy0-jump, 0, 1)
 		if k > 0.45 { // ripples and a "tin"
 			word := "tin"
-			if int(t/introBeat)%2 == 1 {
+			if int(t/thumpBeat)%2 == 1 {
 				word = "tin tin"
 			}
 			g.drawText(c, word, gx0-16, gy0-16-jump, rgba(0xeaf6ff, uint8(255*k)), 0.9)
@@ -326,7 +391,7 @@ func (g *Game) introCloud(c *ebiten.Image, u float64) {
 	al := func(col color.RGBA) color.RGBA { col.A = a; return col }
 	pulse := 0.0
 	if u > 7.2 { // the last sheep makes the cloud throb with the bass
-		pulse = math.Abs(math.Sin(u*9)) * 5
+		pulse = introPump(u+inSheepStart) * 5
 	}
 	white := al(rgb(0xf4f6ff))
 	filledEllipse(c, cx, cy, 130+pulse, 70+pulse, white)
@@ -422,10 +487,7 @@ func doorOpen(t float64) float64 {
 }
 
 func (g *Game) introDoor(c *ebiten.Image, t float64) {
-	k := 0.0
-	if t < inBurst {
-		k = beatKick(t)
-	}
+	k := introPump(t)
 	jx, jy := math.Sin(t*70)*1.6*k, math.Cos(t*53)*1.2*k
 	x, y := math.Round(doorX+jx), math.Round(doorBase-doorH+jy)
 	o := doorOpen(t)
@@ -445,13 +507,14 @@ func (g *Game) introDoor(c *ebiten.Image, t float64) {
 		kn := math.Round(math.Sin(t*80) * 1.4 * k)        // the handle rattles
 		fillRect(c, x+leaf*0.86-3, y+doorH*0.55+kn, 5, 5, rgb(0xe8c060))
 	}
-	if t < inBurst { // dust shaken loose from the frame
-		ph := math.Mod(t, introBeat)
-		if ph < 0.75 {
+	if vol := introThumpVol(t); vol > 0.05 { // dust shaken loose from the frame, one puff per kick
+		_, f := thumpPhase(t)
+		ph := f * thumpBeat
+		if ph < 0.4 {
 			for i := 0; i < 7; i++ {
 				dx := x + 3 + jpHash(i, 2, 71)*(doorW-6)
-				dy := y - 4 + ph*46*(0.6+0.4*jpHash(i, 3, 73))
-				fillRect(c, math.Round(dx), math.Round(dy), 1, 2, rgba(0xc8c0b0, uint8(200*(1-ph/0.75))))
+				dy := y - 4 + ph*70*(0.6+0.4*jpHash(i, 3, 73))
+				fillRect(c, math.Round(dx), math.Round(dy), 1, 2, rgba(0xc8c0b0, uint8(200*vol*(1-ph/0.4))))
 			}
 		}
 	}
@@ -507,6 +570,10 @@ func (g *Game) introHero(c *ebiten.Image, t float64) {
 // ---- captions and speech -----------------------------------------------------------------------
 
 func (g *Game) introOverlay(dst *ebiten.Image, in *introState) {
+	if in.two {
+		g.introOverlayTwo(dst, in)
+		return
+	}
 	t := in.t
 	var line string
 	switch {
@@ -548,10 +615,6 @@ func (g *Game) introOverlay(dst *ebiten.Image, in *introState) {
 func (g *Game) introCard(dst *ebiten.Image, in *introState) {
 	t := in.t - inCard
 	dst.Fill(rgb(0x04050c))
-	for i := 0; i < 100; i++ {
-		x, y := float64((i*137)%960), float64((i*71)%540)
-		fillRect(dst, x, y, 1, 1, rgba(0xdce4ff, uint8(60+80*math.Abs(math.Sin(in.t*1.2+float64(i))))))
-	}
 	k := math.Min(1, t/1.2)
 	g.drawTextC(dst, "NADIE TE DEJÓ DORMIR.", 480, 190, rgba(0xf4f0ff, uint8(255*k)), 3.2)
 	if t > 2.2 {

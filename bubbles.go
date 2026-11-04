@@ -106,6 +106,7 @@ type bubMgr struct {
 	frame     int
 	shownTxt  map[string]float64 // exact text -> last time it was on screen
 	keyLast   map[any]keyPhrase  // what each character said last
+	extra     []bubRect          // more rectangles no bubble may cover (the second player)
 }
 
 type keyPhrase struct {
@@ -243,6 +244,11 @@ func (m *bubMgr) pick(reqs []bubReq, now float64, avoid *bubRect, screenW float6
 			y := r.y - float64(step)*(bh+2)
 			box = bubRect{x, y, x + r.w, y + bh}
 			hit := avoid != nil && box.hit(*avoid)
+			for _, e := range m.extra {
+				if box.hit(e) {
+					hit = true
+				}
+			}
 			for _, p := range placed {
 				if box.hit(p) {
 					hit = true
@@ -307,6 +313,11 @@ func (g *Game) bubble(key any, pri int, pos Vec, txt string, red bool, up float6
 	d := 0.0
 	if g.p != nil {
 		d = dist(pos, g.p.pos)
+		for _, pl := range g.players() { // the closest of the players counts
+			if pl != nil && !pl.dead {
+				d = math.Min(d, dist(pos, pl.pos))
+			}
+		}
 	}
 	bubbleReqs = append(bubbleReqs, bubReq{
 		key: key, pri: pri, score: float64(pri)*10000 - d,
@@ -321,13 +332,22 @@ func (g *Game) flushBubbles(dst *ebiten.Image) {
 	bubbleMgr.frame++
 	now := float64(bubbleMgr.frame) / 60
 	var avoid *bubRect
-	if g.p != nil && !g.p.dead {
-		bk := 1.0
-		if g.charSc > 0 {
-			bk = math.Max(0.6, g.charSc)
+	bubbleMgr.extra = bubbleMgr.extra[:0]
+	bk := 1.0
+	if g.charSc > 0 {
+		bk = math.Max(0.6, g.charSc)
+	}
+	for _, pl := range g.players() { // no bubble may cover any of the players
+		if pl == nil || pl.dead {
+			continue
 		}
-		cx, fy := g.wx(g.p.pos.X), g.wy(g.p.pos.Y)
-		avoid = &bubRect{cx - 9, fy - 40*bk, cx + 9, fy + 2}
+		cx, fy := g.wx(pl.pos.X), g.wy(pl.pos.Y)
+		r := bubRect{cx - 9, fy - 40*bk, cx + 9, fy + 2}
+		if avoid == nil {
+			avoid = &r
+		} else {
+			bubbleMgr.extra = append(bubbleMgr.extra, r)
+		}
 	}
 	pos := bubbleMgr.pick(reqs, now, avoid, screenW)
 	for _, r := range pos {

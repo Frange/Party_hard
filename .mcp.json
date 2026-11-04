@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "party-hard": {
+      "command": "sh",
+      "args": ["-c", "PH_ROOT=\"$PWD\" go run -C tools/phmcp ."]
+    }
+  }
+}

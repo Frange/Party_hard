@@ -125,7 +125,7 @@ func (g *Game) updateKidArrivals() {
 		if k.done || g.time < k.at {
 			continue
 		}
-		if g.total >= g.maxTotal() || g.kidPresent(k.slug) {
+		if g.guestRoom() < 1 || g.kidPresent(k.slug) {
 			if g.kidPresent(k.slug) {
 				k.done = true
 			} else {
@@ -141,7 +141,7 @@ func (g *Game) updateKidArrivals() {
 // addKidAt puts one of the kids into the party.
 func (g *Game) addKidAt(slug string, pos Vec) *Guest {
 	f := presetByName(slug)
-	if f == nil || g.total >= g.maxTotal() {
+	if f == nil || g.guestRoom() < 1 {
 		return nil
 	}
 	spec := f(g.rng)

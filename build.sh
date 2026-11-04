@@ -49,10 +49,11 @@ if [ -d assets ]; then
     # personal data stays out of the packages: your own save and editor preferences
     rm -f $OUT/$d/assets/progress.json $OUT/$d/assets/editor_prefs.json $OUT/$d/assets/.DS_Store
     cp LEEME.txt ASSETS.md $OUT/$d/
-    mkdir -p $OUT/$d/music $OUT/$d/more $OUT/$d/DJ
+    mkdir -p $OUT/$d/music $OUT/$d/more $OUT/$d/DJ $OUT/$d/intros
     [ -d music ] && cp music/*.mp3 $OUT/$d/music/ 2>/dev/null || true
     [ -d more ] && cp more/*.mp3 $OUT/$d/more/ 2>/dev/null || true
     [ -d DJ ] && cp DJ/*.mp3 $OUT/$d/DJ/ 2>/dev/null || true
+    [ -d intros ] && cp intros/*.mp3 intros/*.bpm $OUT/$d/intros/ 2>/dev/null || true
   done
   (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHard-Mac.zip 2>/dev/null || zip -qr ../../PartyHard-Mac.zip .)
   (cd $OUT/win && zip -qr ../../PartyHard-Windows.zip .)

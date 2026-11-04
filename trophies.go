@@ -9,7 +9,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Trophies: 49 goals. Each one unlocks something that cannot be bought in the
+// Trophies: a few dozen goals (see trophyList). Each one unlocks something that cannot be bought in the
 // shop (it shows up there, locked, until the trophy is won).
 // ---------------------------------------------------------------------------
 
@@ -76,6 +76,11 @@ var trophyList = []Trophy{
 	{"t_ki1", "Cazador de asesinos", "Derrota a un asesino especial.", "killers", 1, kil("tr_k_sombra", "La Sombra", "Un asesino que solo se ve cuando ya es tarde. Muy discreto.")},
 	{"t_ki5", "Matamonstruos", "Derrota a 5 asesinos especiales.", "killers", 5, wep("guadana", "Guadaña", HoldMachete, "Una hoja curva de la que huyen hasta los asesinos más duros.")},
 	{"t_ki15", "Exterminador", "Derrota a 15 asesinos especiales.", "killers", 15, kil("tr_k_rey_calavera", "El Rey Calavera", "Corona, capa y un reino de huesos. Los demás asesinos le hacen reverencias.")},
+	// police types: not bought any more, they arrive as the body count grows (see policeUnlocks)
+	{"t_cop1", "Llamada al FBI", "Mata a 500 personas en total: llega el FBI.", "kills", 500, evr("police:1", "Policía: FBI", "Mulder y Scully acuden con 2 estrellas.")},
+	{"t_cop2", "El ejército toma la calle", "Mata a 1000 personas en total: llegan los militares.", "kills", 1000, evr("police:2", "Policía: Ejército", "Soldados con casco y fusiles, con 3 estrellas.")},
+	{"t_cop3", "Operación SWAT", "Mata a 1500 personas en total: llega el SWAT.", "kills", 1500, evr("police:3", "Policía: SWAT", "Operadores que entran por la ventana, con 4 estrellas.")},
+	{"t_cop4", "Rangers al rescate", "Mata a 2000 personas en total: llegan los Power Rangers.", "kills", 2000, evr("police:4", "Policía: Power Rangers", "Cinco colores y una coreografía, con 5 estrellas.")},
 	{"t_d20", "Pies ligeros", "Baila 20 veces.", "dance", 20, wr(shopOutfits, "out:tr_disco", "Traje disco brillante", "outfit", func(s *CharSpec) {
 		s.Top, s.Shirt, s.Shirt2, s.Pants, s.Pattern = TopSuit, hx(0xf0c030), hx(0xe83a8a), hx(0xf0c030), 3
 	}, "Brilla más que la bola de la discoteca.")},
@@ -118,6 +123,10 @@ var trophyList = []Trophy{
 	{"t_cut10", "Cortacables", "Corta el cable de 10 teléfonos.", "cuts", 10, wr(shopOutfits, "out:tr_tecnico", "Mono de técnico", "outfit", func(s *CharSpec) {
 		s.Top, s.Shirt, s.Shirt2, s.Pants = TopLong, hx(0xf0c820), hx(0xf08a20), hx(0x2a3a5a)
 	}, "Amarillo y con muchos bolsillos. Con él nadie te pregunta qué haces junto al teléfono.")},
+	{"t_medic", "Equipo médico", "Revive 3 veces a tu compañero con la ambulancia.", "revives", 3, wr(shopOutfits, "out:tr_medico", "Bata de médico", "outfit", func(s *CharSpec) {
+		s.Top, s.Shirt, s.Shirt2, s.Pants = TopLong, hx(0xf4f4f8), hx(0xf4f4f8), hx(0x3a8ab0)
+	}, "Blanca y con estetoscopio imaginario. Confía en mí, soy casi médico.")},
+	{"t_pyro", "Bombero honorario", "Mata a un pirómano.", "pyros", 1, wr(shopAccess, "hat:tr_bombero", "Casco de bombero honorario", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatHardhat, hx(0xd02a2a) }, "Rojo brillante. Apaga lo que quieras, menos tu ego.")},
 	{"t_tech3", "Servicio técnico", "Consigue que los técnicos arreglen 3 teléfonos que tú cortaste.", "techs", 3, wr(shopAccess, "hat:tr_casco_tec", "Casco de técnico", "hat", func(s *CharSpec) { s.Hat, s.HatCol = HatHardhat, hx(0xf0c820) }, "Un casco amarillo de la furgoneta. Todavía huele a cable quemado.")},
 }
 
@@ -222,7 +231,9 @@ func (g *Game) checkTrophies() {
 			g.progress.Trophies = map[string]bool{}
 		}
 		g.progress.Trophies[t.id] = true
-		g.progress.Owned = append(g.progress.Owned, t.reward.id)
+		if !g.hasOwned(t.reward.id) { // somebody who bought it before keeps a single entry
+			g.progress.Owned = append(g.progress.Owned, t.reward.id)
+		}
 		if t.id == legendTrophy {
 			for _, r := range legendExtras() {
 				g.progress.Owned = append(g.progress.Owned, r.id)
@@ -419,3 +430,23 @@ func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 }
 
 var _ = strings.ToLower
+
+// hasOwned reports whether the saved purchases already contain id.
+func (g *Game) hasOwned(id string) bool {
+	for _, o := range g.progress.Owned {
+		if o == id {
+			return true
+		}
+	}
+	return false
+}
+
+// policeNeed is how many kills unlock each police type (0 = always available).
+func policeNeed(id string) int {
+	for _, t := range trophyList {
+		if t.reward.id == id && t.stat == "kills" {
+			return t.need
+		}
+	}
+	return 0
+}

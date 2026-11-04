@@ -337,6 +337,12 @@ func TestShopCatalog(t *testing.T) {
 	seen := map[string]bool{}
 	total := 0
 	for tab, items := range shopCatalog {
+		if tab == shopWardrobe { // the wardrobe is a screen, not a list: nothing is bought there
+			if len(items) != 0 {
+				t.Fatalf("the wardrobe tab must have no catalog items, got %d", len(items))
+			}
+			continue
+		}
 		if len(items) == 0 {
 			t.Fatalf("tab %d is empty", tab)
 		}

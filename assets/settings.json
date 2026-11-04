@@ -1,0 +1,168 @@
+{
+  "attack": {
+    "keys": [
+      "Space",
+      "J"
+    ],
+    "pad": 0
+  },
+  "back": {
+    "keys": [
+      "Escape",
+      ""
+    ],
+    "pad": 1
+  },
+  "confirm": {
+    "keys": [
+      "Enter",
+      "Space"
+    ],
+    "pad": 0
+  },
+  "dance": {
+    "keys": [
+      "F",
+      ""
+    ],
+    "pad": 3
+  },
+  "down": {
+    "keys": [
+      "S",
+      "ArrowDown"
+    ],
+    "pad": 13
+  },
+  "event": {
+    "keys": [
+      "V",
+      ""
+    ],
+    "pad": 4
+  },
+  "famous": {
+    "keys": [
+      "O",
+      ""
+    ],
+    "pad": 6
+  },
+  "immune": {
+    "keys": [
+      "I",
+      ""
+    ],
+    "pad": 5
+  },
+  "interact": {
+    "keys": [
+      "E",
+      ""
+    ],
+    "pad": 2
+  },
+  "killer": {
+    "keys": [
+      "K",
+      ""
+    ],
+    "pad": 10
+  },
+  "left": {
+    "keys": [
+      "A",
+      "ArrowLeft"
+    ],
+    "pad": 14
+  },
+  "p2_attack": {
+    "keys": [
+      "Period",
+      ""
+    ],
+    "pad": 0
+  },
+  "p2_dance": {
+    "keys": [
+      "Slash",
+      ""
+    ],
+    "pad": 3
+  },
+  "p2_down": {
+    "keys": [
+      "ArrowDown",
+      ""
+    ],
+    "pad": 13
+  },
+  "p2_interact": {
+    "keys": [
+      "Comma",
+      ""
+    ],
+    "pad": 2
+  },
+  "p2_left": {
+    "keys": [
+      "ArrowLeft",
+      ""
+    ],
+    "pad": 14
+  },
+  "p2_right": {
+    "keys": [
+      "ArrowRight",
+      ""
+    ],
+    "pad": 15
+  },
+  "p2_run": {
+    "keys": [
+      "ShiftRight",
+      ""
+    ],
+    "pad": 7
+  },
+  "p2_up": {
+    "keys": [
+      "ArrowUp",
+      ""
+    ],
+    "pad": 12
+  },
+  "players": {
+    "two": true,
+    "dev1": -2,
+    "dev2": -2
+  },
+  "powerevent": {
+    "keys": [
+      "L",
+      ""
+    ],
+    "pad": 11
+  },
+  "right": {
+    "keys": [
+      "D",
+      "ArrowRight"
+    ],
+    "pad": 15
+  },
+  "run": {
+    "keys": [
+      "ShiftLeft",
+      "ShiftRight"
+    ],
+    "pad": 7
+  },
+  "up": {
+    "keys": [
+      "W",
+      "ArrowUp"
+    ],
+    "pad": 12
+  }
+}

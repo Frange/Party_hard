@@ -134,8 +134,9 @@ func (u *UI) frame(x, y, w, h int, c color.RGBA) {
 // plainText draws UI text without the drop shadow the game's text has: crisper on flat panels.
 func (g *Game) plainText(d *ebiten.Image, s string, x, y float64, c color.RGBA) {
 	s = tr(s)
+	g.recText(d, "plainText", s, math.Round(x), math.Round(y), 1)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(x, y)
+	op.GeoM.Translate(math.Round(x), math.Round(y)) // whole pixels only: a half pixel offset blurs the font
 	op.ColorScale.ScaleWithColor(c)
 	text.Draw(d, s, g.face, op)
 }

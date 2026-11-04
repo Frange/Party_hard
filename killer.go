@@ -111,6 +111,7 @@ func (g *Game) spawnSlasher() bool {
 	g.veh = append(g.veh, v)
 	g.slasherDone = true
 	g.slasher = &Slasher{cs: cs, state: slArrive, hp: 3, chainsaw: saw, name: name, dir: DirDown, need: 2 + g.rng.Intn(2)}
+	v.owner = g.slasher // two players: which killer steps out of this vehicle
 	g.snd.Play("alert")
 	g.say("Algo siniestro se acerca a la fiesta...")
 	return true
@@ -165,6 +166,9 @@ func (g *Game) updateSlasher(dt float64) {
 // slasherArrives is called when the macabre vehicle parks: the killer steps out.
 func (g *Game) slasherArrives(v *Vehicle) {
 	s := g.slasher
+	if v.owner != nil {
+		s = v.owner
+	}
 	if s == nil {
 		return
 	}
@@ -313,11 +317,13 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 func (g *Game) slasherWitness(s *Slasher, at Vec) {
 	s.kills++
 	g.burst(Vec{at.X, at.Y - 14}, 14, 80, rgb(0xb01818), 0.6, 2, 220)
+	saw := g.copSeesAt(at)
 	for _, o := range g.guests {
 		if o.out() || !g.canWatch(o) || o.perf != "" {
 			continue
 		}
 		if g.sees(o.pos, o.dir, at, guestRange, guestDot) || (dist(o.pos, at) < 45 && g.lvl.LOS(o.pos, at)) {
+			saw = true
 			o.sawSlash, o.sawPos = true, s.pos
 			if len(g.bodies) > 0 {
 				g.knowBody(o, g.bodies[len(g.bodies)-1])
@@ -329,6 +335,9 @@ func (g *Game) slasherWitness(s *Slasher, at Vec) {
 				g.alarm(o, "!?")
 			}
 		}
+	}
+	if saw {
+		g.suspectSeen(suspSlasher, nil) // seen killing: the player is cleared, the police want him
 	}
 }
 
@@ -517,7 +526,7 @@ func (g *Game) updateReport(gu *Guest, dt float64) {
 			return
 		}
 		if gu.sawKiller {
-			g.wanted = math.Max(g.wanted, 70)
+			g.markPlayerWanted(70)
 			g.killPos = gu.sawPos
 			g.releaseCop(c)
 			c.state, c.wait = cGoto, 0
@@ -584,6 +593,7 @@ func (g *Game) copSlashHook(c *Cop, dt float64) bool {
 		}
 		s.state, s.timer = slCuffed, 2.8
 		g.wanted = 0
+		g.lastKiller = lastKill{}
 		s.icon, s.iconT = "", 0
 		c.icon, c.iconT = g.line(copCategory(c.kind), "arrest"), 2.5
 		g.snd.Play("alert")
@@ -783,7 +793,7 @@ func (g *Game) drawSlasher(dst *ebiten.Image, s *Slasher) {
 	swim := g.lvl.InPool(pos)
 	g.glowAt(dst, Vec{pos.X, pos.Y - 20}, 18, color.RGBA{220, 20, 20, 48})
 	g.drawActor(dst, s.cs, anim, phase, pos, s.dir, 0, swim)
-	if s.state == slCuffed {
+	if s.state == slCuffed || (s.state == slHunt && g.lastKiller.kind == suspSlasher && g.policeCalled) {
 		g.drawCuffs(dst, pos)
 	}
 	if s.chainsaw && s.moving && s.state == slHunt {

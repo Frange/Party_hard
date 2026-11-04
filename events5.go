@@ -96,6 +96,9 @@ func (g *Game) startF1(e *Event) bool {
 }
 
 func (g *Game) stepF1(e *Event, dt float64) bool {
+	if e.boom != nil {
+		return g.stepF1Boom(e, dt) // the car is gone: only the show is left
+	}
 	e.x += e.vx * dt
 	e.y = e.tgt[0] + e.sp*math.Sin(e.t*3.4+e.tgt[1])
 	d := f1Drivers[e.n]
@@ -128,8 +131,14 @@ func (g *Game) stepF1(e *Event, dt float64) bool {
 			g.checkDone()
 		}
 	}
-	if p := g.p; !p.dead && !p.hidden && math.Abs(p.pos.X-e.x) < 20 && math.Abs(p.pos.Y-e.y) < 10 {
-		g.die("Te ha atropellado " + d.name)
+	g.eachPlayer(func(p *Player) {
+		if !p.dead && !p.hidden && math.Abs(p.pos.X-e.x) < 20 && math.Abs(p.pos.Y-e.y) < 10 {
+			g.die("Te ha atropellado " + d.name)
+		}
+	})
+	if g.f1AtEdge(e) { // where it used to slip out of the screen it now blows up
+		g.f1Explode(e)
+		return true
 	}
 	return e.x > -90 && e.x < g.lvl.W+90
 }
@@ -175,6 +184,10 @@ func f1Sprite(i int) *ebiten.Image {
 }
 
 func (g *Game) drawF1(dst *ebiten.Image, e *Event) {
+	if e.boom != nil {
+		g.drawF1Boom(dst, e)
+		return
+	}
 	im := f1Sprite(e.n)
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	op := &ebiten.DrawImageOptions{}
@@ -263,9 +276,11 @@ func (g *Game) stepStampede(e *Event, dt float64) bool {
 				g.checkDone()
 			}
 		}
-		if p := g.p; !p.dead && !p.hidden && math.Abs(p.pos.X-r.x) < h.rx*0.9 && math.Abs(p.pos.Y-r.y) < h.ry*0.7 {
-			g.die("Te ha arrollado una manada de " + h.name)
-		}
+		g.eachPlayer(func(p *Player) {
+			if !p.dead && !p.hidden && math.Abs(p.pos.X-r.x) < h.rx*0.9 && math.Abs(p.pos.Y-r.y) < h.ry*0.7 {
+				g.die("Te ha arrollado una manada de " + h.name)
+			}
+		})
 	}
 	if !live && e.t > 1 {
 		if e.t2 > 0 {
@@ -345,7 +360,7 @@ func (g *Game) stepParachute(e *Event, dt float64) bool {
 			e.phase, e.t = 1, 0
 			land := g.lvl.NearestFree(Vec{e.x, e.y})
 			e.x, e.y = land.X, land.Y
-			if g.total < g.maxTotal() {
+			if g.guestRoom() > 0 {
 				g.addGuestAt(land)
 				if gu := g.guests[len(g.guests)-1]; gu != nil {
 					gu.cs = e.sets[0]

@@ -16,7 +16,7 @@ var ghostbusterSlugs = []string{"gb_venkman", "gb_stantz", "gb_spengler", "gb_wi
 
 // startGhost brings the Ghostbusters in; they follow the ghost for a while.
 func (g *Game) startGhost(e *Event) bool {
-	if g.total+4 > g.maxTotal() {
+	if g.guestRoom() < 4 {
 		return false
 	}
 	base := g.lvl.RandomRoam(g.rng)
@@ -151,10 +151,11 @@ func (g *Game) stepRex(e *Event, dt float64) bool {
 			g.snd.Play("thud")
 		}
 	}
-	p := g.p
-	if !p.dead && !p.hidden && (dist(p.pos, head) < 26 || dist(p.pos, Vec{e.x, e.y}) < 16) {
-		g.die("Un T-Rex te ha pisoteado")
-	}
+	g.eachPlayer(func(p *Player) {
+		if !p.dead && !p.hidden && (dist(p.pos, head) < 26 || dist(p.pos, Vec{e.x, e.y}) < 16) {
+			g.die("Un T-Rex te ha pisoteado")
+		}
+	})
 	g.checkDone()
 	return e.x > -200 && e.x < g.lvl.W+200
 }

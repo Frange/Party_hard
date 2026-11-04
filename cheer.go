@@ -70,13 +70,13 @@ func (g *Game) updateCheer() {
 	}
 	alive := g.cheerAlive()
 	if len(alive) < 3 {
-		if g.cheerGroups >= 2 || g.total+5 > g.maxTotal() {
+		if g.cheerGroups >= 2 || g.guestRoom() < 5 {
 			g.cheerT = 1e9
 			return
 		}
 		g.cheerGroups++
 		team := g.rng.Intn(len(cheerTeams))
-		n := 4 + g.rng.Intn(2)
+		n := minI(4+g.rng.Intn(2), g.guestRoom())
 		g.cheerGroup = nil
 		for i := 0; i < n; i++ {
 			m := g.newCheerleader(team)

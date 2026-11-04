@@ -60,7 +60,7 @@ func mp3Files(dir string) []string {
 // loadMusicLib scans the folders (creating them the first time so people see where to drop songs).
 func loadMusicLib() *musicLib {
 	m := &musicLib{base: musicBase(), level: map[int]string{}}
-	for _, d := range []string{"music", "more", "DJ", "bands"} {
+	for _, d := range []string{"music", "more", "DJ", "bands", "intros"} {
 		os.MkdirAll(filepath.Join(m.base, d), 0o755)
 	}
 	for _, f := range mp3Files(filepath.Join(m.base, "music")) {
@@ -150,7 +150,11 @@ func (s *Sounds) FileEnded() bool {
 func (g *Game) syncRealMusic() bool {
 	if g.lib == nil {
 		g.lib = loadMusicLib()
-		fmt.Printf("music: %d level songs, %d more, %d DJ (%s)\n", len(g.lib.level), len(g.lib.more), len(g.lib.dj), g.lib.base)
+		intros := 0
+		for _, l := range loadSceneSongs(introsDir()) {
+			intros += len(l)
+		}
+		fmt.Printf("music: %d level songs, %d more, %d DJ, %d intros (%s)\n", len(g.lib.level), len(g.lib.more), len(g.lib.dj), intros, g.lib.base)
 	}
 	lib := g.lib
 	want := "level"
@@ -159,6 +163,8 @@ func (g *Game) syncRealMusic() bool {
 	} else if g.band != nil && !g.djDead && len(lib.bands[g.band.slug]) > 0 {
 		want = "band" // the band of the party plays its own songs
 	}
+	lg := g.partyGenreID()
+	moreFn := func() []string { return lib.moreFor(lg, true) } // the songs of more/ that fit the style of this party
 	list := lib.dj
 	if want == "band" {
 		list = lib.bands[g.band.slug]
@@ -168,20 +174,32 @@ func (g *Game) syncRealMusic() bool {
 			g.songFile = path
 			return true
 		}
+		if path != "" {
+			fmt.Println("music: no se pudo reproducir", path) // (a file that cannot be decoded: the game falls back to its own music)
+		}
 		return false
 	}
-	if g.musicMode != want {
+	// (musicMode is "<want>-synth" once the synthesised music has taken over: that is not a change of mode)
+	if strings.TrimSuffix(g.musicMode, "-synth") != want {
 		g.musicMode = want
 		ok := false
+		more := moreFn()
 		if want == "dj" || want == "band" {
 			ok = play(pickOther(g.rng, list, g.songFile), false)
-		} else if f, has := lib.level[g.levelIdx+1]; has {
-			ok = play(f, len(lib.more) == 0)
-		} else if len(lib.more) > 0 {
-			ok = play(pickOther(g.rng, lib.more, g.songFile), false)
+		} else if f, has := lib.levelFile(g.levelIdx+1, lg, true); has {
+			ok = play(f, len(more) == 0)
+		} else if len(more) > 0 {
+			ok = play(pickOther(g.rng, more, g.songFile), false)
 		}
 		if !ok {
 			g.musicMode = want + "-synth"
+		}
+		if g.lvl != nil {
+			what := "música sintetizada de " + genreShortName[lg]
+			if ok {
+				what = g.songFile
+			}
+			fmt.Printf("music: %s (%s) -> %s [%s]\n", g.lvl.Def.Title, lg, what, want)
 		}
 		return ok
 	}
@@ -190,10 +208,11 @@ func (g *Game) syncRealMusic() bool {
 	}
 	if g.snd.FileEnded() || g.skipSong {
 		var ok bool
+		more := moreFn()
 		if want == "dj" || want == "band" {
 			ok = play(pickOther(g.rng, list, g.songFile), false)
-		} else if len(lib.more) > 0 {
-			ok = play(pickOther(g.rng, lib.more, g.songFile), false)
+		} else if len(more) > 0 {
+			ok = play(pickOther(g.rng, more, g.songFile), false)
 			if ok && g.mode == ModePlay {
 				g.say("El DJ cambia de canción")
 			}
@@ -230,6 +249,12 @@ func freshSong(batch, n int, styles []string) songSpec {
 func exportMusic(base string, batch int) {
 	write := func(dir, name string, sp songSpec) {
 		pcm := renderSong(sp)
+		if _, ok := genreSongs[sp.style]; ok { // the tunes of the new genres are short loops: play them for a minute or so
+			one := pcm
+			for len(pcm) < 60*sampleRate*4 {
+				pcm = append(pcm, one...)
+			}
+		}
 		os.MkdirAll(filepath.Join(base, dir), 0o755)
 		out := filepath.Join(base, dir, name+".mp3")
 		cmd := exec.Command("ffmpeg", "-loglevel", "error", "-y", "-f", "s16le", "-ar", strconv.Itoa(sampleRate), "-ac", "2", "-i", "-", "-b:a", "160k", out)
@@ -260,6 +285,11 @@ func exportMusic(base string, batch int) {
 			t = titles[i]
 		}
 		sp := freshSong(batch, i, mix)
+		if gi := genreForTitle(t); gi.legacy {
+			sp = freshSong(batch, i, []string{gi.id}) // every party with the genre of its own
+		} else {
+			sp = genrePlaylist(t)[batch%3]
+		}
 		write("music", fmt.Sprintf("%d_%s_%s", i+1, slug(t), sp.style), sp)
 	}
 	for i := 0; i < 10; i++ {

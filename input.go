@@ -30,11 +30,31 @@ import (
 
 const padDeadzone = 0.25
 
-func activeGamepad() (ebiten.GamepadID, bool) {
+// Hardware access goes through these variables so that the tests can feed fake pads.
+var (
+	padIDsFn  = defaultPadIDs
+	padHeldFn = ebiten.IsStandardGamepadButtonPressed
+	padJustFn = inpututil.IsStandardGamepadButtonJustPressed
+	padAxisFn = ebiten.StandardGamepadAxisValue
+)
+
+// defaultPadIDs lists the connected gamepads with a standard layout.
+func defaultPadIDs() []ebiten.GamepadID {
+	var out []ebiten.GamepadID
 	for _, id := range ebiten.AppendGamepadIDs(nil) {
 		if ebiten.IsStandardGamepadLayoutAvailable(id) {
-			return id, true
+			out = append(out, id)
 		}
+	}
+	return out
+}
+
+func activeGamepad() (ebiten.GamepadID, bool) {
+	if twoInput { // two players: each one has his own device (input2.go)
+		return padOfPlayer(inputP)
+	}
+	if ids := padList(); len(ids) > 0 {
+		return ids[0], true
 	}
 	return 0, false
 }
@@ -51,24 +71,29 @@ func padAxis() (dx, dy float64) {
 	if !ok {
 		return 0, 0
 	}
-	dx = ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
-	dy = ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
+	return padAxisOf(id)
+}
+
+// padAxisOf is the left stick / D-pad direction of one gamepad.
+func padAxisOf(id ebiten.GamepadID) (dx, dy float64) {
+	dx = padAxisFn(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
+	dy = padAxisFn(id, ebiten.StandardGamepadAxisLeftStickVertical)
 	if dx > -padDeadzone && dx < padDeadzone {
 		dx = 0
 	}
 	if dy > -padDeadzone && dy < padDeadzone {
 		dy = 0
 	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftLeft) {
+	if padHeldFn(id, ebiten.StandardGamepadButtonLeftLeft) {
 		dx = -1
 	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftRight) {
+	if padHeldFn(id, ebiten.StandardGamepadButtonLeftRight) {
 		dx = 1
 	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftTop) {
+	if padHeldFn(id, ebiten.StandardGamepadButtonLeftTop) {
 		dy = -1
 	}
-	if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonLeftBottom) {
+	if padHeldFn(id, ebiten.StandardGamepadButtonLeftBottom) {
 		dy = 1
 	}
 	return dx, dy
@@ -76,12 +101,12 @@ func padAxis() (dx, dy float64) {
 
 func padPressed(b ebiten.StandardGamepadButton) bool {
 	id, ok := activeGamepad()
-	return ok && ebiten.IsStandardGamepadButtonPressed(id, b)
+	return ok && padHeldFn(id, b)
 }
 
 func padJustPressed(b ebiten.StandardGamepadButton) bool {
 	id, ok := activeGamepad()
-	return ok && inpututil.IsStandardGamepadButtonJustPressed(id, b)
+	return ok && padJustFn(id, b)
 }
 
 // ---------------------------------------------------------------------------
@@ -152,9 +177,9 @@ func defaultBindings() Bindings {
 var binds = defaultBindings()
 
 func (a Action) held() bool {
-	b := binds[a]
+	b := bindsFor(inputP)[a]
 	for _, k := range b.Keys {
-		if k != noKey && ebiten.IsKeyPressed(k) {
+		if k != noKey && keyAllowed(inputP, k) && ebiten.IsKeyPressed(k) {
 			return true
 		}
 	}
@@ -162,9 +187,9 @@ func (a Action) held() bool {
 }
 
 func (a Action) just() bool {
-	b := binds[a]
+	b := bindsFor(inputP)[a]
 	for _, k := range b.Keys {
-		if k != noKey && inpututil.IsKeyJustPressed(k) {
+		if k != noKey && keyAllowed(inputP, k) && inpututil.IsKeyJustPressed(k) {
 			return true
 		}
 	}
@@ -194,6 +219,12 @@ func keyLabel(k ebiten.Key) string {
 		return "Esc"
 	case ebiten.KeyEnter:
 		return "Enter"
+	case ebiten.KeyPeriod:
+		return "."
+	case ebiten.KeyComma:
+		return ","
+	case ebiten.KeySlash:
+		return "/"
 	}
 	return k.String()
 }
@@ -234,7 +265,13 @@ type savedBinding struct {
 	Pad  int      `json:"pad"`
 }
 
+// settingsFileOverride lets the tests point the settings to a temporary file.
+var settingsFileOverride string
+
 func settingsPath() string {
+	if settingsFileOverride != "" {
+		return settingsFileOverride
+	}
 	root := assetsRoot(true)
 	if root == "" {
 		return ""
@@ -251,54 +288,83 @@ func keyByName(name string) ebiten.Key {
 	return noKey
 }
 
-func loadBindings() Bindings {
-	b := defaultBindings()
+// readSettingsFile reads settings.json as a map of raw entries (old files only hold the actions).
+func readSettingsFile() map[string]json.RawMessage {
 	path := settingsPath()
-	if noAssets || path == "" {
-		return b
+	if (noAssets && settingsFileOverride == "") || path == "" {
+		return nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return b
+		return nil
 	}
-	var saved map[string]savedBinding
-	if json.Unmarshal(data, &saved) != nil {
-		return b
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(data, &raw) != nil {
+		return nil
 	}
+	return raw
+}
+
+func bindingFrom(sb savedBinding, def Binding) Binding {
+	var b Binding
+	for s := 0; s < 2; s++ {
+		b.Keys[s] = noKey
+		if s < len(sb.Keys) {
+			b.Keys[s] = keyByName(sb.Keys[s])
+		}
+	}
+	b.Pad = ebiten.StandardGamepadButton(sb.Pad)
+	return b
+}
+
+func bindingTo(b Binding) savedBinding {
+	sb := savedBinding{Pad: int(b.Pad)}
+	for _, k := range b.Keys {
+		if k == noKey {
+			sb.Keys = append(sb.Keys, "")
+		} else {
+			sb.Keys = append(sb.Keys, k.String())
+		}
+	}
+	return sb
+}
+
+func loadBindings() Bindings {
+	b := defaultBindings()
+	raw := readSettingsFile()
 	for i, id := range actionIDs {
-		sb, ok := saved[id]
-		if !ok {
-			continue
+		var sb savedBinding
+		if m, ok := raw[id]; ok && json.Unmarshal(m, &sb) == nil {
+			b[i] = bindingFrom(sb, b[i])
 		}
-		for s := 0; s < 2; s++ {
-			b[i].Keys[s] = noKey
-			if s < len(sb.Keys) {
-				b[i].Keys[s] = keyByName(sb.Keys[s])
-			}
-		}
-		b[i].Pad = ebiten.StandardGamepadButton(sb.Pad)
 	}
 	return b
 }
 
+// saveBindings writes every setting kept in settings.json: the actions of player 1 and 2 and the
+// player mode and devices. Unknown entries of the file are kept.
 func saveBindings() {
 	path := settingsPath()
-	if noAssets || path == "" {
+	if (noAssets && settingsFileOverride == "") || path == "" {
 		return
 	}
-	saved := map[string]savedBinding{}
-	for i, id := range actionIDs {
-		sb := savedBinding{Pad: int(binds[i].Pad)}
-		for _, k := range binds[i].Keys {
-			if k == noKey {
-				sb.Keys = append(sb.Keys, "")
-			} else {
-				sb.Keys = append(sb.Keys, k.String())
-			}
-		}
-		saved[id] = sb
+	out := readSettingsFile()
+	if out == nil {
+		out = map[string]json.RawMessage{}
 	}
-	if data, err := json.MarshalIndent(saved, "", "  "); err == nil {
+	put := func(key string, v any) {
+		if data, err := json.Marshal(v); err == nil {
+			out[key] = data
+		}
+	}
+	for i, id := range actionIDs {
+		put(id, bindingTo(binds[i]))
+	}
+	for i := 0; i < actPlayerCount; i++ {
+		put("p2_"+actionIDs[i], bindingTo(binds2[i]))
+	}
+	put("players", savedPlayers{Two: twoPlayerMode, Dev1: devPref[0], Dev2: devPref[1]})
+	if data, err := json.MarshalIndent(out, "", "  "); err == nil {
 		os.WriteFile(path, data, 0o644)
 	}
 }

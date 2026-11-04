@@ -78,8 +78,12 @@ func ringAt(dst *ebiten.Image, cx, cy, r, thick float64, col color.RGBA) {
 // at a time, for a title treatment closer to the original game's logo.
 func (g *Game) gradText(dst *ebiten.Image, s string, cx, y float64, colA, colB, outline color.RGBA, scale float64) {
 	runes := []rune(s)
+	scale = pxScale(scale)
 	w := g.textW(s, scale)
 	cur := math.Round(cx - w/2)
+	y = math.Round(y)
+	g.recText(dst, "gradText", s, cur, y, scale)
+	off := pxOff(scale)
 	n := len(runes)
 	for i, r := range runes {
 		ch := string(r)
@@ -91,7 +95,7 @@ func (g *Game) gradText(dst *ebiten.Image, s string, cx, y float64, colA, colB, 
 		for _, o := range [][2]float64{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {2, 2}} {
 			op := &text.DrawOptions{}
 			op.GeoM.Scale(scale, scale)
-			op.GeoM.Translate(cur+o[0]*scale*0.5, y+o[1]*scale*0.5)
+			op.GeoM.Translate(cur+o[0]*off, y+o[1]*off)
 			op.ColorScale.ScaleWithColor(outline)
 			text.Draw(dst, ch, g.face, op)
 		}
@@ -101,18 +105,22 @@ func (g *Game) gradText(dst *ebiten.Image, s string, cx, y float64, colA, colB, 
 		op.ColorScale.ScaleWithColor(col)
 		text.Draw(dst, ch, g.face, op)
 		cw, _ := text.Measure(ch, g.face, 0)
-		cur += cw * scale
+		cur += math.Round(cw * scale)
 	}
 }
 
 func (g *Game) bigText(dst *ebiten.Image, s string, cx, y float64, col, outline color.RGBA, scale float64) {
 	s = tr(s)
+	scale = pxScale(scale)
 	w := g.textW(s, scale)
 	x := math.Round(cx - w/2)
+	y = math.Round(y)
+	g.recText(dst, "bigText", s, x, y, scale)
+	off := pxOff(scale)
 	for _, o := range [][2]float64{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {2, 2}} {
 		op := &text.DrawOptions{}
 		op.GeoM.Scale(scale, scale)
-		op.GeoM.Translate(x+o[0]*scale*0.5, y+o[1]*scale*0.5)
+		op.GeoM.Translate(x+o[0]*off, y+o[1]*off)
 		op.ColorScale.ScaleWithColor(outline)
 		text.Draw(dst, s, g.face, op)
 	}
@@ -906,8 +914,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	screen.Fill(rgb(0x08060c))
-	if g.mode == ModeEnding || g.mode == ModeIntro || g.mode == ModeInterlude {
-		if g.mode == ModeIntro {
+	if g.mode == ModeEnding || g.mode == ModeIntro || g.mode == ModeInterlude || g.mode == ModeTitle {
+		if g.mode == ModeTitle {
+			g.drawTitle(screen)
+		} else if g.mode == ModeIntro {
 			g.drawIntro(screen)
 		} else if g.mode == ModeInterlude {
 			g.drawInterlude(screen)
@@ -1024,8 +1034,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		e := e
 		items = append(items, drawItem{e.pos.Y - 1, func() { g.drawElevator(screen, e) }})
 	}
-	if s := g.slasher; s != nil && (s.state == slHunt || s.state == slCuffed) {
-		items = append(items, drawItem{s.pos.Y, func() { g.drawSlasher(screen, s) }})
+	for _, s := range g.allSlashers() {
+		s := s
+		if s.state == slHunt || s.state == slCuffed {
+			items = append(items, drawItem{s.pos.Y, func() { g.drawSlasher(screen, s) }})
+		}
 	}
 	for _, c := range g.cops {
 		c := c
@@ -1123,35 +1136,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		items = append(items, drawItem{an.pos.Y, func() { g.drawAnimal(screen, an) }})
 	}
 	items = g.jurassicItems(screen, items)
-	p := g.p
-	if g.mode != ModeMenu && g.mode != ModeLevelSelect && g.mode != ModeSettings && g.mode != ModeShop && g.mode != ModeConfirm && g.mode != ModeTrophies && g.mode != ModeScenes && g.mode != ModeDebug && !p.hidden {
-		items = append(items, drawItem{p.pos.Y + 0.2, func() {
-			if p.dead || p.knockT > 0 {
-				g.drawLying(screen, p.cs, false, p.pos)
-				if p.knockT > 0 && !p.dead {
-					for i := 0; i < 3; i++ {
-						a := g.time*6 + float64(i)*2.1
-						fillRect(screen, g.wx(p.pos.X)+math.Cos(a)*8-1, g.wy(p.pos.Y)-18+math.Sin(a)*3, 3, 3, rgb(0xf8e040))
-					}
-				}
-				return
-			}
-			g.drawRing(screen, p.pos)
-			anim, phase := g.playerPose()
-			pos := p.pos
-			if p.stabT > 0 {
-				v := dirVec(p.dir)
-				pos.X += v.X * 3
-				pos.Y += v.Y * 3
-			}
-			g.drawActor(screen, p.cs, anim, phase, pos, p.dir, 0, l.InPool(p.pos) && p.carrying == nil)
-			g.drawHalo(screen)
-			if p.carrying != nil {
-				bi := g.bodyLyingImg(p.carrying)
-				w, h := bi.Bounds().Dx(), bi.Bounds().Dy()
-				g.drawImg(screen, bi, g.wx(p.pos.X), g.wy(p.pos.Y)-38, float64(w)/2, float64(h))
-			}
-		}})
+	items = g.fireItems(screen, items)
+	items = g.jailItems(screen, items) // prisoners and the bars of the prison break (twojail.go)
+	items = g.reviveItems(screen, items)
+	for _, pl := range g.players() {
+		pl := pl
+		if g.mode != ModeMenu && g.mode != ModeLevelSelect && g.mode != ModeSettings && g.mode != ModeShop && g.mode != ModeConfirm && g.mode != ModeTrophies && g.mode != ModeScenes && g.mode != ModeDebug && !pl.hidden {
+			items = append(items, drawItem{pl.pos.Y + 0.2, func() { g.withPlayer(pl, func() { g.drawPlayerOne(screen, pl, l) }) }})
+		}
 	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].y < items[j].y })
 	for _, it := range items {
@@ -1173,8 +1165,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	g.drawEvents(screen)
-	if g.mode == ModePlay && g.wanted > 0 && !p.hidden && !p.dead && !g.otherCuffed() {
-		g.drawCuffs(screen, p.pos)
+	g.coopDrawWorld(screen)
+	g.drawSuspectCuffs(screen) // the cuffs mark over each suspect (twojail.go)
+	if lk := g.lastKiller; g.mode == ModePlay && lk.kind == suspGuest && lk.guest != nil && !lk.guest.out() && g.policeCalled {
+		g.drawCuffs(screen, lk.guest.pos)
 	}
 
 	for _, gu := range g.guests {
@@ -1196,8 +1190,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			g.bubble(c, bubAuth, c.pos, c.icon, true, 0)
 		}
 	}
-	if s := g.slasher; s != nil && s.icon != "" {
-		g.bubble(s, bubAuth, s.pos, s.icon, true, -6)
+	for _, s := range g.allSlashers() {
+		if s.icon != "" {
+			g.bubble(s, bubAuth, s.pos, s.icon, true, -6)
+		}
 	}
 	g.flushBubbles(screen)
 	for _, pt := range g.parts {
@@ -1234,7 +1230,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawDebug(screen)
 	case ModeLevelDone:
 		g.drawPanel(screen, "¡NIVEL COMPLETADO!", "No ha quedado nadie con vida en la fiesta...", rgb(0x60ff80),
-			fmt.Sprintf("Puntos: %d   Tiempo: %d:%02d", g.points, int(g.endTime)/60, int(g.endTime)%60), "ENTER: siguiente fiesta")
+			fmt.Sprintf("Puntos: %d   Tiempo: %d:%02d", g.points, int(g.endTime)/60, int(g.endTime)%60), levelDoneHint(g))
+		g.coopDrawScoreboard(screen)
 	case ModeFinal:
 		g.drawPanel(screen, "¡HAS ACABADO CON TODAS LAS FIESTAS!", "La ciudad por fin está en silencio.", rgb(0xf0e060),
 			fmt.Sprintf("Puntos del último nivel: %d", g.points), "ENTER: volver al menú")
@@ -1242,6 +1239,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.time-g.endAt > 0.6 {
 			g.drawPanel(screen, "FIN DEL JUEGO", g.loseReason, rgb(0xff5050),
 				fmt.Sprintf("Víctimas: %d de %d   Puntos: %d", g.total-g.aliveCount(), g.total, g.points), "R / ENTER: reintentar    ESC: menú")
+			g.coopDrawScoreboard(screen)
 		}
 	}
 	g.drawTrophyHud(screen)
@@ -1544,6 +1542,10 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 	if pr.wreck {
 		op.ColorScale.Scale(0.16, 0.14, 0.14, 1)
 	}
+	if pr.burn > 0 { // charred by a fire (fire.go)
+		kb := float32(1 - 0.72*pr.burn)
+		op.ColorScale.Scale(kb, kb*0.94, kb*0.9, 1)
+	}
 	if pr.armT > 0 && k.Trap != "" && int(pr.armT*6)%2 == 0 {
 		op.ColorScale.Scale(1.6, 0.7, 0.7, 1)
 	}
@@ -1800,17 +1802,34 @@ func (g *Game) finishLighting(dst *ebiten.Image) {
 // HUD & menus
 // ---------------------------------------------------------------------------
 
+// pxScale snaps a text scale to a whole number: a bitmap font scaled by 1.3 or 1.6 gets strokes of
+// uneven width (some 1 pixel, some 2), which reads as blurry. Whole scales keep every stroke equal.
+func pxScale(scale float64) float64 {
+	// rounded down, never up: a screen laid out for 1.6 must not grow into its neighbours
+	return math.Max(1, math.Floor(scale+0.01))
+}
+
+// pxOff is the outline offset in screen pixels for a (whole) text scale: always a whole number.
+func pxOff(scale float64) float64 {
+	return math.Max(1, math.Floor(scale/2))
+}
+
+func textMeasure(g *Game, s string) (float64, float64) { return text.Measure(s, g.face, 0) }
+
 func (g *Game) textW(s string, scale float64) float64 {
 	s = tr(s)
 	w, _ := text.Measure(s, g.face, 0)
-	return w * scale
+	return w * pxScale(scale)
 }
 
 func (g *Game) drawText(dst *ebiten.Image, s string, x, y float64, c color.RGBA, scale float64) {
 	s = tr(s)
+	scale = pxScale(scale)
+	x, y = math.Round(x), math.Round(y)
+	g.recText(dst, "drawText", s, x, y, scale)
 	op := &text.DrawOptions{}
 	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(x+1, y+1)
+	op.GeoM.Translate(x+pxOff(scale), y+pxOff(scale))
 	op.ColorScale.ScaleWithColor(color.RGBA{0, 0, 0, 255})
 	text.Draw(dst, s, g.face, op)
 	op = &text.DrawOptions{}
@@ -1825,6 +1844,7 @@ func (g *Game) drawTextC(dst *ebiten.Image, s string, cx, y float64, c color.RGB
 }
 
 func (g *Game) panel(dst *ebiten.Image, x, y, w, h float64) {
+	g.recPanel(x, y, w, h)
 	fillRect(dst, x, y, w, h, rgba(0x0a0812, 190))
 	fillRect(dst, x, y, w, 1, rgb(0x6a5a9a))
 	fillRect(dst, x, y+h-1, w, 1, rgb(0x6a5a9a))
@@ -1928,8 +1948,10 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 		}
 	}
 	killers := 0
-	if g.slasher != nil && g.slasher.state != slGone {
-		killers = 1
+	for _, s := range g.allSlashers() {
+		if s.state != slGone {
+			killers++
+		}
 	}
 	g.drawText(dst, fmt.Sprintf("GENTE:%d  GUARDIAS:%d", people, guards), 10, 61, rgb(0xff8070), 1)
 	forces := ""
@@ -1950,22 +1972,33 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 	if forces != "" {
 		g.drawText(dst, forces, 10, 74, rgb(0x90c8ff), 1)
 	}
-	if it := g.p.item; it != "" && g.mode == ModePlay {
-		name, col := "VENENO", rgb(0x60ff80)
-		if it == "disguise" {
-			name, col = "DISFRAZ", rgb(0xd090ff)
+	for _, pl := range g.players() {
+		if it := pl.item; it != "" && g.mode == ModePlay {
+			name, col := "VENENO", rgb(0x60ff80)
+			if it == "disguise" {
+				name, col = "DISFRAZ", rgb(0xd090ff)
+			}
+			if it == "poison" && pl.doses > 0 {
+				name += " x" + itoa(pl.doses)
+			}
+			label, y := "OBJETO: ", 88.0
+			if g.is2P() { // two players: each item is tagged with its owner, in his colour
+				label, y = g.playerName(pl)+" OBJETO: ", 88+float64(pl.idx)*12
+			}
+			g.drawText(dst, label+name, 10, y, col, 1)
 		}
-		if it == "poison" && g.p.doses > 0 {
-			name += " x" + itoa(g.p.doses)
-		}
-		g.drawText(dst, "OBJETO: "+name, 10, 88, col, 1)
 	}
 	g.drawStars(dst)
+	g.drawJailHud(dst)
 	g.drawCallHud(dst)
+	g.drawReviveHud(dst)
 	if g.mode == ModePlay && g.titleT > 0 {
 		a := math.Min(1, g.titleT)
 		c := color.RGBA{uint8(255 * a), uint8(150 * a), uint8(30 * a), uint8(255 * a)}
 		g.bigText(dst, g.lvl.Def.Title, screenW/2, 12, c, color.RGBA{uint8(90 * a), uint8(30 * a), 0, uint8(255 * a)}, 4)
+		if line := g.partyCardLine(); line != "" { // the kind of party and the style of its music, small, above the title
+			g.drawTextC(dst, line, screenW/2, 2, color.RGBA{uint8(200 * a), uint8(190 * a), uint8(230 * a), uint8(255 * a)}, 1)
+		}
 	}
 	if g.mode == ModePlay {
 		y := 62.0 // below the level title, which it used to overlap
@@ -1976,11 +2009,21 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 			y += 19
 		}
 	}
-	if g.mode == ModePlay && g.p.stamina < 5.9 {
-		fillRect(dst, 10, 88, 70, 4, rgb(0x2a2a3a))
-		fillRect(dst, 10, 88, 70*g.p.stamina/6, 4, rgb(0x60d060))
+	for _, pl := range g.players() {
+		if g.mode == ModePlay && pl.stamina < 5.9 {
+			y, col := 88.0, rgb(0x60d060)
+			if g.is2P() {
+				y = 100 + float64(pl.idx)*6
+				c := ringColor(pl)
+				col = color.RGBA{c[0], c[1], c[2], 255}
+			}
+			fillRect(dst, 10, y, 70, 4, rgb(0x2a2a3a))
+			fillRect(dst, 10, y, 70*pl.stamina/6, 4, col)
+		}
 	}
-	if g.mode == ModePlay && g.time < 16 {
+	if g.mode == ModePlay && twoPlayerMode {
+		g.drawControlsHelp(dst) // both players, in blue and red (players.go)
+	} else if g.mode == ModePlay && g.time < 16 {
 		s := fmt.Sprintf("%s/%s/%s/%s mover · %s apuñalar · %s interactuar · %s bailar · %s correr", actionHint(actUp), actionHint(actLeft), actionHint(actDown), actionHint(actRight), actionHint(actAttack), actionHint(actInteract), actionHint(actDance), actionHint(actRun))
 		if g.eventPower() && g.evManual < manualEvents {
 			s += fmt.Sprintf(" · %s suceso", actionHint(actEvent))
@@ -1999,7 +2042,7 @@ var levelIconColors = map[string]uint32{
 	"bull": 0xa02020, "eiffel": 0xb0b0c0, "boat": 0x2060b0, "funfair": 0xe08020,
 	"stadium": 0x30a040, "disco": 0x9030e0, "festival": 0xe0c020, "skate": 0x20a0a0,
 	"cinema": 0x802030, "circuit": 0x606060, "station": 0x4040a0,
-	"roof": 0x6080c0, "grave": 0x6a3a8a, "snow": 0xa0c8f0, "casino": 0xe0b030, "pub": 0x8a5a2a, "plaza": 0xc0a070, "market": 0x40b060, "highway": 0xd09030, "train": 0x8a7050, "mall": 0xd060a0,
+	"roof": 0x6080c0, "grave": 0x6a3a8a, "snow": 0xa0c8f0, "casino": 0xe0b030, "jurassic": 0x3aa040, "pub": 0x8a5a2a, "plaza": 0xc0a070, "market": 0x40b060, "highway": 0xd09030, "train": 0x8a7050, "mall": 0xd060a0,
 }
 
 func (g *Game) drawLevelIcon(dst *ebiten.Image, x, y float64, icon string, dim bool) {
@@ -2050,7 +2093,16 @@ func (g *Game) drawMenu(dst *ebiten.Image) {
 		g.drawLogo(dst, 160, 60)
 		return
 	}
+	if twoPlayerMode { // two players: two separate beds, one for each of them
+		for i, id := range g.menuList() {
+			if id == menuPlayers {
+				bedShiftY = menuBedShiftYFor(menuRowY(i, len(g.menuList())))
+			}
+		}
+		bedTwo, bedPoses, bedShiftX = true, menuTwoPoses(g.time), menuBedShiftX
+	}
 	g.drawBedroom(dst)
+	bedTwo, bedPoses, bedShiftX, bedShiftY = false, [2]bedPose{}, 0, 0
 	g.drawLogo(dst, 160, 30)
 	list := g.menuList()
 	gold := g.allTrophies()
@@ -2064,6 +2116,10 @@ func (g *Game) drawMenu(dst *ebiten.Image) {
 		}
 		if id == menuDebug {
 			col, hot = rgb(0xff9020), rgb(0xffd060)
+		}
+		if id == menuPlayers {
+			g.drawPlayersRow(dst, s, y, i == g.mainSel, col, hot)
+			continue
 		}
 		if i == g.mainSel {
 			g.drawText(dst, s+" ◄", 110, y, hot, 2.2)
@@ -2102,6 +2158,9 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 	// every row (the campaign + ALEATORIO) is always visible, no scrolling:
 	// three 7-row columns side by side.
 	rows := campaignN + 1
+	if g.jpListed() {
+		rows++
+	}
 	for i := 0; i < rows; i++ {
 		cx := levelColX[i/levelRowsPerCol]
 		y := 118 + float64(i%levelRowsPerCol)*34
@@ -2113,6 +2172,18 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 		}
 		if i == campaignN {
 			g.drawTextC(dst, pre+"ALEATORIO", cx, y, col, 1.3)
+			g.drawTextC(dst, tr("Fiesta sorpresa · estilo al azar"), cx, y+13, rgb(0x6f7b8a), 1)
+			continue
+		}
+		if i == campaignN+1 { // the island, unlocked by the invitation
+			label := pre + "ISLA NUBLAR"
+			ic := cx - g.textW(label, 1.3)/2 - 18
+			g.drawLevelIcon(dst, ic, y-1, "jurassic", false)
+			if i != g.menuSel {
+				col = rgb(0xf0c030)
+			}
+			g.drawTextC(dst, label, cx, y, col, 1.3)
+			g.drawTextC(dst, partySubtitle("ISLA NUBLAR"), cx, y+13, rgb(0x9a8a40), 1)
 			continue
 		}
 		locked := i >= g.progress.Unlocked
@@ -2128,6 +2199,12 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 			g.drawLock(dst, iconX+2, y+2)
 		}
 		g.drawTextC(dst, label, cx, y, col, 1.3)
+		// what kind of party it is and the style of its music, small, under the name
+		sub := rgb(0x7f8ca0)
+		if locked {
+			sub = rgb(0x3a4652)
+		}
+		g.drawTextC(dst, partySubtitle(title), cx, y+13, sub, 1)
 	}
 	lines := []string{
 		fmt.Sprintf("Mover: %s %s %s %s   %s: correr   %s: apuñalar   %s: bailar   %s: usar / esconderse / cargar", actionHint(actUp), actionHint(actLeft), actionHint(actDown), actionHint(actRight), actionHint(actRun), actionHint(actAttack), actionHint(actDance), actionHint(actInteract)),
@@ -2493,4 +2570,81 @@ func (g *Game) copCSFor(c *Cop) *CharSet {
 		cs = g.as.medicCS
 	}
 	return cs
+}
+
+// drawPlayerOne paints one player (g.p is that player while this runs).
+func (g *Game) drawPlayerOne(screen *ebiten.Image, p *Player, l *Level) {
+	if g.coopHidden(p) { // two players: carried on the shoulders of the other one (coop.go draws him there)
+		return
+	}
+	if p.dead || p.knockT > 0 {
+		g.drawLying(screen, p.cs, false, p.pos)
+		if p.knockT > 0 && !p.dead {
+			n := 3
+			if g.is2P() {
+				n = 4
+			}
+			for i := 0; i < n; i++ {
+				a := g.time*6 + float64(i)*2*math.Pi/float64(n)
+				fillRect(screen, g.wx(p.pos.X)+math.Cos(a)*8-1, g.wy(p.pos.Y)-18+math.Sin(a)*3, 3, 3, rgb(0xf8e040))
+			}
+		}
+		g.drawPlayerTag(screen, p)
+		return
+	}
+	// the ring under his feet blinks softly while he cannot be punched again (two players)
+	if !(p.immT > 0 && int(g.time*6)%2 == 0) {
+		g.drawRingFor(screen, p)
+	}
+	anim, phase := g.playerPose()
+	pos := p.pos
+	if p.stabT > 0 {
+		v := dirVec(p.dir)
+		pos.X += v.X * 3
+		pos.Y += v.Y * 3
+	}
+	g.drawActor(screen, p.cs, anim, phase, pos, p.dir, 0, l.InPool(p.pos) && p.carrying == nil)
+	g.drawBallChain(screen, p)
+	g.drawHalo(screen)
+	if p.carrying != nil {
+		bi := g.bodyLyingImg(p.carrying)
+		w, h := bi.Bounds().Dx(), bi.Bounds().Dy()
+		g.drawImg(screen, bi, g.wx(p.pos.X), g.wy(p.pos.Y)-38, float64(w)/2, float64(h))
+	}
+	g.drawPlayerTag(screen, p)
+}
+
+// drawPlayerTag: with two players each one wears a small J1 / J2 over his head, blue and red,
+// and a short cry ("¡AUCH!") for a second after a punch.
+func (g *Game) drawPlayerTag(screen *ebiten.Image, p *Player) {
+	if !g.is2P() {
+		return
+	}
+	c := ringColor(p)
+	col := color.RGBA{c[0], c[1], c[2], 255}
+	x, y := math.Round(g.wx(p.pos.X)), math.Round(g.wy(p.pos.Y))-40*g.charSc-6
+	if p.dead || p.knockT > 0 {
+		y = math.Round(g.wy(p.pos.Y)) - 20
+	}
+	g.drawTextC(screen, g.playerName(p), x, y, col, 1)
+	if p.msgT > 0 && p.msg != "" {
+		g.drawTextC(screen, p.msg, x, y-11, rgb(0xffffff), 1)
+	}
+}
+
+// drawRingFor is drawRing in the colour of the player (blue / red with two players).
+func (g *Game) drawRingFor(dst *ebiten.Image, p *Player) {
+	if !g.is2P() {
+		g.drawRing(dst, p.pos)
+		return
+	}
+	c := ringColor(p)
+	cx, cy := g.wx(p.pos.X), g.wy(p.pos.Y)-1
+	sc := g.charSc // the people are smaller on some levels: so is the ring under them
+	if sc <= 0 {
+		sc = 1
+	}
+	for a := 0.0; a < 2*math.Pi; a += 0.2 {
+		fillRect(dst, math.Round(cx+math.Cos(a)*13*sc), math.Round(cy+math.Sin(a)*5*sc), 1, 1, color.RGBA{c[0], c[1], c[2], 235})
+	}
 }

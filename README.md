@@ -38,7 +38,21 @@ Three tabs, each with big icon buttons and the same layout: what you have on the
 - Import buttons open the system file dialog; you can also drag a PNG, JPG or PDF (first page; macOS and Linux) onto the window.
 - **Import window**: a big picture (a photo of a friend, a drawing...) opens a window to crop what you want, remove the background, choose the pixel size, reduce the colours and see the result before sending it to the editor to be retouched. Several pictures (front, side, back) can be queued.
 - **`imports/` folder**: whatever you save after importing a picture (characters, objects, animals, scenario backgrounds) goes to `imports/` (next to `assets/`), not to `assets/`. The game and the editor read both. `imports/` is in `.gitignore`, so your own pictures are never uploaded to the repository.
+- **`intros/` folder**: optional MP3 songs for the story scenes (`1_intro.mp3`, `2_interludio_A.mp3`, `3_interludio_B.mp3`, `4_final.mp3`, `5_final_secreto.mp3`, `6_invitacion.mp3`, `7_cohete.mp3` for the rocket interlude after party 20). Without them the game synthesises its own: the first intro has the bass drum of the party next door in time with the speakers, the other scenes use cheerful drumless tunes (a cartoon march, a lullaby, a fanfare, an adventure theme). `1_intro.bpm` sets the beat of your own first intro (124 BPM by default). The folder is not uploaded to the repository (see `.gitignore`).
 - The content format is documented in [`ASSETS.md`](ASSETS.md).
+
+## Music genres
+
+Each party has its own musical style, played by the built-in synthesiser when you have not put an mp3 for it in `music/`:
+house, reggaeton, synthwave, country, pasodoble, classical waltz, disco, chiptune, pop, techno, electronic, punk, metal,
+orchestral, hip-hop, jazz, rock, rap and, for the secret island, an original epic orchestral piece (a noble horn theme over strings and harp, a dark danger section with stomping timpani, and the theme returning). Every party also has a silly *kind of party*
+("Living-room kegger · House", "Wake with riffs · Metal"...), shown under its name in the level select and on the title card.
+Your own mp3s whose file name ends with a genre (`13_cementerio_metal.mp3`) only play in parties of that genre; files of another
+style are ignored with a console warning. The full table and the naming rule are in [`music/README.md`](music/README.md).
+
+## Guests
+
+Each party starts with 45 to 60 guests (random; *Settings > minimum / maximum guests*). The maximum is a strict cap on the guests present at once, arrivals during the party included. Famous characters appear only once per party.
 
 ## Building
 
@@ -47,3 +61,11 @@ Requires Go. `./build.sh` builds the game and the editor for Windows and macOS i
 Debug flags: `-level N`, `-event N`, `-mute`, `-check`, `-selftest N`, `-shot f.png`, `-noassets`, `-editor`, `-immune`, `-fastevents`, `-with slug,slug`.
 
 Tests: `go test .`
+
+### One or two players
+
+Main menu > **PLAYERS** switches between 1 and 2 players (default 1, saved in `settings.json`). With two players each
+one picks the device: both on the keyboard (P1 W A S D · Space · E · F · left Shift; P2 arrow keys · right Shift ·
+`.` stab · `,` use · `/` dance), one on the keyboard and one on a gamepad, or both on gamepads. The default is automatic
+(no pad: shared keyboard; one pad: P1 keyboard, P2 pad; two pads: one each) and pads are noticed when plugged in or
+pulled out. Settings > PLAYERS and > PLAYER 2 CONTROLS rebind everything.

@@ -20,6 +20,7 @@ type debugState struct {
 	trophyMode               int // 0 as they are, 1 all won, 2 none
 	bonus                    int // points added to the wallet (temporary)
 	speed, noPolice, fastEv  bool
+	guestMin, guestMax       int // fewest / most guests (0 = what is saved)
 }
 
 var debugSnap *Progress
@@ -84,6 +85,12 @@ func (g *Game) debugApply() {
 		p.Owned = keep
 	}
 	p.Wallet += d.bonus
+	if d.guestMin > 0 {
+		p.GuestMin = d.guestMin
+	}
+	if d.guestMax > 0 {
+		p.GuestMax = d.guestMax
+	}
 	g.progress = p
 	g.syncShop()
 	g.applyShop()
@@ -136,7 +143,10 @@ func (g *Game) konamiStep() {
 // ---- the main menu rows, with the hidden one on top when it is unlocked ----------
 
 func (g *Game) menuList() []int {
-	l := []int{menuContinue, menuNewGame, menuRandom, menuShop, menuTrophies, menuSettings, menuQuit}
+	l := []int{menuContinue, menuNewGame, menuPlayers, menuRandom, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+	if !g.hasSave() {
+		l = l[1:] // the first time: there is nothing to continue
+	}
 	if g.debugMenu {
 		l = append([]int{menuDebug}, l...)
 	}
@@ -151,6 +161,8 @@ func menuLabel(id int) string {
 		return "CONTINUAR"
 	case menuNewGame:
 		return "NUEVO JUEGO"
+	case menuPlayers:
+		return "JUGADORES"
 	case menuRandom:
 		return "ALEATORIO"
 	case menuShop:
@@ -166,6 +178,9 @@ func menuLabel(id int) string {
 }
 
 func menuRowY(i, n int) float64 {
+	if n > 9 { // DEBUG with the save: ten rows, the last one must stay above the footer texts (y=474)
+		return 140 + float64(i)*33
+	}
 	if n > 7 {
 		return 146 + float64(i)*36
 	}
@@ -195,6 +210,7 @@ func (g *Game) debugRows() []debugRow {
 		}
 	}
 	d := &g.dbg
+	guestStep := g.guestStep
 	return []debugRow{
 		{"Inmunidad (nada te mata)", func() string { return onOff(d.immune) }, flip(&d.immune)},
 		{"Matar policías con la puñalada", func() string { return onOff(d.killCops) }, flip(&d.killCops)},
@@ -205,22 +221,41 @@ func (g *Game) debugRows() []debugRow {
 		{"Dar 10.000 puntos a la cartera", func() string { return fmt.Sprintf("+%d", d.bonus) }, func() { d.bonus += 10000; g.debugApply() }},
 		{"Velocidad x2", func() string { return onOff(d.speed) }, flip(&d.speed)},
 		{"Nadie llama a la policía", func() string { return onOff(d.noPolice) }, flip(&d.noPolice)},
+		{"Invitados mínimo", func() string { return fmt.Sprintf("◄ %d ►", g.maxStart()) }, func() { guestStep(false)(1) }},
+		{"Invitados máximo", func() string { return fmt.Sprintf("◄ %d ►", g.guestMax()) }, func() { guestStep(true)(1) }},
 		{"Sucesos y llegadas muy rápidos", func() string { return onOff(d.fastEv) }, flip(&d.fastEv)},
 		{"Ir a la última fiesta: Isla Nublar (Jurassic Park)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
-		{"Ver la intro", func() string { return "" }, func() { g.playScene(sceneIntro, ModeDebug) }},
-		{"Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
-		{"Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
-		{"Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
-		{"Ver el interludio 1 (coche, tras la plaza de toros)", func() string { return "" }, func() { g.playScene(sceneInter1, ModeDebug) }},
-		{"Ver el interludio 2 (barco, tras la discoteca)", func() string { return "" }, func() { g.playScene(sceneInter2, ModeDebug) }},
+		{"1. Ver la intro", func() string { return "" }, func() { g.playScene(sceneIntro, ModeDebug) }},
+		{"2. Ver el interludio 1 (coche, tras la plaza de toros)", func() string { return "" }, func() { g.playScene(sceneInter1, ModeDebug) }},
+		{"3. Ver el interludio 2 (barco, tras la discoteca)", func() string { return "" }, func() { g.playScene(sceneInter2, ModeDebug) }},
+		{"4. Ver el interludio 3 (cohete, tras la estación de tren)", func() string { return "" }, func() { g.playScene(sceneInter3, ModeDebug) }},
+		{"5. Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
+		{"6. Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
+		{"7. Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
 		{"Salir del DEBUG (recupera tu partida real)", func() string { return "" }, func() { g.debugEnd(); g.mode = ModeMenu }},
 		{"Volver al menú", func() string { return "" }, func() { g.mode = ModeMenu }},
 	}
 }
 
+// guestStep: the number of guests of a party (40 to 60 by default) is only changed from here, in
+// steps of 5 between 10 and 100, and the minimum never goes above the maximum.
+func (g *Game) guestStep(max bool) func(int) {
+	return func(dir int) {
+		d := &g.dbg
+		if max {
+			d.guestMax = clampI(g.guestMax()+dir*5, g.maxStart(), 100)
+			d.guestMin = g.maxStart()
+		} else {
+			d.guestMin = clampI(g.maxStart()+dir*5, 10, 100)
+			d.guestMax = maxI(g.guestMax(), d.guestMin)
+		}
+		g.debugApply()
+	}
+}
+
 const (
-	debugRowH = 21.5
-	debugRow0 = 92.0
+	debugRowH = 19.0
+	debugRow0 = 86.0
 )
 
 func (g *Game) updateDebug() {
@@ -240,7 +275,19 @@ func (g *Game) updateDebug() {
 	if actUp.just() {
 		g.dbgSel = (g.dbgSel + n - 1) % n
 	}
-	if actConfirm.just() || actLeft.just() || actRight.just() || click {
+	if lb := rows[g.dbgSel].label; lb == "Invitados mínimo" || lb == "Invitados máximo" {
+		// numbers: left and right go down and up, Enter and click go up
+		dir := 0
+		switch {
+		case actLeft.just():
+			dir = -1
+		case actRight.just() || actConfirm.just() || click:
+			dir = 1
+		}
+		if dir != 0 {
+			g.guestStep(lb == "Invitados máximo")(dir)
+		}
+	} else if actConfirm.just() || actLeft.just() || actRight.just() || click {
 		rows[g.dbgSel].act()
 	}
 	if actBack.just() {

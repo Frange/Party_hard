@@ -22,7 +22,7 @@ type Elevator struct {
 }
 
 func (g *Game) updateArrivals(dt float64) {
-	if g.testVictim != nil || g.arrivals >= 3 || g.total+2 > g.maxTotal() || g.time < g.arrivalT || len(g.guests) < 4 {
+	if g.testVictim != nil || g.arrivals >= 3 || g.guestRoom() < 2 || g.time < g.arrivalT || len(g.guests) < 4 {
 		g.updateElevators(dt)
 		return
 	}
@@ -110,7 +110,7 @@ func (g *Game) updateElevators(dt float64) {
 }
 
 func (g *Game) addGuestAt(pos Vec) {
-	if g.total >= g.maxTotal() {
+	if g.guestRoom() < 1 {
 		return // the party is full
 	}
 	pos = g.lvl.NearestFree(pos)
@@ -253,7 +253,7 @@ func (g *Game) updateFun(gu *Guest, dt float64) {
 }
 
 func (g *Game) updateStreaker() {
-	if g.streaked || g.time < g.streakT || g.testVictim != nil || g.mode != ModePlay {
+	if g.streaked || g.time < g.streakT || g.testVictim != nil || g.mode != ModePlay || g.guestRoom() < 1 {
 		return
 	}
 	g.streaked = true

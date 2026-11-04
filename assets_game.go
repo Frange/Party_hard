@@ -145,10 +145,12 @@ func (g *Game) setupCast() {
 		gs := guardSpec(g.rng)
 		as.guardCS = append(as.guardCS, newCharSet(&gs))
 	}
+	// the protagonist wears what player 1 put on in the wardrobe, unless the user drew him by hand in the editor
+	as.playerCS = g.playerCS(0)
 	if g.store == nil {
 		return
 	}
-	if l := g.store.Chars["main_character"]; len(l) > 0 {
+	if l := g.store.Chars["main_character"]; len(l) > 0 && l[0].Meta.Edited {
 		as.playerCS = g.rigFor(l[0])
 	}
 	var cops, medics, fbis, militars, swats, rangers []*CharAsset

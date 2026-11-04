@@ -244,10 +244,11 @@ func (g *Game) roadRunOver(c *RoadCar, s RoadSeg) {
 			g.snd.Play("thud")
 		}
 	}
-	p := g.p
-	if !p.dead && !p.hidden && math.Abs(p.pos.X-at.X) < hitX*0.9 && math.Abs(p.pos.Y-at.Y) < hitY*0.85 {
-		g.die("Te ha atropellado un coche")
-	}
+	g.eachPlayer(func(p *Player) {
+		if !p.dead && !p.hidden && math.Abs(p.pos.X-at.X) < hitX*0.9 && math.Abs(p.pos.Y-at.Y) < hitY*0.85 {
+			g.die("Te ha atropellado un coche")
+		}
+	})
 }
 
 // vehNoseLeft: the sprites of the car family are drawn with the nose on the left; every other

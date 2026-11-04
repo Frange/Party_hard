@@ -14,13 +14,16 @@ import (
 // DEBUG session is on, where everything is open.
 // ---------------------------------------------------------------------------
 
+// the order of the story, as you meet it in the game: this is the order and the numbering of the list,
+// of the DEBUG menu and of the -scenes flag
 const (
-	sceneIntro = iota
-	sceneEnd1
-	sceneEnd2
-	sceneInvite
-	sceneInter1
-	sceneInter2
+	sceneIntro  = iota // 1. the night it all began
+	sceneInter1        // 2. after party 5 (by car)
+	sceneInter2        // 3. after party 10 (by boat)
+	sceneInter3        // 4. after party 20 (by rocket)
+	sceneEnd1          // 5. "¿ FINAL ?"
+	sceneInvite        // 6. the letter of the island
+	sceneEnd2          // 7. the secret ending
 	sceneCount
 )
 
@@ -32,7 +35,7 @@ type sceneInfo struct {
 
 var sceneList = [sceneCount]sceneInfo{
 	sceneIntro: {"seen_intro", "INTRO: NADIE TE DEJÓ DORMIR", "Las 3:47, el bajo del vecino, ovejitas con gafas de sol y un cuchillo. Así empezó todo.",
-		"NO ME DEJAN DORMIR...", "Para verla, empieza una partida nueva."},
+		"NO ME DEJAN DORMIR...", "Se ve al empezar de cero: borra tus datos."},
 	sceneEnd1: {"seen_end1", "¿ FINAL ?", "Un paseo por la ciudad en silencio, la cama, las ovejitas y unos créditos con interrogación.",
 		"¿ FINAL ?", "Todo tiene un final. Este, tras la última fiesta."},
 	sceneEnd2: {"seen_end2", "FINAL SECRETO", "El final de los que lo hicieron todo: trofeos, fiestas y hasta una isla con dinosaurios.",
@@ -43,12 +46,14 @@ var sceneList = [sceneCount]sceneInfo{
 		"¿QUIÉN CONDUCE?", "El viaje continúa... tras la fiesta número 5."},
 	sceneInter2: {"seen_interlude10", "INTERLUDIO: A TODA VELA", "Cinco fiestas más a la espalda, mala cara y una lancha que no hace preguntas.",
 		"¿PUEDO IR EN BARCO?", "Pasada la discoteca hay agua. Y mal humor."},
+	sceneInter3: {"seen_interlude20", "INTERLUDIO: CORREOS ESPACIALES", "Un cohete casero con váter, petardos y un guardia que pide el billete. Falla, claro, y despega igual.",
+		"¿ESTO ES UN BARRIL?", "La última fiesta queda muy lejos... tras la fiesta número 20."},
 }
 
 // keepSeen copies the "seen" marks of an old progress into a fresh one (a new game keeps the cinematics seen).
 func keepSeen(dst *Progress, src Progress) {
 	for k, v := range src.Stats {
-		if strings.HasPrefix(k, "seen_") {
+		if strings.HasPrefix(k, "seen_") || k == "jp_unlocked" {
 			if dst.Stats == nil {
 				dst.Stats = map[string]int{}
 			}
@@ -104,22 +109,27 @@ func (g *Game) playScene(i int, back Mode) {
 	switch i {
 	case sceneIntro:
 		g.startIntro()
-	case sceneEnd1:
-		g.startEnding(false)
-	case sceneEnd2:
-		g.startEnding(true)
-	case sceneInvite:
-		g.startInvite()
 	case sceneInter1:
 		g.startInterlude(interCar, 5)
-	default:
+	case sceneInter2:
 		g.startInterlude(interBoat, 10)
+	case sceneInter3:
+		g.startInterlude(interRocket, 20)
+	case sceneEnd1:
+		g.startEnding(false)
+	case sceneInvite:
+		g.startInvite()
+	default:
+		g.startEnding(true)
 	}
 	g.sceneReplay, g.sceneBack = true, back
 }
 
 // leaveScene returns from a replayed cinematic.
 func (g *Game) leaveScene() {
+	g.snd.StopThump()
+	g.snd.StopScene()
+	resetThumpBeat()
 	g.intro, g.end, g.inter = nil, nil, nil
 	g.sceneReplay = false
 	g.bedQuiet, g.bedEmpty, g.bedNoTalk = false, false, false
@@ -131,7 +141,7 @@ func (g *Game) updateScenes() {
 	n := sceneCount
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < n; i++ {
-			if y := sceneRowY(i); mx >= 250 && mx <= 910 && my >= y-6 && my < y+38 {
+			if y := sceneRowY(i); mx >= 250 && mx <= 910 && my >= y-4 && my < y+28 {
 				return i
 			}
 		}
@@ -155,7 +165,7 @@ func (g *Game) updateScenes() {
 	}
 }
 
-func sceneRowY(i int) float64 { return 106 + float64(i)*37 }
+func sceneRowY(i int) float64 { return 100 + float64(i)*33 }
 
 func (g *Game) drawScenes(dst *ebiten.Image) {
 	g.drawBedroom(dst)
@@ -185,9 +195,9 @@ func (g *Game) drawScenes(dst *ebiten.Image) {
 			if !open {
 				col = rgb(0xffb070)
 			}
-			fillRect(dst, 244, y-6, 672, 34, rgba(0x2a1a4a, 160))
+			fillRect(dst, 244, y-5, 672, 30, rgba(0x2a1a4a, 160))
 		}
-		g.drawText(dst, pre+g.sceneName(i), 256, y+2, col, 1.5)
+		g.drawText(dst, pre+fmt.Sprintf("%d. ", i+1)+g.sceneName(i), 256, y+2, col, 1.5)
 		tag, tc := "BLOQUEADA", rgb(0x6a6680)
 		if open {
 			tag, tc = "VISTA", rgb(0x70e090)

@@ -15,10 +15,11 @@ const (
 	shopWeapons
 	shopPolice
 	shopUniforms
+	shopWardrobe // not a list: the screen where each player puts on what he owns
 	shopTabs
 )
 
-var shopTabNames = [shopTabs]string{"PERSONAJES", "ROPA", "ACCESORIOS", "OBJETOS", "ANIMALES", "ASESINOS", "ARMAS", "TIPOS", "UNIFORMES"}
+var shopTabNames = [shopTabs]string{"PERSONAJES", "ROPA", "ACCESORIOS", "OBJETOS", "ANIMALES", "ASESINOS", "ARMAS", "TIPOS", "UNIFORMES", "VESTUARIO"}
 
 // shopGroups: the top level of the shop; each group has its own lists.
 var shopGroups = []struct {
@@ -26,6 +27,7 @@ var shopGroups = []struct {
 	tabs []int
 }{
 	{"JUGADOR", []int{shopOutfits, shopAccess, shopPerks}},
+	{"VESTUARIO", []int{shopWardrobe}},
 	{"PERSONAJES", []int{shopChars}},
 	{"ANIMALES", []int{shopAnimals}},
 	{"ASESINOS", []int{shopKillers, shopWeapons}},
@@ -33,7 +35,7 @@ var shopGroups = []struct {
 }
 
 // shopFlat is every list in screen order (left/right walks through it).
-var shopFlat = []int{shopOutfits, shopAccess, shopPerks, shopChars, shopAnimals, shopKillers, shopWeapons, shopPolice, shopUniforms}
+var shopFlat = []int{shopOutfits, shopAccess, shopPerks, shopWardrobe, shopChars, shopAnimals, shopKillers, shopWeapons, shopPolice, shopUniforms}
 
 func shopGroupOf(tab int) int {
 	for gi, gr := range shopGroups {
@@ -393,10 +395,11 @@ func buildShopCatalog() {
 	// ---- police: tiers and uniforms ----------------------------------------
 	c[shopPolice] = []shopItem{
 		{id: "police:0", name: "Policía local", desc: "Siempre disponible: 1 estrella.", price: 0},
-		{id: "police:1", name: "FBI", desc: "Mulder y Scully llegan con 2 estrellas.", price: 1000, arg: "1"},
-		{id: "police:2", name: "Ejército", desc: "Soldados con 3 estrellas.", price: 2000, arg: "2"},
-		{id: "police:3", name: "SWAT", desc: "Operadores con 4 estrellas.", price: 3500, arg: "3"},
-		{id: "police:4", name: "Power Rangers", desc: "Llegan con 5 estrellas.", price: 5000, arg: "4"},
+		// the other types are not for sale: each one is unlocked by a trophy (kills milestones)
+		{id: "police:1", name: "FBI", desc: "Mulder y Scully llegan con 2 estrellas.", price: 1<<20 + 701, arg: "1", trophy: "t_cop1"},
+		{id: "police:2", name: "Ejército", desc: "Soldados con 3 estrellas.", price: 1<<20 + 702, arg: "2", trophy: "t_cop2"},
+		{id: "police:3", name: "SWAT", desc: "Operadores con 4 estrellas.", price: 1<<20 + 703, arg: "3", trophy: "t_cop3"},
+		{id: "police:4", name: "Power Rangers", desc: "Llegan con 5 estrellas.", price: 1<<20 + 704, arg: "4", trophy: "t_cop4"},
 	}
 	uni := func(slot, id, name string, price int, fx func(*CharSpec)) {
 		wearFx[id] = fx
@@ -543,6 +546,7 @@ func buildShopCatalog() {
 	rng("negros", "Rangers · equipo oscuro", 5600, func(s *CharSpec) { s.Shirt, s.Shirt2, s.HatCol = hx(0x1a1a22), hx(0x1a1a22), hx(0x1a1a22) })
 	rng("dorados", "Rangers · edición dorada", 6500, func(s *CharSpec) { s.Shirt, s.Shirt2, s.HatCol = hx(0xe0b830), hx(0xe0b830), hx(0xe0b830) })
 
+	addBaseOutfits() // the two free base outfits (blue for player 1, red for player 2)
 	registerTrophyRewards()
 	for t := range c {
 		for i := range c[t] {

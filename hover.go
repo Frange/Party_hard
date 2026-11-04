@@ -103,13 +103,16 @@ func (g *Game) hoverLabel(mx, my float64) string {
 			return []string{"Agente ", "Agente FBI ", "Soldado ", "SWAT ", "Ranger "}[clampI(c.kind, 0, 4)] + n
 		})
 	}
-	if s := g.slasher; s != nil && s.state != slGone {
-		consider(s.pos, func() string {
-			if s.name != "" {
-				return s.name
-			}
-			return "Asesino enmascarado"
-		})
+	for _, s := range g.allSlashers() {
+		s := s
+		if s.state != slGone {
+			consider(s.pos, func() string {
+				if s.name != "" {
+					return s.name
+				}
+				return "Asesino enmascarado"
+			})
+		}
 	}
 	for _, b := range g.bodies { // the dead keep their name until they are carried off or bagged
 		if b.carried || b.bagged || b.label == "" {

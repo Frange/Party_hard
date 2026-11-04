@@ -124,7 +124,7 @@ func TestFamousFromAssetsOnce(t *testing.T) {
 	}
 }
 
-// every party starts with 40 to 60 guests by default, in any level
+// every party starts with 45 to 60 guests by default, in any level
 func TestStartGuestsRange(t *testing.T) {
 	g := testGame()
 	g.rng = rand.New(rand.NewSource(11))
@@ -133,8 +133,9 @@ func TestStartGuestsRange(t *testing.T) {
 		g.pickStartTarget()
 		lo, hi = minI(lo, g.startTarget), maxI(hi, g.startTarget)
 	}
-	if lo < 40 || hi > 60 || hi-lo < 10 {
-		t.Fatalf("start target range %d..%d, want inside 40..60 and varied", lo, hi)
+	// 400 draws over the 16 values 45..60 almost surely cover the whole span (spread 15); 10 is a safe floor
+	if lo < 45 || hi > 60 || hi-lo < 10 {
+		t.Fatalf("start target range %d..%d, want inside 45..60 and varied", lo, hi)
 	}
 	for _, def := range testLevels() {
 		g.lvl = buildLevel(def)
@@ -154,7 +155,7 @@ func TestStartGuestsRange(t *testing.T) {
 // the settings keep minimum <= maximum, inside 10..100, and old settings files still work
 func TestGuestSettings(t *testing.T) {
 	g := testGame()
-	if g.maxStart() != 40 || g.guestMax() != 60 {
+	if g.maxStart() != 45 || g.guestMax() != 60 {
 		t.Fatalf("defaults %d/%d", g.maxStart(), g.guestMax())
 	}
 	g.progress.GuestMin, g.progress.GuestMax = 80, 50 // inconsistent file: the maximum follows the minimum
@@ -165,8 +166,12 @@ func TestGuestSettings(t *testing.T) {
 	if g.maxStart() > 100 || g.guestMax() > 100 {
 		t.Error("values must stay inside 10..100")
 	}
-	if g.maxTotal() <= g.guestMax() {
-		t.Error("there must be room for the people who arrive during the party")
+	// the cap is strict (cap.go): there is no separate "total" above the maximum any more;
+	// the people who arrive later must fit inside guestCap (stress: cap_test.go)
+	g.progress.GuestMin, g.progress.GuestMax = 0, 0
+	g.twoExtra = 0
+	if g.guestCap() != g.guestMax() {
+		t.Error("with one player the cap is the maximum itself")
 	}
 }
 
@@ -178,7 +183,7 @@ func TestOldGuestSettingsIgnored(t *testing.T) {
 	}
 	g := testGame()
 	g.progress = p
-	if g.maxStart() != 40 || g.guestMax() != 60 {
+	if g.maxStart() != 45 || g.guestMax() != 60 {
 		t.Errorf("an old file must give the defaults, got %d/%d", g.maxStart(), g.guestMax())
 	}
 }

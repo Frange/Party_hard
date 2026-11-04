@@ -14,10 +14,11 @@ type Progress struct {
 	Stats    map[string]int    `json:"stats"`
 	Trophies map[string]bool   `json:"trophies"`
 	Wallet   int               `json:"wallet"`
-	GuestMin int               `json:"guestMin"` // fewest guests at the start of a party (0 = 40)
+	GuestMin int               `json:"guestMin"` // fewest guests at the start of a party (0 = 45)
 	GuestMax int               `json:"guestMax"` // most guests at the start of a party (0 = 60)
 	Owned    []string          `json:"owned"`
-	Equip    map[string]string `json:"equip"`
+	Equip    map[string]string `json:"equip"`             // what player 1 wears (and the party: uniforms, weapons)
+	EquipP2  map[string]string `json:"equipP2,omitempty"` // what player 2 wears (old saves have none)
 }
 
 func progressPath() string {
@@ -74,12 +75,12 @@ func (g *Game) unlockNext() {
 	}
 }
 
-// maxStart / guestMax: the fewest and the most guests a party starts with (40 and 60 by
+// maxStart / guestMax: the fewest and the most guests a party starts with (45 and 60 by
 // default, changeable in the settings; the number of each party is drawn between them).
-// maxTotal adds some room on top for the people who arrive during the party.
+// guestMax is also the strict cap of guests present at once (see cap.go).
 func (g *Game) maxStart() int {
 	if g.progress.GuestMin <= 0 {
-		return 40
+		return 45
 	}
 	return clampI(g.progress.GuestMin, 10, 100)
 }
@@ -91,8 +92,6 @@ func (g *Game) guestMax() int {
 	}
 	return clampI(maxI(hi, g.maxStart()), 10, 100)
 }
-
-func (g *Game) maxTotal() int { return g.guestMax() + 25 }
 
 // progressFrozen: while the DEBUG mode is in use nothing is written to disk, so the real game is untouched.
 var progressFrozen bool
@@ -111,6 +110,13 @@ func cloneProgress(p Progress) Progress {
 	c.Equip = map[string]string{}
 	for k, v := range p.Equip {
 		c.Equip[k] = v
+	}
+	c.EquipP2 = nil
+	if p.EquipP2 != nil {
+		c.EquipP2 = map[string]string{}
+		for k, v := range p.EquipP2 {
+			c.EquipP2[k] = v
+		}
 	}
 	return c
 }

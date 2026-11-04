@@ -147,7 +147,7 @@ func (g *Game) updateTrains(dt float64) {
 			if tr.trackY > g.lvl.Def.Tracks[0] {
 				py = tr.trackY + 26
 			}
-			for i := 0; i < n && g.total < g.maxTotal(); i++ {
+			for i := 0; i < n && g.guestRoom() > 0; i++ {
 				x := stopX - tr.length()/2 + 60 + g.rng.Float64()*(tr.length()-120)
 				g.addGuestAt(Vec{x, py})
 			}
@@ -182,9 +182,11 @@ func (g *Game) updateTrains(dt float64) {
 				g.checkDone()
 			}
 		}
-		if p := g.p; !p.dead && !p.hidden && p.pos.X > x0 && p.pos.X < x1 && math.Abs(p.pos.Y-tr.trackY) < 15 {
-			g.die("Te ha arrollado el tren")
-		}
+		g.eachPlayer(func(p *Player) {
+			if !p.dead && !p.hidden && p.pos.X > x0 && p.pos.X < x1 && math.Abs(p.pos.Y-tr.trackY) < 15 {
+				g.die("Te ha arrollado el tren")
+			}
+		})
 	}
 	// gone: schedule the next one
 	if tr.t > 1 && ((tr.dir > 0 && tr.x-tr.length() > g.lvl.W+30) || (tr.dir < 0 && tr.x+tr.length() < -30)) {

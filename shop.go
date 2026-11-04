@@ -86,8 +86,9 @@ func (g *Game) applyShop() {
 	g.perkStamina = []float64{6, 9, 12, 16}[tier("perk:stamina")]
 	g.perkCool = []float64{1, 0.8, 0.65, 0.5}[tier("perk:glove")]
 	g.perkMoney = []float64{1, 1.1, 1.25, 1.5}[tier("perk:money")]
-	if g.store == nil || len(g.store.Chars["main_character"]) == 0 {
-		g.as.playerCS = newCharSet(g.playerSpecWith("", "", ""))
+	// the protagonist wears what the player 1 put on in the wardrobe (unless the user drew him by hand in the editor)
+	if !g.editedMainCharacter() {
+		g.as.playerCS = g.playerCS(0)
 	}
 	if g.store == nil || len(g.store.Chars["police"]) == 0 {
 		g.dressTiers()
@@ -151,22 +152,7 @@ func (g *Game) dressTiers() {
 // playerSpecWith: the player spec dressed with the equipped clothes; a preview
 // item (id) replaces what is worn in its slot.
 func (g *Game) playerSpecWith(skin, previewSlot, previewID string) *CharSpec {
-	spec := playerSpec()
-	if skin != "" {
-		if f := presetByName(skin); f != nil {
-			spec = f(rand.New(rand.NewSource(5)))
-		}
-	}
-	for _, slot := range wearSlots {
-		id := g.shopEquip(slot)
-		if slot == previewSlot {
-			id = previewID
-		}
-		if fx := wearFx[id]; fx != nil {
-			fx(&spec)
-		}
-	}
-	return &spec
+	return g.playerSpecFor(wardP, previewSlot, previewID)
 }
 
 func (g *Game) shopItems() []shopItem { return shopCatalog[g.shopTab] }
@@ -199,9 +185,14 @@ func (g *Game) shopActivate() {
 		return
 	}
 	it := items[g.shopSel]
+	g.shopMsg = ""
 	if !g.shopOwns(it) {
 		if it.trophy != "" {
-			g.shopMsg = "Se consigue con un trofeo (mira TROFEOS)"
+			if g.shopTab == shopPolice {
+				g.shopMsg = fmt.Sprintf("Desbloquea al llegar a %d asesinatos", policeNeed(it.id))
+			} else {
+				g.shopMsg = "Se consigue con un trofeo (mira TROFEOS)"
+			}
 			g.snd.Play("alert")
 			return
 		}
@@ -216,7 +207,15 @@ func (g *Game) shopActivate() {
 		g.stat("bought", 1)
 		g.shopMsg = "¡Comprado: " + it.name + "!"
 		g.snd.Play("win")
-		if it.slot != "" {
+		// buying is not dressing: it only puts the new thing on when that slot of the player was empty
+		if it.slot != "" && isWearSlot(it.slot) {
+			if g.equipOf(wardP, it.slot) == "" {
+				g.setEquipOf(wardP, it.slot, it.id)
+				g.shopMsg += fmt.Sprintf(" Puesto al J%d.", wardP+1)
+			} else {
+				g.shopMsg += " Póntelo en VESTUARIO."
+			}
+		} else if it.slot != "" {
 			g.setEquip(it.slot, it.id)
 		}
 		saveProgress(g.progress)
@@ -228,12 +227,15 @@ func (g *Game) shopActivate() {
 		return
 	}
 	if it.slot != "" {
-		if g.shopEquip(it.slot) == trimPrefixID(it.id, "skin:") || g.shopEquip(it.slot) == it.id {
-			g.setEquip(it.slot, "") // take it off
+		if g.equipOf(wardP, it.slot) == trimPrefixID(it.id, "skin:") || g.equipOf(wardP, it.slot) == it.id {
+			g.setEquipOf(wardP, it.slot, "") // take it off
 			g.shopMsg = "Te lo quitas"
 		} else {
-			g.setEquip(it.slot, it.id)
+			g.setEquipOf(wardP, it.slot, it.id)
 			g.shopMsg = "Te lo pones"
+		}
+		if g.wardTwo() && isWearSlot(it.slot) {
+			g.shopMsg += fmt.Sprintf(" (J%d)", wardP+1)
 		}
 		saveProgress(g.progress)
 		g.applyShop()
@@ -291,6 +293,13 @@ func (g *Game) updateShop() {
 				}
 			}
 		}
+	}
+	if g.shopTab == shopWardrobe { // the wardrobe is not a list: it has its own keys
+		g.updateWardrobe()
+		return
+	}
+	if g.wardTwo() && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		wardP = 1 - wardP // who gets what is bought and worn from the lists
 	}
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.shopSel = clampI(g.shopSel-int(wy)*3, 0, len(items)-1)
@@ -417,13 +426,7 @@ func (g *Game) shopPreview(it shopItem) *ebiten.Image {
 }
 
 // equipSig identifies what is worn, so previews are rebuilt when it changes.
-func (g *Game) equipSig() string {
-	s := ""
-	for _, sl := range wearSlots {
-		s += g.shopEquip(sl) + "|"
-	}
-	return s + g.shopEquip("skin")
-}
+func (g *Game) equipSig() string { return g.equipSigOf(wardP) }
 
 func (g *Game) shopCS(key string, mk func() *CharSpec) *CharSet {
 	if g.shopCache == nil {
@@ -471,7 +474,17 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 	} else {
 		g.drawText(dst, shopTabNames[g.shopTab], 246, 104, rgb(0xf0e060), 0.95)
 	}
+	if g.shopTab == shopWardrobe {
+		g.drawWardrobe(dst)
+		if g.shopMsg != "" {
+			g.drawText(dst, g.shopMsg, 244, 428, rgb(0xf0e060), 1.3)
+		}
+		return
+	}
 	items := g.shopItems()
+	if g.wardTwo() && (g.shopTab == shopOutfits || g.shopTab == shopAccess) {
+		g.drawText(dst, fmt.Sprintf("Se pone el J%d (Tab: cambiar)", wardP+1), 640, 108, playerColor(wardP), 1)
+	}
 	for i := 0; i < shopRows; i++ {
 		idx := g.shopScroll + i
 		if idx >= len(items) {
@@ -489,9 +502,12 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		tag, tcol := fmt.Sprintf("%d", it.price), rgb(0xf0e060)
 		if it.trophy != "" {
 			tag, tcol = "TROFEO", rgb(0x8a6aa8)
+			if g.shopTab == shopPolice {
+				tag = fmt.Sprintf("%d/%d", g.progress.Stats["kills"], policeNeed(it.id))
+			}
 		}
 		switch {
-		case it.slot != "" && g.shopOwns(it) && (g.shopEquip(it.slot) == trimPrefixID(it.id, "skin:") || g.shopEquip(it.slot) == it.id):
+		case it.slot != "" && g.shopOwns(it) && (g.equipOf(wardP, it.slot) == trimPrefixID(it.id, "skin:") || g.equipOf(wardP, it.slot) == it.id):
 			tag, tcol = "PUESTO", rgb(0x70e090)
 		case g.shopOwns(it):
 			tag, tcol = "TUYO", rgb(0x70e090)
@@ -505,7 +521,7 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 	}
 	if g.shopSel >= 0 && g.shopSel < len(items) {
 		it := items[g.shopSel]
-		fillRect(dst, 640, 128, 270, 262, rgba(0x120c24, 220))
+		fillRect(dst, 640, 128, 270, 272, rgba(0x120c24, 220)) // tall enough for a description of three lines
 		if im := g.shopPreview(it); im != nil {
 			w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 			sc := 4.0
@@ -529,6 +545,14 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		}
 		g.drawTextC(dst, it.name, 775, 134, rgb(0xf4f0ff), 1.2)
 		g.drawWrapped(dst, it.desc, 650, 352, 250, rgb(0xb8b0d0))
+		if g.shopTab == shopPolice && it.trophy != "" && !g.shopOwns(it) {
+			need := policeNeed(it.id)
+			have := minI(g.progress.Stats["kills"], need)
+			g.drawText(dst, fmt.Sprintf("Desbloquea al llegar a %d asesinatos", need), 650, 296, rgb(0xf0e060), 1)
+			fillRect(dst, 650, 312, 250, 8, rgb(0x2a2240))
+			fillRect(dst, 650, 312, float64(250*have/maxI(1, need)), 8, rgb(0xd84a5a))
+			g.drawText(dst, fmt.Sprintf("Asesinatos: %d/%d", have, need), 650, 324, rgb(0xb8b0d0), 1)
+		}
 	}
 	if g.shopMsg != "" {
 		g.drawText(dst, g.shopMsg, 244, 428, rgb(0xf0e060), 1.3)
@@ -540,6 +564,7 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 func (g *Game) drawWrapped(dst *ebiten.Image, s string, x, y, w float64, col color.RGBA) {
 	line, words := "", []string{}
 	cur := ""
+	s = tr(s) // translate the whole text first: lines wrapped from the Spanish and translated one by one come out half translated
 	for _, r := range s + " " {
 		if r == ' ' {
 			words = append(words, cur)

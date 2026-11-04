@@ -366,6 +366,7 @@ func (g *Game) updateAnimals(dt float64) {
 		if a.iconT > 0 {
 			a.iconT -= dt
 		}
+		restore := g.focus(a.pos) // two players: it reacts to the nearest one
 		switch a.kind {
 		case animHorse:
 			g.updateHorse(a, dt)
@@ -392,6 +393,7 @@ func (g *Game) updateAnimals(dt float64) {
 		case animSnake:
 			g.updateSnake(a, dt)
 		}
+		restore()
 	}
 }
 
