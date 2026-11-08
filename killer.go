@@ -123,16 +123,18 @@ func (g *Game) updateSlasher(dt float64) {
 		// this one is done; another may come later (up to three per party)
 		g.slasher = nil
 		g.slasherN++
-		if g.slasherN < 3 {
+		if !killerRegulation && g.slasherN < 3 {
 			g.slasherDone, g.slasherT = false, g.time+70+g.rng.Float64()*60
 		}
 		return
 	}
 	if s == nil {
-		if g.slasherDone || g.time < g.slasherT || g.testVictim != nil || len(g.guests) < 4 {
+		if !g.killerDue() || g.testVictim != nil || len(g.guests) < 4 {
 			return
 		}
-		g.spawnSlasher()
+		if g.spawnSlasher() {
+			g.kp.spawned++
+		}
 		return
 	}
 	if s.iconT > 0 {
@@ -449,7 +451,8 @@ func (g *Game) hitSlasher() {
 	g.spawnBody(s.pos, s.cs, s.dir)
 	g.bodies[len(g.bodies)-1].label = slasherActorName(s)
 	g.kills++
-	g.points += 500
+	g.countKill(kcKnife, false)
+	g.points += g.killVal(500)
 	g.say("¡Has matado al asesino! +500")
 	g.snd.Play("win")
 	g.witness()
@@ -520,6 +523,7 @@ func (g *Game) updateReport(gu *Guest, dt float64) {
 			}
 		}
 		g.deliver(gu)
+		g.guestWarned(gu) // he has told an officer: the alert over the killer becomes the cuffs
 		if s := g.slasher; gu.sawSlash && s != nil && s.state == slHunt {
 			g.releaseCop(c)
 			c.state, c.path = cSlash, g.lvl.Path(c.pos, gu.sawPos)

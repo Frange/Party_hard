@@ -129,8 +129,8 @@ func TestInterludesAfterLevels5And10(t *testing.T) {
 }
 
 func TestInterludeTimeline(t *testing.T) {
-	if len(interludePlaces(interCar)) != 5 || len(interludePlaces(interBoat)) != 5 {
-		t.Fatal("five memories per interlude")
+	if len(interludePlaces(interCar)) != 5 || len(interludePlaces(interBoat)) != 0 || len(interludePlaces(interBalloon)) != 0 {
+		t.Fatal("five memories in the car; the boat and the balloon have their own scenes")
 	}
 	// the street never goes backwards and the vehicle is at its place when it stops
 	prev := -1.0
@@ -143,6 +143,9 @@ func TestInterludeTimeline(t *testing.T) {
 	}
 	if d := interVehicleX(itStop) - interStopX; d > 0.001 || d < -0.001 {
 		t.Errorf("the vehicle is not at its place when the street stops: %v", d)
+	}
+	if interLen > 20 || interLen < 10 {
+		t.Errorf("the car lasts %.1f s: between 10 and 20", interLen)
 	}
 	if interVehicleX(0) < screenW {
 		t.Error("the vehicle must start out of the screen, far to the right")
@@ -214,5 +217,66 @@ func TestHeroWithKnifeIsSolid(t *testing.T) {
 	pk := knifeHeroSet(proc)
 	if pk.Spec == proc.Spec || pk.Spec.Carry != HoldKnife || pk.Spec.Skin != sp.Skin {
 		t.Error("procedural hero: knife not set on a copy of the spec")
+	}
+}
+
+func TestScenesListFormat(t *testing.T) {
+	g := testGame()
+	debugSnap = nil
+	g.progress.Stats = map[string]int{"seen_intro": 1, "seen_interlude5": 1}
+	if got := g.sceneRowName(sceneIntro); got != "1.- INTRO: NADIE TE DEJÓ DORMIR" || g.sceneRowCount(sceneIntro) != "" {
+		t.Errorf("intro row: %q %q", got, g.sceneRowCount(sceneIntro))
+	}
+	if got := g.sceneRowName(sceneInter1); got != "2.- INTERLUDIO: OTRA FIESTA MÁS" || g.sceneRowCount(sceneInter1) != "(5/21)" {
+		t.Errorf("seen row: %q %q", got, g.sceneRowCount(sceneInter1))
+	}
+	if got := g.sceneRowName(sceneInter2); got != "3.- ¿?" || g.sceneRowCount(sceneInter2) != "" {
+		t.Errorf("locked row reveals: %q %q", got, g.sceneRowCount(sceneInter2))
+	}
+	// every row fits between the left margin and the SEEN/LOCKED column, in both languages
+	old := uiLang
+	t.Cleanup(func() { uiLang = old })
+	g.progress.Stats = map[string]int{"seen_intro": 1, "seen_interlude5": 1, "seen_interlude10": 1, "seen_interlude15": 1, "seen_interlude20": 1, "seen_end1": 1, "seen_end2": 1, "seen_invite": 1, "seen_arrival": 1}
+	for _, l := range []string{"es", "en"} {
+		uiLang = l
+		for i := 0; i < sceneCount; i++ {
+			row := g.sceneRowName(i)
+			if n := len([]rune(row + " " + g.sceneRowCount(i))); n > 48 {
+				t.Errorf("%s row %d has %d chars", l, i, n)
+			}
+		}
+	}
+}
+
+// the balloon is scene 4 of the list: key, counter (15/21) and name, locked until seen
+func TestSceneBalloonRow(t *testing.T) {
+	old := debugSnap
+	debugSnap = nil
+	t.Cleanup(func() { debugSnap = old })
+	g := testGame()
+	g.progress.Stats = map[string]int{}
+	if got := g.sceneRowName(sceneInter15); got != "4.- ¿?" || g.sceneRowCount(sceneInter15) != "" {
+		t.Errorf("locked balloon row: %q %q", got, g.sceneRowCount(sceneInter15))
+	}
+	g.progress.Stats["seen_interlude15"] = 1
+	if got := g.sceneRowName(sceneInter15); got != "4.- INTERLUDIO: GLOBO A LA DERIVA" || g.sceneRowCount(sceneInter15) != "(15/21)" {
+		t.Errorf("seen balloon row: %q %q", got, g.sceneRowCount(sceneInter15))
+	}
+}
+
+// each interlude row replays its own interlude, as a replay (no level starts after it)
+func TestScenePlaysRightInterlude(t *testing.T) {
+	old := debugSnap
+	debugSnap = nil
+	t.Cleanup(func() { debugSnap = old })
+	for _, c := range []struct{ scene, kind, next int }{
+		{sceneInter1, interCar, 5}, {sceneInter2, interBoat, 10}, {sceneInter15, interBalloon, 15}, {sceneInter3, interRocket, 20},
+	} {
+		g := testGame()
+		g.snd, g.as = newSounds(true), &Assets{}
+		g.playScene(c.scene, ModeScenes)
+		if g.inter == nil || g.inter.kind != c.kind || g.inter.next != c.next || !g.sceneReplay {
+			t.Errorf("scene %d does not replay interlude kind %d", c.scene+1, c.kind)
+		}
 	}
 }

@@ -95,7 +95,7 @@ func level1() *LevelDef {
 		Start:   Vec{500, 468},
 		CarFrom: Vec{1040, 510}, CarTo: Vec{740, 510},
 		Guests: 30, CellSize: 16,
-		Sign:    "PARTY HARD",
+		Sign:    "PARTY HARDY",
 		SignPos: Vec{440, 112},
 	}
 	// The house is shallower than it used to be so the back garden (between
@@ -306,8 +306,7 @@ func level4() *LevelDef {
 	d.Props = []PropInst{
 		P("stage", 480, 214), P("speaker", 280, 204), P("speaker", 690, 204),
 		P("bungalow", 160, 180), P("palm", 280, 130), P("palm", 80, 300),
-		PV("portapotty", 790, 160, 0), PV("portapotty", 822, 160, 1), PV("portapotty", 854, 160, 0), PV("portapotty", 886, 160, 1),
-		PV("booth", 790, 300, 0), PV("booth", 790, 420, 1),
+		PV("portapotty", 870, 160, 0), PV("portapotty", 902, 160, 1), // light: the booths and the long toilet row hid the DJ
 		P("lifeguard", 110, 360), PV("surfboard", 200, 340, 0), PV("surfboard", 218, 340, 1), PV("surfboard", 236, 340, 2),
 		P("crate", 260, 280), P("crate", 700, 280), P("barrel", 150, 260),
 		P("palm", 60, 450), P("palm", 200, 452), P("palm", 340, 452), P("palm", 620, 452), P("palm", 740, 452), P("palm", 900, 452),
@@ -386,7 +385,7 @@ func level5() *LevelDef {
 	)
 	d.Props = []PropInst{
 		// saloon
-		P("bar", 360, 108), P("barrel", 280, 110), P("barrel", 308, 110), PV("bookshelf", 262, 130, 0), P("table", 330, 270), P("table", 410, 290), P("table", 260, 300), P("stool", 330, 288),
+		P("bar", 360, 108), P("barrel", 280, 110), PV("bookshelf", 262, 130, 0), P("table", 330, 270), P("table", 410, 290), P("table", 260, 300), P("stool", 330, 288),
 		PV("stool", 410, 306, 0), P("speaker", 470, 100),
 		P("fireplace", 600, 108), PV("couch", 540, 170, 3), P("table", 660, 160), P("plant", 700, 110),
 		PV("bed", 650, 292, 0), P("closet", 540, 260), P("closet", 700, 260), P("plant", 520, 300),

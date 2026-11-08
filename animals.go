@@ -349,6 +349,7 @@ func (g *Game) spawnAnimals() {
 	g.scatterCritters()
 	g.scatterRiders()
 	g.scatterSnake()
+	g.capAnimals()
 }
 
 func (a *Animal) behind(p Vec, reach, width float64) bool {

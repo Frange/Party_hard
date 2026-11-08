@@ -77,9 +77,13 @@ const (
 )
 
 func (g *Game) sees(from Vec, dir Dir, to Vec, rng, minDot float64) bool {
+	if g.suitHides(to) { // the gold VIP suit: nobody sees the wearer (vip.go)
+		return false
+	}
 	if g.visK > 0 {
 		rng *= g.visK
 	}
+	rng *= g.blackoutSight() // blackout.go: half as far in the dark
 	d := dist(from, to)
 	if d > rng {
 		return false
@@ -130,11 +134,16 @@ const (
 )
 
 type Guest struct {
+	vipWarns          int     // warnings the VIP guards gave him on this level (vipwarn.go)
+	vipImmT, vipStun  float64 // immunity after a warning / seconds stunned with stars
+	vipCard           bool    // carries a VIP invitation: a golden tag shows beside him (vip.go)
 	famousOK          bool    // forced on purpose (debug -with): not a duplicate to swap
 	py                *pyroSt // the arsonist (pyro.go): not counted as a guest, does not have to die
 	chant             bool
 	tech              bool   // on the way to the yellow phone to call the technicians
 	quirk             string // special behaviour: mj, mask, taz, beavis, butthead, gb
+	gait              string // movement style (gait.go): moon, robot, hips, march, hop, stagger, shy...
+	gaitInit          bool
 	quirkT            float64
 	quirkInit         bool
 	greetInit, chatty bool
@@ -191,6 +200,8 @@ type Guest struct {
 	wcDone            bool  // the accident already left its mark
 	lookT             float64
 	sawKiller         bool
+	sawP              *Player // the player he saw killing (suspect.go: alert / warned)
+	warned            bool    // he has already told the police about sawP
 	danceEnd          float64
 	off               float64
 	lastTurn          int
@@ -254,6 +265,7 @@ type Guard struct {
 	dead     bool
 	callT    float64
 	special  bool
+	vipGuard // VIP zone staff (vip.go); zero value = an ordinary guard
 }
 
 // Police hierarchy tiers, one per criminality star. Only one tier is ever on
@@ -381,7 +393,9 @@ type Player struct {
 	hidden     bool
 	hideProp   *Prop
 	carrying   *Body
-	doses      int // doses left in the poison bottle
+	doses      int    // doses left in the poison bottle
+	spare      string // the other pick-up kind waiting in the second slot (items.go)
+	spareDoses int
 	cooldown   float64
 	stabT      float64
 	stamina    float64
@@ -400,6 +414,12 @@ type Player struct {
 	danceLast  float64
 	danceCount int
 	jail       jailState // cuffs, custody and the prison break (twojail.go)
+	suitT      float64   // seconds left of the gold VIP suit: nobody can see or report him (vip.go)
+	invite     bool      // he holds a stolen VIP invitation (one use, vip.go)
+	passT      float64   // seconds left of the pass he showed at the VIP gate
+	vipWarns   int       // warnings the VIP guards gave him on this level (vip.go: 1 thrown out, 2 beaten, 3 killed)
+	vipImmT    float64   // seconds left of immunity after a warning
+	stunT      float64   // seconds left of being stunned, stars over his head (vip.go)
 }
 
 type Assets struct {
@@ -438,6 +458,8 @@ type Assets struct {
 
 type Game struct {
 	streakT                float64
+	blk                    blackoutState // the blackout event (blackout.go)
+	musicReact             float64       // 0..1: how "alert" the music sounds (musicreact.go)
 	cheerT                 float64
 	roadCars               []*RoadCar
 	roadT                  []float64
@@ -485,6 +507,7 @@ type Game struct {
 	menuMsg                string
 	menuMsgT               float64
 	dbgCops                bool
+	dbgCamKill             bool // -camkill: at ~3 s a guest is killed in front of the first camera (camera.go)
 	dbgRing                int
 	dbgCheer               bool
 	dbgWith                []string
@@ -499,7 +522,13 @@ type Game struct {
 	botDx, botDy           float64
 	stuckT                 float64
 	dbgSnake               bool
-	dbgPoison              bool // -poisonnow: poison in the pocket and four poisoned guests next to the player
+	dbgAlert               bool // -alertnow: pending witnesses over the players (the "!" alert)
+	stealth, stealthNext   bool // STEALTH mode (stealth.go): on for this level / the next loadLevel starts it
+	stealth2, stealth2Next bool // ...with two players (stealth2p.go)
+	sth                    stealthState
+	cams                   []*secCam // security cameras of this level (camera.go)
+	dbgTrap                bool      // -trapdemo: two traps next to the start, one loading and one armed
+	dbgPoison              bool      // -poisonnow: poison in the pocket and four poisoned guests next to the player
 	dbgSnakeOn             bool
 	kidPlan                []kidPlan
 	techCaller             *Guest
@@ -534,10 +563,19 @@ type Game struct {
 	arrivals               int
 	arrivalT               float64
 	elevators              []*Elevator
+	sb                     startBlink // blinking floor marker at the start of a level (startblink.go)
+	hud                    hudState   // animated counters of the HUD panel (hud.go)
+	lh                     levelHint  // plate with the goal and a tip at the start of a party (levelhint.go)
+	mm                     miniMap    // see-through map of the level, bottom right (minimap.go)
+	emo                    emoteState // icons over the guests' heads (emote.go)
+	slow                   slowState  // slow motion of the last kill (slowmo.go)
+	lastMarks              []lastMark // what the last-guests marker drew in the last frame (lastguests.go)
+	lastBuf                []Vec      // reused list of the people marked (lastguests.go)
 	slasher                *Slasher
 	slasherT               float64
 	slasherDone            bool
 	slasherN               int
+	kp                     killerPlan // how often the special killer comes (killerreg.go)
 	mode                   Mode
 	as                     *Assets
 	lvl                    *Level
@@ -601,6 +639,9 @@ type Game struct {
 	dialogue                                    DialogueBank
 	progress                                    Progress
 	banked                                      bool
+	challenge                                   bool      // RETO: x3 per kill, x5 to the total on completion (levelscore.go)
+	run                                         runStats  // kills by cause, times seen / cuffed, final breakdown (levelscore.go)
+	killCause                                   killCause // how the kill about to happen was made (levelscore.go)
 	iconMode                                    bool
 	perkSpeed, perkStamina, perkCool, perkMoney float64
 	shopTab, shopSel, shopScroll                int
@@ -632,7 +673,10 @@ type Game struct {
 	trophyDirty                                 bool
 	toasts                                      []trophyToast
 	trophySel, trophyScroll                     int
+	trophyTab, albumSel, albumScroll            int // page of the TROFEOS screen (0 list, 1 album) and the album cursor (album.go)
+	sec                                         secretState
 	trophyOv                                    bool    // the in-game trophies window is open (the game is paused)
+	helpOv                                      bool    // the controls window (help.go) is open (the game is paused)
 	trophyHudA                                  float64 // 1 = solid, lower while the player walks under the counter
 	tierBase                                    map[string][]CharSpec
 	loseReason                                  string
@@ -760,8 +804,11 @@ func newGame(mute bool) *Game {
 }
 
 func (g *Game) loadLevel(i int) {
+	g.stealthBegin() // STEALTH mode on or off for this level (stealth.go)
 	g.bankPoints()
 	g.banked = false
+	g.run = runStats{}
+	g.killCause = kcNone
 	g.applyShop()
 	g.levelIdx = i
 	g.charSc, g.visK, paceK = 1, 1, 0.86
@@ -771,21 +818,32 @@ func (g *Game) loadLevel(i int) {
 	} else {
 		def = levelDefs[i]
 	}
+	if g.stealth {
+		def = stealthDef(def) // short hedges that make corridors (stealth.go)
+	}
 	if def.CharScale > 0 && def.CharScale != 1 {
 		g.charSc, g.visK, paceK = def.CharScale, math.Sqrt(def.CharScale), 0.86*def.CharScale
 	}
 	nickRNG, nickUsed = g.rng, map[string]bool{}
 	g.famousOwned, g.famousPick = map[string]*Guest{}, map[string]bool{}
 	g.pickStartTarget()
+	vipDecision = ""
+	if i != specialJurassic {
+		vipDecision = g.vipRoll(def) // vipchance.go: own dice, g.rng untouched
+	}
 	g.lvl = buildLevel(def)
 	if nd := g.planBand(def); nd != nil {
 		def = nd
 		g.lvl = buildLevel(def)
 	}
+	vipDecision = ""
 	g.renderBG()
+	g.setupCameras() // security cameras of this level (camera.go)
 	g.time = 0
 	g.p = &Player{pos: def.Start, dir: DirUp, cs: g.as.playerCS, stamina: g.perkStamina, style: g.rng.Intn(4)}
 	g.setupPlayers(def) // the second player, when there are two
+	g.sb.reset(g)
+	g.slow = slowState{}
 	g.guests, g.guards, g.cops, g.veh, g.bodies, g.decals, g.parts, g.amb, g.wrecks = nil, nil, nil, nil, nil, nil, nil, nil, nil
 	g.wreckOut, g.fireTruck, g.fireCrew, g.fireWait = nil, nil, nil, 0
 	g.blaze = fireWorld{}
@@ -808,6 +866,8 @@ func (g *Game) loadLevel(i int) {
 	g.slasher, g.slasherDone, g.slasherT, g.slasherN = nil, false, 28+g.rng.Float64()*40, 0
 	g.slot2 = slasherSlot{t: 50 + g.rng.Float64()*50} // two players: the second killer comes later
 	g.streakT, g.streaked = 55+g.rng.Float64()*90, false
+	g.blackoutLevelReset()
+	g.killerLevelReset()
 	g.train, g.trainT = nil, 10+g.rng.Float64()*14
 	if fastEv {
 		g.trainT = 2
@@ -902,7 +962,12 @@ func (g *Game) loadLevel(i int) {
 	g.trimGuests()
 	g.fillGuests(def.Start)
 	g.uniqueFamous()
-	g.total = len(g.guests) + len(g.guards)
+	g.spawnVIP() // VIP zone staff and the invitation carriers (vip.go)
+	g.total = len(g.guests) + len(g.guards) - g.vipStaffN()
+	g.hud.reset(g) // HUD panel counters start from the real numbers (hud.go)
+	g.lh.reset(g)  // level hint (levelhint.go)
+	g.mm.reset()   // the minimap rebuilds its walls for this level (minimap.go)
+	g.emo.reset()  // guest emotes (emote.go)
 	g.cam = g.camTarget()
 }
 
@@ -911,7 +976,18 @@ func (g *Game) beginNewGame() {
 	g.startLevel(0) // the intro of the very first run already played when the program opened (firstrun.go)
 }
 
+// testStartLevel: tests replace the heavy level loading (it needs a graphics context) to follow the flow.
+var testStartLevel func(g *Game, i int)
+
 func (g *Game) startLevel(i int) {
+	if testStartLevel != nil {
+		testStartLevel(g, i)
+		return
+	}
+	if g.stealth { // retry in the STEALTH mode stays in it (and with its two players)
+		g.startStealthN(i, g.stealth2)
+		return
+	}
 	g.loadLevel(i)
 	g.stat("played", 1)
 	saveProgress(g.progress) // from now on there is a game to continue
@@ -945,7 +1021,7 @@ func (g *Game) aliveCount() int {
 		}
 	}
 	for _, gd := range g.guards {
-		if !gd.dead {
+		if !gd.dead && gd.vip == 0 { // the VIP zone staff does not have to die for the party to end
 			n++
 		}
 	}
@@ -969,6 +1045,8 @@ func (g *Game) Update() error {
 	refreshPlayerDevices()                               // two players: a pad plugged in or pulled out takes effect at once
 	g.updateToasts(1.0 / 60)
 	g.syncMusic()
+	g.updateMusicReact(1.0 / 60)
+	g.updateAmbientSound() // quiet level ambience, off by default (ambient_sound.go)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
 	}
@@ -994,6 +1072,9 @@ func (g *Game) Update() error {
 	}
 	if g.mode == ModeEditor {
 		return g.updateEditor()
+	}
+	if g.updateHelp() { // the controls window: the whole game is paused while it is open (help.go)
+		return nil
 	}
 	if g.updateTrophyHud() {
 		return nil
@@ -1135,6 +1216,9 @@ func (g *Game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 			g.startRandomLevel()
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyC) { // RETO on / off (levelscore.go); the one place that switches it
+			g.challenge = !g.challenge
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyG) {
 			if g.baseN == 0 || g.baseN > len(levelDefs) {
 				g.baseN = len(levelDefs)
@@ -1148,12 +1232,13 @@ func (g *Game) Update() error {
 			g.updateGuest(gu, 1.0/60)
 		}
 	case ModePlay:
-		g.updatePlay(1.0 / 60)
+		g.updatePlay(1.0 / 60 * g.slowScale()) // slow motion of the last kill (slowmo.go)
+		g.slowTick()
 	case ModeLevelDone:
 		g.time += 1.0 / 60
 		g.updateParticles(1.0 / 60)
-		if actConfirm.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			g.afterLevel()
+		if actConfirm.just() || actBack.just() || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			g.levelDoneContinue()
 		}
 	case ModeFinal:
 		g.time += 1.0 / 60
@@ -1312,13 +1397,25 @@ func (g *Game) updatePlay(dt float64) {
 		g.asPlayer(1, func() { g.coopTrack(1, func() { g.updatePlayer(dt) }) })
 		g.coopUpdate(dt)
 	}
+	g.trackCuffs()
+	g.levelDoneDemoSetup()
+	g.sb.update(g, dt)
+	g.updateHUD(dt)
+	g.updateLevelHint(dt)
+	g.updateMinimapInput()
+	g.updateEmotes(dt)
 	g.seenNow = false
 	g.updateMurder(dt)
 	g.updateSlashers(dt)
 	g.updateArrivals(dt)
 	g.updateStreaker()
+	g.updateBlackout(dt)
+	g.updateFootprints(dt) // prints on sand, snow, mud (footprints.go)
+	g.secretTick(dt)
 	g.updateBubbles(dt)
 	g.updateFloats(dt)
+	g.updateSuit(dt)
+	g.updateVIP(dt)
 	g.updateTraps2(dt)
 	g.updateDuets(dt)
 	g.updateBeams(dt)
@@ -1340,7 +1437,7 @@ func (g *Game) updatePlay(dt float64) {
 				gu := pool[i]
 				gu.famousOK = true
 				gu.cs, gu.name = newCharSet(&spec), nameFromSpec(&spec)
-				gu.quirkInit = false
+				gu.quirkInit, gu.gaitInit = false, false
 				gu.pos = g.lvl.NearestFree(Vec{g.p.pos.X + float64(i)*30 - 60, g.p.pos.Y - 70})
 				gu.state, gu.path = gIdle, nil
 			}
@@ -1362,6 +1459,9 @@ func (g *Game) updatePlay(dt float64) {
 			g.roadCars = append(g.roadCars, &RoadCar{seg: si, pos: start + roadSign(s)*(60+slot*120+float64(si)*20), lat: lat, v0: 1, name: n, length: 40})
 		}
 	}
+	if g.dbgTrap {
+		g.trapDemoTick()
+	}
 	if g.dbgPoison && g.time > 0.5 {
 		g.dbgPoison = false
 		g.p.item, g.p.doses = "poison", poisonDoses
@@ -1375,12 +1475,29 @@ func (g *Game) updatePlay(dt float64) {
 			gu.poisonT0, gu.poisonTick = gu.poison, 1
 		}
 	}
+	if g.dbgAlert { // -alertnow: pinned witnesses (2 for player 1, 1 for player 2) so the "!" stays on
+		for i, gu := range g.guests {
+			ps := g.players()
+			if i >= 3 || len(ps) == 0 {
+				break
+			}
+			p := ps[0]
+			if i == 2 && len(ps) > 1 {
+				p = ps[1]
+			} else if i == 2 {
+				break
+			}
+			gu.sawKiller, gu.sawP, gu.warned = true, p, false
+			gu.state = gCall
+		}
+	}
 	if g.dbgSnake && g.time > 0.3 {
 		g.scatterSnake()
 		g.dbgSnake = false
 		g.dbgSnakeOn = true
 	}
 	g.debugZapStep()
+	g.lastGuestsDemo() // -lastguests N (lastguests.go)
 	if g.dbgCheer && g.time > 1 {
 		g.dbgCheer, g.cheerT = false, 0
 	}
@@ -1419,6 +1536,8 @@ func (g *Game) updatePlay(dt float64) {
 	g.maybeAmbulance()
 	g.updateStars(dt)
 	g.updateSuspect()
+	g.updateCameras(dt) // security cameras: sweep and LED (camera.go)
+	g.updateStealth(dt) // STEALTH mode: who sees the player, alert phases (stealth.go)
 	g.updateJail(dt)
 	if !g.seenNow && g.wanted > 0 {
 		g.wanted -= dt
@@ -1437,6 +1556,10 @@ func (g *Game) updatePlay(dt float64) {
 	if g.dbgCops && g.time > 4 {
 		g.dbgCops = false
 		g.raisePolice(g.p.pos, true)
+	}
+	if g.dbgCamKill && g.time > 3 {
+		g.dbgCamKill = false
+		g.debugCamKill()
 	}
 	if g.dbgRing > 0 && g.time > 2 {
 		for _, gu := range g.guests {
@@ -1507,6 +1630,11 @@ func (g *Game) updatePlayer(dt float64) {
 		p.moving = false
 		return
 	}
+	if p.stunT > 0 { // stunned by the VIP guards: stands there seeing stars
+		p.stunT -= dt
+		p.moving = false
+		return
+	}
 	if actInteract.just() || (inputP == 0 && g.botPressE(dt)) {
 		g.interact()
 	}
@@ -1544,7 +1672,8 @@ func (g *Game) updatePlayer(dt float64) {
 		}
 		g.updatePowers()
 	}
-	if (actDance.just()) && p.carrying == nil && p.danceT <= 0 {
+	whistled := actDance.just() && g.stealthWhistle(p) // STEALTH 2P: the dance key makes the decoy noise (stealth2p.go)
+	if actDance.just() && !whistled && p.carrying == nil && p.danceT <= 0 {
 		p.danceT = 4.5
 		g.say("¡A bailar!")
 		g.stat("dance", 1)
@@ -1581,7 +1710,8 @@ func (g *Game) updatePlayer(dt float64) {
 	if p.carrying != nil {
 		speed *= 0.75
 	}
-	speed *= g.coopSpeedMul(p) // two players: the partner on the shoulders slows him down
+	speed *= g.stealthSpeedMul(p) // the cardboard box is slow (stealth.go)
+	speed *= g.coopSpeedMul(p)    // two players: the partner on the shoulders slows him down
 	if g.lvl.InPool(p.pos) {
 		speed *= 0.6
 		p.running = false
@@ -1618,7 +1748,7 @@ func (g *Game) updatePlayer(dt float64) {
 		p.anim += dt * stridePhase(speed)
 		g.watchStuck(before, dx, dy, dt)
 	}
-	if actAttack.just() {
+	if actAttack.just() && !g.stealthNoAttack() {
 		g.stab()
 	}
 }
@@ -1687,7 +1817,7 @@ func (g *Game) danceRoll() {
 
 func (g *Game) stab() {
 	p := g.p
-	if p.cooldown > 0 || p.hidden || p.dead || p.knockT > 0 {
+	if p.cooldown > 0 || p.hidden || p.dead || p.knockT > 0 || p.stunT > 0 {
 		return
 	}
 	if p.carrying != nil {
@@ -1764,6 +1894,11 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 	if gu.out() {
 		return
 	}
+	cause := g.killCause
+	g.killCause = kcNone
+	if byPlayer || g.credit { // a kill of the player (his hands, his poison, his traps): the statistics
+		g.countKill(cause, true)
+	}
 	gu.dead = true
 	gu.icon = ""
 	if gu.py != nil { // the arsonist: he was not part of the guest count, now he is a body like any other
@@ -1785,10 +1920,16 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 		if gu.cs != nil && gu.cs.Spec != nil && isKidSlug(gu.cs.Spec.Name) {
 			g.stat("kill_"+gu.cs.Spec.Name, 1)
 		}
+		if gu.cs != nil && gu.cs.Spec != nil {
+			g.albumMark(albumKeyOf(gu.cs.Spec.Name), albumKilled)
+		}
 	}
 	g.spawnBody(gu.pos, gu.cs, gu.dir)
 	g.bodies[len(g.bodies)-1].label = guestLabel(gu)
 	g.killByPlayer = false
+	if byPlayer && gu.vipCard {
+		g.vipTakeCard(gu) // his VIP invitation is yours (vip.go)
+	}
 	if gu.partner != nil && gu.partner.partner == gu {
 		gu.partner.partner = nil
 		if gu.partner.state == gChat || gu.partner.state == gKiss || gu.partner.state == gWaitP {
@@ -1798,13 +1939,13 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 	if byPlayer {
 		g.snd.Play("stab")
 		g.kills++
-		g.points += 30
+		g.points += g.killVal(30)
 		g.witness()
 		g.sayNews("kill_player", map[string]string{"victim": guestLabel(gu)})
 	} else {
 		g.snd.Play("thud")
 		if g.credit {
-			g.award(gu.pos, 50, "")
+			g.award(gu.pos, g.killVal(50), "")
 		}
 	}
 	g.checkDone()
@@ -1812,6 +1953,9 @@ func (g *Game) killGuest(gu *Guest, byPlayer bool) {
 
 func (g *Game) killGuard(gd *Guard) {
 	if gd.dead {
+		return
+	}
+	if g.vipTough(gd) { // a tough VIP takes several blows (vip.go)
 		return
 	}
 	gd.dead = true
@@ -1823,15 +1967,31 @@ func (g *Game) killGuard(gd *Guard) {
 	g.killByPlayer = false
 	g.snd.Play("stab")
 	g.kills++
-	g.points += 50
+	g.countKill(kcKnife, false)
+	g.points += g.killVal(50)
 	g.witness()
+	g.vipOnKill(gd)
 	g.checkDone()
 }
 
 func (g *Game) checkDone() {
+	if g.aliveCount() == 0 && g.mode == ModePlay && g.stealth {
+		g.stealthWin() // STEALTH mode: its own ending, nothing is banked or unlocked
+		return
+	}
 	if g.aliveCount() == 0 && g.mode == ModePlay {
+		if !g.slowBegin() { // the very last kill of the party: a moment of slow motion first (slowmo.go)
+			g.completeLevel()
+		}
+	}
+}
+
+// completeLevel: the party is over (everybody is out): bonuses, bank, unlock and the next screen.
+func (g *Game) completeLevel() {
+	if g.mode == ModePlay {
 		g.endTime = g.time
 		g.snd.Play("win")
+		g.finishScore() // completion bonuses and the x5 of the RETO (levelscore.go), before banking
 		g.bankPoints()
 		g.unlockNext()
 		g.stat("wins", 1)
@@ -1853,13 +2013,13 @@ func (g *Game) checkDone() {
 			if g.seen("seen_end2") && debugSnap == nil {
 				g.mode = ModeLevelDone // played again from the list: no new ending, it can be watched in SCENES
 			} else {
-				g.startEnding(true)
+				g.startEndingPre(true)
 			}
 		case campaignN > 0 && g.levelIdx == campaignN-1: // the 21st party closes the story
 			if g.allTrophies() {
-				g.startInvite() // ...unless you own every trophy: one more party, on the island
+				g.startInvitePre() // ...unless you own every trophy: one more party, on the island
 			} else {
-				g.startEnding(false)
+				g.startEndingPre(false)
 			}
 		case g.levelIdx+1 < len(levelDefs):
 			g.mode = ModeLevelDone
@@ -1917,17 +2077,25 @@ func (g *Game) witness() {
 		if g.canWatch(gu) && g.sees(gu.pos, gu.dir, p.pos, guestRange, guestDot) {
 			gu.sawKiller = true
 			gu.sawPos = p.pos
+			gu.sawP, gu.warned = p, false
 			seers = append(seers, gu)
 		}
 	}
-	saw := len(seers) > 0 || g.copSeesAt(p.pos)
+	direct := g.copSeesAt(p.pos) // an officer saw it himself: the police know at once
+	saw := len(seers) > 0 || direct
 	for _, gd := range g.guards {
 		if !gd.dead && g.sees(gd.pos, gd.dir, p.pos, guardRange*1.4, guardDot) {
 			saw = true
 		}
 	}
 	if saw {
-		g.suspectSeen(suspPlayer, nil) // the last one seen killing is the one they want
+		g.run.seen[g.playerIndex(p)]++      // statistics: somebody saw this kill
+		g.run.cleanAt[g.playerIndex(p)] = 0 // ...so it is not a clean kill
+	}
+	if saw {
+		// the last one seen killing is the one they want; only an officer's sighting puts the cuffs
+		// on now, a guest's sighting is an ALERT until he warns the police (suspect.go)
+		g.suspectSeenBy(suspPlayer, nil, direct)
 	}
 	if len(seers) > 0 && len(g.bodies) > 0 {
 		last := g.bodies[len(g.bodies)-1]
@@ -1956,6 +2124,7 @@ func (g *Game) witness() {
 			g.wanted = math.Max(g.wanted, 45)
 		}
 	}
+	g.cameraWitness() // a security camera with the killer in its cone is a direct witness (camera.go)
 }
 
 func (g *Game) alarm(gu *Guest, txt string) {
@@ -2051,7 +2220,13 @@ type candidate struct {
 
 func (g *Game) interact() {
 	p := g.p
+	if g.pickupInteract(p) { // poison and clothes can ALWAYS be picked up (items.go), before anything else
+		return
+	}
 	if g.coopInteract(p) { // two players: pick up / put down the partner, distract a cop, high five
+		return
+	}
+	if g.stealthInteract(p) { // STEALTH mode: put on / take off the cardboard box
 		return
 	}
 	if p.hidden {
@@ -2090,8 +2265,6 @@ func (g *Game) interact() {
 				g.say("Has cortado el cable del teléfono")
 				g.award(Vec{pr.X, pr.Y}, 25, "cable")
 			}})
-		case k.Item != "" && p.carrying == nil && p.item == "":
-			cs = append(cs, candidate{d - 4, func() { g.pickItem(pr) }})
 		case k.Poison && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
 				if pr.armT > 0 {
@@ -2120,13 +2293,9 @@ func (g *Game) interact() {
 					g.say("Un armario: puedes cambiarte aquí si te buscan")
 				}
 			}})
-		case k.Trap != "" && !pr.used && pr.armT == 0 && p.carrying == nil:
+		case k.Trap != "" && !pr.used && pr.armT == 0 && !pr.armed && !pr.armWait && p.carrying == nil:
 			cs = append(cs, candidate{d, func() {
-				pr.armT = 3
-				if k.Trap == "electric" {
-					pr.armT = 1.5
-				}
-				g.coopOwn(pr, p)
+				g.armTrap(pr, p)
 				g.say("Trampa activada. ¡Aléjate!")
 			}})
 		}
@@ -2232,15 +2401,8 @@ func (g *Game) updateProps(dt float64) {
 			}
 			continue
 		}
-		if pr.armT > 0 {
-			pr.armT -= dt
-			if int(pr.armT*8)%2 == 0 {
-				g.burst(Vec{pr.X, pr.Y - 16}, 1, 30, rgb(0xffd040), 0.3, 1, 60)
-			}
-			if pr.armT <= 0 {
-				pr.armT = 0
-				g.triggerTrap(pr)
-			}
+		if pr.armT > 0 || pr.armed || pr.armWait {
+			g.updateTrapMine(pr, dt) // loads, then waits like a mine (trapmine.go)
 		}
 	}
 }
@@ -2265,6 +2427,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 		g.decals = append(g.decals, Decal{pos: Vec{pr.X, pr.Y}, kind: 1, r: 22})
 		for _, gu := range g.guests {
 			if !gu.out() && dist(gu.pos, centre) < 64 {
+				g.killCause = kcBlast
 				g.killGuest(gu, false)
 				g.stat("traps", 1)
 			}
@@ -2272,14 +2435,15 @@ func (g *Game) triggerTrap(pr *Prop) {
 		for _, gd := range g.guards {
 			if !gd.dead && dist(gd.pos, centre) < 64 {
 				gd.dead = true
-				g.points += 50
+				g.countKill(kcBlast, false)
+				g.points += g.killVal(50)
 				g.spawnBody(gd.pos, gd.cs, gd.dir)
 				g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
 			}
 		}
 		g.trapCops(centre, 64)
 		g.eachPlayer(func(p *Player) {
-			if !p.dead && dist(p.pos, centre) < 58 && !g.coopSpare(p, centre) {
+			if !p.dead && dist(p.pos, centre) < 58 {
 				g.die("Has saltado por los aires con tu propia trampa")
 			}
 		})
@@ -2300,6 +2464,7 @@ func (g *Game) triggerTrap(pr *Prop) {
 		for _, gu := range g.guests {
 			if !gu.out() && g.lvl.InPool(gu.pos) {
 				g.burst(Vec{gu.pos.X, gu.pos.Y - 12}, 10, 70, rgb(0xd0f4ff), 0.4, 2, 0)
+				g.killCause = kcTrap
 				g.killGuestElec(gu, false)
 				g.sayNews("electrocuted", map[string]string{"victim": guestLabel(gu)})
 				g.stat("traps", 1)
@@ -2487,6 +2652,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			gu.quirk = quirkOf(gu.cs.Spec.Name)
 		}
 	}
+	g.gaitInit(gu)
 	if gu.quirk != "" {
 		g.updateQuirk(gu, dt)
 	}
@@ -2499,6 +2665,10 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 		return
 	}
 	gu.moving = false
+	if gu.vipStun > 0 { // stunned by the VIP guards: stands there seeing stars
+		gu.vipStun -= dt
+		return
+	}
 	if gu.py != nil {
 		g.updatePyro(gu, dt)
 		return
@@ -2762,6 +2932,7 @@ func (g *Game) updateGuest(gu *Guest, dt float64) {
 			}
 			if g.callerGuest == gu {
 				g.callerGuest = nil
+				g.guestWarned(gu) // the warning is given: the alert becomes the cuffs
 				g.callPolice(gu, gu.sawKiller)
 			}
 			gu.state, gu.timer = gIdle, 3
@@ -2892,6 +3063,7 @@ func (g *Game) guestScan(gu *Guest) {
 	p := g.p
 	if p.carrying != nil && !p.hidden && g.sees(gu.pos, gu.dir, p.pos, guestRange, guestDot) {
 		gu.sawKiller = true
+		gu.sawP, gu.warned = p, false
 		if g.callerAvailable() {
 			g.becomeCaller(gu)
 		} else {
@@ -3032,8 +3204,11 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 			gd.icon = ""
 		}
 	}
+	if gd.vip != 0 && g.updateVIPGuard(gd, dt) { // VIP staff: stands still until somebody walks in (vip.go)
+		return
+	}
 	p := g.p
-	if gd.state != gdBeat && gd.state != gdChase && gd.state != gdReact {
+	if gd.vip == 0 && gd.state != gdBeat && gd.state != gdChase && gd.state != gdReact {
 		rng := guardRange
 		if gd.special {
 			rng *= 1.3
@@ -3041,7 +3216,7 @@ func (g *Game) updateGuard(gd *Guard, dt float64) {
 		if g.wanted > 0 || p.carrying != nil {
 			rng *= 1.4
 		}
-		if !p.hidden && !p.dead && g.sees(gd.pos, gd.dir, p.pos, rng, guardDot) {
+		if !p.hidden && !p.dead && !g.stealthBoxed(p) && g.sees(gd.pos, gd.dir, p.pos, rng, guardDot) {
 			rate := 1.0
 			if dist(gd.pos, p.pos) < 45 {
 				rate = 2.5
@@ -3316,13 +3491,7 @@ func (g *Game) raisePolice(at Vec, informed bool) {
 	if g.alertPos == (Vec{}) {
 		g.alertPos = at
 	}
-	if !informed {
-		for _, gu := range g.guests {
-			if !gu.out() && gu.sawKiller {
-				informed = true
-			}
-		}
-	}
+	// (a witness who has NOT warned yet no longer counts as "informed": see suspect.go)
 	if informed {
 		if !g.playerCleared() {
 			g.wanted = 70
@@ -4470,7 +4639,7 @@ func (g *Game) testLevel(name string) {
 	idx := g.levelIndexByName(name)
 	g.fromEditor = true
 	ebiten.SetWindowSize(gameWinW, gameWinH)
-	ebiten.SetWindowTitle("Party Hard - probando escenario (Esc vuelve al editor)")
+	ebiten.SetWindowTitle("Party Hardy - probando escenario (Esc vuelve al editor)")
 	g.startLevel(idx)
 }
 

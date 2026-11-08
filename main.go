@@ -39,14 +39,16 @@ func main() {
 	gbenchF := flag.Int("gamebench", 0, "game: run this many frames, print ms per frame of Update and Draw and quit (debug)")
 	benchF := flag.Int("edbench", 0, "editor: run this many frames, print ms per frame and quit (debug)")
 	trophyOvF := flag.Bool("trophyov", false, "open the trophies window at once (debug)")
+	helpOvF := flag.Bool("helpov", false, "open the controls help window at once (debug)")
 	profF := flag.String("cpuprofile", "", "write a CPU profile to this file (debug)")
 	jurF := flag.Bool("jurassic", false, "start the island of the last party directly (debug)")
 	debugEd := flag.Int("edorig", 0, "editor: debug mode on, open the n-th (1..21) original scenario (debug)")
 	scenesF := flag.Int("scenes", 0, "open the scenes list; 1 pretends the first ending was seen, 2 pretends everything was (debug)")
 	interF := flag.Int("interlude", 0, "play a story interlude directly: 5 (car), 10 (boat) or 20 (rocket) (debug)")
-	endStageF := flag.Int("endstage", 0, "with -ending: start at this stage (1 walk, 2 door, 3 bed, 4 credits, 5 stinger, 6 final) (debug)")
+	endStageF := flag.Int("endstage", 0, "with -ending: start at this stage (1 walk, 2 door, 3 bed, 4 credits, 5 stinger, 6 final, 7 arrival, 8 prelude of the ending, 9 party, 10 the LETTER prelude of the space station on its own) (debug)")
 	endAtF := flag.Float64("endat", 0, "with -endstage: seconds into the stage (debug)")
 	jpUnlF := flag.Bool("jpunlocked", false, "pretend the island is unlocked and open the list of parties (debug)")
+	jpArrF := flag.Bool("jparrival", false, "play the helicopter arrival on the island (after the letter) and then the island (debug; with -players 2 for two)")
 	invAutoF := flag.Float64("inviteauto", 0, "the invitation presses continue by itself at this second (debug)")
 	firstRunF := flag.Bool("firstrun", false, "pretend it is the first time: empty progress in memory, nothing is saved (debug)")
 	introF := flag.Bool("intro", false, "play the intro directly (debug)")
@@ -80,12 +82,28 @@ func main() {
 	pyroF := flag.Bool("pyronow", false, "the arsonist walks into the party a moment after the start (debug)")
 	zapF := flag.Bool("zapnow", false, "electrocute a few guests next to the player a moment after the start (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
+	vipDemoF := flag.String("vipdemo", "", "VIP zone demo: gate | inside | suit | relief | invite | stun (debug)")
 	poisonF := flag.Bool("poisonnow", false, "poison in the pocket and four poisoned guests next to the player (debug)")
+	trapDemoF := flag.Bool("trapdemo", false, "the two traps nearest to the start: one half loaded (circle), one armed (LED and radius), held still (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
 	twoDeadF := flag.Int("twodead", 0, "with two players: player 1 or 2 starts dead and the other calls the ambulance (debug)")
 	twoCuffF := flag.Bool("twocuff", false, "two players: the police are called at 3 s and both are suspects (debug)")
 	twoJailF := flag.Int("twojail", 0, "two players: player 1 is caught at 3 s (1) or has 5 s left of the minute in custody (2) (debug)")
+	lastGuestsF := flag.Int("lastguests", -1, "half a second in, only N people stay alive: 1-3 shows the last-guests marker, 0 ends the party to see the slow motion of the last kill (debug, progress frozen)")
+	noHintF := flag.Bool("nohint", false, "no level hint plate at the start of a party (debug)")
+	minimapF := flag.Bool("minimap", false, "start with the minimap on (TAB or Start switches it) (debug, progress frozen)")
+	noEmoteF := flag.Bool("noemotes", false, "no emote icons over the guests (debug)")
+	killerF := flag.Bool("killer", false, "force a special killer at ~6 s in every party (debug, progress frozen)")
+	blackoutF := flag.Bool("blackout", false, "force the BLACKOUT event at ~3 s of the party, 10 s long (debug, progress frozen)")
+	camKillF := flag.Bool("camkill", false, "in a level with a camera (3, 5-ish: house party, disco, cinema, casino, station): at ~3 s a guest is killed in front of the camera, to see the red LED/cone and WANTED (debug)")
+	stealthBoxF := flag.Bool("stealthbox", false, "with -stealth: start with the cardboard box already on (debug)")
+	copMemF := flag.Bool("copmemory", false, "DEBUG option on: a scared witness who meets an officer or a guard tells on you (suspect.go) (debug)")
+	stealthF := flag.Bool("stealth", false, "play the STEALTH mode (win a party unseen, cardboard box on E), with -level N for the party (debug)")
+	stealth2F := flag.Bool("stealth2p", false, "play the STEALTH mode with TWO players: 1 decoy (noise on F), 2 sneaks past; with -level N for the party (debug)")
+	challengeF := flag.Bool("challenge", false, "RETO on from the start: x3 per kill, x5 to the total when the party is completed (the C key of the party list does the same) (debug)")
+	levelDoneDemoF := flag.Int("leveldonedemo", 0, "show the end-of-level newspaper at once with sample data; 1 or 2 players (with -players 2) (debug)")
+	alertNowF := flag.Bool("alertnow", false, "a pending witness over each player so the \"!\" alert can be seen (debug)")
 	coopDemoF := flag.Int("coopdemo", 0, "two players: 1 scoreboard, 2 dance duet and marked trap, 3 carrying the partner (debug)")
 	twopF := flag.Bool("twop", false, "start every party with two players, without saving the choice (debug)")
 	solidsF := flag.Bool("solids", false, "draw every solid rectangle in red (debug)")
@@ -98,6 +116,7 @@ func main() {
 	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
 	dbgF := flag.Bool("debugscreen", false, "open the DEBUG screen (debug)")
 	immF := flag.Bool("immune", false, "start with the immunity halo on (debug)")
+	albumDemoF := flag.Int("albumdemo", 0, "open the TROFEOS screen on the album page with example cards: 1 a few unlocked, 2 all (debug, progress frozen, nothing saved)")
 	trophyF := flag.Bool("trophyscreen", false, "open the trophies screen (debug)")
 	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
 	wardF := flag.Int("wardrobe", 0, "open the wardrobe with 1 or 2 players, with some clothes lent (debug, progress frozen)")
@@ -116,7 +135,12 @@ func main() {
 	gentest := flag.Int("gentest", 0, "generate N levels of every kind and report (debug)")
 	expM := flag.String("exportmusic", "", "render a batch of mp3 songs into this folder (needs ffmpeg) and exit")
 	batchF := flag.Int("musicbatch", 2, "batch number for -exportmusic (a new number gives new songs)")
+	flag.Bool("visible", false, "force a normal visible window even with debug flags (quiet mode off)")
 	flag.Parse()
+	quiet := quietMode(flag.CommandLine, os.Getenv("PH_QUIET"))
+	if debugFlagsActive(flag.CommandLine) {
+		progressFrozen = true // any debug/capture/benchmark flag: freeze the progress BEFORE any level or save
+	}
 	if *bowlKidsF {
 		bowlRateDiv = 0.5
 	}
@@ -162,7 +186,7 @@ func main() {
 	sc = wholeWindowScale(sc)
 	gameWinW, gameWinH = int(screenW*sc), int(screenH*sc)
 	ebiten.SetWindowSize(gameWinW, gameWinH)
-	ebiten.SetWindowTitle("Party Hard - Fiesta Nocturna")
+	ebiten.SetWindowTitle("Party Hardy - Fiesta Nocturna")
 	if im, err := png.Decode(bytes.NewReader(iconPNG)); err == nil {
 		ebiten.SetWindowIcon([]image.Image{im})
 	}
@@ -177,6 +201,7 @@ func main() {
 		gameLang, editorLang = *langF, *langF
 	}
 	g := newGame(*mute)
+	twoPlayerMode = resolvePlayers(*playersF, twoPlayerMode) // before any startLevel; never saved
 	if *twoDeadF > 0 {
 		dbgTwoDead, dbgTwoPlayers, twoPlayerMode = *twoDeadF, true, true
 	}
@@ -239,14 +264,44 @@ func main() {
 		*level = len(levelDefs)
 	}
 	fastEv = *fastEvents
-	if *level > 0 {
+	*level = demoLevel(*level, *levelDoneDemoF, *stealthF || *stealth2F)
+	if *level > 0 && !*stealthF && !*stealth2F {
 		g.startLevel(*level - 1)
+	}
+	g.dbg.copMemory = *copMemF
+	g.dbgCamKill = *camKillF
+	dbgLastGuests = *lastGuestsF
+	if *noHintF {
+		levelHintOn = false
+	}
+	if *minimapF {
+		minimapOn = true
+	}
+	if *noEmoteF {
+		emotesOn = false
+	}
+	if *killerF {
+		dbgKiller = true
+		g.killerLevelReset()
+	}
+	if *blackoutF {
+		dbgBlackout = true
+		g.blackoutLevelReset()
+	}
+	if *stealthF || *stealth2F {
+		progressFrozen = true
+		if *stealth2F {
+			g.startStealth2P(maxI(*level-1, 0))
+		} else {
+			g.startStealth(maxI(*level-1, 0))
+		}
+		g.sth.box = *stealthBoxF
 	}
 	if *scenesF > 0 {
 		progressFrozen = true
 		g.progress.Stats = map[string]int{"seen_end1": 1}
 		if *scenesF > 1 {
-			g.progress.Stats = map[string]int{"seen_end1": 1, "seen_end2": 1, "seen_invite": 1, "seen_interlude5": 1}
+			g.progress.Stats = debugAllSeen()
 		}
 		g.sceneSel = *edtab
 		g.mode = ModeScenes
@@ -259,23 +314,31 @@ func main() {
 		progressFrozen = true
 		if *interF >= 20 {
 			g.startInterlude(interRocket, 20)
+		} else if *interF >= 15 {
+			g.startInterlude(interBalloon, 15)
 		} else if *interF >= 10 {
 			g.startInterlude(interBoat, 10)
 		} else {
 			g.startInterlude(interCar, 5)
 		}
 	}
+	if *endStageF == endStageLetter && *endF == 0 {
+		*endF = 3 // -endstage 10 alone: the letter prelude of the station, no other flag needed
+	}
 	if *endF > 0 {
 		progressFrozen = true
 		switch *endF {
 		case 1:
-			g.startEnding(false)
+			g.startEndingPre(false)
 		case 2:
-			g.startEnding(true)
+			g.startEndingPre(true)
 		default:
-			g.startInvite()
+			g.startInvitePre()
 		}
-		if *endStageF > 0 && g.end != nil {
+		if *endStageF == endStageLetter && g.end != nil { // the prelude of the letter (space station), whatever the ending
+			g.enterPrelude(preLetter)
+			g.end.t, g.end.total = *endAtF, *endAtF
+		} else if *endStageF > 0 && g.end != nil {
 			g.end.stage, g.end.t = *endStageF, *endAtF
 			g.end.total = *endAtF
 			g.end.heroX = 980 - *endAtF*870/endLenFor(endWalk, g.end.trueEnd)
@@ -296,15 +359,16 @@ func main() {
 		progressFrozen = true
 		g.startLevel(specialJurassic)
 	}
+	if *jpArrF {
+		progressFrozen = true
+		g.startArrival()
+	}
 	if *vlaneF && g.lvl != nil && g.lvl.Def.Transit != "" {
 		d := g.lvl.Def
 		d.CarFrom, d.CarTo, d.ParkX0, d.ParkX1 = Vec{935, -60}, Vec{935, 420}, 0, 0
 	}
 	g.forceEv = *eventF
 	g.forceAmb = *ambF
-	if *playersF == 1 || *playersF == 2 {
-		twoPlayerMode = *playersF == 2
-	}
 	if *menuDbgF {
 		g.debugMenu = true
 	}
@@ -348,7 +412,12 @@ func main() {
 		g.dbgWith = strings.Split(*withF, ",")
 	}
 	g.dbgSnake = *snakeF
+	dbgVIPDemo = *vipDemoF
 	g.dbgPoison = *poisonF
+	g.dbgTrap = *trapDemoF
+	g.dbgAlert = *alertNowF
+	g.challenge = *challengeF
+	levelDoneDemo = *levelDoneDemoF
 	g.dbgRing = *ringF
 	if *kidsF {
 		g.kidPlan = []kidPlan{{"sam_sam", 3, false}, {"cesar", 6, false}, {"diego", 9, false}}
@@ -359,6 +428,11 @@ func main() {
 		g.trophySel = *edtab
 		g.progress.Trophies = map[string]bool{"t_first": true}
 		g.toasts = []trophyToast{{name: "Primera sangre", reward: "Gorro de novato", t: 0.2}}
+	}
+	if *albumDemoF > 0 {
+		progressFrozen = true
+		g.mode = ModeTrophies
+		g.albumDemo(*albumDemoF)
 	}
 	if *shopF {
 		g.mode = ModeShop
@@ -391,6 +465,7 @@ func main() {
 	}
 	g.shot, g.shotTick = *shot, *shotTick
 	g.trophyOv = *trophyOvF
+	g.helpOv = *helpOvF
 	if *shot != "" || *benchF > 0 || *gbenchF > 0 {
 		progressFrozen = true // screenshots and benchmarks never touch the real progress
 	}
@@ -411,7 +486,14 @@ func main() {
 	if *gbenchF > 0 {
 		rg = &benchGame{Game: g, n: *gbenchF}
 	}
-	if err := ebiten.RunGame(rg); err != nil && err != ebiten.Termination {
+	var runErr error
+	if quiet {
+		quietSetup()
+		runErr = ebiten.RunGameWithOptions(&quietGame{Game: rg}, quietOptions())
+	} else {
+		runErr = ebiten.RunGame(rg)
+	}
+	if err := runErr; err != nil && err != ebiten.Termination {
 		log.Fatal(err)
 	}
 }
@@ -519,4 +601,44 @@ func plainStartFor(fs *flag.FlagSet) bool {
 		}
 	})
 	return plain
+}
+
+// resolvePlayers: the effective 2-player switch. -players 1 / 2 forces it; any other value keeps the saved one.
+// demoLevel: -leveldonedemo needs a party in progress to show the end-of-level screen over; without -level N it
+// would wait on the title / the beds cinematic, so it starts level 1 (the screen then comes up at once).
+func demoLevel(level, demo int, stealth bool) int {
+	if demo > 0 && level == 0 && !stealth {
+		return 1
+	}
+	return level
+}
+
+func resolvePlayers(flagVal int, saved bool) bool {
+	if flagVal == 1 || flagVal == 2 {
+		return flagVal == 2
+	}
+	return saved
+}
+
+// debugFlagsActive: some debug, capture or benchmark flag was given (anything but the normal-use ones:
+// -mute, -lang, -noassets, -title, -notitle, -editor). Then the real progress must never be written.
+func debugFlagsActive(fs *flag.FlagSet) bool {
+	active := false
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "mute", "lang", "noassets", "title", "notitle", "editor", "visible":
+		default:
+			active = true
+		}
+	})
+	return active
+}
+
+// debugAllSeen: the "seen" marks of a player who has watched every cinematic (-scenes 2).
+func debugAllSeen() map[string]int {
+	m := map[string]int{}
+	for _, k := range []string{"seen_end1", "seen_end2", "seen_invite", "seen_interlude5", "seen_interlude10", "seen_interlude15", "seen_interlude20", "seen_intro", "seen_arrival"} {
+		m[k] = 1
+	}
+	return m
 }

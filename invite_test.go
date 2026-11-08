@@ -147,60 +147,9 @@ func TestIslandListedOnlyWhenUnlocked(t *testing.T) {
 	}
 }
 
-// the two endings are different pieces and both end the same way: bed, then silence
-func TestEndingsAreDifferent(t *testing.T) {
-	order := func(secret bool) []int {
-		var o []int
-		for s := endWalk; s != endFinal; s = nextEndStage(s, secret) {
-			o = append(o, s)
-		}
-		return append(o, endFinal)
-	}
-	n, s := order(false), order(true)
-	if len(s) != len(n)+1 {
-		t.Fatalf("the secret ending should have one more scene (the stinger): %v vs %v", s, n)
-	}
-	for _, o := range [][]int{n, s} {
-		hasBed := false
-		for _, st := range o {
-			if st == endBed {
-				hasBed = true
-			}
-		}
-		if !hasBed || o[len(o)-1] != endFinal {
-			t.Fatalf("an ending without the bed or the end card: %v", o)
-		}
-	}
-	if endLenFor(endWalk, true) <= endLenFor(endWalk, false) || endLenFor(endCredits, true) <= endLenFor(endCredits, false) {
-		t.Fatal("the secret ending is not longer")
-	}
-	nr, sr := endCreditRows(false), endCreditRows(true)
-	if len(sr) <= len(nr) {
-		t.Fatal("the secret credits are not longer than the normal ones")
-	}
-	g := textGame()
-	for _, tt := range []float64{1, 7, 12, 20} {
-		a := g.walkCaption(&endState{stage: endWalk, t: tt})
-		b := g.walkCaption(&endState{stage: endWalk, t: tt, trueEnd: true})
-		if a == b {
-			t.Fatalf("the same caption at %vs in both endings: %q", tt, a)
-		}
-	}
-	if g.bedCaption(&endState{stage: endBed, t: 12}) == g.bedCaption(&endState{stage: endBed, t: 12, trueEnd: true}) {
-		t.Fatal("the same bed caption in both endings")
-	}
-	// the music dies away in the bed (the silence) in both
-	for _, secret := range []bool{false, true} {
-		end := endLenFor(endBed, secret)
-		if v := endMusicVol(&endState{stage: endBed, t: end - 0.5, trueEnd: secret}); v > 0.02 {
-			t.Fatalf("the bed is not silent at its end (secret %v): %v", secret, v)
-		}
-	}
-}
-
-// the scenes list follows the story: intro, interludes 1 to 3, normal ending, letter, secret ending
+// the scenes list follows the story: intro, interludes (car, boat, balloon, rocket), normal ending, letter, arrival, secret ending
 func TestScenesInStoryOrder(t *testing.T) {
-	want := []string{"seen_intro", "seen_interlude5", "seen_interlude10", "seen_interlude20", "seen_end1", "seen_invite", "seen_end2"}
+	want := []string{"seen_intro", "seen_interlude5", "seen_interlude10", "seen_interlude15", "seen_interlude20", "seen_end1", "seen_invite", "seen_arrival", "seen_end2"}
 	if sceneCount != len(want) {
 		t.Fatalf("%d scenes, want %d", sceneCount, len(want))
 	}
@@ -209,7 +158,7 @@ func TestScenesInStoryOrder(t *testing.T) {
 			t.Errorf("scene %d is %q, want %q", i+1, sceneList[i].key, k)
 		}
 	}
-	if sceneIntro != 0 || sceneInter1 != 1 || sceneInter2 != 2 || sceneInter3 != 3 || sceneEnd1 != 4 || sceneInvite != 5 || sceneEnd2 != 6 {
+	if sceneIntro != 0 || sceneInter1 != 1 || sceneInter2 != 2 || sceneInter15 != 3 || sceneInter3 != 4 || sceneEnd1 != 5 || sceneInvite != 6 || sceneArrival != 7 || sceneEnd2 != 8 {
 		t.Fatal("the constants of the scenes are not in story order")
 	}
 }

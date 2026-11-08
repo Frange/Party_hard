@@ -90,7 +90,11 @@ func (g *Game) rocketTwoSay(dst *ebiten.Image, in *interState) {
 	x2, y2, _ := g.rocketHeroPos2(t)
 	h := rocketHeight(t)
 	cam := rocketCam(t)
-	say := func(s string) { g.speechBubble(dst, x2+10, y2-h+cam-34*interScale-4+70*b2f(t >= rkBoard), s) }
+	// once he is in the barrel the bubble floats above the toilet and the heads (not on them), a bit to
+	// the right so it clears the countdown digit
+	say := func(s string) {
+		g.speechBubble(dst, x2+10+40*b2f(t >= rkBoard), y2-h+cam-34*interScale-4+3*b2f(t >= rkBoard), s)
+	}
 	hx, hy, _ := g.rocketHeroPos(t)
 	say1 := func(s string) { g.speechBubble(dst, hx+10, hy-h+cam-34*interScale-4+70*b2f(t >= rkBoard), s) }
 	switch {
@@ -102,15 +106,15 @@ func (g *Game) rocketTwoSay(dst *ebiten.Image, in *interState) {
 				say(interTwoLines[1][k%len(interTwoLines[1])])
 			}
 		}
-	case t >= rkAsk+0.6 && t < rkTicket-0.2:
+	case t >= rkAsk+0.3 && t < rkTicket+0.5:
 		say("¡Lo tenía por aquí!")
 	case t >= rkTicket+0.9 && t < rkBoard:
 		say("¿Vale un chicle?")
-	case t >= rkBoard+1.0 && t < rkBoard+2.2:
+	case t >= rkBoard+0.9 && t < rkBoard+2.0:
 		say("¡Yo me pido delante!")
-	case t >= rkCount0+0.2 && t < rkCount0+2.0:
+	case t >= rkCount0+0.2 && t < rkCount0+1.3:
 		say("¡¡Más deprisa!!")
-	case t >= rkCount0+2.2 && t < rkCount0+3.6:
+	case t >= rkFizzle+0.6 && t < rkFizzle+1.5:
 		say1("Paciencia.")
 	case t >= rkFizzle+0.05 && t < rkFizzle+0.55:
 		say("¡¡LO SABÍA!!")

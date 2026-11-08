@@ -30,7 +30,7 @@ func TestCoopOnePlayerIsUntouched(t *testing.T) {
 		t.Fatal("coopTrack must just run the function with one player")
 	}
 	g.coopUpdate(0.1)
-	if g.coopInteract(g.p) || g.coopBlockStab(g.p) || g.coopHidden(g.p) || g.coopSpeedMul(g.p) != 1 || g.coopSpare(g.p, Vec{}) {
+	if g.coopInteract(g.p) || g.coopBlockStab(g.p) || g.coopHidden(g.p) || g.coopSpeedMul(g.p) != 1 {
 		t.Fatal("one player: no cooperative behaviour")
 	}
 }
@@ -227,55 +227,16 @@ func TestCoopDanceBet(t *testing.T) {
 	}
 }
 
-func TestCoopCrossedTrapsOnlyStun(t *testing.T) {
+func TestCoopCrossedTrapsKillBoth(t *testing.T) {
 	g := coopGame(t)
 	k := &PropKind{Trap: "explode", H: 20}
 	trap := &Prop{Name: "bomb", K: k, X: 205, Y: 200, Foot: Rect{200, 196, 10, 8}}
 	g.lvl.Props = append(g.lvl.Props, trap)
-	// player 2 armed it, player 1 is next to it: he is stunned, not killed
 	g.coopOwn(trap, g.p2)
 	trap.armT = 0.5
 	g.triggerTrap(trap)
-	if g.p.dead {
-		t.Fatal("the partner's trap never kills him")
-	}
-	if g.p.knockT < trapStunT-0.01 {
-		t.Fatalf("he is stunned for %.0f s, knockT=%.2f", trapStunT, g.p.knockT)
-	}
-	if g.p2.knockT > 0 && !g.p2.dead {
-		// the owner is next to the trap too (10 px): his own trap does kill him
-		t.Fatal("the owner is not stunned")
-	}
-	if !g.p2.dead && g.mode == ModePlay {
-		t.Fatal("the owner standing next to his own trap dies as always")
-	}
-}
-
-func TestCoopSpareRules(t *testing.T) {
-	g := coopGame(t)
-	trap := &Prop{Name: "bomb", K: &PropKind{Trap: "explode", H: 10}, X: 200, Y: 200}
-	// nobody's trap: no sparing
-	g.coop.lastTrap, g.coop.lastTrapT = trap, g.time
-	if g.coopSpare(g.p, Vec{200, 200}) {
-		t.Fatal("a trap nobody armed (the level's own) kills as always")
-	}
-	g.coopOwn(trap, g.p) // player 1's own trap
-	g.coop.lastTrap, g.coop.lastTrapT = trap, g.time
-	if g.coopSpare(g.p, Vec{200, 200}) {
-		t.Fatal("his own trap kills him as always")
-	}
-	if !g.coopSpare(g.p2, Vec{200, 200}) {
-		t.Fatal("the partner is spared")
-	}
-	// an old trap or a far one does not count
-	g.p2.knockT = 0
-	g.time += 20
-	if g.coopSpare(g.p2, Vec{200, 200}) {
-		t.Fatal("a trap that went off 20 s ago is not the cause")
-	}
-	g.coop.lastTrapT = g.time
-	if g.coopSpare(g.p2, Vec{900, 900}) {
-		t.Fatal("far from the trap")
+	if !g.p.dead || !g.p2.dead {
+		t.Fatalf("a trap hurts anybody: p1 dead=%v p2 dead=%v", g.p.dead, g.p2.dead)
 	}
 }
 

@@ -128,7 +128,7 @@ type LevelDef struct {
 	ParkX1      float64
 	Slow        []Rect // walkable ground that slows the player
 	Windows     []Rect // solid, but the player can jump through with E
-	Sign        string // a neon wall sign (gradient text with a glow backing), e.g. "PARTY HARD"
+	Sign        string // a neon wall sign (gradient text with a glow backing), e.g. "PARTY HARDY"
 	SignPos     Vec
 	PaintBG     func() *ebiten.Image // a background painted by code (built the first time the level is shown)
 	RoadCar     string               // vehicle that drives the roads (default: ordinary cars)
@@ -143,6 +143,10 @@ type Prop struct {
 	Var     int
 	Foot    Rect
 	armT    float64
+	armed   bool    // a trap that finished loading: it waits like a mine (trapmine.go)
+	by      *Player // who armed it
+	armWait bool    // loaded but a player is still inside the radius: it becomes armed when nobody of the team is (trapmine.go)
+	armedAt float64 // g.time when it became armed (blinking LED)
 	used    bool
 	on      bool
 	techBy  *Tech // a technician is on his way to repair this cut phone
@@ -175,12 +179,13 @@ type Level struct {
 	bowls     []Rect // the skate bowls: only the player, the kids, the police and the killers may step in
 	extraGrow float64
 	bg        *ebiten.Image
-	graded    bool // gradeBG applied (needs a running game, so it happens on first draw)
+	graded    bool     // gradeBG applied (needs a running game, so it happens on first draw)
+	vip       *vipZone // the VIP zone of this party, if the plan has one (vip.go)
 }
 
 const navCell = 8.0
 
-func buildLevel(def *LevelDef) *Level {
+func buildLevelRaw(def *LevelDef) *Level {
 	l := &Level{Def: def, W: def.W, H: def.H, Walls: def.Walls, Pools: def.Pools, POIs: map[string][]Vec{}}
 	for _, w := range def.Walls {
 		l.solidsP = append(l.solidsP, w.R)
@@ -234,6 +239,9 @@ func buildLevel(def *LevelDef) *Level {
 		l.initNav()
 	}
 	if l.ensureItems() {
+		l.initNav()
+	}
+	if l.ensureVIP() { // VIP zone and gold suits (vip.go)
 		l.initNav()
 	}
 	return l
@@ -307,7 +315,7 @@ func (l *Level) ensureBooth(name string, n int, match func(p *Prop) bool, seeds 
 				if !reach[int(p.Y/navCell)*l.cw+int(p.X/navCell)] {
 					return
 				}
-				if l.propClashes(name, k, p, 0) {
+				if l.propClashes(name, k, p, 0) || l.hidesStage(k, p) {
 					return
 				}
 				md := 1e9

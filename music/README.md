@@ -64,7 +64,7 @@ clasica/classical, jazz, country, flamenco/pasodoble, rock, synthwave, orquestal
 
 `more/*.mp3` (the songs that follow the main one) are filtered the same way: only the files of the style of the party
 play; if none fits, the synthesised music of the party's genre does. The files in `DJ/` and `bands/` are not filtered.
-`./PartyHard -exportmusic music -musicbatch 3` writes files already named with their style.
+`./PartyHardy -exportmusic music -musicbatch 3` writes files already named with their style.
 
 The random-mode venues use Rock (pub), Pasodoble (European square) and Pop (mall). When the DJ dies the punk takes over;
 a band of its own style (Metallica = metal, The Beatles = pop, Elvis = country, Lost Prophets and Despistaos = rock) plays

@@ -17,13 +17,15 @@ import (
 // the order of the story, as you meet it in the game: this is the order and the numbering of the list,
 // of the DEBUG menu and of the -scenes flag
 const (
-	sceneIntro  = iota // 1. the night it all began
-	sceneInter1        // 2. after party 5 (by car)
-	sceneInter2        // 3. after party 10 (by boat)
-	sceneInter3        // 4. after party 20 (by rocket)
-	sceneEnd1          // 5. "¿ FINAL ?"
-	sceneInvite        // 6. the letter of the island
-	sceneEnd2          // 7. the secret ending
+	sceneIntro   = iota // 1. the night it all began
+	sceneInter1         // 2. after party 5 (by car)
+	sceneInter2         // 3. after party 10 (by boat)
+	sceneInter15        // 4. after party 15 (by hot air balloon): new, so the story order renumbers what follows
+	sceneInter3         // 5. after party 20 (by rocket)
+	sceneEnd1           // 6. "¿ FINAL ?"
+	sceneInvite         // 7. the letter of the island
+	sceneArrival        // 8. the helicopter ride to the island (after the letter blows up)
+	sceneEnd2           // 9. the secret ending
 	sceneCount
 )
 
@@ -36,16 +38,20 @@ type sceneInfo struct {
 var sceneList = [sceneCount]sceneInfo{
 	sceneIntro: {"seen_intro", "INTRO: NADIE TE DEJÓ DORMIR", "Las 3:47, el bajo del vecino, ovejitas con gafas de sol y un cuchillo. Así empezó todo.",
 		"NO ME DEJAN DORMIR...", "Se ve al empezar de cero: borra tus datos."},
-	sceneEnd1: {"seen_end1", "¿ FINAL ?", "Un paseo por la ciudad en silencio, la cama, las ovejitas y unos créditos con interrogación.",
+	sceneEnd1: {"seen_end1", "¿ FINAL ?", "Una alarma sin oxígeno, una cápsula de escape y un paseo a casa con todos los fantasmas de la noche. Corto y callado.",
 		"¿ FINAL ?", "Todo tiene un final. Este, tras la última fiesta."},
-	sceneEnd2: {"seen_end2", "FINAL SECRETO", "El final de los que lo hicieron todo: trofeos, fiestas y hasta una isla con dinosaurios.",
+	sceneEnd2: {"seen_end2", "FINAL SECRETO", "Raptores con sombrero, confeti, conga, fuegos artificiales y foto de familia. El final de quienes lo hicieron todo.",
 		"FINAL: ???", "Dicen que lo ven quienes lo tienen todo... todo todo."},
-	sceneInvite: {"seen_invite", "INVITACIÓN A ISLA NUBLAR", "Una carta sin remitente que huele a selva y a problemas con dientes.",
+	sceneInvite: {"seen_invite", "INVITACIÓN A ISLA NUBLAR", "Una carta brilla en el suelo de la estación, sin gravedad ni remitente. Huele a selva y a problemas con dientes.",
 		"UNA CARTA MISTERIOSA", "Alguien te espera en una isla."},
+	sceneArrival: {"seen_arrival", "LLEGADA A ISLA NUBLAR", "Un helicóptero alquilado, un helipuerto, un mareo y un final con más fuego del que dice el contrato.",
+		"¿VUELO SIN RETORNO?", "Tras la carta, alguien te lleva volando. Y no vuelve."},
 	sceneInter1: {"seen_interlude5", "INTERLUDIO: OTRA FIESTA MÁS", "Cabreado y con humo en las orejas, repasa las fiestas ya vencidas y se va en coche a por la siguiente.",
 		"¿QUIÉN CONDUCE?", "El viaje continúa... tras la fiesta número 5."},
 	sceneInter2: {"seen_interlude10", "INTERLUDIO: A TODA VELA", "Cinco fiestas más a la espalda, mala cara y una lancha que no hace preguntas.",
 		"¿PUEDO IR EN BARCO?", "Pasada la discoteca hay agua. Y mal humor."},
+	sceneInter15: {"seen_interlude15", "INTERLUDIO: GLOBO A LA DERIVA", "Un globo aerostático con cesta, sacos de lastre y un pinchazo muy mal momento. Baja más rápido de lo que sube.",
+		"¿ESO FLOTA?", "Más allá de la fiesta número 15 hay cielo. Y poco aire."},
 	sceneInter3: {"seen_interlude20", "INTERLUDIO: CORREOS ESPACIALES", "Un cohete casero con váter, petardos y un guardia que pide el billete. Falla, claro, y despega igual.",
 		"¿ESTO ES UN BARRIL?", "La última fiesta queda muy lejos... tras la fiesta número 20."},
 }
@@ -89,6 +95,40 @@ func (g *Game) sceneUnlocked(i int) bool {
 	return i == sceneIntro && (g.progress.Unlocked > 1 || g.progress.Stats["played"] > 0)
 }
 
+// sceneMission: the number of missions (campaign parties) done when the scene comes up; 0 = no counter
+// (the intro).
+func sceneMission(i int) int {
+	switch i {
+	case sceneInter1:
+		return 5
+	case sceneInter2:
+		return 10
+	case sceneInter15:
+		return 15
+	case sceneInter3:
+		return 20
+	case sceneEnd1, sceneInvite, sceneArrival, sceneEnd2:
+		return campaignN // they come after the last party (the island ones after the 21st and its trophies)
+	}
+	return 0
+}
+
+// sceneRowName: the left text of a row of the list, "N.- NAME" or "N.- ¿?" while locked (the name is not revealed).
+func (g *Game) sceneRowName(i int) string {
+	if !g.sceneUnlocked(i) {
+		return fmt.Sprintf("%d.- ", i+1) + tr("¿?")
+	}
+	return fmt.Sprintf("%d.- ", i+1) + tr(sceneList[i].title)
+}
+
+// sceneRowCount: the "(x/21)" of a seen scene, or "".
+func (g *Game) sceneRowCount(i int) string {
+	if m := sceneMission(i); m > 0 && g.sceneUnlocked(i) {
+		return fmt.Sprintf("(%d/%d)", m, campaignN)
+	}
+	return ""
+}
+
 // sceneName is what the list shows: the real title or the mysterious one.
 func (g *Game) sceneName(i int) string {
 	if g.sceneUnlocked(i) {
@@ -113,14 +153,18 @@ func (g *Game) playScene(i int, back Mode) {
 		g.startInterlude(interCar, 5)
 	case sceneInter2:
 		g.startInterlude(interBoat, 10)
+	case sceneInter15:
+		g.startInterlude(interBalloon, 15)
 	case sceneInter3:
 		g.startInterlude(interRocket, 20)
 	case sceneEnd1:
-		g.startEnding(false)
+		g.startEndingPre(false)
 	case sceneInvite:
-		g.startInvite()
+		g.startInvitePre()
+	case sceneArrival:
+		g.startArrival()
 	default:
-		g.startEnding(true)
+		g.startEndingPre(true)
 	}
 	g.sceneReplay, g.sceneBack = true, back
 }
@@ -141,7 +185,7 @@ func (g *Game) updateScenes() {
 	n := sceneCount
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < n; i++ {
-			if y := sceneRowY(i); mx >= 250 && mx <= 910 && my >= y-4 && my < y+28 {
+			if y := sceneRowY(i); mx >= 250 && mx <= 910 && my >= y-4 && my < y+22 {
 				return i
 			}
 		}
@@ -165,7 +209,7 @@ func (g *Game) updateScenes() {
 	}
 }
 
-func sceneRowY(i int) float64 { return 100 + float64(i)*33 }
+func sceneRowY(i int) float64 { return 100 + float64(i)*26 } // nine rows fit above the card at y=340
 
 func (g *Game) drawScenes(dst *ebiten.Image) {
 	g.drawBedroom(dst)
@@ -195,9 +239,12 @@ func (g *Game) drawScenes(dst *ebiten.Image) {
 			if !open {
 				col = rgb(0xffb070)
 			}
-			fillRect(dst, 244, y-5, 672, 30, rgba(0x2a1a4a, 160))
+			fillRect(dst, 244, y-4, 672, 26, rgba(0x2a1a4a, 160))
 		}
-		g.drawText(dst, pre+fmt.Sprintf("%d. ", i+1)+g.sceneName(i), 256, y+2, col, 1.5)
+		g.drawText(dst, pre+g.sceneRowName(i), 256, y+2, col, 1.5)
+		if c := g.sceneRowCount(i); c != "" {
+			g.drawText(dst, c, 836-g.textW(c, 1.5), y+2, col, 1.5)
+		}
 		tag, tc := "BLOQUEADA", rgb(0x6a6680)
 		if open {
 			tag, tc = "VISTA", rgb(0x70e090)

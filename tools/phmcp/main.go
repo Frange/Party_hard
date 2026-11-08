@@ -98,7 +98,7 @@ func findRoot() string {
 	}
 	dir, _ := os.Getwd()
 	for d := dir; ; d = filepath.Dir(d) {
-		if b, err := os.ReadFile(filepath.Join(d, "go.mod")); err == nil && strings.HasPrefix(string(b), "module partyhard") {
+		if b, err := os.ReadFile(filepath.Join(d, "go.mod")); err == nil && strings.HasPrefix(string(b), "module partyhardy") {
 			return d
 		}
 		if filepath.Dir(d) == d {

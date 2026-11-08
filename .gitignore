@@ -22,6 +22,8 @@ assets/bands/
 
 # Built packages contain the music too
 dist/
+PartyHardy-Mac.zip
+PartyHardy-Windows.zip
 PartyHard-Mac.zip
 PartyHard-Windows.zip
 assets_backup_*/
@@ -36,3 +38,16 @@ assets/editor_prefs.json
 
 # Paquete genérico de plantillas (decisión del usuario: quitar si se quiere publicar)
 AI_with_Claude/
+
+# Ajustes locales del usuario (teclas y mandos): no subir
+assets/settings.json
+assets/editor_prefs.json
+assets/progress.json
+
+# Binarios sueltos (nombre nuevo y antiguo)
+/PartyHard
+/PartyHardy
+/PartyHard.exe
+/PartyHardy.exe
+/PartyHardEditor.exe
+/PartyHardyEditor.exe

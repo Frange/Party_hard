@@ -29,7 +29,7 @@ import (
 type auditExc struct{ screen, a, b, why string }
 
 var auditAllow = []auditExc{
-	{"", "PARTY", "HARD", "the two words of the logo are one stacked block"},
+	{"", "PARTY", "HARDY", "the two words of the logo are one stacked block"},
 	{"", "=Z", "=Z", "the Zs of the sleeper in the bedroom scenery float over each other"},
 }
 
@@ -64,9 +64,13 @@ var (
 	auditG    *Game
 )
 
-func auditGame() *Game {
+// auditGame returns the shared headless game. It needs noAssets while it is used, but the flag is a
+// process global: t.Cleanup puts it back so the tests that run later still see a normal program.
+func auditGame(t *testing.T) *Game {
+	prev := noAssets
+	noAssets = true
+	t.Cleanup(func() { noAssets = prev })
 	auditOnce.Do(func() {
-		noAssets = true
 		progressFrozen = true // nothing here may touch the real progress.json
 		loadLanguages()
 		auditG = newGame(true)
@@ -210,7 +214,7 @@ func auditRender(g *Game, sh auditShot, lang string) (rec *textRecorder, err str
 func firstFrames(b []byte) string {
 	var keep []string
 	for _, l := range strings.Split(string(b), "\n") {
-		if strings.Contains(l, "partyhard.") && !strings.Contains(l, "auditRender") {
+		if strings.Contains(l, "partyhardy.") && !strings.Contains(l, "auditRender") {
 			keep = append(keep, strings.TrimSpace(l))
 			if len(keep) == 3 {
 				break
@@ -223,9 +227,11 @@ func firstFrames(b []byte) string {
 // ---- the screens ------------------------------------------------------------------------------
 
 func auditReset(g *Game) {
+	g.challenge = false
 	g.end, g.intro, g.title = nil, nil, nil
-	g.showCredits, g.trophyOv, g.debugMenu = false, false, false
+	g.showCredits, g.trophyOv, g.debugMenu, g.helpOv = false, false, false, false
 	g.msgs = nil
+	helpCursorFn = ebiten.CursorPosition
 	g.menuMsgT = 0
 	g.toasts = nil
 	g.progress.Unlocked = 99
@@ -350,6 +356,48 @@ func auditShots() []auditShot {
 			g.trophySel = minI(sel, len(trophyList)-1)
 		})
 	}
+	for _, demo := range []int{0, 1, 2} { // the card album (album.go): empty, a few cards, every card
+		demo := demo
+		add(fmt.Sprintf("trophies album demo=%d", demo), true, func(g *Game) {
+			auditReset(g)
+			g.mode = ModeTrophies
+			g.progress.Album = nil
+			if demo > 0 {
+				g.albumDemo(demo)
+			}
+			g.trophyTab = tabAlbum
+			g.albumSel, g.albumScroll = 7*demo, 0
+			g.albumClamp()
+		})
+	}
+	add("trophies secret selected", true, func(g *Game) {
+		auditReset(g)
+		g.mode = ModeTrophies
+		g.trophyTab = tabTrophies
+		for i, t := range trophyList {
+			if t.id == "s_mine" {
+				g.trophySel = i
+			}
+		}
+	})
+	for _, two := range []bool{false, true} { // the help button (hovered) and its controls window
+		two := two
+		n := map[bool]int{false: 1, true: 2}[two]
+		add(fmt.Sprintf("help window in game players=%d", n), false, func(g *Game) {
+			auditPlay(g, two)
+			g.helpOv = true
+		})
+		add(fmt.Sprintf("help window in menu players=%d", n), false, func(g *Game) {
+			auditReset(g)
+			twoPlayerMode = two
+			g.mode = ModeMenu
+			g.helpOv = true
+		})
+		add(fmt.Sprintf("help tooltip in game players=%d", n), false, func(g *Game) {
+			auditPlay(g, two)
+			helpCursorFn = func() (int, int) { return int(helpBtnX) + 3, int(helpBtnY) + 3 } // auditReset puts it back
+		})
+	}
 	add("trophies window in game + toast", false, func(g *Game) {
 		auditPlay(g, false)
 		g.trophyOv = true
@@ -368,9 +416,19 @@ func auditShots() []auditShot {
 				g.bubble(i, 1, Vec{cx.X + float64(i-2)*60, cx.Y - 20 - float64(i%2)*30}, ph, i == 1, 0)
 			}
 		})
-		add(fmt.Sprintf("level complete players=%d", n), false, func(g *Game) {
+		add(fmt.Sprintf("level complete: newspaper players=%d", n), false, func(g *Game) {
 			auditPlay(g, two)
-			g.mode, g.points, g.endTime = ModeLevelDone, 12345, 187
+			auditLevelDoneData(g)
+		})
+		add(fmt.Sprintf("level complete: newspaper RETO players=%d", n), false, func(g *Game) {
+			auditPlay(g, two)
+			g.challenge = true
+			auditLevelDoneData(g)
+		})
+		add(fmt.Sprintf("HUD with RETO and chain players=%d", n), false, func(g *Game) {
+			auditPlay(g, two)
+			g.challenge = true
+			g.run.chainN[0], g.run.chainLast[0] = 5, g.time
 		})
 		add(fmt.Sprintf("GAME OVER players=%d", n), false, func(g *Game) {
 			auditPlay(g, two)
@@ -384,6 +442,18 @@ func auditShots() []auditShot {
 		g.titleT = 4.5
 		g.say("Bienvenido a la fiesta. Que no quede nadie vivo.")
 	})
+	for _, two := range []bool{false, true} { // the level hint plate (levelhint.go) and the minimap (minimap.go) over a party
+		two := two
+		n := map[bool]int{false: 1, true: 2}[two]
+		add(fmt.Sprintf("level hint + minimap players=%d", n), false, func(g *Game) {
+			auditPlay(g, two)
+			g.stealth = false
+			levelHintOn, minimapOn = true, true
+			g.lh.reset(g)
+			g.sb.t = sbDur + 1
+			g.lh.t = 1
+		})
+	}
 	add("final screen", false, func(g *Game) {
 		auditPlay(g, false)
 		g.mode, g.points = ModeFinal, 999
@@ -392,7 +462,7 @@ func auditShots() []auditShot {
 		i := i
 		add(fmt.Sprintf("scenes list sel=%d", i), true, func(g *Game) {
 			auditReset(g)
-			g.progress.Stats = map[string]int{"seen_end1": 1, "seen_end2": 1, "seen_invite": 1, "seen_interlude5": 1}
+			g.progress.Stats = map[string]int{"seen_end1": 1, "seen_end2": 1, "seen_invite": 1, "seen_interlude5": 1, "seen_interlude15": 1}
 			g.mode = ModeScenes
 			g.sceneSel = i
 		})
@@ -402,13 +472,50 @@ func auditShots() []auditShot {
 		g.startInvite()
 		g.end.t = 14
 	})
+	// the action before the letter and the endings, and the party of the secret ending
+	for _, c := range []struct {
+		name  string
+		start func(*Game)
+		stage int
+		times []float64
+	}{
+		{"prelude letter", func(g *Game) { g.startInvitePre() }, endPrelude, []float64{4.5, 8, 12.8, 15}},
+		{"prelude station alarm", func(g *Game) { g.startEndingPre(false) }, endPrelude, []float64{1.5, 4, 10.5}},
+		{"prelude island", func(g *Game) { g.startEndingPre(true) }, endPrelude, []float64{4, 8.9, 11.5, 14}},
+		{"party", func(g *Game) { g.startEndingPre(true) }, endParty, []float64{2, 5.5, 14, 25, 29.5, 34}},
+		{"party stinger", func(g *Game) { g.startEndingPre(true) }, endStinger, []float64{5.5, 7}},
+		{"epilogue walk", func(g *Game) { g.startEndingPre(false) }, endWalk, []float64{2, 5}},
+	} {
+		for _, at := range c.times {
+			c, at := c, at
+			add(fmt.Sprintf("%s t=%.1f", c.name, at), false, func(g *Game) {
+				auditReset(g)
+				c.start(g)
+				g.end.stage, g.end.t, g.end.total = c.stage, at, at
+			})
+		}
+	}
+	for _, at := range []float64{1.0, 5.0, arrBoom + 2.0} {
+		at := at
+		add(fmt.Sprintf("helicopter arrival t=%.1f", at), false, func(g *Game) {
+			auditReset(g)
+			g.startArrival()
+			g.end.x.arr.t = at
+			g.end.x.arr.touched = at >= arrTouch
+			if at >= arrBoom {
+				g.end.x.arr.boomed = true
+				g.end.x.arr.spawnParts()
+			}
+		})
+	}
 	return s
 }
 
 // ---- the test ---------------------------------------------------------------------------------
 
 func TestUITextAudit(t *testing.T) {
-	g := auditGame()
+	g := auditGame(t)
+	defer func(a, b bool) { levelHintOn, minimapOn = a, b }(levelHintOn, minimapOn)
 	defer func(a, b string) { gameLang, editorLang = a, b }(gameLang, editorLang)
 	langs := []string{"es", "en"}
 	if testing.Short() {
@@ -574,4 +681,15 @@ func auditPendingIdx(screen string, f auditFail) int {
 		}
 	}
 	return -1
+}
+
+// auditLevelDoneData: a busy party for the end-of-level screens.
+func auditLevelDoneData(g *Game) {
+	g.run.kills = [2][kcN]int{{kcKnife: 9, kcPoison: 3, kcTrap: 2}, {kcKnife: 4, kcBlast: 5}}
+	g.run.seen, g.run.cuffed, g.run.chainMax, g.run.cleanKills = [2]int{3, 1}, [2]int{1, 0}, [2]int{6, 3}, [2]int{4, 2}
+	g.run.slasher, g.run.camSeen, g.run.medic = true, 1, true
+	g.run.units = 1<<unitPolice | 1<<unitSWAT
+	g.points, g.endTime, g.time = 12345, 187, 187
+	g.finishScore()
+	g.mode = ModeLevelDone
 }

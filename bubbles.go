@@ -350,6 +350,7 @@ func (g *Game) flushBubbles(dst *ebiten.Image) {
 		}
 	}
 	pos := bubbleMgr.pick(reqs, now, avoid, screenW)
+	g.drawEmotes(dst, pos) // icons over the guests' heads, never over a bubble (emote.go)
 	for _, r := range pos {
 		g.drawBubbleBox(dst, r)
 	}

@@ -300,9 +300,8 @@ func (g *Game) finishInvite(e *endState) {
 		return
 	}
 	g.unlockJP()
-	g.end = nil
 	g.snd.StopScene()
-	g.startLevel(specialJurassic)
+	g.startArrival() // the helicopter ride (arrival.go); only this way leads to it, the list of parties and DEBUG go straight to the island
 }
 
 // unlockJP makes the island a permanent, playable party.
@@ -362,11 +361,15 @@ func (g *Game) drawInvite(dst *ebiten.Image, e *endState) {
 		g.drawBoom(dst, e, iv, sx, sy)
 	}
 	keys := actionHint(actConfirm) + "/" + actionHint(actBack)
+	hintWait, hintRead := 470.0, 500.0
+	if g.scene2P() { // the balloons of the two players take the strip under the paper (invite2p.go)
+		hintWait, hintRead = 440, 524
+	}
 	switch {
 	case iv.phase == invWait:
-		g.drawTextC(dst, keys+": abrir", 480, 470, rgba(0xe8e0f8, uint8(160+90*math.Abs(math.Sin(e.total*3)))), 2)
+		g.drawTextC(dst, keys+": abrir", 480, hintWait, rgba(0xe8e0f8, uint8(160+90*math.Abs(math.Sin(e.total*3)))), 2)
 	case iv.phase == invRead && iv.t > 0.6:
-		g.drawTextC(dst, keys+": continuar", 480, 500, rgba(0xe8e0f8, uint8(160+90*math.Abs(math.Sin(e.total*3)))), 1)
+		g.drawTextC(dst, keys+": continuar", 480, hintRead, rgba(0xe8e0f8, uint8(160+90*math.Abs(math.Sin(e.total*3)))), 1)
 	}
 	if g.scene2P() {
 		g.inviteTwo(dst, e, iv)

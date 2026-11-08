@@ -380,6 +380,9 @@ func newRigCharSet(ca *CharAsset) *CharSet {
 }
 
 func overrideKey(anim, vw, f int) string {
+	if anim >= AnimCount { // gait animations have no editable override
+		return ""
+	}
 	return fmt.Sprintf("%s_%s_%d", animNames[anim], viewNames[assetView(vw)], f)
 }
 

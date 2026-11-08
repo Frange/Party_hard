@@ -145,6 +145,9 @@ func settingsEnsureVisible(sel int) {
 }
 
 func (g *Game) updateSettings() {
+	if settingsNoteT > 0 {
+		settingsNoteT--
+	}
 	if g.showCredits {
 		if actConfirm.just() || actBack.just() || inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			g.showCredits = false
@@ -164,7 +167,7 @@ func (g *Game) updateSettings() {
 		bd, _ := rowBinding(g.setSel)
 		if g.setCol < 2 {
 			for _, k := range inpututil.AppendJustPressedKeys(nil) {
-				bd.Keys[g.setCol] = k
+				assignKey(g.setSel, g.setCol, k)
 				g.capturing = false
 				saveBindings()
 				return
@@ -428,6 +431,9 @@ func (g *Game) drawSettings(dst *ebiten.Image) {
 	if settingsJoin > 0 {
 		hint = "Jugador " + fmt.Sprint(settingsJoin) + ": pulsa un botón para unirte (una tecla = teclado)   Esc: cancelar"
 	}
+	if settingsNoteT > 0 && !g.capturing {
+		hint = settingsNote
+	}
 	g.drawTextC(dst, hint, 580, 466, rgb(0xf0e060), 1.1)
 	if !g.showCredits { // under the credits panel it would show half hidden
 		g.drawText(dst, "Atajos fijos: 1-9 nivel · R aleatoria · G generado · M sonido · F11 pantalla · F2 editor", 238, 484, rgb(0x5a5670), 1)
@@ -438,17 +444,17 @@ func (g *Game) drawSettings(dst *ebiten.Image) {
 }
 
 // gameVersion is shown in the main menu and in the credits.
-const gameVersion = "1.0"
+const gameVersion = "1.0.1"
 
 func (g *Game) drawCredits(dst *ebiten.Image) {
 	fillRect(dst, 240, 60, 680, 430, rgb(0x05070e))
 	fillRect(dst, 240, 60, 680, 1, rgb(0xff6a8a))
 	fillRect(dst, 240, 489, 680, 1, rgb(0xff6a8a))
 	g.drawTextC(dst, "CRÉDITOS", 580, 84, rgb(0xff6a8a), 2.2)
-	g.drawTextC(dst, "Party Hard · Fiesta Nocturna", 580, 122, rgb(0xf4f0ff), 1.6)
-	g.drawTextC(dst, "Versión "+gameVersion+" · 2026", 580, 146, rgb(0x8a86a0), 1.2)
+	g.drawTextC(dst, "Party Hardy · Fiesta Nocturna", 580, 122, rgb(0xf4f0ff), 1.6)
+	g.drawTextC(dst, "v."+gameVersion+" · 2026", 580, 146, rgb(0x8a86a0), 1.2)
 	g.drawWrapped(dst, "Juego hecho como homenaje al Party Hard original, desarrollado por Pinokl Games y distribuido por tinyBuild. Este proyecto es de fans y no tiene ninguna relación oficial con ellos.", 290, 178, 580, rgb(0xb8b0d0))
-	rows := [][2]string{{"Director", "Frange"}, {"IA", "Claude"}, {"Testers", "Diego, César y Samuel"}, {"Año", "2026"}}
+	rows := [][2]string{{"Director", "Frange"}, {"Testers", "Diego, César y Samuel"}, {"Año", "2026"}}
 	for i, r := range rows {
 		y := 262 + float64(i)*34
 		g.drawText(dst, r[0], 330, y, rgb(0x3fb59a), 1.6)
@@ -459,3 +465,48 @@ func (g *Game) drawCredits(dst *ebiten.Image) {
 }
 
 var _ = fmt.Sprint
+
+// settingsNote: a notice on the hint line of the settings (a key taken from the other player), settingsNoteT
+// frames left.
+var (
+	settingsNote  string
+	settingsNoteT int
+)
+
+// otherPlayerBinds: the bindings of the player who does NOT own the settings row r.
+func otherPlayerBinds(r int) *Bindings {
+	if r >= setRowP2 {
+		return &binds
+	}
+	return &binds2
+}
+
+// assignKey puts key k in slot of the bind row r. A key is never shared between the two players: if the
+// other player has it, he gets the key this slot had (a swap; nothing if the slot was empty) and a notice
+// says so. Within one player a key may serve several actions (Space attacks and confirms).
+func assignKey(r, slot int, k ebiten.Key) {
+	bd, _ := rowBinding(r)
+	old := bd.Keys[slot]
+	bd.Keys[slot] = k
+	other := otherPlayerBinds(r)
+	for a := 0; a < actPlayerCount; a++ {
+		for s := 0; s < 2; s++ {
+			if other[a].Keys[s] == k {
+				other[a].Keys[s] = old
+				if old == k {
+					other[a].Keys[s] = noKey
+				}
+				who := "J2"
+				if r >= setRowP2 {
+					who = "J1"
+				}
+				settingsNote = fmt.Sprintf("La tecla %s ya era del %s: se intercambian", keyLabel(k), who)
+				settingsNoteT = 240
+			}
+		}
+	}
+}
+
+func init() {
+	langDataEN["La tecla %s ya era del %s: se intercambian"] = "Key %s was already %s's: they swap"
+}

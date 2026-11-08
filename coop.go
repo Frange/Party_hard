@@ -27,7 +27,7 @@ import (
 //   updatePlayer    coopSpeedMul                  (carrying slows down)
 //   stab            coopBlockStab                 (no stabbing while carrying the partner)
 //   interact        coopInteract, coopOwn         (carry / high five / distract; trap owner)
-//   triggerTrap...  coopTrapFired, coopSpare      (the partner's trap only stuns)
+//   triggerTrap...  coopTrapFired                 (a trap hurts anybody: no sparing)
 //   updateCop       coopCopDistracted             (the officer stops for 3 s)
 //   draw            coopHidden, coopDrawWorld, coopDrawScoreboard
 // ---------------------------------------------------------------------------
@@ -477,36 +477,6 @@ func (g *Game) coopTrapFired(pr *Prop) {
 	}
 }
 
-// coopSpare: a trap of the partner went off over p. He is not killed: he is stunned for 2 s.
-// Returns true when p is spared (the caller must not kill him).
-func (g *Game) coopSpare(p *Player, at Vec) bool {
-	if !g.is2P() || p == nil {
-		return false
-	}
-	g.coopEnsure()
-	c := &g.coop
-	if c.lastTrap == nil || g.time-c.lastTrapT > 12 {
-		return false
-	}
-	owner, ok := c.trapOwner[c.lastTrap]
-	if !ok || owner == g.playerIndex(p) {
-		return false // his own trap (or nobody's): as always
-	}
-	if dist(Vec{c.lastTrap.X, c.lastTrap.Y}, at) > 180 {
-		return false
-	}
-	if p.knockT <= 0 {
-		p.knockT = math.Max(p.knockT, trapStunT)
-		p.immT = math.Max(p.immT, trapStunT+1)
-		p.moving = false
-		g.snd.Play("boing")
-		g.burst(Vec{p.pos.X, p.pos.Y - 20}, 12, 60, rgb(0xf8e040), 0.6, 2, 40)
-		g.coopSayNow(p, "¡Eh! ¡Tu trampa!")
-		g.coopSayNow(g.otherPlayer(p), pickOf(g, []string{"¡Ups, mi trampa!", "¡Era para otro!", "¡Perdona!"}))
-	}
-	return true
-}
-
 // ---------------------------------------------------------------------------
 // the dance duet and the dance bet
 // ---------------------------------------------------------------------------
@@ -712,7 +682,7 @@ func (g *Game) coopDrawWorld(dst *ebiten.Image) {
 	c := &g.coop
 	// who set the traps (and the poisoned punch): a small diamond in his colour
 	for pr, owner := range c.trapOwner {
-		if pr == nil || pr.K == nil || pr.armT <= 0 || pr.used || pr.gone {
+		if pr == nil || pr.K == nil || (pr.armT <= 0 && !pr.armed && !pr.armWait) || pr.used || pr.gone {
 			continue
 		}
 		if pr.K.Trap == "" && !pr.K.Poison {

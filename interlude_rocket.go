@@ -23,20 +23,20 @@ const interRocket = 3
 
 // the timeline of the part after the roof stops (interStopX / itStop are shared with the other two)
 const (
-	rkGuard   = 25.8 // the guard walks in
-	rkAsk     = 26.4 // "your ticket, please"
-	rkTicket  = 28.4 // he shows his knife: valid
-	rkBoard   = 29.6 // he climbs into the toilet
-	rkCount0  = 31.0 // 5 4 3 2 1
-	rkTick0   = 0.75
-	rkFizzle  = 35.0 // pfffft
-	rkKick    = 36.8 // the guard kicks the barrel
-	rkCount1  = 38.0 // 3 2 1
-	rkTick1   = 0.8
-	rkLift    = 40.5 // lift off
-	rkSpace   = 43.5 // the stars
-	rkFlash   = 48.0 // white flash and cut
-	rocketLen = 49.5
+	rkGuard   = 8.3  // the guard walks in
+	rkAsk     = 8.7  // "your ticket, please"
+	rkTicket  = 9.7  // he shows his knife: valid
+	rkBoard   = 11.1 // he climbs into the toilet
+	rkCount0  = 11.5 // 5 4 3 2 1
+	rkTick0   = 0.32
+	rkFizzle  = 13.1 // pfffft
+	rkKick    = 13.9 // the guard kicks the barrel
+	rkCount1  = 14.5 // 3 2 1
+	rkTick1   = 0.5
+	rkLift    = 16.5 // lift off
+	rkSpace   = 18.5 // the stars
+	rkFlash   = 19.4 // white flash and cut
+	rocketLen = 19.95
 )
 
 const (
@@ -56,7 +56,7 @@ func rocketHeight(t float64) float64 {
 		return 0
 	}
 	u := t - rkLift
-	return 0.5*150*u*u + 20*u
+	return 0.5*300*u*u + 20*u
 }
 
 // rocketCam: how far the camera has followed it up (the world slides down the screen).
@@ -323,7 +323,53 @@ func (g *Game) rocketPad(c *ebiten.Image, rkX float64) {
 	filledEllipse(c, rkX+10, by-2, 70, 5, rgba(0x14100c, 130))
 }
 
-// the rocket itself: a rusty barrel, a toilet for a nose, firecrackers for an engine
+// ---- the rocket itself ---------------------------------------------------------------------------------
+// A home-made but properly built rocket: a cylindrical steel-and-red fuselage with a toilet cockpit for a nose,
+// rivets, panels, two portholes (a crewman and a pirate flag), copper pipes, a roll of duct tape, gradient fins,
+// a nozzle and a layered flame. Every size is an integer; the footprint is rocketBox().
+
+const (
+	rkHalfW = 38 // half the width of the fuselage
+	rkFinW  = 34 // how far the fins stick out of the fuselage
+)
+
+// rocketBox: the bounding box of the rocket body (without flame, sign ropes or sparks) relative to (cx, by).
+func rocketBox() (x0, y0, x1, y1 float64) {
+	return -(rkHalfW + rkFinW), -(14 + rkTop + 100), rkHalfW + rkFinW + 8, 0
+}
+
+// rkShade: the 4 tones of a cylinder, from its left edge (u=0) to its right edge (u=1): light spot on the left.
+func rkShade(u float64, tones [4]uint32) uint32 {
+	switch {
+	case u < 0.08:
+		return tones[1]
+	case u < 0.26:
+		return tones[0] // the highlight
+	case u < 0.58:
+		return tones[1]
+	case u < 0.84:
+		return tones[2]
+	}
+	return tones[3]
+}
+
+// rkLerp: mix two colours (t=0 -> a, t=1 -> b).
+func rkLerp(a, b uint32, t float64) uint32 {
+	f := func(s uint) float64 { return float64((a >> s) & 255) }
+	h := func(s uint) float64 { return float64((b >> s) & 255) }
+	m := func(s uint) uint32 { return uint32(math.Round(f(s)+(h(s)-f(s))*t)) & 255 }
+	return m(16)<<16 | m(8)<<8 | m(0)
+}
+
+// rkFlameDrop: a teardrop of flame hanging from (cx, y): width w at the top, length l downwards.
+func rkFlameDrop(c *ebiten.Image, cx, y, w, l float64, col color.RGBA) {
+	for r := 0.0; r < l; r++ {
+		u := r / l
+		hw := w * math.Sin(math.Min(1, u*3.2)*math.Pi/2) * (1 - u*u)
+		fillRect(c, cx-hw, y+r, 2*hw, 1, col)
+	}
+}
+
 func (g *Game) drawRocketBody(c *ebiten.Image, in *interState, cx, by float64, hero func()) {
 	t := in.t
 	x0, y0 := cx-38, by-14-rkTop
@@ -336,7 +382,8 @@ func (g *Game) drawRocketBody(c *ebiten.Image, in *interState, cx, by float64, h
 	}
 	cx += rumble
 	x0 += rumble
-	// the flame
+	ink := rgb(0x14141a)
+	// the flame: smoke, outer orange, orange, yellow and a white-hot core, flickering
 	fire := 0.0
 	switch {
 	case t >= rkLift:
@@ -345,67 +392,147 @@ func (g *Game) drawRocketBody(c *ebiten.Image, in *interState, cx, by float64, h
 		fire = 0.18 + 0.1*math.Sin(t*40)
 	}
 	if fire > 0 {
-		for i := 0; i < 7; i++ {
-			k := float64(i)
-			j := math.Sin(t*50+k*1.7) * 3 * fire
-			ry := (46 - k*5) * fire
-			if ry < 3 {
-				break
+		fl := func(k float64) float64 { return math.Sin(t*47+k*1.9)*2.2*fire + math.Sin(t*23+k)*1.5*fire }
+		rkFlameDrop(c, cx+fl(0)*0.4, by-8, 40*fire+4, 120*fire, rgba(0xc8c8d8, 70)) // smoky halo
+		rkFlameDrop(c, cx+fl(1), by-8, 34*fire+2, 104*fire, rgb(0xe0381a))
+		rkFlameDrop(c, cx+fl(2), by-8, 28*fire+2, 88*fire, rgb(0xff6a1c))
+		rkFlameDrop(c, cx+fl(3), by-8, 21*fire+1, 70*fire, rgb(0xffa030))
+		rkFlameDrop(c, cx+fl(4), by-8, 14*fire+1, 52*fire, rgb(0xffd860))
+		rkFlameDrop(c, cx+fl(5)*0.5, by-8, 8*fire+1, 34*fire, rgb(0xffffe8))
+		if t >= rkLift { // sparks flying out of the engine
+			for i := 0; i < 8; i++ {
+				k := float64(i)
+				sy := by + 20 + math.Mod(t*140+k*37, 90)
+				sx := cx + math.Sin(k*2.4+t*3)*(14+k*2)
+				fillRect(c, sx, sy, 3, 3, rgb(0xffc040))
 			}
-			col := []uint32{0xff4a14, 0xff7a20, 0xff9a30, 0xffc040, 0xffe070, 0xfff4b0, 0xffffff}[i]
-			filledEllipse(c, cx+j, by-6+k*16*fire+ry*0.4, 26-k*3, ry, rgb(col))
 		}
 	}
-	// the fins of cardboard
+	// the fins: cardboard-and-tin, each row a little darker towards the tip, with a dark outline and a bent edge
 	for r := 0.0; r < 54; r++ {
-		w := 34 * (r / 54)
-		fillRect(c, x0-w, by-70+r, w+1, 1, rgb(0xb48a52))
-		fillRect(c, x0+76, by-70+r, w+1, 1, rgb(0xb48a52))
-		fillRect(c, x0-w, by-70+r, 2, 1, rgb(0x7a5a30))
-		fillRect(c, x0+76+w-1, by-70+r, 2, 1, rgb(0x7a5a30))
+		w := rkFinW * (r / 54)
+		col := rkLerp(0xd8b070, 0x8a6236, r/54)
+		fillRect(c, x0-w, by-70+r, w+1, 1, rgb(col))
+		fillRect(c, x0+76-1, by-70+r, w+2, 1, rgb(col))
+		fillRect(c, x0-w, by-70+r, 2, 1, ink)
+		fillRect(c, x0+76+w-1, by-70+r, 2, 1, ink)
+		if int(r)%9 == 4 { // the folds
+			fillRect(c, x0-w+2, by-70+r, w*0.7, 1, rgba(0x000000, 60))
+			fillRect(c, x0+78, by-70+r, w*0.7, 1, rgba(0x000000, 60))
+		}
 	}
-	// the tank of the toilet, behind
+	fillRect(c, x0-rkFinW, by-16, rkFinW+1, 2, ink)
+	fillRect(c, x0+75, by-16, rkFinW+2, 2, ink)
+	// the tank of the toilet, behind the bowl: white porcelain with a shadow side and a shine
+	fillRect(c, cx+13, y0-81, 40, 56, ink)
 	fillRect(c, cx+14, y0-80, 38, 54, rgb(0xe6e6ee))
+	fillRect(c, cx+14, y0-80, 7, 54, rgb(0xfafaff))
+	fillRect(c, cx+42, y0-80, 10, 54, rgb(0xb4b4c8))
 	fillRect(c, cx+14, y0-80, 38, 6, rgb(0xc8c8d8))
 	fillRect(c, cx+14, y0-26, 38, 4, rgb(0xaaaabc))
 	fillRect(c, cx+52, y0-72, 8, 4, rgb(0x8a8a9c)) // the flush handle
-	// the barrel (drawn again below the bowl after the hero, so that it covers his legs)
-	barrel := func(from float64) {
-		fillRect(c, x0, y0+from, 76, rkTop-from, rgb(0x9c3a2a))
-		fillRect(c, x0+6, y0+from, 7, rkTop-from, rgb(0xc25a42))
-		fillRect(c, x0+62, y0+from, 14, rkTop-from, rgb(0x6e2418))
-		for _, hy := range []float64{14, 66, 118} {
-			if hy+5 > from {
-				top := math.Max(hy, from)
-				fillRect(c, x0, y0+top, 76, hy+5-top, rgb(0x7a7e8a))
-				if hy >= from {
-					fillRect(c, x0, y0+hy, 76, 1, rgb(0xa0a4b0))
+	fillRect(c, cx+58, y0-74, 3, 8, rgb(0xb4b4c8))
+	// the fuselage (drawn again below the bowl after the hero, so that it covers his legs)
+	steel := [4]uint32{0xc4c8d4, 0x9094a4, 0x686c7c, 0x464a58}
+	red := [4]uint32{0xe2705a, 0xc2432e, 0x9a3020, 0x6a1e14}
+	fuselage := func(from float64) {
+		row := func(ry, h float64, tones [4]uint32) { // one horizontal band of the cylinder
+			if ry+h <= from {
+				return
+			}
+			if ry < from {
+				h -= from - ry
+				ry = from
+			}
+			for u := 0.0; u < 76; u += 2 {
+				fillRect(c, x0+u, y0+ry, 2, h, rgb(rkShade(u/76, tones)))
+			}
+		}
+		row(0, rkTop, red)
+		for _, hy := range []float64{14, 66, 118} { // steel hoops with their rivets
+			row(hy, 6, steel)
+			if hy+1 > from {
+				fillRect(c, x0, y0+hy, 76, 1, rgb(0xdfe2ec))
+				fillRect(c, x0, y0+hy+5, 76, 1, rgb(0x2c2e3a))
+				for u := 5.0; u < 76; u += 11 {
+					fillRect(c, x0+u, y0+hy+2, 2, 2, rgb(0xe8eaf2))
 				}
 			}
 		}
-		if from < 36 {
-			fillRect(c, x0+16, y0+36, 4, 4, rgb(0x5a1a10)) // rust and rivets
+		for _, py := range []float64{34, 88} { // panel seams with rivets
+			if py > from {
+				fillRect(c, x0, y0+py, 76, 1, rgba(0x2a0c08, 150))
+				for u := 8.0; u < 76; u += 20 {
+					fillRect(c, x0+u, y0+py+2, 2, 2, rgb(0xf0a090))
+				}
+			}
 		}
-		fillRect(c, x0+50, y0+88, 5, 5, rgb(0x5a1a10))
+		if 20 > from { // the rust streaks and a patch of duct tape
+			fillRect(c, x0+16, y0+22, 3, 10, rgb(0x5a1a10))
+			fillRect(c, x0+46, y0+40, 2, 14, rgb(0x5a1a10))
+			fillRect(c, x0+20, y0+22, 22, 7, rgb(0x8a8e98))
+			fillRect(c, x0+20, y0+22, 22, 1, rgb(0xc4c8d4))
+			fillRect(c, x0+30, y0+16, 7, 22, rgb(0x7a7e88))
+			fillRect(c, x0+30, y0+16, 7, 1, rgb(0xb0b4c0))
+		}
+		fillRect(c, x0, y0+from, 2, rkTop-from, ink) // the outline
+		fillRect(c, x0+74, y0+from, 2, rkTop-from, ink)
+		// the copper pipe that goes up the right side, with a valve
+		if 60 > from {
+			fillRect(c, x0+66, y0+from+0, 3, rkTop-from, rgb(0xb8703a))
+			fillRect(c, x0+66, y0+from, 1, rkTop-from, rgb(0xe8a060))
+			fillRect(c, x0+64, y0+110, 7, 5, rgb(0xd04a2a))
+		}
 	}
-	barrel(0)
+	fuselage(0)
 	// the bowl: the back of the rim, the hole, the hero inside, the front lip
-	filledEllipse(c, cx, y0-6, 46, 20, rgb(0xf2f2f6))
+	filledEllipse(c, cx, y0-6, 46, 20, rgb(0xd4d4e0))
+	filledEllipse(c, cx, y0-6, 45, 19, rgb(0xf2f2f6))
 	filledEllipse(c, cx, y0-8, 33, 12, rgb(0x2a2a3a))
 	if hero != nil {
 		hero()
 	}
-	filledEllipse(c, cx, y0+2, 46, 12, rgb(0xf2f2f6))
+	filledEllipse(c, cx, y0+2, 46, 12, rgb(0xb4b4c8))
+	filledEllipse(c, cx, y0+1, 46, 11, rgb(0xf2f2f6))
 	filledEllipse(c, cx, y0+4, 40, 8, rgb(0xd4d4e0))
+	fillRect(c, cx-34, y0-4, 14, 2, rgb(0xffffff)) // shine on the rim
 	if hero != nil {
-		barrel(16)
+		fuselage(16)
 	}
-	// the firecrackers of the engine, tied to the barrel with a string
+	// the portholes: a crewman looking out, and a pirate flag
+	port := func(px, py float64, pirate bool) {
+		filledEllipse(c, px, py, 12, 12, ink)
+		filledEllipse(c, px, py, 11, 11, rgb(0xc8a040)) // brass frame
+		filledEllipse(c, px, py, 8, 8, rgb(0x6a4a14))
+		filledEllipse(c, px, py, 7, 7, rgb(0x8ad4f0)) // glass
+		if pirate {
+			fillRect(c, px-7, py-7, 14, 14, rgb(0x14141a))
+			filledEllipse(c, px, py-1, 3, 3, rgb(0xf0f0f0)) // skull and bones
+			fillRect(c, px-2, py+2, 4, 2, rgb(0xf0f0f0))
+			fillRect(c, px-2, py-2, 1, 1, ink)
+			fillRect(c, px+1, py-2, 1, 1, ink)
+			fillRect(c, px-6, py+4, 12, 1, rgb(0xf0f0f0))
+		} else {
+			filledEllipse(c, px, py+1, 4, 4, rgb(0xf0c090)) // a face
+			fillRect(c, px-2, py, 1, 2, ink)
+			fillRect(c, px+1, py, 1, 2, ink)
+		}
+		fillRect(c, px-5, py-6, 3, 1, rgba(0xffffff, 200)) // glint
+		fillRect(c, px-6, py-5, 1, 2, rgba(0xffffff, 200))
+		ringAt(c, px, py, 11, 1, rgb(0xf0d070))
+	}
+	port(cx-22, by-98, false)
+	port(cx+22, by-98, true)
+	// the firecrackers of the engine, tied to the fuselage with a string: each one a shaded cylinder
 	for i, off := range []float64{-30, -12, 6, 24} {
-		fillRect(c, cx+off, by-76, 14, 60, rgb(0xd02a2a))
-		fillRect(c, cx+off, by-76, 14, 5, rgb(0x14141a))
+		for u := 0.0; u < 14; u += 2 {
+			fillRect(c, cx+off+u, by-76, 2, 60, rgb(rkShade(u/14, [4]uint32{0xf06a5a, 0xd02a2a, 0xa01c1c, 0x701212})))
+		}
+		fillRect(c, cx+off, by-76, 14, 5, ink)
 		fillRect(c, cx+off, by-52, 14, 8, rgb(0xf0e8d0))
-		fillRect(c, cx+off+6, by-84, 2, 9, rgb(0x14141a)) // the fuse
+		fillRect(c, cx+off+9, by-52, 5, 8, rgb(0xc8c0a4))
+		fillRect(c, cx+off, by-16, 14, 1, ink)
+		fillRect(c, cx+off+6, by-84, 2, 9, ink) // the fuse
 		if fire > 0 || (t < rkFizzle && t > rkCount0-1) || (t > rkKick+0.9 && t < rkLift) {
 			// the spark on the fuse
 			if int(t*20+float64(i))%2 == 0 && t < rkLift {
@@ -415,13 +542,33 @@ func (g *Game) drawRocketBody(c *ebiten.Image, in *interState, cx, by float64, h
 		}
 	}
 	fillRect(c, cx-34, by-60, 66, 4, rgb(0x4a3a20)) // the string
-	// the sign
-	fillRect(c, cx-68, by-118, 136, 32, rgb(0x3a2a10))
-	fillRect(c, cx-66, by-116, 132, 28, rgb(0xe8c030))
-	g.drawTextC(c, "CORREOS", cx, by-114, rgb(0x1c1408), 1.1)
-	g.drawTextC(c, "ESPACIALES", cx, by-101, rgb(0x1c1408), 1.1)
-	fillRect(c, cx-70, by-110, 4, 4, rgb(0x3a2a10)) // the ropes
-	fillRect(c, cx+66, by-110, 4, 4, rgb(0x3a2a10))
+	fillRect(c, cx-34, by-60, 66, 1, rgb(0x8a7a4a))
+	// the nozzle: a bell with a rim, below the firecrackers
+	for r := 0.0; r < 14; r++ {
+		hw := 22 + r*0.9
+		fillRect(c, cx-hw, by-18+r, 2*hw, 1, rgb(rkLerp(0x8a8e9c, 0x3c3e4a, r/14)))
+		fillRect(c, cx-hw, by-18+r, 2, 1, ink)
+		fillRect(c, cx+hw-2, by-18+r, 2, 1, ink)
+	}
+	fillRect(c, cx-35, by-4, 70, 3, rgb(0x6a6e7c))
+	fillRect(c, cx-35, by-4, 70, 1, rgb(0xc4c8d4))
+	fillRect(c, cx-35, by-1, 70, 1, ink)
+	// the sign, hung from two ropes
+	fillRect(c, cx-68, by-142, 136, 34, ink)
+	fillRect(c, cx-66, by-140, 132, 30, rgb(0xe8c030))
+	fillRect(c, cx-66, by-140, 132, 3, rgb(0xf8e070))
+	fillRect(c, cx-66, by-113, 132, 3, rgb(0xb08a1c))
+	g.drawTextC(c, "CORREOS", cx, by-137, rgb(0x1c1408), 1.0)
+	g.drawTextC(c, "ESPACIALES", cx, by-126, rgb(0x1c1408), 1.0)
+	fillRect(c, cx-70, by-130, 4, 4, ink) // the ropes
+	fillRect(c, cx+66, by-130, 4, 4, ink)
+	if fire > 0.5 { // steam clouds around the pad at the lift off
+		for i := 0; i < 6; i++ {
+			k := float64(i)
+			px := cx + (k-2.5)*30 + math.Sin(t*5+k)*4
+			filledEllipse(c, px, by-2+math.Sin(k*3)*3, 18+math.Mod(k*5, 9), 9, rgba(0xe8e8f4, 150))
+		}
+	}
 }
 
 // the hero, at 4x, in the pose it needs
@@ -705,9 +852,9 @@ func (g *Game) rocketCaption(dst *ebiten.Image, in *interState) {
 	h := rocketHeight(t)
 	switch {
 	case t > 2 && t < itBoard0:
-		const per = 3.8
+		const per = 2.9
 		k := int((t - 2) / per)
-		if u := t - 2 - float64(k)*per; u < 2.4 {
+		if u := t - 2 - float64(k)*per; u < 2.3 {
 			say(hx+10, hy-34*interScale-4, rocketMutters[k%len(rocketMutters)])
 		}
 	case t >= rkAsk && t < rkTicket-0.2:
@@ -733,12 +880,14 @@ func (g *Game) drawKnifeFlash(dst *ebiten.Image, x, y float64) {
 func (g *Game) rocketNumber(dst *ebiten.Image, s string, u float64) {
 	u = math.Mod(u, 1)
 	k := 1 + 0.5*math.Exp(-u*8)
-	a := uint8(255 * math.Min(1, 1.6*(1-u)+0.2))
-	col := rgba(0xffe060, a)
+	a := uint8(255 * math.Min(1, 1.6*(1-u)+0.55)) // never faint: it is read on a dark sky
+	col := rgba(0xfff0a0, a)
 	if s == "1" {
-		col = rgba(0xff6a8a, a)
+		col = rgba(0xffa0b8, a)
 	}
-	g.drawTextC(dst, s, 482, 104, rgba(0x14102a, a), 8*k)
+	for _, o := range [][2]float64{{-3, 0}, {3, 0}, {0, -3}, {0, 3}, {-3, -3}, {3, 3}, {-3, 3}, {3, -3}} {
+		g.drawTextC(dst, s, 480+o[0], 100+o[1], rgba(0x14102a, a), 8*k) // dark outline
+	}
 	g.drawTextC(dst, s, 480, 100, col, 8*k)
 }
 

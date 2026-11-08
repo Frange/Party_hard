@@ -10,18 +10,18 @@ import (
 
 // ---- qa_run_tests: the summary of `go test -json` -------------------------------
 
-const sampleJSON = `{"Action":"run","Package":"partyhard","Test":"TestA"}
-{"Action":"output","Package":"partyhard","Test":"TestA","Output":"=== RUN   TestA\\n"}
-{"Action":"pass","Package":"partyhard","Test":"TestA","Elapsed":0.2}
-{"Action":"run","Package":"partyhard","Test":"TestB"}
-{"Action":"output","Package":"partyhard","Test":"TestB","Output":"    b_test.go:12: expected 3, got 4\\n"}
-{"Action":"fail","Package":"partyhard","Test":"TestB","Elapsed":1.5}
-{"Action":"run","Package":"partyhard","Test":"TestC"}
-{"Action":"output","Package":"partyhard","Test":"TestC","Output":"    c_test.go:5: SKIP no assets here\\n"}
-{"Action":"skip","Package":"partyhard","Test":"TestC","Elapsed":0}
-{"Action":"run","Package":"partyhard","Test":"TestSlow"}
-{"Action":"pass","Package":"partyhard","Test":"TestSlow","Elapsed":42}
-{"Action":"fail","Package":"partyhard","Elapsed":44}
+const sampleJSON = `{"Action":"run","Package":"partyhardy","Test":"TestA"}
+{"Action":"output","Package":"partyhardy","Test":"TestA","Output":"=== RUN   TestA\\n"}
+{"Action":"pass","Package":"partyhardy","Test":"TestA","Elapsed":0.2}
+{"Action":"run","Package":"partyhardy","Test":"TestB"}
+{"Action":"output","Package":"partyhardy","Test":"TestB","Output":"    b_test.go:12: expected 3, got 4\\n"}
+{"Action":"fail","Package":"partyhardy","Test":"TestB","Elapsed":1.5}
+{"Action":"run","Package":"partyhardy","Test":"TestC"}
+{"Action":"output","Package":"partyhardy","Test":"TestC","Output":"    c_test.go:5: SKIP no assets here\\n"}
+{"Action":"skip","Package":"partyhardy","Test":"TestC","Elapsed":0}
+{"Action":"run","Package":"partyhardy","Test":"TestSlow"}
+{"Action":"pass","Package":"partyhardy","Test":"TestSlow","Elapsed":42}
+{"Action":"fail","Package":"partyhardy","Elapsed":44}
 `
 
 func TestSummarizeTestJSON(t *testing.T) {
@@ -38,8 +38,8 @@ func TestSummarizeTestJSON(t *testing.T) {
 }
 
 func TestSummaryWarnsWhenNothingRan(t *testing.T) {
-	out := `{"Action":"output","Package":"partyhard","Output":"testing: warning: no tests to run\n"}
-{"Action":"pass","Package":"partyhard","Elapsed":0.1}
+	out := `{"Action":"output","Package":"partyhardy","Output":"testing: warning: no tests to run\n"}
+{"Action":"pass","Package":"partyhardy","Elapsed":0.1}
 `
 	got := summarizeTestJSON(out).format()
 	if !strings.Contains(got, "no test ran") || !strings.Contains(got, "proves NOTHING") {
@@ -71,16 +71,16 @@ func makeZip(t *testing.T, path string, names ...string) {
 func TestVerifyZip(t *testing.T) {
 	dir := t.TempDir()
 	good := filepath.Join(dir, "good.zip")
-	makeZip(t, good, "PartyHard.exe", "PartyHardEditor.exe", "assets/sprites/people/a/front.png", "music/x.mp3")
-	r := verifyZip(good, []string{"PartyHard.exe", "PartyHardEditor.exe"})
+	makeZip(t, good, "PartyHardy.exe", "PartyHardyEditor.exe", "assets/sprites/people/a/front.png", "music/x.mp3")
+	r := verifyZip(good, []string{"PartyHardy.exe", "PartyHardyEditor.exe"})
 	if len(r.issues) != 0 || r.mp3 != 1 {
 		t.Fatalf("a clean zip must pass: %v", r.issues)
 	}
 	bad := filepath.Join(dir, "bad.zip")
-	makeZip(t, bad, "PartyHard.exe", "assets/progress.json", "assets/editor_prefs.json", "imports/sprites/people/amigo/front.png", "mac/assets/Settings.json")
-	r = verifyZip(bad, []string{"PartyHard.exe", "PartyHardEditor.exe"})
+	makeZip(t, bad, "PartyHardy.exe", "assets/progress.json", "assets/editor_prefs.json", "imports/sprites/people/amigo/front.png", "mac/assets/Settings.json")
+	r = verifyZip(bad, []string{"PartyHardy.exe", "PartyHardyEditor.exe"})
 	joined := strings.Join(r.issues, "\n")
-	for _, want := range []string{"progress.json", "editor_prefs.json", "imports/sprites", "Settings.json", "PartyHardEditor.exe"} {
+	for _, want := range []string{"progress.json", "editor_prefs.json", "imports/sprites", "Settings.json", "PartyHardyEditor.exe"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("the problem %q was not reported:\n%s", want, joined)
 		}
@@ -92,12 +92,12 @@ func TestVerifyZip(t *testing.T) {
 
 func TestBuildReleaseVerifyOnlyBuildsNothing(t *testing.T) {
 	root := fakeProject(t)
-	os.WriteFile(filepath.Join(root, "go.mod"), []byte("module partyhard\n"), 0o644)
-	makeZip(t, filepath.Join(root, "PartyHard-Mac.zip"), "PartyHard.app/Contents/MacOS/PartyHard", "PartyHardEditor.app/Contents/MacOS/PartyHardEditor")
-	makeZip(t, filepath.Join(root, "PartyHard-Windows.zip"), "PartyHard.exe", "PartyHardEditor.exe", "assets/progress.json")
+	os.WriteFile(filepath.Join(root, "go.mod"), []byte("module partyhardy\n"), 0o644)
+	makeZip(t, filepath.Join(root, "PartyHardy-Mac.zip"), "PartyHardy.app/Contents/MacOS/PartyHardy", "PartyHardyEditor.app/Contents/MacOS/PartyHardyEditor")
+	makeZip(t, filepath.Join(root, "PartyHardy-Windows.zip"), "PartyHardy.exe", "PartyHardyEditor.exe", "assets/progress.json")
 	res := rpc(t, root, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"build_release","arguments":{"verify_only":true}}}`)
 	got := text(res[0])
-	if !strings.Contains(got, "PartyHard-Mac.zip: ok") || !strings.Contains(got, "PartyHard-Windows.zip: PROBLEMS") || !strings.Contains(got, "progress.json") {
+	if !strings.Contains(got, "PartyHardy-Mac.zip: ok") || !strings.Contains(got, "PartyHardy-Windows.zip: PROBLEMS") || !strings.Contains(got, "progress.json") {
 		t.Fatalf("report: %s", got)
 	}
 	if !strings.Contains(got, "ROOT BINARIES STALE") || !strings.Contains(got, "RESULT: PROBLEMS") {
@@ -125,8 +125,8 @@ func TestRootBinariesComparedWithDist(t *testing.T) {
 	if s := staleRootBinaries(root); len(s) != 0 {
 		t.Fatalf("identical files are not stale: %v", s)
 	}
-	os.WriteFile(filepath.Join(root, "PartyHard.exe"), []byte("old"), 0o755)
-	if s := staleRootBinaries(root); len(s) != 1 || s[0] != "PartyHard.exe" {
+	os.WriteFile(filepath.Join(root, "PartyHardy.exe"), []byte("old"), 0o755)
+	if s := staleRootBinaries(root); len(s) != 1 || s[0] != "PartyHardy.exe" {
 		t.Fatalf("stale: %v", s)
 	}
 }
@@ -134,8 +134,8 @@ func TestRootBinariesComparedWithDist(t *testing.T) {
 // ---- clean_temp: the allowlist ---------------------------------------------------
 
 func TestAllowProc(t *testing.T) {
-	yes := []string{"/tmp/ph_chk -level 1 -shot /tmp/x.png", "/private/tmp/ph_g -intro", "/var/folders/ab/T/phmcp-123/game -level 3", "/var/folders/x/go-build/b001/partyhard.test -test.run X"}
-	no := []string{"/Users/someone/Proyectos/Party Hard JM/PartyHard", "/Applications/PartyHard.app/Contents/MacOS/PartyHard", "/usr/bin/vim /tmp/ph_notes.txt",
+	yes := []string{"/tmp/ph_chk -level 1 -shot /tmp/x.png", "/private/tmp/ph_g -intro", "/var/folders/ab/T/phmcp-123/game -level 3", "/var/folders/x/go-build/b001/partyhardy.test -test.run X"}
+	no := []string{"/Users/someone/Proyectos/Party Hard JM/PartyHardy", "/Applications/PartyHardy.app/Contents/MacOS/PartyHardy", "/usr/bin/vim /tmp/ph_notes.txt",
 		"/tmp/other", "/tmp/../Users/x/ph_evil", "/tmp/phmcpx/game", "go test .", ""}
 	for _, c := range yes {
 		if !allowProc(c) {
@@ -249,7 +249,7 @@ func TestDiskReportIsReadOnly(t *testing.T) {
 func TestAllowedProcsUsesTheHook(t *testing.T) {
 	old := listProcs
 	listProcs = func() string {
-		return " 4001 /tmp/ph_g -level 2\n 4002 /Users/x/Party Hard JM/PartyHard\n 4003 /usr/bin/ssh host\n"
+		return " 4001 /tmp/ph_g -level 2\n 4002 /Users/x/Party Hard JM/PartyHardy\n 4003 /usr/bin/ssh host\n"
 	}
 	defer func() { listProcs = old }()
 	got := allowedProcs()

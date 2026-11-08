@@ -160,7 +160,7 @@ func defaultBindings() Bindings {
 	set(actDown, ebiten.KeyS, ebiten.KeyArrowDown, ebiten.StandardGamepadButtonLeftBottom)
 	set(actLeft, ebiten.KeyA, ebiten.KeyArrowLeft, ebiten.StandardGamepadButtonLeftLeft)
 	set(actRight, ebiten.KeyD, ebiten.KeyArrowRight, ebiten.StandardGamepadButtonLeftRight)
-	set(actRun, ebiten.KeyShiftLeft, ebiten.KeyShiftRight, ebiten.StandardGamepadButtonFrontBottomRight)
+	set(actRun, ebiten.KeyShiftLeft, noKey, ebiten.StandardGamepadButtonFrontBottomRight) // Shift der. is the run key of player 2
 	set(actAttack, ebiten.KeySpace, ebiten.KeyJ, ebiten.StandardGamepadButtonRightBottom)
 	set(actInteract, ebiten.KeyE, noKey, ebiten.StandardGamepadButtonRightLeft)
 	set(actDance, ebiten.KeyF, noKey, ebiten.StandardGamepadButtonRightTop)

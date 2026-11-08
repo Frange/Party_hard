@@ -155,12 +155,14 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 			return "Llamar a la ambulancia", rgb(0x60ffa0)
 		}
 		return "Cortar cable", rgb(0xff6060)
-	case k.Item != "" && p.item != "":
+	case k.Item != "" && !canTake(p, k.Item):
 		return "", color.RGBA{}
 	case k.Item == "poison":
 		return "Coger veneno", rgb(0x60ff80)
 	case k.Item == "disguise":
 		return "Coger disfraz", rgb(0xd090ff)
+	case k.Item == "suit":
+		return "Ponerte el traje dorado", rgb(0xffd860)
 	case k.Poison && pr.armT <= 0:
 		if p.item == "poison" {
 			return "Envenenar", rgb(0x60ff80)
@@ -168,7 +170,7 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 		return "Necesita veneno", rgb(0x70a080)
 	case (pr.Name == "closet" || pr.Name == "wardrobe") && g.wanted > 0:
 		return "Cambiarse de ropa", rgb(0xd090ff)
-	case k.Trap != "" && !pr.used && pr.armT == 0:
+	case k.Trap != "" && !pr.used && pr.armT == 0 && !pr.armed:
 		return "Armar trampa", rgb(0xffa040)
 	}
 	return "", color.RGBA{}
@@ -223,10 +225,14 @@ func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bo
 		}
 		if d < 30 {
 			txt := "[" + hint + "] " + lab
-			g.drawTextC(dst, txt, x, y-16, col, 1)
+			ty := y - 16
+			if g.is2P() {
+				ty = g.clearOfTags(x, ty, g.textW(txt, 1)+10)
+			}
+			g.drawTextC(dst, txt, x, ty, col, 1)
 			if g.is2P() { // a small square in the player's colour says whose key it is
 				pc := playerColor(pl.idx)
-				fillRect(dst, math.Round(x-g.textW(txt, 1)/2)-7, y-14, 4, 4, pc)
+				fillRect(dst, math.Round(x-g.textW(txt, 1)/2)-7, ty+2, 4, 4, pc)
 			}
 		}
 	}
@@ -242,19 +248,128 @@ func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bo
 	}
 }
 
+// clearOfTags (two players): the y for a text of width w centred on x whose top is at ty so that it does not
+// sit on the J1/J2 tag of a player, nor on his cry or his "!" alert (they stack up to 46 px above the tag).
+func (g *Game) clearOfTags(x, ty, w float64) float64 {
+	for k := 0; k < 3; k++ { // moving up for one tag can land on the other
+		moved := false
+		for _, p := range g.players() {
+			if p == nil || p.hidden {
+				continue
+			}
+			sc := g.charSc
+			if sc <= 0 {
+				sc = 1
+			}
+			px, py := math.Round(g.wx(p.pos.X)), math.Round(g.wy(p.pos.Y))-40*sc-6
+			top := py - 30 // the tag is ~10 px tall and the arrow marker of the player floats above it; the cry sits over both
+			if p.msgT > 0 && p.msg != "" {
+				top -= 11
+			}
+			if g.playerAlert(p) {
+				top -= 28 // the badge and its pulse
+			}
+			if math.Abs(x-px) < w/2+14 && ty < py+10 && ty+11 > top {
+				ty = top - 12
+				moved = true
+			}
+		}
+		if !moved {
+			break
+		}
+	}
+	return ty
+}
+
 // ---- items ----------------------------------------------------------------------------
 
+// pickReach is how close (to the foot of the prop) a player must be to pick an item up: the same
+// distance at which the "[E] Coger ..." label shows (it used to be 16 against the label's 30).
+const pickReach = 30.0
+
+// canTake: the player can pick this kind up (a second slot holds the other kind; the same kind only
+// refills a bottle that is not full).
+func canTake(p *Player, kind string) bool {
+	switch {
+	case kind == "suit":
+		return p.suitT <= 0
+	case p.item == kind:
+		return kind == "poison" && p.doses < poisonDoses
+	case p.item != "" && p.spare == kind:
+		return false
+	}
+	return true
+}
+
+// pickupInteract: poison and clothes can ALWAYS be picked up. Nothing but being dead, in the hands
+// of the police or knocked out (updatePlayer already stops those) prevents it: not the stars, not the
+// alert, not the cuffs, not carrying a body, not a hiding spot, not the two-player gestures (a cop to
+// distract, a high five) that used to take the key first.
+func (g *Game) pickupInteract(p *Player) bool {
+	if p == nil || p.dead || p.hidden || p.jail.held {
+		return false
+	}
+	if g.vipInteract(p) { // help the VIP who tips (vip.go)
+		return true
+	}
+	var best *Prop
+	bd := pickReach
+	for _, pr := range g.lvl.Props {
+		if pr.gone || pr.K.Item == "" || !canTake(p, pr.K.Item) {
+			continue
+		}
+		if d := distRect(p.pos, pr.Foot); d <= bd {
+			best, bd = pr, d
+		}
+	}
+	if best == nil {
+		return false
+	}
+	for _, pr := range g.lvl.Props { // something else to use that is closer wins (a bush, a phone...)
+		if pr != best && !pr.gone && pr.K.Item == "" && distRect(p.pos, pr.Foot) < bd {
+			if lab, _ := g.useLabel(pr); lab != "" {
+				return false
+			}
+		}
+	}
+	g.pickItem(best)
+	return true
+}
+
 func (g *Game) pickItem(pr *Prop) {
+	p := g.p
 	pr.gone = true
 	g.snd.Play("spark")
-	switch pr.K.Item {
+	kind := pr.K.Item
+	if kind == "suit" {
+		g.putOnSuit(p) // worn at once, one use (vip.go)
+		return
+	}
+	if p.item != "" && p.item != kind {
+		p.spare, p.spareDoses = kind, 0 // the other kind waits in the second slot
+		if kind == "poison" {
+			p.spareDoses = poisonDoses
+			g.say("Guardas el frasco de veneno junto al disfraz")
+		} else {
+			g.say("Guardas un disfraz: se usa solo cuando te buscan")
+		}
+		return
+	}
+	switch kind {
 	case "poison":
-		g.p.item, g.p.doses = "poison", poisonDoses
+		p.item, p.doses = "poison", poisonDoses
 		g.say("Tienes veneno: da copas a la gente o échalo en el ponche")
-		g.say(dosesText(g.p.doses))
+		g.say(dosesText(p.doses))
 	case "disguise":
-		g.p.item = "disguise"
+		p.item = "disguise"
 		g.say("Tienes un disfraz: se usa solo cuando te buscan")
+	}
+}
+
+// promoteSpare: when the carried item is used up, the one in the second slot comes out.
+func (p *Player) promoteSpare() {
+	if p.item == "" && p.spare != "" {
+		p.item, p.doses, p.spare, p.spareDoses = p.spare, p.spareDoses, "", 0
 	}
 }
 
@@ -269,6 +384,7 @@ func (g *Game) useDisguise() {
 	}
 	g.p.cs = newCharSet(&spec)
 	g.p.item = ""
+	g.p.promoteSpare()
 	g.p.disguised = true
 	g.p.jail.sus = false // the cuffs mark leaves him (two players, twojail.go)
 	// the police lose the trail when nobody is left that they could still be after
@@ -298,8 +414,10 @@ type pianoDrop struct {
 }
 
 func (g *Game) trapKill(gu *Guest) {
+	g.killCause = kcTrap
 	g.killGuest(gu, false)
 	g.stat("traps", 1)
+	g.secretTrapKill()
 }
 
 func (g *Game) trapCops(centre Vec, r float64) {
@@ -377,7 +495,7 @@ func (g *Game) updateTraps2(dt float64) {
 				continue
 			}
 			*exp += dt
-			if *exp > 3 && !g.coopSpare(pl, c.pos) {
+			if *exp > 3 {
 				g.withPlayer(pl, func() { g.die("Te has asfixiado con tu propia trampa de gas") })
 			}
 		}
@@ -414,7 +532,7 @@ func (g *Game) updateTraps2(dt float64) {
 			}
 			g.trapCops(at, 30)
 			g.eachPlayer(func(p *Player) {
-				if !p.dead && dist(p.pos, at) < 20 && !g.coopSpare(p, at) {
+				if !p.dead && dist(p.pos, at) < 20 {
 					g.die("Un cohete de tu trampa te ha dado")
 				}
 			})
@@ -449,7 +567,7 @@ func (g *Game) updateTraps2(dt float64) {
 			}
 			g.trapCops(d.pos, 34)
 			g.eachPlayer(func(p *Player) {
-				if !p.dead && math.Abs(p.pos.X-d.pos.X) < 30 && math.Abs(p.pos.Y-d.pos.Y) < 20 && !g.coopSpare(p, d.pos) {
+				if !p.dead && math.Abs(p.pos.X-d.pos.X) < 30 && math.Abs(p.pos.Y-d.pos.Y) < 20 {
 					g.die("Te ha caído un piano encima")
 				}
 			})

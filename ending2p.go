@@ -23,8 +23,8 @@ func endTwoOff(t float64, secret bool) float64 {
 	off := 34 + 14*math.Sin(t*1.3)
 	if !secret {
 		off += 40 * (introEase((t-1.4)/0.8) - introEase((t-3.8)/0.8)) // yawning, he drops behind
-		if t > 9 && t < 13 {                                          // the cat: he runs round the blue one
-			off = 34 + 70*math.Sin((t-9)*4.5)
+		if t > 6.4 && t < 8.3 {                                       // the ghosts: he backs away
+			off = 34 + 36*math.Sin((t-6.4)*3.3)
 		}
 	} else if t > 11 && t < 13 { // slipping on the footprint
 		off = 34 + 20*math.Sin((t-11)*3)
@@ -43,14 +43,13 @@ func endTwoActor(e *endState) (anim int, ph float64, dir Dir, hop, lean float64)
 	case !e.trueEnd && t > 1.6 && t < 3.8: // a huge yawn, dragging his feet
 		anim, ph = AnimTired, e.total*3
 		lean = 0.05
-	case !e.trueEnd && t > 5.2 && t < 6.8: // the balloon scares him
+	case !e.trueEnd && t > 4.0 && t < 5.4: // the balloon scares him
 		hop = math.Abs(math.Sin(t*9)) * 8
 		anim, ph = AnimPanic, t*8
-	case !e.trueEnd && t > 9 && t < 13: // running from a cat
-		anim, ph = AnimRun, e.total*10
-		if math.Cos((t-9)*4.5) > 0 {
-			dir = DirRight
-		}
+	case !e.trueEnd && t > 6.4 && t < 8.3: // the ghosts: backwards, looking at them
+		anim, ph = AnimPanic, e.total*10
+		dir = DirRight
+		hop = math.Abs(math.Sin(t*9)) * 5
 	case e.trueEnd && t > 6 && t < 14.5: // backwards, looking at the ghosts
 		dir = DirRight
 		anim = AnimWalk
@@ -70,6 +69,7 @@ func (g *Game) endHero2(c *ebiten.Image, e *endState, camX float64) {
 	if cs == nil {
 		return
 	}
+	recLayer("actor:hero")
 	var x, alpha float64
 	alpha = 1
 	switch e.stage {
@@ -115,14 +115,14 @@ func (g *Game) endHero2(c *ebiten.Image, e *endState, camX float64) {
 	op.ColorScale.ScaleAlpha(float32(alpha))
 	fillShadow(c, x, endGround+11)
 	c.DrawImage(img, op)
-	if e.stage == endWalk && !e.trueEnd && e.t > 5.2 && e.t < 7.4 { // the balloon, going down with a "pffft"
-		u := (e.t - 5.0) / 2.4
+	if e.stage == endWalk && !e.trueEnd && e.t > 3.8 && e.t < 6.0 { // the balloon, going down with a "pffft"
+		u := (e.t - 3.8) / 2.2
 		bx := e.heroX - camX + 140 - u*170
 		by := 70 + u*60 + math.Sin(u*18)*18
 		filledEllipse(c, bx, by, 6-3*u, 7-3*u, rgb(0xe03a8a))
 		fillRect(c, bx, by+6, 1, 12, rgba(0xc8c8d8, 180))
 		if int(e.t*8)%3 == 0 {
-			g.drawText(c, "pffft", bx+6, by-8, rgba(0xf4f0ff, 200), 0.8)
+			e.sayAt("pffft", bx+6, by-8, 0xf4f0ff, 200)
 		}
 	}
 }
@@ -160,14 +160,12 @@ func (g *Game) endTwoSay(dst *ebiten.Image, e *endState) {
 			b1("Por fin, silencio.")
 		case sceneIn(t, 2.0, 3.6):
 			b2("¡¡AAAAAAH!! (bostezo)")
-		case sceneIn(t, 5.2, 6.8):
+		case sceneIn(t, 4.0, 5.4):
 			b2("¡¿QUÉ ES ESO?!")
-		case sceneIn(t, 6.9, 8.4):
+		case sceneIn(t, 5.5, 6.4):
 			b1("Un globo. Respira.")
-		case sceneIn(t, 9.2, 10.6):
-			b2("¡¡UN GATO!! ¡¡SOCORRO!!")
-		case sceneIn(t, 10.8, 12.4):
-			b1("Michi, michi.")
+		case sceneIn(t, 6.5, 8.0):
+			b2("¡¡FANTASMAS!!")
 		}
 	case e.stage == endWalk:
 		switch {
@@ -211,10 +209,10 @@ func (g *Game) walkCaption2(e *endState) string {
 			return "Ni un bajo. Ni una voz. Ni un solo 'otra más'."
 		case e.t < 4.8:
 			return "Después de acabar con todas las fiestas... a casa. El rojo, bostezando."
-		case e.t < 9:
+		case e.t < 6:
 			return "Un globo desinflándose. El rojo ya estaba a punto de pegar un salto."
 		default:
-			return "Un gato callejero se ha apuntado. El azul lo acaricia; el rojo corre."
+			return "Los fantasmas de las fiestas les siguen. El azul saluda; el rojo huye."
 		}
 	}
 	switch {

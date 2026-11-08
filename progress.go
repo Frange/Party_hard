@@ -19,6 +19,7 @@ type Progress struct {
 	Owned    []string          `json:"owned"`
 	Equip    map[string]string `json:"equip"`             // what player 1 wears (and the party: uniforms, weapons)
 	EquipP2  map[string]string `json:"equipP2,omitempty"` // what player 2 wears (old saves have none)
+	Album    map[string]int    `json:"album,omitempty"`   // collector cards: key -> albumSeen|albumKilled|albumHelped bits (album.go; old saves have none)
 }
 
 func progressPath() string {
@@ -110,6 +111,13 @@ func cloneProgress(p Progress) Progress {
 	c.Equip = map[string]string{}
 	for k, v := range p.Equip {
 		c.Equip[k] = v
+	}
+	c.Album = nil
+	if p.Album != nil {
+		c.Album = map[string]int{}
+		for k, v := range p.Album {
+			c.Album[k] = v
+		}
 	}
 	c.EquipP2 = nil
 	if p.EquipP2 != nil {

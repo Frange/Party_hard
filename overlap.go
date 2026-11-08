@@ -407,7 +407,13 @@ func resolveOverlaps(d *LevelDef) {
 			placed = append(placed, g)
 			continue
 		}
-		if propPriority(g.in.Kind) >= 3 && !droppable[g.in.Kind] {
+		spare := false // an extra bar with no room anywhere is dropped when another bar is already placed
+		if g.in.Kind == "bar" {
+			for _, o := range placed {
+				spare = spare || o.in.Kind == "bar"
+			}
+		}
+		if propPriority(g.in.Kind) >= 3 && !droppable[g.in.Kind] && !spare {
 			placed = append(placed, g) // keep the key objects; the test flags them
 		}
 	}

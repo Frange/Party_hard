@@ -44,7 +44,7 @@ func init() {
 // othersDone: every trophy except the last one has been won.
 func (g *Game) othersDone() bool {
 	for _, t := range trophyList {
-		if t.id != legendTrophy && !g.progress.Trophies[t.id] {
+		if t.id != legendTrophy && !secretTrophy[t.id] && !g.progress.Trophies[t.id] {
 			return false
 		}
 	}
@@ -207,7 +207,8 @@ func (g *Game) stabCop(c *Cop) {
 	g.bodies[len(g.bodies)-1].label = label + g.personalName(c, g.copCSFor(c))
 	g.removeCop(c)
 	g.kills++
-	g.points += 100
+	g.countKill(kcKnife, false)
+	g.points += g.killVal(100)
 	g.wanted = math.Max(g.wanted, 45)
 	g.say("Has acabado con un policía")
 }

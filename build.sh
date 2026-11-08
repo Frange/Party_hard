@@ -1,11 +1,11 @@
 #!/bin/bash
 # Builds the game and the editor for Windows and macOS (Intel + Apple Silicon) into ./dist
-# Requires Go. Run from the project folder.
+# Requires Go. Run from the project folder. Icons: icon/ (regenerate with: go run ./tools/mkicon).
 set -e
 cd "$(dirname "$0")"
 export CGO_ENABLED=0
 OUT=dist
-rm -f PartyHard-Mac.zip PartyHard-Windows.zip
+rm -f PartyHardy-Mac.zip PartyHardy-Windows.zip
 rm -rf $OUT && mkdir -p $OUT/mac $OUT/win $OUT/tmp
 
 mkapp() { # name binary dest
@@ -34,11 +34,11 @@ PLIST
 
 for tags in "" "editor"; do
   suffix=""; [ -n "$tags" ] && suffix="Editor"
-  GOOS=windows GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags "-H=windowsgui -s -w" -o "$OUT/win/PartyHard$suffix.exe" .
+  GOOS=windows GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags "-H=windowsgui -s -w" -o "$OUT/win/PartyHardy$suffix.exe" .
   GOOS=darwin GOARCH=amd64 go build -trimpath -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-amd64" .
   GOOS=darwin GOARCH=arm64 go build -trimpath -tags "$tags" -ldflags "-s -w" -o "$OUT/tmp/ph$suffix-arm64" .
   lipo -create "$OUT/tmp/ph$suffix-amd64" "$OUT/tmp/ph$suffix-arm64" -output "$OUT/tmp/ph$suffix"
-  mkapp "PartyHard$suffix" "$OUT/tmp/ph$suffix" "$OUT/mac" "local.partyhard.clone$suffix"
+  mkapp "PartyHardy$suffix" "$OUT/tmp/ph$suffix" "$OUT/mac" "local.partyhardy.clone$suffix"
 done
 rm -rf $OUT/tmp
 
@@ -54,8 +54,9 @@ if [ -d assets ]; then
     [ -d more ] && cp more/*.mp3 $OUT/$d/more/ 2>/dev/null || true
     [ -d DJ ] && cp DJ/*.mp3 $OUT/$d/DJ/ 2>/dev/null || true
     [ -d intros ] && cp intros/*.mp3 intros/*.bpm $OUT/$d/intros/ 2>/dev/null || true
+    [ -f intros/README.md ] && cp intros/README.md $OUT/$d/intros/ || true
   done
-  (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHard-Mac.zip 2>/dev/null || zip -qr ../../PartyHard-Mac.zip .)
-  (cd $OUT/win && zip -qr ../../PartyHard-Windows.zip .)
+  (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHardy-Mac.zip 2>/dev/null || zip -qr ../../PartyHardy-Mac.zip .)
+  (cd $OUT/win && zip -qr ../../PartyHardy-Windows.zip .)
 fi
 echo "built into $OUT"

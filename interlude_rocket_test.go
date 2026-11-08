@@ -1,8 +1,12 @@
 package main
 
 import (
+	"image/color"
+	"math"
 	"math/rand"
 	"testing"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 func TestRocketInterludeAfterParty20(t *testing.T) {
@@ -51,7 +55,7 @@ func TestRocketInterludeIsListed(t *testing.T) {
 func TestRocketTimeline(t *testing.T) {
 	if !(itStop < rkGuard && rkGuard < rkAsk && rkAsk < rkTicket && rkTicket < rkBoard && rkBoard < rkCount0 &&
 		rkCount0+5*rkTick0 <= rkFizzle && rkFizzle < rkKick && rkKick < rkCount1 && rkCount1+3*rkTick1 <= rkLift &&
-		rkLift < rkSpace && rkSpace < rkFlash && rkFlash < rocketLen) {
+		rkLift < rkSpace && rkSpace < rkFlash && rkFlash < rocketLen && rocketLen <= 20) {
 		t.Fatal("the rocket timeline is out of order")
 	}
 	if rocketHeight(rkLift-1) != 0 || rocketCam(rkLift+0.5) != 0 {
@@ -100,5 +104,41 @@ func TestRocketGuardIsSolid(t *testing.T) {
 			t.Errorf("view %d: only %d opaque pixels", vw, op)
 		}
 		_ = soft
+	}
+}
+
+// the redesigned rocket: it is drawn at every moment of the sequence without panics, in 1P and 2P, and its
+// footprint stays inside the 960x540 canvas where it sits on the roof. (Not checked here: how it looks.)
+func TestRocketBodyDrawsInsideCanvas(t *testing.T) {
+	g := auditGame(t) // fonts and px, no window
+	oldPx := px
+	if px == nil {
+		px = ebiten.NewImage(1, 1)
+		px.Fill(color.White)
+	}
+	t.Cleanup(func() { px = oldPx })
+	x0, y0, x1, y1 := rocketBox()
+	if x0 != math.Round(x0) || y0 != math.Round(y0) || x1 <= x0 || y1 <= y0 {
+		t.Fatalf("bad box %v %v %v %v", x0, y0, x1, y1)
+	}
+	if rkX+x0 < 0 || rkX+x1 > 960 || rkBase+y0 < 0 {
+		t.Errorf("the rocket on its pad leaves the canvas: x %.0f..%.0f top %.0f", rkX+x0, rkX+x1, rkBase+y0)
+	}
+	if rkBase+y1 > 540 {
+		t.Errorf("the rocket base is below the canvas")
+	}
+	for _, two := range []bool{false, true} {
+		c := ebiten.NewImage(960, 540)
+		for _, tt := range []float64{rkGuard, rkBoard + 2, rkCount0 + 1, rkFizzle + 0.2, rkKick + 0.6, rkCount1 + 2, rkLift + 0.3, rkLift + 3} {
+			in := &interState{kind: interRocket, t: tt, two: two}
+			g.drawRocketBody(c, in, rkX, rkBase-rocketHeight(tt), func() {})
+			g.drawRocketBody(c, in, rkX, rkBase, nil)
+		}
+		c.Deallocate()
+	}
+	// the shading tones go from light to dark and the colour mix is exact at its ends
+	tones := [4]uint32{1, 2, 3, 4}
+	if rkShade(0.15, tones) != 1 || rkShade(0.95, tones) != 4 || rkLerp(0x000000, 0xffffff, 1) != 0xffffff || rkLerp(0x102030, 0x102030, 0.5) != 0x102030 {
+		t.Error("shade/lerp helpers are wrong")
 	}
 }

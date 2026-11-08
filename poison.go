@@ -58,6 +58,7 @@ func (g *Game) useDoses(n int) {
 	p.doses -= n
 	if p.doses <= 0 {
 		p.doses, p.item = 0, ""
+		p.promoteSpare()
 	}
 }
 
@@ -98,6 +99,7 @@ func (g *Game) offerPoison(gu *Guest) {
 	for _, o := range g.guests {
 		if o != gu && g.canWatch(o) && g.sees(o.pos, o.dir, p.pos, guestRange, guestDot) {
 			o.sawKiller, o.sawPos = true, p.pos
+			o.sawP, o.warned = p, false
 		}
 	}
 }
@@ -128,6 +130,7 @@ func (g *Game) updatePoison(gu *Guest, dt float64) bool {
 	gu.poison -= dt
 	if gu.poison <= 0 {
 		g.credit = true
+		g.killCause = kcPoison
 		g.killGuest(gu, false)
 		g.credit = false
 		g.kills++

@@ -111,7 +111,7 @@ func (g *Game) openEditor() {
 		w, h = int(float64(w)*k), int(float64(h)*k)
 	}
 	ebiten.SetWindowSize(w, h)
-	ebiten.SetWindowTitle("Party Hard - Editor de sprites y escenarios")
+	ebiten.SetWindowTitle("Party Hardy - Editor de sprites y escenarios")
 }
 
 func math_min(a, b float64) float64 {
@@ -124,7 +124,7 @@ func math_min(a, b float64) float64 {
 func (g *Game) closeEditor() {
 	g.mode = ModeMenu
 	ebiten.SetWindowSize(gameWinW, gameWinH)
-	ebiten.SetWindowTitle("Party Hard - Fiesta Nocturna")
+	ebiten.SetWindowTitle("Party Hardy - Fiesta Nocturna")
 	// pick up whatever was edited
 	g.store = loadAssetStore()
 	if g.store != nil {

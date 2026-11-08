@@ -7,7 +7,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// The two player version of the car and boat interludes.
+// The two player version of the car interlude (the boat and the balloon have their own, see
+// interlude_boat.go and interlude_balloon.go).
 //
 // The same angry walk, now with the two heroes and their characters (twoscenes.go): the blue one is
 // the patient one: he walks upright at his own pace, never looks where he is going and always
@@ -19,10 +20,9 @@ import (
 
 // the little accidents of the street, in seconds of the scene
 const (
-	i2CanT  = 7.0  // the blue one walks past a tin can without looking...
-	i2CanKT = 7.78 // ...and the red one kicks it
-	i2LampT = 12.5 // a lamp post the red one walks into while he looks back at the blue one
-	i2DogT  = 16.0 // a dog: the red one runs away from it, the blue one pats it
+	i2CanT  = 2.3 // the blue one walks past a tin can without looking...
+	i2CanKT = 3.1 // ...and the red one kicks it
+	i2LampT = 5.6 // a lamp post the red one walks into while he looks back at the blue one
 )
 
 // interTwoLines: what each of them mutters in the street (the first is the patient one).
@@ -39,8 +39,6 @@ func interTwoOffset(t float64) float64 {
 	off += 40 * (introEase((t-(i2CanKT-1.2))/0.8) - introEase((t-(i2CanKT+0.6))/0.8))
 	// ...he overtakes the blue one to see whether he follows (and hits the lamp post)
 	off += 150 * (introEase((t-(i2LampT-2.4))/1.2) - introEase((t-(i2LampT+1.6))/1.0))
-	// the dog: he jumps back
-	off -= 95 * (introEase((t-i2DogT)/0.4) - introEase((t-(i2DogT+1.8))/0.9))
 	return off
 }
 
@@ -61,19 +59,11 @@ func (g *Game) interTwoHero2(in *interState) (x, y float64, anim int, ph float64
 	}
 	if t >= itBoard0 { // he rushes to the vehicle ahead of the blue one
 		to := interStopX + 100
-		if in.kind == interBoat {
-			to = interStopX - 70
-		}
 		u := introEase((t - itBoard0) / (itOpen - itBoard0 - 0.3))
 		x = (hx + interTwoOffset(itBoard0)) + (to-(hx+interTwoOffset(itBoard0)))*u
 		ph = t * 10
 		lean = 0
-		if in.kind == interBoat && t > itOpen-0.2 { // a jump into the boat that is too big
-			v := math.Min(1, (t-(itOpen-0.2))/(itIn-itOpen+0.2))
-			x += 95 * v
-			y += 14*v - math.Sin(math.Pi*v)*90
-		}
-		if t > itOpen+0.5 && in.kind != interBoat {
+		if t > itOpen+0.5 {
 			anim, ph = AnimIdle, 0
 		}
 	}
@@ -85,17 +75,13 @@ func (g *Game) interTwoHero2(in *interState) (x, y float64, anim int, ph float64
 	if t > i2LampT+0.3 && t < i2LampT+1.6 {
 		anim, ph = AnimFall, 0
 	}
-	// the dog: a panicky shuffle
-	if t > i2DogT && t < i2DogT+1.8 {
-		anim, ph = AnimPanic, t*9
-	}
 	return
 }
 
 // the dog sits on the pavement and barks at the red one; the blue one pats it
 func (g *Game) interTwoStreetGags(c *ebiten.Image, in *interState) {
 	t := in.t
-	if t > 30 || in.kind == interBoat && t > itDecel0 {
+	if t > itBoard0 {
 		return
 	}
 	gy := interGround + 14
@@ -131,23 +117,6 @@ func (g *Game) interTwoStreetGags(c *ebiten.Image, in *interState) {
 			g.sceneStars(c, ax, ay-34*interScale-6, t, 1)
 		}
 	}
-	// the dog
-	if t > i2DogT-5 && t < i2DogT+5 {
-		x := interTwoGagX(t, i2DogT, 40)
-		wag := math.Sin(t*18) * 3
-		filledEllipse(c, x, gy-12, 16, 10, rgb(0x8a6a44))
-		filledEllipse(c, x+16, gy-20, 9, 8, rgb(0x8a6a44))
-		fillRect(c, x+22, gy-20, 8, 5, rgb(0x6a4a2c))
-		fillRect(c, x+20, gy-27, 4, 7, rgb(0x4a3220))
-		fillRect(c, x+17, gy-23, 2, 2, rgb(0x14100c))
-		fillRect(c, x-20+wag, gy-18, 12, 4, rgb(0x8a6a44)) // the tail
-		for _, lx := range []float64{-8, -2, 8, 14} {
-			fillRect(c, x+lx, gy-4, 4, 6, rgb(0x6a4a2c))
-		}
-		if t > i2DogT && t < i2DogT+1.2 {
-			g.sceneBang(c, "¡GUAU!", x+30, gy-48, (t-i2DogT)/1.2, 0xffe060, 1.8)
-		}
-	}
 }
 
 // the speech of the street: one of them at a time, each in his own voice
@@ -161,10 +130,10 @@ func (g *Game) interTwoSay(dst *ebiten.Image, in *interState) bool {
 	say := func(x, y float64, s string) { g.speechBubble(dst, x+10, y-34*interScale-4, s) }
 	switch {
 	case t < itBoard0:
-		blue := [][2]float64{{3.0, 0}, {9.0, 1}, {14.2, 2}, {19.0, 3}}
-		red := [][2]float64{{5.4, 0}, {10.8, 1}, {17.6, 2}, {21.5, 3}}
+		blue := [][2]float64{{1.3, 0}, {7.0, 1}}
+		red := [][2]float64{{4.2, 0}}
 		for _, b := range blue {
-			if sceneIn(t, b[0], b[0]+2.3) && !sceneIn(t, i2CanKT-0.5, i2CanKT+1.2) {
+			if sceneIn(t, b[0], b[0]+1.7) && !sceneIn(t, i2CanKT-0.5, i2CanKT+1.2) {
 				say(hx, hy, interTwoLines[0][int(b[1])])
 				return true
 			}
@@ -172,19 +141,15 @@ func (g *Game) interTwoSay(dst *ebiten.Image, in *interState) bool {
 		switch {
 		case sceneIn(t, i2CanT, i2CanT+0.9):
 			say(hx, hy, "Ni lo miro.")
-		case sceneIn(t, i2CanKT+0.5, i2CanKT+1.7):
+		case sceneIn(t, i2CanKT+0.5, i2CanKT+1.5):
 			say(rx, ry, "¡Toma lata!")
-		case sceneIn(t, i2LampT-0.6, i2LampT+0.3):
+		case sceneIn(t, i2LampT-0.9, i2LampT+0.1):
 			say(rx, ry, "¿Venís o no venís?")
-		case sceneIn(t, i2LampT+1.7, i2LampT+3.0):
+		case sceneIn(t, i2LampT+1.5, i2LampT+2.5):
 			say(hx, hy, "Te lo dije.")
-		case sceneIn(t, i2DogT+0.2, i2DogT+1.6):
-			say(rx, ry, "¡¡QUITA, QUITA!!")
-		case sceneIn(t, i2DogT+1.6, i2DogT+3.0):
-			say(hx, hy, "Buen chico.")
 		}
 		for _, r := range red {
-			if sceneIn(t, r[0], r[0]+2.3) && !sceneIn(t, i2CanKT-0.5, i2LampT+3.2) && !sceneIn(t, i2DogT-0.5, i2DogT+3.2) {
+			if sceneIn(t, r[0], r[0]+1.5) && !sceneIn(t, i2CanKT-0.5, i2LampT+3.2) {
 				say(rx, ry, interTwoLines[1][int(r[1])])
 				return true
 			}
@@ -200,9 +165,6 @@ func (g *Game) interDrawHero2(c *ebiten.Image, in *interState, alpha float64) {
 	}
 	x, y, anim, ph, lean, hop := g.interTwoHero2(in)
 	tint := sceneTint(1, in.heroes[0], in.heroes[1])
-	if in.kind == interBoat && in.t > itIn { // seasick: green in the face and all over
-		tint = [3]float32{0.62, 1, 0.62}
-	}
 	g.sceneChar(c, in.heroes[1], anim, DirRight, ph, x, y, interScale, alpha, hop, lean, tint)
 	if in.t < itBoard0 && in.t > 2.2 { // steam, as the blue one has: he fumes more
 		g.interAnger(c, x, y, math.Mod(in.t, 1.7)+0.2)
@@ -232,24 +194,6 @@ func (g *Game) interTwoCarHeads(c *ebiten.Image, in *interState, x, y float64) {
 	}
 }
 
-// the boat: an oar the blue one rows with calmly and a bucket the red one is sick in
-func (g *Game) interTwoBoatProps(c *ebiten.Image, in *interState, x, y float64) {
-	t := in.t
-	if t < itIn {
-		return
-	}
-	// the oar: it goes through the water on the beat of nothing in particular
-	sw := math.Sin(t * 2.2)
-	fillRect(c, x+60+sw*6, y-46, 3, 50, rgb(0x8a6a44))
-	fillRect(c, x+54+sw*10, y-2, 16, 6, rgb(0x6a4a2c))
-	// the bucket under the red one's face
-	fillRect(c, x+168, y-46, 18, 14, rgb(0x6a6e7a))
-	fillRect(c, x+166, y-48, 22, 4, rgb(0x8a8e9a))
-	if int(t*2)%2 == 0 {
-		g.drawText(c, "buaaag", x+150, y-96, rgba(0x9ae09a, 230), 1.1)
-	}
-}
-
 // boarding: who says what (the red one wants the wheel, the blue one has the map)
 func (g *Game) interTwoBoardSay(dst *ebiten.Image, in *interState) {
 	t := in.t
@@ -257,17 +201,13 @@ func (g *Game) interTwoBoardSay(dst *ebiten.Image, in *interState) {
 	x2, y2, _, _, _, _ := g.interTwoHero2(in)
 	hx, hy := g.interHeroPos(in)
 	switch {
-	case sceneIn(t, itBoard0+0.2, itBoard0+1.6):
+	case sceneIn(t, itBoard0+0.1, itBoard0+0.9):
 		g.speechBubble(dst, x2+10, y2-34*interScale-4, "¡¡Yo conduzco!!")
-	case sceneIn(t, itBoard0+1.6, itOpen+0.6):
+	case sceneIn(t, itBoard0+0.9, itOpen+0.4):
 		g.speechBubble(dst, hx+10, hy-34*interScale-4, "Yo tengo el mapa.")
-	case in.kind != interBoat && sceneIn(t, itOpen+0.8, itOpen+2.2):
+	case sceneIn(t, itOpen+0.5, itOpen+1.2):
 		g.speechBubble(dst, vx+105, interGround-90, "¡Quita las manos!")
-	case in.kind != interBoat && sceneIn(t, itOpen+2.2, itDepart-0.1):
+	case sceneIn(t, itOpen+1.2, itDepart-0.1):
 		g.speechBubble(dst, vx+92, interGround-90, "El mapa está del revés")
-	case in.kind == interBoat && sceneIn(t, itOpen+0.6, itOpen+2.0):
-		g.speechBubble(dst, vx+60, interGround-70, "Remo, que es gratis.")
-	case in.kind == interBoat && sceneIn(t, itOpen+2.0, itDepart-0.1):
-		g.speechBubble(dst, vx+168, interGround-80, "¡Uuugh! Mareo...")
 	}
 }

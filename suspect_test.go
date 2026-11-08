@@ -55,18 +55,34 @@ func TestKillSeenBySomebodyElseClearsThePlayer(t *testing.T) {
 }
 
 func TestPlayerSeenKillingGetsTheCuffsBack(t *testing.T) {
+	// RULE CHANGE (2026-11-04): a guest seeing the kill raises an ALERT; the cuffs come back only when
+	// he warns the police (before, they came back the moment he saw it). An officer seeing it is direct.
 	g := suspectGame()
 	g.lastKiller = lastKill{kind: suspSlasher}
 	g.slasher = &Slasher{state: slHunt, pos: Vec{400, 300}}
-	suspectGuest(g, Vec{230, 300}, DirLeft) // sees the player
+	w := suspectGuest(g, Vec{230, 300}, DirLeft) // sees the player
 	g.p.pos = Vec{200, 300}
-	suspectCop(g, Vec{600, 100}, DirDown)
+	suspectCop(g, Vec{450, 300}, DirDown) // near enough to be told, looking away
 	g.witness()
 	if g.lastKiller.kind != suspPlayer {
 		t.Fatalf("the player was seen killing but the suspect is %v", g.lastKiller.kind)
 	}
+	if g.playerIsSuspect() || !g.playerAlert(g.p) {
+		t.Fatal("seen by a guest: alert, but no cuffs until he warns")
+	}
+	g.guestWarned(w)
+	g.markPlayerWanted(70) // what the report to the officer does
 	if !g.playerIsSuspect() || g.wanted < 45 {
-		t.Errorf("the cuffs did not come back (wanted %.0f)", g.wanted)
+		t.Errorf("the cuffs did not come back after the warning (wanted %.0f)", g.wanted)
+	}
+	// seen by an officer himself: at once
+	g2 := suspectGame()
+	g2.lastKiller = lastKill{kind: suspSlasher}
+	g2.slasher = &Slasher{state: slHunt, pos: Vec{400, 300}}
+	suspectCop(g2, Vec{230, 300}, DirLeft)
+	g2.witness()
+	if !g2.playerIsSuspect() || g2.wanted < 45 {
+		t.Errorf("an officer saw it: the cuffs come back at once (wanted %.0f)", g2.wanted)
 	}
 }
 

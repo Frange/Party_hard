@@ -759,6 +759,7 @@ func genByKind(rng *rand.Rand, kind string) *LevelDef {
 	genExotic(rng, d, kind)
 	pruneWallProps(d)
 	resolveOverlaps(d)
+	clearStage(d)
 	return d
 }
 
@@ -983,6 +984,7 @@ func genCircuit(rng *rand.Rand) *LevelDef {
 
 // genNamed builds a scenario of a given type from a fixed seed, retrying until it is fully walkable.
 func genNamed(kind string, seed int64, title string) *LevelDef {
+	var fallback *LevelDef
 	for try := 0; try < 40; try++ {
 		rng := rand.New(rand.NewSource(seed + int64(try)*7919))
 		d := genByKind(rng, kind)
@@ -990,8 +992,15 @@ func genNamed(kind string, seed int64, title string) *LevelDef {
 			if title != "" {
 				d.Title = title
 			}
+			// prefer a layout where nothing stands on anything else (a key object with no room is kept by resolveOverlaps)
+			if try < 39 && len(levelOverlaps(buildLevel(d))) > 0 {
+				if fallback == nil {
+					fallback = d
+				}
+				continue
+			}
 			return d
 		}
 	}
-	return nil
+	return fallback
 }

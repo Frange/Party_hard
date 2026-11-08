@@ -1,6 +1,6 @@
 # Contenido del juego en carpetas (assets)
 
-El juego lee todo de la carpeta `assets`, que está **junto al ejecutable** (en Mac, junto a `PartyHard.app`).
+El juego lee todo de la carpeta `assets`, que está **junto al ejecutable** (en Mac, junto a `PartyHardy.app`).
 La primera vez que arranca la crea con el contenido por defecto. Si borras o cambias algo, el juego lo usa
 en el siguiente arranque, sin tocar código. Con `-noassets` ignora la carpeta y usa el contenido interno.
 

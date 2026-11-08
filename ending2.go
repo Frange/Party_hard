@@ -26,6 +26,7 @@ import (
 // endExtra: what the invitation and the endings keep apart from the main state.
 type endExtra struct {
 	inv      inviteState
+	arr      arrivalState // the helicopter ride after the letter (arrival.go)
 	cameos   []*CharSet
 	murray   PropImg
 	haveMur  bool
@@ -37,6 +38,23 @@ type endExtra struct {
 	camOX    float64
 	camOY    float64
 	cloudTmp *ebiten.Image
+	say      []wText      // little texts of the street (a yawn, a wail, a bump): written on the screen, not on the canvas
+	pre      preludeState // the action before the letter and the endings (prelude.go)
+	party    partyState   // the party of the secret ending (endparty.go)
+}
+
+// wText is a text that belongs to a point of the street's canvas (see endState.sayAt).
+type wText struct {
+	s    string
+	x, y float64
+	col  uint32
+	a    uint8
+}
+
+// sayAt queues a text at a point of the street (canvas pixels); drawWalk writes it on the screen with the
+// camera of the frame, so it keeps whole-pixel scale and position.
+func (e *endState) sayAt(s string, x, y float64, col uint32, a uint8) {
+	e.x.say = append(e.x.say, wText{s, x, y, col, a})
 }
 
 var cameoNames = []string{"guybrush", "sonic", "shrek", "esqueleto_bailarin", "homer", "jack_rey_calabaza"}
@@ -47,9 +65,6 @@ func (g *Game) endBuild(e *endState) {
 		return
 	}
 	e.x.built = true
-	if !e.trueEnd {
-		return
-	}
 	for i, n := range cameoNames {
 		f := presetByName(n)
 		if f == nil {
@@ -62,9 +77,7 @@ func (g *Game) endBuild(e *endState) {
 	if imgs := g.as.props["murray"]; len(imgs) > 0 {
 		e.x.murray, e.x.haveMur = imgs[0], true
 	}
-	if _, ok := g.snd.sfx["rex_roar"]; !ok {
-		g.snd.sfx["rex_roar"] = jrRoarSound()
-	}
+	g.sfxOnce("rex_roar", jrRoarSound)
 }
 
 func init() {
@@ -82,8 +95,8 @@ func (g *Game) cricket(e *endState, quiet bool) {
 	if !quiet {
 		return
 	}
-	if _, ok := g.snd.sfx["cricket"]; !ok && cricketPCM != nil {
-		g.snd.sfx["cricket"] = cricketPCM()
+	if cricketPCM != nil {
+		g.sfxOnce("cricket", cricketPCM)
 	}
 	if e.total >= e.x.cricketT {
 		e.x.cricketT = e.total + 0.9 + 0.8*jpHash(int(e.total*10), 3, 91)
@@ -96,6 +109,9 @@ func (g *Game) cricket(e *endState, quiet bool) {
 // endBehind draws what is seen behind the hero (before him).
 func (g *Game) endBehind(c *ebiten.Image, camX, t float64, e *endState) {
 	g.endBuild(e)
+	if e.stage == endDoor { // the neighbour's house is scenery: it goes behind everybody
+		g.endNeighbour(c, camX, t, e)
+	}
 	if e.trueEnd {
 		g.endFootprints(c, camX)
 		if e.stage == endWalk && e.t < 8 {
@@ -104,6 +120,7 @@ func (g *Game) endBehind(c *ebiten.Image, camX, t float64, e *endState) {
 		g.endConga(c, camX, t, e)
 		return
 	}
+	g.endConga(c, camX, t, e) // the guests of the parties he has ended follow him: as ghosts
 	g.endCat(c, camX, t, e)
 }
 
@@ -111,9 +128,6 @@ func (g *Game) endBehind(c *ebiten.Image, camX, t float64, e *endState) {
 func (g *Game) endFront(c *ebiten.Image, camX, t float64, e *endState) {
 	if e.stage == endWalk && !e.trueEnd {
 		g.endYawn(c, camX, e)
-	}
-	if e.stage == endDoor {
-		g.endNeighbour(c, camX, t, e)
 	}
 }
 
@@ -174,24 +188,6 @@ func (g *Game) endHelicopter(c *ebiten.Image, t, st float64) {
 	g.glowAt(c, Vec{x, y + 14}, 18, color.RGBA{255, 240, 190, 36})
 }
 
-// ghostOf draws a guest as a ghost of the party: pale, a little transparent, floating.
-func (g *Game) ghostOf(c *ebiten.Image, cs *CharSet, x float64, dir Dir, ph, alpha float64, anim int) {
-	img, flip := cs.img(anim, dir, ph)
-	if img == nil {
-		return
-	}
-	bob := math.Sin(ph*1.7) * 2.5
-	op := &ebiten.DrawImageOptions{}
-	if flip {
-		op.GeoM.Scale(-1, 1)
-		op.GeoM.Translate(charW, 0)
-	}
-	op.GeoM.Translate(math.Round(x-charCX), math.Round(endGround+11-charBase-5+bob))
-	op.ColorScale.Scale(0.62, 0.82, 1, float32(alpha))
-	filledEllipse(c, x, endGround+12, 8, 2.2, rgba(0x6a8aff, uint8(60*alpha)))
-	c.DrawImage(img, op)
-}
-
 // the conga of the ghosts of every party behind him
 func (g *Game) endConga(c *ebiten.Image, camX, t float64, e *endState) {
 	if len(e.x.cameos) == 0 {
@@ -209,7 +205,7 @@ func (g *Game) endConga(c *ebiten.Image, camX, t float64, e *endState) {
 	default:
 		return
 	}
-	alpha := 0.62
+	alpha := 0.7
 	if e.stage == endWalk {
 		alpha *= math.Min(1, e.t/2.5) // they appear behind him little by little
 	}
@@ -221,17 +217,16 @@ func (g *Game) endConga(c *ebiten.Image, camX, t float64, e *endState) {
 		if x < -30 || x > endCW+30 {
 			continue
 		}
-		g.ghostOf(c, e.x.cameos[i], x, DirLeft, t*6+float64(i)*0.9, alpha, AnimDance2)
+		g.drawGhostActor(c, e.x.cameos[i], x, endGround+12, DirLeft, AnimIdle, t, alpha, 1, i)
+		g.ghostWail(e, x, endGround+12-charBase-6, t, i, len(e.x.cameos))
 	}
 	// Murray on his stake, carried by the last two
-	if e.x.haveMur {
+	if e.trueEnd && e.x.haveMur {
 		x := base + float64(len(e.x.cameos))*25 + 6 - camX
 		if x > -30 && x < endCW+30 {
-			bob := math.Sin(t*6) * 2
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Translate(math.Round(x-e.x.murray.ox), math.Round(endGround+8-e.x.murray.oy+bob-6))
-			op.ColorScale.Scale(0.8, 0.95, 1, float32(alpha+0.2))
-			c.DrawImage(e.x.murray.img, op)
+			recLayer("actor:ghost")
+			bob := math.Sin(t*2.2) * 2.6
+			drawGhostImage(c, e.x.murray.img, math.Round(x-e.x.murray.ox), math.Round(endGround+8-e.x.murray.oy+bob-8), false, t, alpha, 9)
 		}
 	}
 }
@@ -255,6 +250,7 @@ func (g *Game) endCat(c *ebiten.Image, camX, t float64, e *endState) {
 	if im == nil {
 		return
 	}
+	recLayer("actor:cat")
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(-1, 1) // the sprite faces right and he walks left
@@ -272,8 +268,8 @@ func (g *Game) endYawn(c *ebiten.Image, camX float64, e *endState) {
 	}
 	x := e.heroX - camX
 	a := uint8(255 * math.Sin(ph/1.4*math.Pi))
-	g.drawText(c, "AAAH", x-14, endGround-52-ph*8, rgba(0xf4f0ff, a), 1)
-	g.drawText(c, "z", x+8, endGround-42-ph*10, rgba(0xa8b8ff, a), 1)
+	e.sayAt("AAAH", x-14, endGround-52-ph*8, 0xf4f0ff, a)
+	e.sayAt("z", x+8, endGround-42-ph*10, 0xa8b8ff, a)
 }
 
 // the neighbour of the door: normal = turns the light off; secret = plays the T-Rex music, until the T-Rex arrives
@@ -282,6 +278,7 @@ func (g *Game) endNeighbour(c *ebiten.Image, camX, t float64, e *endState) {
 	if nx < -90 || nx > endCW+10 {
 		return
 	}
+	recLayer("bg:neighbour")
 	fillRect(c, nx, endGround-70, 84, 70, rgb(0x2a2a40))
 	fillRect(c, nx-4, endGround-80, 92, 12, rgb(0x4a2a38))
 	fillRect(c, nx-4, endGround-80, 92, 2, rgb(0x7a4a58))
@@ -335,10 +332,9 @@ func (g *Game) endNeighbour(c *ebiten.Image, camX, t float64, e *endState) {
 
 func endCreditRows(secret bool) [][2]string {
 	rows := [][2]string{
-		{"PARTY HARD", "Fiesta Nocturna"},
+		{"PARTY HARDY", "Fiesta Nocturna"},
 		{"", ""},
 		{"Director", "Frange"},
-		{"IA", "Claude"},
 		{"Testers", "Diego, César y Samuel"},
 		{"Año", "2026"},
 		{"", ""},
@@ -355,15 +351,17 @@ func endCreditRows(secret bool) [][2]string {
 	}
 	return append(rows,
 		[2]string{"Cameo no solicitado", "Un T-Rex con muy mala educación"},
+		[2]string{"Raptores de ceremonia", "Sombrero incluido, comida no"},
+		[2]string{"Helicóptero alquilado", "En paz descanse. Fianza perdida"},
 		[2]string{"Pirata poderoso (poco)", "Guybrush Threepwood"},
-		[2]string{"Calavera parlante", "Murray (sigue hablando)"},
 		[2]string{"Erizo sin carnet", "Sonic, multado por exceso de velocidad"},
 		[2]string{"Ogro de pantano", "Shrek, se ha comido el catering"},
 		[2]string{"Esqueleto bailarín", "Sin contrato ni nómina"},
+		[2]string{"Fuegos artificiales", "Los dinosaurios pidieron más"},
+		[2]string{"Tarta", "Se salvó por los pelos (del T-Rex)"},
+		[2]string{"Calavera parlante", "Murray (sigue hablando)"},
 		[2]string{"Altavoces destruidos", "1.847 (y uno de los dientes)"},
 		[2]string{"Dinosaurios heridos", "Ninguno. Los invitados, otra cosa"},
-		[2]string{"Invitados fantasma", "Todos. No pagan, pero bailan"},
-		[2]string{"Vecino con música jurásica", "En paz descanse (su altavoz)"},
 		[2]string{"Sueño recuperado", "Por fin, al 1000%"},
 		[2]string{"", ""},
 	)
@@ -371,6 +369,7 @@ func endCreditRows(secret bool) [][2]string {
 
 // ---- the scene after the credits (secret ending) ------------------------------------------------
 
+// drawStinger: the party is over and the island sleeps. The T-Rex comes back for the cake.
 func (g *Game) drawStinger(dst *ebiten.Image, e *endState) {
 	g.endBuild(e)
 	dst.Fill(rgb(0x02030a))
@@ -381,47 +380,73 @@ func (g *Game) drawStinger(dst *ebiten.Image, e *endState) {
 		return
 	}
 	k := clampF((t-2.4)/1.0, 0, 1)
-	// the window of his bedroom, from outside, in the dark
-	wx, wy, ww, wh := 330.0, 90.0, 300.0, 250.0
-	fillRect(dst, wx-14, wy-14, ww+28, wh+28, rgb(0x2a2030))
-	fillRect(dst, wx, wy, ww, wh, mixc(rgb(0x070a1c), rgb(0x1a2a58), 0.4))
-	filledEllipse(dst, wx+ww-60, wy+56, 24, 24, rgb(0xeae6d4))
-	filledEllipse(dst, wx+ww-68, wy+50, 22, 22, rgb(0x16264c))
-	fillRect(dst, wx+ww/2-2, wy, 4, wh, rgb(0x2a2030)) // the frame
-	fillRect(dst, wx, wy+wh/2-2, ww, 4, rgb(0x2a2030))
-	// he sleeps: a lump under the blanket (seen through the glass in the dark)
-	fillRect(dst, wx+20, wy+wh-34, 120, 30, rgb(0x1a1830))
-	filledEllipse(dst, wx+56, wy+wh-38, 16, 9, rgb(0x20203a))
-	g.drawText(dst, "z", wx+84, wy+wh-70-math.Mod(t*8, 22), rgba(0xa8b8ff, uint8(200-math.Mod(t*8, 22)*8)), 2)
-	// Murray's stake outside, bottom right
+	for y := 0.0; y < 340; y += 6 { // the night, without a single dot
+		fillRect(dst, 0, y, screenW, 6, mixc(rgb(0x04061c), rgb(0x141a50), y/340))
+	}
+	filledEllipse(dst, 120, 80, 30, 30, rgb(0xeae6d4))
+	filledEllipse(dst, 108, 72, 28, 28, rgb(0x0a1030))
+	for x := 0.0; x < screenW; x += 12 { // the jungle
+		h := 70 + 40*math.Sin(x/70) + 20*math.Sin(x/19+1)
+		fillRect(dst, x, 340-h, 12, h+10, rgb(0x061410))
+	}
+	fillRect(dst, 0, 340, screenW, 200, rgb(0x0c2418))
+	// the table of the party with what is left of the cake
+	fillRect(dst, 290, 392, 230, 10, rgb(0x8a5a30))
+	fillRect(dst, 300, 402, 10, 60, rgb(0x6a4220))
+	fillRect(dst, 500, 402, 10, 60, rgb(0x6a4220))
+	if t < 5.9 {
+		fillRect(dst, 350, 352, 100, 40, rgb(0xf4d8e0))
+		fillRect(dst, 350, 352, 100, 10, rgb(0xff6a8a))
+		fillRect(dst, 372, 322, 56, 30, rgb(0xf0e0b0))
+		fillRect(dst, 372, 322, 56, 8, rgb(0xe03a8a))
+		fillRect(dst, 396, 296, 6, 26, rgb(0x3a9ad8))
+	}
+	for q := 0; q < 14; q++ { // confetti on the ground and a hat
+		fillRect(dst, 60+float64(q)*61, 420+float64(q%4)*22, 6, 4, rgb(partyColors[q%len(partyColors)]))
+	}
+	for i := 0; i < 12; i++ {
+		fillRect(dst, 700+float64(i), 470-float64(i)*2, 24-float64(i)*2, 2, rgb(0xe03a8a))
+	}
+	// Murray's stake, bottom right
 	if e.x.haveMur {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(3, 3)
-		op.GeoM.Translate(math.Round(wx+ww+40-e.x.murray.ox*3), math.Round(wy+wh+10-e.x.murray.oy*3))
+		op.GeoM.Translate(math.Round(860-e.x.murray.ox*3), math.Round(536-e.x.murray.oy*3))
 		dst.DrawImage(e.x.murray.img, op)
 	}
-	// the little head of the T-Rex that comes to the window, sniffs and goes
-	if t > 3.6 {
-		u := clampF((t-3.6)/1.6, 0, 1)
-		out := clampF((t-6.4)/1.2, 0, 1)
-		hx := wx + ww + 80 - 190*easeOut(u) + 190*out*out
-		hy := wy + 110 + math.Sin(t*3)*6
-		filledEllipse(dst, hx, hy, 52, 36, rgb(0x2a4a1c))
-		fillRect(dst, hx-40, hy+8, 80, 16+4*math.Abs(math.Sin(t*5)), rgb(0x2a4a1c))
-		fillRect(dst, hx-10, hy-14, 10, 9, rgb(0xf0e060))
-		fillRect(dst, hx-6, hy-12, 3, 5, rgb(0x14140a))
-		fillRect(dst, hx-46, hy-6, 4, 3, rgb(0x14140a))
-		for q := 0.0; q < 48; q += 8 {
-			fillRect(dst, hx-34+q, hy+22, 3, 5, rgb(0xf4f0e0))
+	// the head of the T-Rex: it comes, eats the cake, burps and goes
+	if t > 3.2 {
+		u := clampF((t-3.2)/1.8, 0, 1)
+		out := clampF((t-7.0)/1.1, 0, 1)
+		hx := 1060 - 560*easeOut(u) + 560*out*out
+		hy := 330 + math.Sin(t*3)*5
+		if t > 5.0 && t < 5.9 { // down on the cake
+			hy += 44 * math.Sin((t-5.0)/0.9*math.Pi)
 		}
-		if t > 4.4 && t < 6.2 {
-			g.drawTextC(dst, "RAWR?", hx, hy-64, rgb(0x8ae070), 2)
+		filledEllipse(dst, hx, hy, 76, 52, rgb(0x2a4a1c))
+		fillRect(dst, hx-90, hy+12, 120, 24+4*math.Abs(math.Sin(t*5)), rgb(0x2a4a1c))
+		fillRect(dst, hx-14, hy-22, 14, 12, rgb(0xf0e060))
+		fillRect(dst, hx-8, hy-18, 4, 7, rgb(0x14140a))
+		fillRect(dst, hx-98, hy-6, 6, 4, rgb(0x14140a))
+		for q := 0.0; q < 80; q += 11 {
+			fillRect(dst, hx-84+q, hy+34, 4, 8, rgb(0xf4f0e0))
 		}
+		for i := 0; i < 10; i++ { // a party hat
+			w := 30 - float64(i)*3
+			fillRect(dst, hx+4-w/2, hy-50-float64(i)*4, w, 4, rgb(0xf0c030))
+		}
+		fillRect(dst, hx-4, hy-92, 8, 8, rgb(0xff6a8a))
+	}
+	if t > 5.2 && t < 6.5 {
+		g.sceneBang(dst, "ÑAM ÑAM", 400, 250, (t-5.2)/1.3, 0xff8ad0, 3)
+	}
+	if t > 6.9 && t < 8.0 {
+		g.sceneBang(dst, "BUUURP", 520, 230, (t-6.9)/1.1, 0x8ae070, 4)
 	}
 	if t > 5.6 && t < 8.2 {
-		g.drawTextC(dst, "Murray: ¿Alguien me baja de aquí?", 480, 440, rgb(0xf0e8d0), 1)
+		g.drawTextC(dst, "Murray: ¿Alguien me baja de aquí?", 480, 470, rgb(0xf0e8d0), 1)
 	}
-	if t > 4.0 && !e.x.roared {
+	if t > 5.0 && !e.x.roared {
 		e.x.roared = true
 		g.snd.Play("rex_roar")
 	}
@@ -441,16 +466,16 @@ func (g *Game) walkCaption(e *endState) string {
 	}
 	if !e.trueEnd {
 		switch {
-		case e.stage == endDoor && e.t < 3:
+		case e.stage == endDoor && e.t < 2.2:
 			return "Llave, puerta, luz de la entrada... Qué silencio más bonito."
-		case e.stage == endDoor && e.t < 4.5:
+		case e.stage == endDoor && e.t < 3.6:
 			return "Hasta el vecino ha apagado la luz."
 		case e.stage == endDoor:
 			return "Ni un bajo. Ni una voz. Ni un solo 'otra más'."
-		case e.t < 4.8:
-			return "Después de acabar con todas las fiestas..."
-		case e.t < 9.5:
-			return "La ciudad, por fin, en silencio. Sólo se oye un globo desinflándose."
+		case e.t < 3:
+			return "Aterrizaje de emergencia. En su calle, casi."
+		case e.t < 6:
+			return "Los fantasmas de las fiestas le siguen, flotando y sin pagar."
 		default:
 			return "Un gato callejero se ha apuntado a la comitiva. Todos queremos dormir."
 		}
@@ -477,7 +502,12 @@ func (g *Game) walkCaption(e *endState) string {
 	}
 }
 
-func endCreditSpeed(secret bool) float64 { return 27 }
+func endCreditSpeed(secret bool) float64 {
+	if secret {
+		return 58 // the credits of the party have to be over when the party music is
+	}
+	return 27
+}
 
 // bedCaption: what the narrator says in the bed.
 func (g *Game) bedCaption(e *endState) string {
@@ -587,10 +617,20 @@ func absI(i int) int {
 // nextEndStage is the order of the pieces: the secret ending has a scene after the credits.
 func nextEndStage(stage int, secret bool) int {
 	switch stage {
+	case endPrelude:
+		if secret {
+			return endParty
+		}
+		return endWalk
+	case endParty:
+		return endCredits
 	case endWalk:
 		return endDoor
 	case endDoor:
-		return endBed
+		if secret {
+			return endBed
+		}
+		return endFinal // the normal ending is a short epilogue: no bed, no credits
 	case endBed:
 		return endCredits
 	case endCredits:

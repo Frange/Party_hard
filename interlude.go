@@ -20,8 +20,9 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	interCar  = 1
-	interBoat = 2
+	interCar     = 1
+	interBoat    = 2 // interlude_boat.go: the leaking boat and the shark (no street)
+	interBalloon = 4 // interlude_balloon.go: the balloon that deflates (after party 15); interRocket is 3
 )
 
 type interState struct {
@@ -38,20 +39,21 @@ type interState struct {
 	music   bool     // the music of the interlude has been started
 	guard   *CharSet // the station guard of the rocket interlude
 	guardX  float64
-	two     bool        // the two player version (interlude2p.go)
-	heroes  [2]*CharSet // both heroes, each with his knife
+	two     bool          // the two player version (interlude2p.go)
+	heroes  [2]*CharSet   // both heroes, each with his knife
+	rig     *ebiten.Image // the balloon with its basket, on its own canvas (interlude_balloon.go)
 }
 
 // the timeline, in seconds
 const (
-	itDecel0  = 19.5 // the street slows down
-	itStop    = 25.0 // it has stopped: the vehicle is right there
-	itBoard0  = 25.2 // he walks to it
-	itOpen    = 26.4 // the door opens / he jumps
-	itIn      = 27.0 // he is inside
-	itDepart  = 28.4 // it leaves, the camera follows
-	itFadeOut = 33.5
-	interLen  = 35.0
+	itDecel0  = 5.8  // the street slows down
+	itStop    = 7.8  // it has stopped: the vehicle is right there
+	itBoard0  = 8.0  // he walks to it
+	itOpen    = 9.0  // the door opens
+	itIn      = 9.6  // he is inside
+	itDepart  = 10.8 // it leaves, the camera follows
+	itFadeOut = 13.6
+	interLen  = 14.8
 )
 
 const (
@@ -64,8 +66,8 @@ const (
 // interlude places: the campaign levels already beaten
 func interludePlaces(kind int) []int {
 	switch kind {
-	case interBoat:
-		return []int{5, 6, 7, 8, 9}
+	case interBoat, interBalloon:
+		return nil // their own scenes: no memories
 	case interRocket:
 		return []int{15, 16, 17, 18, 19} // the last parties: the ski station, the roof, the casino, the motorway, the train station
 	}
@@ -83,6 +85,8 @@ func (g *Game) startInterlude(kind, next int) {
 		g.markSeen("seen_interlude10")
 	case interRocket:
 		g.markSeen("seen_interlude20")
+	case interBalloon:
+		g.markSeen("seen_interlude15")
 	default:
 		g.markSeen("seen_interlude5")
 	}
@@ -135,6 +139,8 @@ func (g *Game) interludeAfter(i int) (int, bool) {
 		return interCar, true
 	case i == 9 && !g.seen("seen_interlude10"):
 		return interBoat, true
+	case i == 14 && !g.seen("seen_interlude15"):
+		return interBalloon, true
 	case i == 19 && !g.seen("seen_interlude20"):
 		return interRocket, true
 	}
@@ -304,8 +310,15 @@ func (g *Game) updateInterlude() {
 		}
 		in.skipArm = 2.2
 	}
-	if in.kind == interRocket { // its own timeline (interlude_rocket.go)
+	switch in.kind {
+	case interRocket: // its own timeline (interlude_rocket.go)
 		g.updateRocket(in)
+		return
+	case interBoat:
+		g.updateBoat(in)
+		return
+	case interBalloon:
+		g.updateBalloon(in)
 		return
 	}
 	once := func(key string, at float64, name string) {
@@ -318,17 +331,9 @@ func (g *Game) updateInterlude() {
 	// of the same tune that takes over while a memory is on screen
 	if !in.music {
 		in.music = true
-		if in.kind == interBoat {
-			g.sceneMusic(sceneInterB, ambInterB)
-		} else {
-			g.sceneMusic(sceneInterA, ambInterA)
-		}
+		g.sceneMusic(sceneInterA, ambInterA)
 		if !g.snd.SceneIsSong("base") {
-			mem := ambMemA
-			if in.kind == interBoat {
-				mem = ambMemB
-			}
-			g.snd.StartScene("memory", "memory:"+mem, ambientBuilder(mem), "", true) // same tempo and bar as the base
+			g.snd.StartScene("memory", "memory:"+ambMemA, ambientBuilder(ambMemA), "", true) // same tempo and bar as the base
 		}
 	}
 	g.snd.SetSceneVolume("base", interBaseVol(in.t, len(in.bgs)))
@@ -396,8 +401,15 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 		g.drawTextC(dst, "...", 480, 250, rgb(0x8a86a0), 2)
 		return
 	}
-	if in.kind == interRocket {
+	switch in.kind {
+	case interRocket:
 		g.drawRocketScene(dst, in)
+		return
+	case interBoat:
+		g.drawBoatScene(dst, in)
+		return
+	case interBalloon:
+		g.drawBalloonScene(dst, in)
 		return
 	}
 	if in.canvas == nil {
@@ -435,6 +447,11 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 	if t > itFadeOut {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*math.Min(1, (t-itFadeOut)/1.4))))
 	}
+	g.interSkipHint(dst, in)
+}
+
+// interSkipHint: the little line at the bottom that says how to skip (twice, with the usual keys).
+func (g *Game) interSkipHint(dst *ebiten.Image, in *interState) {
 	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
 	col := rgba(0x8a86a0, 170)
 	if in.skipArm > 0 {
@@ -446,7 +463,7 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 // ---- the present and the memories ------------------------------------------------------------
 
 const (
-	interSlot   = 4.2  // seconds per memory
+	interSlot   = 1.3  // seconds per memory
 	interMem    = 0.62 // the part of each slot that is the memory; the rest is the present
 	interPanelH = 336.0
 )
@@ -593,10 +610,6 @@ func (g *Game) interPanel(c *ebiten.Image, in *interState) {
 
 func (g *Game) interStreet(c *ebiten.Image, in *interState) {
 	W := interScroll(in.t)
-	if in.kind == interBoat {
-		g.interPier(c, in, W)
-		return
-	}
 	fillRect(c, 0, interPanelH, screenW, interGround-interPanelH, rgb(0x0a0e24))
 	// far trees and lamps (slower than the road)
 	for k := -1; k < 8; k++ {
@@ -637,51 +650,15 @@ func (g *Game) interStreet(c *ebiten.Image, in *interState) {
 	}
 }
 
-func (g *Game) interPier(c *ebiten.Image, in *interState, W float64) {
-	// the sea, with waves that run past as the boat moves
-	for y := interPanelH; y < screenH; y += 4 {
-		fillRect(c, 0, y, screenW, 4, mixc(rgb(0x0a1a3a), rgb(0x0a3a5a), (y-interPanelH)/200))
-	}
-	for k := 0; k < 50; k++ {
-		wx := math.Mod(float64(k)*131-W*0.8+jpHash(k, 3, 91)*80, screenW+60)
-		wy := 392 + jpHash(k, 4, 93)*140
-		fillRect(c, wx, wy, 18+jpHash(k, 5, 95)*20, 2, rgba(0xbfe8ff, 90))
-	}
-	// the pier: planks up to where the boat is moored
-	end := interVehicleX(in.t) - 50
-	if in.t < itDepart {
-		fillRect(c, 0, interGround, math.Max(0, end), 22, rgb(0x6a4a2c))
-		fillRect(c, 0, interGround, math.Max(0, end), 3, rgb(0x8a6a44))
-		for x := -math.Mod(W, 36); x < end; x += 36 {
-			fillRect(c, x, interGround, 2, 22, rgb(0x3a2a1a))
-		}
-		for x := -math.Mod(W, 160) + 40; x < end; x += 160 { // posts
-			fillRect(c, x, interGround+22, 10, 60, rgb(0x2a1e14))
-		}
-		fillRect(c, 0, interGround-52, math.Max(0, end), 4, rgb(0x8a8a9a)) // the rail
-		for x := -math.Mod(W, 80); x < end; x += 80 {
-			fillRect(c, x, interGround-52, 4, 52, rgb(0x8a8a9a))
-		}
-	}
-}
-
 // ---- hero and vehicle ----------------------------------------------------------------------
 
 func (g *Game) interHeroPos(in *interState) (x, y float64) {
 	t := in.t
 	x, y = interHeroX, interGround+12
 	if t > itBoard0 {
-		to := interStopX + 100 // the door (car) / the place he jumps from (boat)
-		if in.kind == interBoat {
-			to = interStopX - 70
-		}
+		to := interStopX + 100 // the door of the car
 		u := introEase((t - itBoard0) / (itOpen - itBoard0 + 0.4))
 		x = interHeroX + (to-interHeroX)*u
-	}
-	if in.kind == interBoat && t > itOpen {
-		u := math.Min(1, (t-itOpen)/(itIn-itOpen))
-		x += 100 * u
-		y += 12*u - math.Sin(math.Pi*u)*60 // a jump down into the boat
 	}
 	return
 }
@@ -701,14 +678,14 @@ func (g *Game) interVehicleAndHero(c *ebiten.Image, in *interState) {
 		if cs == nil {
 			return
 		}
-		anim, ph := AnimWalk, g.interPhase(in)
+		anim, ph, dir := AnimWalk, g.interPhase(in), DirRight
 		if t > itBoard0 {
 			ph = t * 7
 		}
-		if t > itIn || (in.kind == interBoat && t > itOpen) {
+		if t > itIn {
 			anim, ph = AnimIdle, 0
 		}
-		img, flip := cs.img(anim, DirRight, ph)
+		img, flip := cs.img(anim, dir, ph)
 		if img == nil {
 			return
 		}
@@ -736,16 +713,11 @@ func (g *Game) interVehicleAndHero(c *ebiten.Image, in *interState) {
 		drawHero(alpha)
 		if in.two {
 			a2 := alpha
-			if in.kind != interBoat && t > itOpen+0.1 { // the red one is in the car before the blue one
+			if t > itOpen+0.1 { // the red one is in the car before the blue one
 				a2 = 1 - introEase((t-itOpen-0.1)/0.5)
 			}
 			g.interDrawHero2(c, in, a2)
 		}
-	}
-	if in.kind == interBoat {
-		hAlpha := 1.0
-		g.interBoat(c, in, vx, func() { drawBoth(hAlpha) })
-		return
 	}
 	alpha := 1.0
 	if t > itOpen+0.4 {
@@ -857,66 +829,9 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 	}
 }
 
-// ---- the boat --------------------------------------------------------------------------------------
-
-func (g *Game) interBoat(c *ebiten.Image, in *interState, x float64, hero func()) {
-	t := in.t
-	y := interGround + 40
-	if x < -300 || x > screenW+80 {
-		hero()
-		return
-	}
-	bob := math.Round(math.Sin(t*2.4) * 2)
-	if t > itDepart {
-		bob = -math.Round(math.Min(6, (t-itDepart)*3)) // it lifts its bow
-	}
-	y += bob
-	white, navy, red := rgb(0xf0f0f6), rgb(0x1a3a7a), rgb(0xc8302a)
-	// wake and foam
-	if t >= itDepart {
-		for i := 0; i < 14; i++ {
-			age := math.Mod(t*2+float64(i)/14, 1)
-			filledEllipse(c, x-age*190, y+8+age*5, 8+age*18, 4+age*3, rgba(0xdcf4ff, uint8(180*(1-age))))
-		}
-	}
-	// hull: wedge pointing right
-	for r := 0.0; r < 30; r++ {
-		w := 214 - r*1.0
-		off := r * 0.25
-		fillRect(c, x+off, y-32+r, w, 1, white)
-		if r > 20 {
-			fillRect(c, x+off, y-32+r, w, 1, navy)
-		}
-	}
-	fillRect(c, x, y-34, 222, 3, rgb(0xc8c8d8)) // the gunwale
-	fillRect(c, x+20, y-30, 150, 3, red)        // the stripe
-	// the hero stands in the boat: drawn behind the front of the hull
-	hero()
-	if in.two {
-		g.interTwoBoatProps(c, in, x, y)
-	}
-	// seat and windscreen, drawn over his legs
-	fillRect(c, x+150, y-64, 4, 32, rgb(0x9ad0f0)) // windscreen
-	fillRect(c, x+150, y-64, 40, 4, rgb(0xb8d8f0))
-	fillRect(c, x+156, y-60, 32, 26, rgba(0x9ad0f0, 120))
-	fillRect(c, x+40, y-40, 70, 8, rgb(0x5a3a2a)) // bench
-	fillRect(c, x-8, y-48, 10, 32, rgb(0x2a2a34)) // the outboard motor
-	fillRect(c, x-10, y-24, 14, 6, rgb(0x14141a))
-	fillRect(c, x+200, y-60, 3, 28, rgb(0x9a9aa4)) // a little flag
-	fillRect(c, x+203, y-60, 14, 9, red)
-	// the bow in front of him, so he seems to be inside
-	fillRect(c, x, y-32, 150, 6, white)
-	if in.t > itIn {
-		fillRect(c, x, y-34, 150, 4, rgb(0xc8c8d8))
-	}
-}
-
 // ---- captions ---------------------------------------------------------------------------------
 
-var interMutters = [3][]string{
-	interCar:  {"Otra fiesta más...", "Ni un día de descanso.", "¿Nadie conoce el botón de silencio?", "Me llaman aguafiestas. Con razón."},
-	interBoat: {"¿Otra más? Qué sorpresa.", "Mi cuchillo y yo, hartos.", "Esto es peor que mi vecino.", "Y ahora, agua. Genial."},
-}
+var interMutters = []string{"Otra fiesta más...", "Ni un día de descanso.", "¿Nadie conoce el botón de silencio?", "Me llaman aguafiestas. Con razón."}
 
 func (g *Game) interCaption(dst *ebiten.Image, in *interState) {
 	t := in.t
@@ -925,17 +840,9 @@ func (g *Game) interCaption(dst *ebiten.Image, in *interState) {
 	case t < 2:
 		line = ""
 	case t < itDecel0:
-		if in.kind == interBoat {
-			line = "Cinco fiestas más a la espalda, y ni una gracias."
-		} else {
-			line = "Cinco fiestas menos. Cada una, un poco peor que la anterior."
-		}
+		line = "Cinco fiestas menos. Cada una, un poco peor que la anterior."
 	case t < itBoard0+1:
-		if in.kind == interBoat {
-			line = "El siguiente sitio no se llega andando."
-		} else {
-			line = "La siguiente fiesta queda lejos. Toca coche."
-		}
+		line = "La siguiente fiesta queda lejos. Toca coche."
 	case t < itDepart:
 		line = "Que nadie lo toque, que va con mala cara."
 	case t < itFadeOut-1:
@@ -953,10 +860,10 @@ func (g *Game) interCaption(dst *ebiten.Image, in *interState) {
 	}
 	// he mutters
 	if t > 2 && t < itBoard0 {
-		const per = 3.8
+		const per = 2.9
 		k := int((t - 2) / per)
-		if u := t - 2 - float64(k)*per; u < 2.4 {
-			lines := interMutters[in.kind]
+		if u := t - 2 - float64(k)*per; u < 2.3 {
+			lines := interMutters
 			hx, hy := g.interHeroPos(in)
 			g.speechBubble(dst, hx+10, hy-34*interScale-4, lines[k%len(lines)])
 		}

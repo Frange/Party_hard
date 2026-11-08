@@ -30,6 +30,9 @@ const (
 	endCredits
 	endStinger // only the secret ending: the scene after the credits
 	endFinal   // "¿ FINAL ?" / "FIN"
+	endArrival // only after the letter: the helicopter ride to the island (arrival.go)
+	endPrelude // the action in the last scene before the letter and the two endings (prelude.go)
+	endParty   // only the secret ending: the big party on the island (endparty.go)
 )
 
 type endState struct {
@@ -63,6 +66,22 @@ func (g *Game) startEnding(trueEnd bool) {
 	g.bedQuiet = false
 }
 
+// startEndingPre / startInvitePre: the story as it is played: the action of the last scene comes first
+// (prelude.go), then the ending or the letter. startEnding / startInvite are the ending itself.
+func (g *Game) startEndingPre(trueEnd bool) {
+	g.startEnding(trueEnd)
+	if trueEnd {
+		g.enterPrelude(preIsland)
+	} else {
+		g.enterPrelude(preBad)
+	}
+}
+
+func (g *Game) startInvitePre() {
+	g.startInvite()
+	g.enterPrelude(preLetter)
+}
+
 // startInvite shows the card that leads to the last party (every trophy won).
 func (g *Game) startInvite() {
 	g.end = &endState{stage: endInvite}
@@ -93,16 +112,20 @@ func endLenFor(stage int, secret bool) float64 {
 	switch stage {
 	case endInvite:
 		return 1e9 // it waits for the player
+	case endPrelude:
+		return preBadLen
+	case endParty:
+		return partyLen
 	case endWalk:
 		if secret {
 			return 21
 		}
-		return 15
+		return 8.5 // the normal ending is a short epilogue
 	case endDoor:
 		if secret {
 			return 9.5
 		}
-		return 6
+		return 4.8
 	case endBed:
 		if secret {
 			return 34
@@ -110,13 +133,21 @@ func endLenFor(stage int, secret bool) float64 {
 		return 26
 	case endCredits:
 		if secret {
-			return 44
+			return partyCreditsLen
 		}
 		return 30
 	case endStinger:
 		return 8.5
 	}
 	return 1e9
+}
+
+// endStageLen is the length of the part that is on now (the preludes each have their own).
+func endStageLen(e *endState) float64 {
+	if e.stage == endPrelude {
+		return e.x.pre.length
+	}
+	return endLenFor(e.stage, e.trueEnd)
 }
 
 func (g *Game) updateEnding() {
@@ -142,6 +173,10 @@ func (g *Game) updateEnding() {
 		g.updateInvite(e) // the letter waits for the player; it never goes away by itself
 		return
 	}
+	if e.stage == endArrival {
+		g.updateArrival(e)
+		return
+	}
 	// the quiet night: crickets when the music has gone and he sleeps
 	end := endLenFor(endBed, e.trueEnd)
 	g.cricket(e, (e.stage == endBed && e.t > end-8) || (e.stage == endFinal && e.t < 9) || e.stage == endStinger && e.t < 2.4)
@@ -149,6 +184,10 @@ func (g *Game) updateEnding() {
 		e.skipLock -= dt
 	}
 	if actBack.just() {
+		if e.stage == endPrelude { // only the action of the last scene is skipped
+			g.endLeavePrelude(e)
+			return
+		}
 		if e.stage == endInvite { // not the island after all
 			g.leaveEnding()
 			return
@@ -166,13 +205,22 @@ func (g *Game) updateEnding() {
 			g.leaveEnding()
 			return
 		case e.stage != endFinal:
-			e.t = endLenFor(e.stage, e.trueEnd) // skip what is left of this part
+			e.t = endStageLen(e) // skip what is left of this part
 			e.skipLock = 0.3
 		}
 	}
-	if e.t >= endLenFor(e.stage, e.trueEnd) {
+	if e.stage == endPrelude {
+		g.preludeSounds(e)
+	}
+	if e.stage == endParty {
+		g.partySounds(e)
+	}
+	if e.t >= endStageLen(e) {
 		switch e.stage {
 		case endFinal:
+		case endPrelude:
+			g.endLeavePrelude(e)
+			return
 		default:
 			e.stage, e.t = nextEndStage(e.stage, e.trueEnd), 0
 		}
@@ -195,6 +243,12 @@ func (g *Game) drawEnding(dst *ebiten.Image) {
 	switch e.stage {
 	case endInvite:
 		g.drawInvite(dst, e)
+	case endArrival:
+		g.drawArrival(dst, e)
+	case endPrelude:
+		g.drawPrelude(dst, e)
+	case endParty:
+		g.drawParty(dst, e)
 	case endWalk, endDoor:
 		g.drawWalk(dst, e)
 	case endBed:
@@ -210,8 +264,11 @@ func (g *Game) drawEnding(dst *ebiten.Image) {
 	if e.stage == endFinal && e.t > 4 {
 		hint = actionHint(actConfirm) + ": volver al menú"
 	}
-	if e.stage == endInvite {
-		return // the letter has its own hint
+	if e.stage == endInvite || e.stage == endArrival {
+		return // the letter and the arrival have their own hint
+	}
+	if e.stage == endPrelude || e.stage == endParty {
+		hint = actionHint(actConfirm) + ": saltar"
 	}
 	g.drawTextC(dst, hint, 480, 518, rgba(0x8a86a0, 190), 1)
 }
@@ -222,6 +279,7 @@ func jpH(x int, seed uint32) float64 { return jpHash(x, 7, seed) }
 
 // endWorld draws the street at 1x into the canvas; camX is the world x of its left edge.
 func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
+	e.x.say = e.x.say[:0]
 	c.Fill(rgb(0x070a1c))
 	for y := 0.0; y < 150; y += 3 { // sky
 		fillRect(c, 0, y, endCW, 3, mixc(rgb(0x070a1c), rgb(0x1c2a58), y/150))
@@ -243,6 +301,7 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 			}
 		}
 	}
+	recLayer("bg:skyline")
 	// the houses along the street
 	for k := -2; k < 12; k++ {
 		wx := float64(k)*74 - math.Mod(camX*0.6, 74)
@@ -264,6 +323,7 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 		}
 		fillRect(c, wx+26, endGround-22, 10, 22, shade(rgb(col), 0.55))
 	}
+	recLayer("bg:houses")
 	// pavement and road
 	fillRect(c, 0, endGround, endCW, 14, rgb(0x4a4658))
 	fillRect(c, 0, endGround, endCW, 1, rgb(0x6a6680))
@@ -329,14 +389,13 @@ func (g *Game) endWorld(c *ebiten.Image, camX float64, t float64, e *endState) {
 		g.glowAt(c, Vec{hx + 9, endGround - 40}, 46, color.RGBA{255, 200, 90, 80})
 		fillRect(c, hx+22, endGround-30, 3, 5, rgb(0xfff0a0)) // porch lamp
 	}
+	recLayer("bg:street")
 	// the hero (and the gags of each ending around him)
 	g.endBehind(c, camX, t, e)
 	g.endHero(c, e, camX)
 	g.endFront(c, camX, t, e)
 	if e.stage == endDoor && e.t > 2.9 && e.t < 3.9 { // the ghosts bump into the shut door
-		if e.trueEnd {
-			g.drawText(c, "¡BUM!", hx+30, endGround-70-(e.t-2.9)*8, rgba(0xf8d030, uint8(255*(1-(e.t-2.9)))), 1)
-		}
+		e.sayAt("¡BUM!", hx+30, endGround-70-(e.t-2.9)*8, 0xf8d030, uint8(255*(1-(e.t-2.9))))
 	}
 }
 
@@ -350,6 +409,7 @@ func (g *Game) endHero(c *ebiten.Image, e *endState, camX float64) {
 	if cs == nil {
 		return
 	}
+	recLayer("actor:hero")
 	x := e.heroX - camX
 	anim, ph := AnimWalk, e.total*6
 	dir := DirLeft
@@ -420,6 +480,9 @@ func (g *Game) drawWalk(dst *ebiten.Image, e *endState) {
 	dst.DrawImage(e.canvas, op)
 	dst.DrawImage(g.as.vignette, nil)
 	e.x.camZ, e.x.camOX, e.x.camOY = zoom, ox, oy
+	for _, w := range e.x.say { // the little texts of the street, crisp, with the camera of this frame
+		g.drawText(dst, w.s, math.Round(ox+w.x*zoom), math.Round(oy+w.y*zoom), rgba(w.col, w.a), 2)
+	}
 	// captions
 	line := g.walkCaption(e)
 	g.endCaption(dst, line)
@@ -559,6 +622,9 @@ func (g *Game) drawSheep(dst *ebiten.Image, x, y, u float64, a uint8) {
 
 func (g *Game) drawEndCredits(dst *ebiten.Image, e *endState) {
 	dst.Fill(rgb(0x04050c))
+	if e.trueEnd { // the party goes on behind the names
+		g.partyCreditsBG(dst, e)
+	}
 	rows := endCreditRows(e.trueEnd)
 	y := 560 - e.t*endCreditSpeed(e.trueEnd)
 	for _, r := range rows {
@@ -609,8 +675,12 @@ func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 // the invitation has its own, the secret ending a fanfare, the normal one a lullaby that goes calm at the end.
 func endTune(e *endState) (string, int) {
 	switch {
-	case e.stage == endInvite:
+	case e.stage == endInvite || e.stage == endArrival:
 		return ambInvite, sceneInviteN
+	case e.stage == endPrelude && (e.x.pre.kind == preLetter || e.x.pre.kind == preIsland):
+		return ambInvite, sceneInviteN // the letter goes on with the theme it has afterwards; the island with the one of the helicopter
+	case e.stage == endPrelude:
+		return ambEnd, sceneEndN
 	case e.trueEnd:
 		return ambSecret, sceneSecretN
 	case e.stage == endFinal:
@@ -623,8 +693,17 @@ func endTune(e *endState) (string, int) {
 // is softest in the bed (the sheep), swells in the credits and dies away at the very end.
 func endMusicVol(e *endState) float64 {
 	switch e.stage {
+	case endPrelude:
+		return preMusicVol(e)
+	case endParty:
+		return 0.75 * math.Min(1, e.t/1.5)
 	case endInvite:
+		if e.x.pre.length > 0 { // it comes from the action of the station: the tune is already playing
+			return 0.6
+		}
 		return 0.6 * math.Min(1, e.t/1.2)
+	case endArrival:
+		return arrMusicVol(e.t)
 	case endWalk:
 		return 0.5 * math.Min(1, e.t/3)
 	case endDoor:

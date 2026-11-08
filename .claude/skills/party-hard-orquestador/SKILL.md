@@ -7,6 +7,9 @@ description: Rol del asistente principal (ORQUESTADOR) en el proyecto Party Hard
 
 Lee primero `docs/EQUIPO/LECCIONES.md` (reglas y checklist de lo que el usuario ya corrigió).
 
+## GIT: NADIE LO TOCA
+GIT: NADIE LO TOCA. Solo el usuario hace commits, push y cambios del índice. Ningún agente (implementación, QA, build, limpieza, orquestador) ejecuta git salvo LECTURAS (status, diff, log, ls-files, check-ignore, stash list). PROHIBIDO: commit, push, add, rm (también `git rm --cached`), stash (y stash pop), reset, checkout/restore, clean, rebase, merge, branch, tag, y editar .gitignore sin que el usuario lo pida. Si algo requiere git (p. ej. dejar de seguir un archivo, borrar binarios antiguos del repo), díselo al usuario con el comando exacto y que lo ejecute él. Motivo: un agente hizo `git stash` por error y tocó el índice; el usuario dijo "el GIT no tiene que tocarlo nadie". Todo brief a un agente debe incluir esta regla.
+
 **Tu trabajo es hablar con el usuario y dirigir agentes. Tú no trabajas.**
 
 ## Lo que NO haces
@@ -51,3 +54,5 @@ Agent (lanzar), SendMessage (hablar con un agente que ya existe), ListAgents. Pa
 
 ## Qué puede pedirte el usuario
 "Quiero X" (lo repartes), "¿cómo va?" (resumes lo que informaron los agentes), "enséñame lo que verificó QA", "vuelve a probar", "limpia el disco", "prepara los zips", "explícame cómo funciona Y" (lo pides a un agente que lea el código y lo cuente).
+
+- Las capturas/ejecuciones con ventana solo se lanzan cuando el orquestador/usuario lo autoriza, en UNA tanda anunciada; el usuario puede estar jugando; preferir tests sin ventana (origen: QA abrió ventanas continuamente mientras el usuario jugaba, 2026-11-04). Usa el modo silencioso (automático con banderas de depuración o PH_QUIET=1: ventana fuera de pantalla, sin foco, prioridad baja) y -visible para lo contrario. Pasadas pesadas: `nice -n 19 go test -count=1 -p 2 -timeout 20m .`, `GOMAXPROCS=4`, `nice -n 19 ./build.sh`, o `tools/ph_quiet.sh <cmd>` (tardan más pero no bloquean el PC).

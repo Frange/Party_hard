@@ -10,7 +10,7 @@ import (
 // ---------------------------------------------------------------------------
 // The title: what the program shows when it opens, before the main menu.
 //
-// Fade in from black, two spotlights sweeping the dark, PARTY slides in, HARD drops with
+// Fade in from black, two spotlights sweeping the dark, PARTY slides in, HARDY drops with
 // a slam (flash, shake, shock rings, coloured sparks), the neon flickers, the subtitle and the
 // credits appear and, after a few seconds, a fade to black leads to the main menu or, the
 // very first time (nothing saved, intro not seen), to the intro of the room.
@@ -41,14 +41,14 @@ type titleState struct {
 const (
 	tiFadeIn   = 0.55
 	tiParty    = 1.2  // PARTY slides in
-	tiSlam     = 1.75 // HARD hits the ground
+	tiSlam     = 1.75 // HARDY hits the ground
 	tiSub      = 2.9  // the subtitle
 	tiHome     = 3.5  // "homenaje a Party Hard"
 	tiCredits  = 4.1  // the credits
 	tiEnd      = 6.0  // the fade to black starts
 	tiFadeOut  = 0.55
 	tiSkipFade = 0.3
-	titleY     = 162.0 // where HARD lands
+	titleY     = 162.0 // where HARDY lands
 )
 
 // titleDuration is how long the title lasts when nobody skips it.
@@ -109,7 +109,7 @@ func (g *Game) updateTitle() {
 			return
 		}
 	}
-	// the impact of HARD: shake, flash, rings and sparks
+	// the impact of HARDY: shake, flash, rings and sparks
 	if !ti.slammed && ti.t >= tiSlam {
 		ti.slammed = true
 		ti.shakeT, ti.flashT, ti.ringT = 0.45, 0.28, 0
@@ -240,7 +240,7 @@ func (g *Game) drawTitle(dst *ebiten.Image) {
 		}
 		g.gradText(dst, "PARTY", math.Round(px)+ox, titleY-66+oy, col, col, rgb(0x0a1a2a), 5)
 	}
-	// HARD falls and bounces
+	// HARDY falls and bounces
 	if t >= tiSlam-0.34 {
 		y := titleY
 		if t < tiSlam {
@@ -254,7 +254,7 @@ func (g *Game) drawTitle(dst *ebiten.Image) {
 		if !neonOn(t) {
 			a, b = rgb(0x70203a), rgb(0x3a2060)
 		}
-		g.gradText(dst, "HARD", cx+ox, math.Round(y)+oy, a, b, rgb(0x300050), 13)
+		g.gradText(dst, "HARDY", cx+ox, math.Round(y)+oy, a, b, rgb(0x300050), 10)
 	}
 	// the shock rings of the slam
 	if ti.slammed {
@@ -281,7 +281,7 @@ func (g *Game) drawTitle(dst *ebiten.Image) {
 	}
 	if t >= tiCredits {
 		k := smooth01((t - tiCredits) / 0.5)
-		g.drawTextC(dst, "Un juego de Frange · con Claude", cx, screenH-46, mixc(rgb(0x05030a), rgb(0xe8e0a0), k), 1)
+		g.drawTextC(dst, "Un juego de Frange", cx, screenH-46, mixc(rgb(0x05030a), rgb(0xe8e0a0), k), 1)
 	}
 
 	// the flash of the impact, the fade in and the fade out

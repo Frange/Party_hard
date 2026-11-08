@@ -58,6 +58,7 @@ func loadPlayerSettings() {
 			binds2[i] = bindingFrom(sb, binds2[i])
 		}
 	}
+	resolveKeyClashes()
 	twoPlayerMode, devPref = false, [2]int{devAutoPref, devAutoPref}
 	sp := savedPlayers{Dev1: devAutoPref, Dev2: devAutoPref}
 	if m, ok := raw["players"]; ok && json.Unmarshal(m, &sp) == nil {
@@ -248,4 +249,28 @@ func playersNotePos(arrowEnd, y, w, bedLeft float64) (x, ny float64) {
 		ny = math.Min(ny, menuBedTop-4-13) // its glyphs and shadow end 13 px below ny
 	}
 	return x, ny
+}
+
+// resolveKeyClashes drops, in memory only, the keys of player 1 that player 2 also has (an old settings.json
+// could hold the same Shift for both). Player 2 keeps his. The only keys that may stay in both are the arrows
+// as the SECOND key of a movement action of player 1: that is the old one-player alias, and in two players
+// player 1 ignores whatever player 2 plays with (keyAllowed). Nothing is written to the file.
+func resolveKeyClashes() {
+	for a := 0; a < actPlayerCount; a++ {
+		for s := 0; s < 2; s++ {
+			k := binds[a].Keys[s]
+			if k == noKey || (s == 1 && isArrowKey(k)) {
+				continue
+			}
+			for b := 0; b < actPlayerCount; b++ {
+				if binds2[b].Keys[0] == k || binds2[b].Keys[1] == k {
+					binds[a].Keys[s] = noKey
+				}
+			}
+		}
+	}
+}
+
+func isArrowKey(k ebiten.Key) bool {
+	return k == ebiten.KeyArrowUp || k == ebiten.KeyArrowDown || k == ebiten.KeyArrowLeft || k == ebiten.KeyArrowRight
 }

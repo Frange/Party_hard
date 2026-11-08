@@ -140,6 +140,9 @@ func walkLegs(p *Pose, phi, amp, lift float64) {
 }
 
 func poseFor(kind, f int) Pose {
+	if kind >= AnimCount { // the hidden gait animations (gait.go)
+		return gaitPoseFor(kind, f)
+	}
 	n := float64(animFrames[kind])
 	phi := float64(f) / n
 	t := 2 * math.Pi * phi
@@ -1894,7 +1897,7 @@ func (cs *CharSet) img(anim int, d Dir, phase float64) (*ebiten.Image, bool) {
 	if cs.Spec != nil && cs.Spec.Ride != 0 && (anim == AnimWalk || anim == AnimRun) {
 		anim, phase = AnimIdle, 0 // riders glide: legs stay still on the board
 	}
-	n := animFrames[anim]
+	n := animFrameCount(anim)
 	f := int(math.Floor(phase)) % n
 	if f < 0 {
 		f += n

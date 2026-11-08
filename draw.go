@@ -943,6 +943,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	op.GeoM.Translate(g.camI.X, g.camI.Y)
 	screen.DrawImage(l.bg, op)
 	g.drawAnimatedFloors(screen)
+	g.drawBackAnim(screen)   // surf, waves, snow, fog, stars... behind everything (ambient.go)
+	g.drawFootprints(screen) // prints in sand, snow, mud, wet floor (footprints.go)
 
 	for _, d := range g.decals {
 		x, y := g.wx(d.pos.X), g.wy(d.pos.Y)
@@ -966,6 +968,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			fillRect(screen, x+math.Cos(a)*r*0.35-rr/2, y-2+math.Sin(a)*r*0.2-rr*0.2, rr, rr*0.45, col)
 		}
 	}
+
+	g.drawStartBlink(screen) // floor marker under the players at the start (startblink.go)
+	g.drawLastRings(screen)  // faint rings under the last guests (lastguests.go)
+	g.drawVIPFloor(screen)   // red carpet of the VIP zone (vip.go)
 
 	var items []drawItem
 	for _, pr := range l.Props {
@@ -997,6 +1003,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				return
 			}
 			anim, phase := g.guestPose(gu)
+			if gu.gait != "" {
+				anim, phase = gaitAnim(gu.gait, anim, phase)
+			}
 			swim := g.lvl.InPool(gu.pos)
 			pos := gu.pos
 			yoff := 0.0
@@ -1014,7 +1023,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				pos.Y += v.Y * 3
 			}
 			pos.X += poisonedStagger(gu, g.time)
-			g.drawActor(screen, gu.cs, anim, phase, pos, gu.dir, yoff, swim)
+			g.drawActor(screen, gu.cs, anim, phase, pos, g.gaitDir(gu), yoff, swim)
+			g.drawVIPStars(screen, gu.pos, gu.vipStun > 0)
 		}})
 	}
 	for _, gd := range g.guards {
@@ -1167,6 +1177,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.drawEvents(screen)
 	g.coopDrawWorld(screen)
 	g.drawSuspectCuffs(screen) // the cuffs mark over each suspect (twojail.go)
+	g.drawVIPOverlay(screen)   // invitation tags, VIP hints and suit bars (vip.go)
+	g.drawAlertMarks(screen)   // the alert over each player a witness is about to report (suspect.go)
 	if lk := g.lastKiller; g.mode == ModePlay && lk.kind == suspGuest && lk.guest != nil && !lk.guest.out() && g.policeCalled {
 		g.drawCuffs(screen, lk.guest.pos)
 	}
@@ -1204,12 +1216,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	g.drawLighting(screen)
+	g.drawBlackout(screen) // power cut (blackout.go)
 	g.drawCrossingLights(screen)
 	g.drawEventsTop(screen)
 	g.drawPhoneMarkers(screen)
+	g.drawCameras(screen) // security cameras: cone and body (camera.go)
+	g.drawStealth(screen) // STEALTH mode: vision cones, alert phase, big "!" (stealth.go)
 	g.drawTechMarker(screen)
 	g.drawBandSign(screen)
 	g.drawHoverName(screen)
+	g.drawLastArrows(screen) // chevrons at the border towards the last guests who are off screen (lastguests.go)
+	g.drawSlowFx(screen)     // flash and vignette of the last kill (slowmo.go)
 	g.drawHUD(screen)
 	switch g.mode {
 	case ModeMenu:
@@ -1229,9 +1246,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	case ModeDebug:
 		g.drawDebug(screen)
 	case ModeLevelDone:
-		g.drawPanel(screen, "¡NIVEL COMPLETADO!", "No ha quedado nadie con vida en la fiesta...", rgb(0x60ff80),
-			fmt.Sprintf("Puntos: %d   Tiempo: %d:%02d", g.points, int(g.endTime)/60, int(g.endTime)%60), levelDoneHint(g))
-		g.coopDrawScoreboard(screen)
+		if g.stealth { // STEALTH keeps its own plate; the normal parties show the newspaper (newspaper_draw.go)
+			g.drawPanel(screen, g.stealthDoneTitle("¡NIVEL COMPLETADO!"), g.stealthDoneSub("No ha quedado nadie con vida en la fiesta..."), rgb(0x60ff80),
+				fmt.Sprintf("Puntos: %d   Tiempo: %d:%02d", g.points, int(g.endTime)/60, int(g.endTime)%60), g.stealthDoneHint(levelDoneHint(g)))
+		} else {
+			g.drawPaper(screen)
+		}
+		if g.stealth {
+			g.coopDrawScoreboard(screen)
+		}
 	case ModeFinal:
 		g.drawPanel(screen, "¡HAS ACABADO CON TODAS LAS FIESTAS!", "La ciudad por fin está en silencio.", rgb(0xf0e060),
 			fmt.Sprintf("Puntos del último nivel: %d", g.points), "ENTER: volver al menú")
@@ -1243,6 +1266,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	g.drawTrophyHud(screen)
+	g.drawHelp(screen)
 	g.drawToast(screen)
 	if g.shot != "" && g.tick == g.shotTick {
 		g.saveShot(screen)
@@ -1562,11 +1586,14 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 		}
 		softShadow(dst, cxs, cys-fh/2+1, fw, fh, 85)
 	}
-	dst.DrawImage(pi.img, op)
+	if !g.drawSway(dst, pr, pi.img, op) { // trees lean a pixel in the wind (ambient.go)
+		dst.DrawImage(pi.img, op)
+	}
 	if pr.wreck && !pr.fireOut {
 		g.drawFlames(dst, x, y-pi.oy*0.5, 18)
 	}
-	if k.Trap != "" && !pr.used && pr.armT == 0 && g.mode == ModePlay && distRect(g.p.pos, pr.Foot) < 40 {
+	g.drawTrapState(dst, pr, x, y)
+	if k.Trap != "" && !pr.used && pr.armT == 0 && !pr.armed && !pr.armWait && g.mode == ModePlay && distRect(g.p.pos, pr.Foot) < 40 {
 		fillRect(dst, math.Round(x)-1, math.Round(y-pi.oy)-3+math.Sin(g.time*5), 3, 2, rgb(0xff4040))
 	}
 }
@@ -1927,51 +1954,7 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 	if g.mode == ModeMenu || g.mode == ModeLevelSelect || g.mode == ModeSettings || g.mode == ModeShop || g.mode == ModeConfirm || g.mode == ModeTrophies || g.mode == ModeScenes || g.mode == ModeDebug {
 		return
 	}
-	alive := g.aliveCount()
-	g.drawText(dst, fmt.Sprintf("POINTS:%04d", g.points), 10, 8, rgb(0xb88cff), 2)
-	g.drawText(dst, fmt.Sprintf("KILLS:%02d/%02d", g.total-alive, g.total), 10, 36, rgb(0xff6aa8), 2)
-	people, guards := 0, 0
-	for _, gu := range g.guests {
-		if !gu.out() {
-			people++
-		}
-	}
-	for _, gd := range g.guards {
-		if !gd.dead {
-			guards++
-		}
-	}
-	byKind := map[int]int{}
-	for _, c := range g.cops {
-		if !c.medic && c.state != cLeave {
-			byKind[c.kind]++
-		}
-	}
-	killers := 0
-	for _, s := range g.allSlashers() {
-		if s.state != slGone {
-			killers++
-		}
-	}
-	g.drawText(dst, fmt.Sprintf("GENTE:%d  GUARDIAS:%d", people, guards), 10, 61, rgb(0xff8070), 1)
-	forces := ""
-	for _, k := range []int{unitPolice, unitFBI, unitMilitary, unitSWAT, unitRangers} {
-		if n := byKind[k]; n > 0 {
-			if forces != "" {
-				forces += "  "
-			}
-			forces += fmt.Sprintf("%s:%d", starLabel(k), n)
-		}
-	}
-	if killers > 0 {
-		if forces != "" {
-			forces += "  "
-		}
-		forces += fmt.Sprintf("ASESINO:%d", killers)
-	}
-	if forces != "" {
-		g.drawText(dst, forces, 10, 74, rgb(0x90c8ff), 1)
-	}
+	g.drawHUDPanel(dst) // one panel: people left, points, progress bar, kills, forces, RETO / CADENA (hud.go)
 	for _, pl := range g.players() {
 		if it := pl.item; it != "" && g.mode == ModePlay {
 			name, col := "VENENO", rgb(0x60ff80)
@@ -1981,9 +1964,9 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 			if it == "poison" && pl.doses > 0 {
 				name += " x" + itoa(pl.doses)
 			}
-			label, y := "OBJETO: ", 88.0
+			label, y := "OBJETO: ", math.Max(88, g.hud.bottom)
 			if g.is2P() { // two players: each item is tagged with its owner, in his colour
-				label, y = g.playerName(pl)+" OBJETO: ", 88+float64(pl.idx)*12
+				label, y = g.playerName(pl)+" OBJETO: ", math.Max(88, g.hud.bottom)+float64(pl.idx)*12
 			}
 			g.drawText(dst, label+name, 10, y, col, 1)
 		}
@@ -2011,9 +1994,9 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 	}
 	for _, pl := range g.players() {
 		if g.mode == ModePlay && pl.stamina < 5.9 {
-			y, col := 88.0, rgb(0x60d060)
+			y, col := math.Max(88, g.hud.bottom), rgb(0x60d060)
 			if g.is2P() {
-				y = 100 + float64(pl.idx)*6
+				y = math.Max(100, g.hud.bottom+12) + float64(pl.idx)*6
 				c := ringColor(pl)
 				col = color.RGBA{c[0], c[1], c[2], 255}
 			}
@@ -2030,6 +2013,10 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 		}
 		g.panel(dst, math.Round(screenW/2-g.textW(s, 1)/2-6), screenH-26, g.textW(s, 1)+12, 17)
 		g.drawTextC(dst, s, screenW/2, screenH-25, rgb(0xb8b0d0), 1)
+	}
+	if g.mode == ModePlay {
+		g.drawLevelHint(dst) // goal and tip of the party, a few seconds (levelhint.go)
+		g.drawMinimap(dst)   // see-through map, TAB (minimap.go)
 	}
 }
 
@@ -2071,7 +2058,7 @@ func (g *Game) drawLock(dst *ebiten.Image, x, y float64) {
 // the shelf with mask, map and radio under it, the bed on the right and a
 // teal rug on a dark floor.
 // drawLogo is the title badge: radar rings, a small cyan PARTY and a big
-// pink-to-purple HARD, top left like the original.
+// pink-to-purple HARDY, top left like the original.
 func (g *Game) drawLogo(dst *ebiten.Image, cx, y float64) {
 	bob := math.Sin(g.time*3) * 3
 	ring := rgba(0x6a4ab0, 110)
@@ -2080,11 +2067,11 @@ func (g *Game) drawLogo(dst *ebiten.Image, cx, y float64) {
 	ringAt(dst, cx, y+34+bob, 70, 1, rgba(0x6a4ab0, 50))
 	if g.allTrophies() { // the golden logo of whoever has won everything
 		g.gradText(dst, "PARTY", cx-36, y+bob, rgb(0xfff0a0), rgb(0xf0c030), rgb(0x302000), 2)
-		g.gradText(dst, "HARD", cx, y+16+bob, rgb(0xfff0a0), rgb(0xd88a10), rgb(0x302000), 6)
+		g.gradText(dst, "HARDY", cx, y+16+bob, rgb(0xfff0a0), rgb(0xd88a10), rgb(0x302000), 5)
 		return
 	}
 	g.gradText(dst, "PARTY", cx-36, y+bob, rgb(0x60d0f0), rgb(0x60d0f0), rgb(0x0a1a2a), 2)
-	g.gradText(dst, "HARD", cx, y+16+bob, rgb(0xff3070), rgb(0x9040e0), rgb(0x300050), 6)
+	g.gradText(dst, "HARDY", cx, y+16+bob, rgb(0xff3070), rgb(0x9040e0), rgb(0x300050), 5)
 }
 
 func (g *Game) drawMenu(dst *ebiten.Image) {
@@ -2134,10 +2121,7 @@ func (g *Game) drawMenu(dst *ebiten.Image) {
 		g.drawText(dst, "★ LEYENDA DE LA FIESTA ★", 110, 118, rgb(0xffe070), 1.3)
 	}
 	g.drawTextC(dst, "Nadie te dejó dormir. Ahora nadie saldrá de la fiesta.", 640, 232, rgba(0xe0d8f0, 200), 1)
-	g.drawText(dst, actionHint(actConfirm)+"  seleccionar     "+actionHint(actBack)+"  volver", screenW-330, screenH-24, rgb(0x8a86a0), 1)
-	g.drawText(dst, "M: sonido   F11: pantalla completa", 8, screenH-24, rgb(0x5a5670), 1)
-	g.drawText(dst, "Versión "+gameVersion+" · hecho por Frange", 8, screenH-66, rgb(0xb8b0d0), 1)
-	g.drawText(dst, "Homenaje a Party Hard (Pinokl Games · tinyBuild)", 8, screenH-52, rgb(0x7a7690), 1)
+	g.drawMenuCorner(dst)
 	if padConnected() {
 		g.drawText(dst, "Mando: D-pad elegir · A confirmar · B volver · X usar · Y bailar · RB correr", 8, screenH-38, rgb(0x5a5670), 1)
 	}
@@ -2216,6 +2200,7 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 	if int(g.time*2)%2 == 0 {
 		g.drawTextC(dst, actionHint(actConfirm)+": empezar   "+actionHint(actBack)+": volver   R: aleatoria   G: generado   F2: editor", 580, 446, rgb(0xf0e060), 1.3)
 	}
+	g.drawTextC(dst, challengeSelectLine(g.challenge), 580, 462, challengeSelectCol(g.challenge), 1) // RETO switch (C)
 }
 
 func (g *Game) drawPanel(dst *ebiten.Image, title, sub string, c color.RGBA, l3, l4 string) {
@@ -2596,6 +2581,10 @@ func (g *Game) drawPlayerOne(screen *ebiten.Image, p *Player, l *Level) {
 	if !(p.immT > 0 && int(g.time*6)%2 == 0) {
 		g.drawRingFor(screen, p)
 	}
+	if g.stealthDrawBox(screen, p) { // STEALTH mode: under the cardboard box (stealth.go)
+		g.drawPlayerTag(screen, p)
+		return
+	}
 	anim, phase := g.playerPose()
 	pos := p.pos
 	if p.stabT > 0 {
@@ -2606,6 +2595,8 @@ func (g *Game) drawPlayerOne(screen *ebiten.Image, p *Player, l *Level) {
 	g.drawActor(screen, p.cs, anim, phase, pos, p.dir, 0, l.InPool(p.pos) && p.carrying == nil)
 	g.drawBallChain(screen, p)
 	g.drawHalo(screen)
+	g.drawSuitFX(screen, p) // gold glow of the VIP suit (vip.go)
+	g.drawStunStars(screen, p)
 	if p.carrying != nil {
 		bi := g.bodyLyingImg(p.carrying)
 		w, h := bi.Bounds().Dx(), bi.Bounds().Dy()

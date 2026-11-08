@@ -43,7 +43,7 @@ func (g *Game) wardTwo() bool { return wardrobeNumPlayers(g) >= 2 }
 // ---- the colours of each player ------------------------------------------------------
 
 const (
-	colP1 = 0x4a8aff // blue
+	colP1 = 0x2f7bff // blue (saturated: reads on the grey floor)
 	colP2 = 0xff4a4a // red
 )
 

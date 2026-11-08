@@ -127,10 +127,10 @@ func fileHash(path string) (string, error) {
 
 // rootBinaryPairs: binary in the project root -> the same one built into dist/.
 var rootBinaryPairs = [][2]string{
-	{"PartyHard.exe", "dist/win/PartyHard.exe"},
-	{"PartyHardEditor.exe", "dist/win/PartyHardEditor.exe"},
-	{"PartyHard.app/Contents/MacOS/PartyHard", "dist/mac/PartyHard.app/Contents/MacOS/PartyHard"},
-	{"PartyHardEditor.app/Contents/MacOS/PartyHardEditor", "dist/mac/PartyHardEditor.app/Contents/MacOS/PartyHardEditor"},
+	{"PartyHardy.exe", "dist/win/PartyHardy.exe"},
+	{"PartyHardyEditor.exe", "dist/win/PartyHardyEditor.exe"},
+	{"PartyHardy.app/Contents/MacOS/PartyHardy", "dist/mac/PartyHardy.app/Contents/MacOS/PartyHardy"},
+	{"PartyHardyEditor.app/Contents/MacOS/PartyHardyEditor", "dist/mac/PartyHardyEditor.app/Contents/MacOS/PartyHardyEditor"},
 }
 
 // staleRootBinaries lists the root binaries that differ from dist/ (or are missing).
@@ -150,8 +150,8 @@ func staleRootBinaries(root string) []string {
 }
 
 func buildRelease(root string, a map[string]any) (string, error) {
-	if b, err := os.ReadFile(filepath.Join(root, "go.mod")); err != nil || !strings.HasPrefix(string(b), "module partyhard") {
-		return "", fmt.Errorf("%s does not look like the Party Hard project", root)
+	if b, err := os.ReadFile(filepath.Join(root, "go.mod")); err != nil || !strings.HasPrefix(string(b), "module partyhardy") {
+		return "", fmt.Errorf("%s does not look like the Party Hardy project", root)
 	}
 	verifyOnly, _ := a["verify_only"].(bool)
 	secs := argInt(a, "seconds", 900)
@@ -200,8 +200,8 @@ func buildRelease(root string, a map[string]any) (string, error) {
 		fmt.Fprintf(&sb, "build.sh: ok (%s)\n", tail(bout, 1))
 	}
 	reps := []*zipReport{
-		verifyZip(filepath.Join(root, "PartyHard-Mac.zip"), []string{"PartyHard.app/Contents/MacOS/PartyHard", "PartyHardEditor.app/Contents/MacOS/PartyHardEditor"}),
-		verifyZip(filepath.Join(root, "PartyHard-Windows.zip"), []string{"PartyHard.exe", "PartyHardEditor.exe"}),
+		verifyZip(filepath.Join(root, "PartyHardy-Mac.zip"), []string{"PartyHardy.app/Contents/MacOS/PartyHardy", "PartyHardyEditor.app/Contents/MacOS/PartyHardyEditor"}),
+		verifyZip(filepath.Join(root, "PartyHardy-Windows.zip"), []string{"PartyHardy.exe", "PartyHardyEditor.exe"}),
 	}
 	bad := false
 	for _, r := range reps {

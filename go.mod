@@ -1,4 +1,4 @@
-module partyhard
+module partyhardy
 
 go 1.27.3
 

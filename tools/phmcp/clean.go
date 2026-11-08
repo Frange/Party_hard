@@ -5,7 +5,7 @@ package main
 // clean_temp can delete, so it is the most restricted tool of the server:
 //   - Only an ALLOWLIST is ever touched:
 //       * temp entries named ph_* or phmcp-* directly inside /tmp or the system temp dir
-//       * processes whose executable is /tmp/ph_*, <temp>/phmcp-*/game or partyhard.test
+//       * processes whose executable is /tmp/ph_*, <temp>/phmcp-*/game or partyhardy.test
 //       * the Go build and test caches (only with go_cache=true)
 //     Nothing else: never assets/, imports/, intros/, music/, progress.json, the user's
 //     game, the temp folders of other Claude projects or any path outside the allowlist.
@@ -31,7 +31,7 @@ func init() {
 	tools = append(tools,
 		&tool{
 			Name: "clean_temp",
-			Description: "CLEANUP role. Lists (default, dry_run=true) or deletes ONLY: temp entries ph_* / phmcp-* in /tmp and the system temp dir, stuck test processes (/tmp/ph_*, phmcp-*/game, partyhard.test) and, with go_cache=true, the Go build and test caches. " +
+			Description: "CLEANUP role. Lists (default, dry_run=true) or deletes ONLY: temp entries ph_* / phmcp-* in /tmp and the system temp dir, stuck test processes (/tmp/ph_*, phmcp-*/game, partyhardy.test) and, with go_cache=true, the Go build and test caches. " +
 				"To delete you must pass dry_run=false AND confirm=\"DELETE\". It never touches assets, imports, intros, music, progress.json, the user's game or other projects' temp folders. Reports free disk before and after.",
 			InputSchema: obj(map[string]any{
 				"dry_run":  map[string]any{"type": "boolean", "description": "default true: only list"},
@@ -155,7 +155,7 @@ func allowProc(cmd string) bool {
 		return true
 	case filepath.Base(exe) == "game" && strings.Contains(filepath.Dir(exe), "/phmcp-"):
 		return true
-	case filepath.Base(exe) == "partyhard.test":
+	case filepath.Base(exe) == "partyhardy.test":
 		return true
 	}
 	return false
@@ -326,7 +326,7 @@ func diskReport(root string, _ map[string]any) (string, error) {
 	}
 	fmt.Fprintf(&sb, "temp ph_* / phmcp-*: %d entries, %.1f MB\n", len(ents), float64(n)/1e6)
 	fmt.Fprintf(&sb, "stuck processes in the allowlist: %d\n", len(allowedProcs()))
-	for _, name := range []string{"dist", "PartyHard-Mac.zip", "PartyHard-Windows.zip", "imports", "intros", "music", "more", "DJ", "assets"} {
+	for _, name := range []string{"dist", "PartyHardy-Mac.zip", "PartyHardy-Windows.zip", "imports", "intros", "music", "more", "DJ", "assets"} {
 		p := filepath.Join(root, name)
 		if _, err := os.Lstat(p); err != nil {
 			continue

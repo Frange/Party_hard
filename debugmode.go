@@ -20,15 +20,20 @@ type debugState struct {
 	trophyMode               int // 0 as they are, 1 all won, 2 none
 	bonus                    int // points added to the wallet (temporary)
 	speed, noPolice, fastEv  bool
-	guestMin, guestMax       int // fewest / most guests (0 = what is saved)
+	guestMin, guestMax       int  // fewest / most guests (0 = what is saved)
+	copMemory                bool // police with memory: a scared witness tells on you when he meets an officer (copmemory.go)
 }
 
 var debugSnap *Progress
+
+// debugPrevFrozen: progressFrozen as it was when the DEBUG menu mode began (restored by debugEnd).
+var debugPrevFrozen bool
 
 func (g *Game) debugBegin() {
 	if debugSnap == nil {
 		c := cloneProgress(g.progress)
 		debugSnap = &c
+		debugPrevFrozen = progressFrozen
 		progressFrozen = true
 	}
 }
@@ -103,7 +108,8 @@ func (g *Game) debugEnd() {
 		g.progress = *debugSnap
 		debugSnap = nil
 	}
-	progressFrozen = false
+	progressFrozen = debugPrevFrozen
+	debugPrevFrozen = false
 	g.dbg = debugState{}
 	g.debugMenu = false
 	g.powerImmune = false
@@ -222,20 +228,25 @@ func (g *Game) debugRows() []debugRow {
 		{"Invitados mínimo", func() string { return fmt.Sprintf("◄ %d ►", g.maxStart()) }, func() { guestStep(false)(1) }},
 		{"Invitados máximo", func() string { return fmt.Sprintf("◄ %d ►", g.guestMax()) }, func() { guestStep(true)(1) }},
 		{"Sucesos y llegadas muy rápidos", func() string { return onOff(d.fastEv) }, flip(&d.fastEv)},
+		{"Policía con memoria (el testigo asustado delata)", func() string { return onOff(d.copMemory) }, flip(&d.copMemory)},
+		{stealthMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth(0) }},
+		{stealth2pMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth2P(0) }},
 		{"Ir a la última fiesta: Isla Nublar (Jurassic Park)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
 		{"1. Ver la intro", func() string { return "" }, func() { g.playScene(sceneIntro, ModeDebug) }},
 		{"2. Ver el interludio 1 (coche, tras la plaza de toros)", func() string { return "" }, func() { g.playScene(sceneInter1, ModeDebug) }},
 		{"3. Ver el interludio 2 (barco, tras la discoteca)", func() string { return "" }, func() { g.playScene(sceneInter2, ModeDebug) }},
-		{"4. Ver el interludio 3 (cohete, tras la estación de tren)", func() string { return "" }, func() { g.playScene(sceneInter3, ModeDebug) }},
-		{"5. Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
-		{"6. Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
-		{"7. Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
+		{"4. Ver el interludio del globo (tras la fiesta 15)", func() string { return "" }, func() { g.playScene(sceneInter15, ModeDebug) }},
+		{"5. Ver el interludio 3 (cohete, tras la estación de tren)", func() string { return "" }, func() { g.playScene(sceneInter3, ModeDebug) }},
+		{"6. Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
+		{"7. Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
+		{"8. Ver la llegada en helicóptero a la isla", func() string { return "" }, func() { g.playScene(sceneArrival, ModeDebug) }},
+		{"9. Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
 		{"Salir del DEBUG (recupera tu partida real)", func() string { return "" }, func() { g.debugEnd(); g.mode = ModeMenu }},
 		{"Volver al menú", func() string { return "" }, func() { g.mode = ModeMenu }},
 	}
 }
 
-// guestStep: the number of guests of a party (40 to 60 by default) is only changed from here, in
+// guestStep: the number of guests of a party (45 to 60 by default) is only changed from here, in
 // steps of 5 between 10 and 100, and the minimum never goes above the maximum.
 func (g *Game) guestStep(max bool) func(int) {
 	return func(dir int) {
@@ -252,7 +263,7 @@ func (g *Game) guestStep(max bool) func(int) {
 }
 
 const (
-	debugRowH = 19.0
+	debugRowH = 15.0 // 27 rows: they must end above the status line (y=498)
 	debugRow0 = 86.0
 )
 

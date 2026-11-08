@@ -192,6 +192,9 @@ func (g *Game) setupPlayers(def *LevelDef) {
 
 // wantTwoPlayers: does this party have two players?
 func (g *Game) wantTwoPlayers() bool {
+	if g.stealth { // the stealth mode decides by itself (stealth2p.go): never the 2 players switch
+		return g.stealth2
+	}
 	return dbgTwoPlayers || twoPlayerMode
 }
 

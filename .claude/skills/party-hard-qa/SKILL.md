@@ -7,6 +7,9 @@ description: Rol de QA en el proyecto Party Hard. Úsalo si eres el agente que r
 
 Lee primero `docs/EQUIPO/LECCIONES.md` (reglas y checklist de lo que el usuario ya corrigió).
 
+## GIT: NADIE LO TOCA
+GIT: NADIE LO TOCA. Solo el usuario hace commits, push y cambios del índice. Ningún agente (implementación, QA, build, limpieza, orquestador) ejecuta git salvo LECTURAS (status, diff, log, ls-files, check-ignore, stash list). PROHIBIDO: commit, push, add, rm (también `git rm --cached`), stash (y stash pop), reset, checkout/restore, clean, rebase, merge, branch, tag, y editar .gitignore sin que el usuario lo pida. Si algo requiere git (p. ej. dejar de seguir un archivo, borrar binarios antiguos del repo), díselo al usuario con el comando exacto y que lo ejecute él. Motivo: un agente hizo `git stash` por error y tocó el índice; el usuario dijo "el GIT no tiene que tocarlo nadie". Todo brief a un agente debe incluir esta regla.
+
 Tu trabajo: **decidir con pruebas si lo que dicen los agentes es verdad.** No implementas: si algo falla, lo devuelves al responsable (a través del orquestador).
 
 ## Antes de empezar
@@ -43,3 +46,7 @@ NO VERIFICABLE SIN HUMANO: lista
 - **NO PASA**: un test falla, algo pedido no existe, se rompió el modo de 1 jugador, o el informe no se corresponde con la realidad.
 
 Al final, un resumen global (una línea por tarea) y si **se puede lanzar Build**: sólo con PASA o reservas aceptadas.
+- **Pasada completa antes de PASA**: si el cambio toca `game.go`, estado global o más de un área, ejecuta `go test -count=1 -timeout 20m .` entera; los filtros `-run` no detectan contaminación entre tests (2026-11-04).
+- Regla de datos (2026-11-04): toda bandera de depuración/captura congela el progreso antes de cargar niveles (debugFlagsActive en main.go); las capturas se hacen desde una carpeta temporal con COPIA de assets, nunca desde el proyecto.
+
+- Las capturas/ejecuciones con ventana solo se lanzan cuando el orquestador/usuario lo autoriza, en UNA tanda anunciada; el usuario puede estar jugando; preferir tests sin ventana (origen: QA abrió ventanas continuamente mientras el usuario jugaba, 2026-11-04). Usa el modo silencioso (automático con banderas de depuración o PH_QUIET=1: ventana fuera de pantalla, sin foco, prioridad baja) y -visible para lo contrario. Pasadas pesadas: `nice -n 19 go test -count=1 -p 2 -timeout 20m .`, `GOMAXPROCS=4`, `nice -n 19 ./build.sh`, o `tools/ph_quiet.sh <cmd>` (tardan más pero no bloquean el PC).

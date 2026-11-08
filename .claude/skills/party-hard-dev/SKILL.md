@@ -7,6 +7,9 @@ description: Conocimiento y reglas del proyecto Party Hard (clon en Go/Ebiten co
 
 Lee primero `docs/EQUIPO/LECCIONES.md` (reglas y checklist de lo que el usuario ya corrigió).
 
+## GIT: NADIE LO TOCA
+GIT: NADIE LO TOCA. Solo el usuario hace commits, push y cambios del índice. Ningún agente (implementación, QA, build, limpieza, orquestador) ejecuta git salvo LECTURAS (status, diff, log, ls-files, check-ignore, stash list). PROHIBIDO: commit, push, add, rm (también `git rm --cached`), stash (y stash pop), reset, checkout/restore, clean, rebase, merge, branch, tag, y editar .gitignore sin que el usuario lo pida. Si algo requiere git (p. ej. dejar de seguir un archivo, borrar binarios antiguos del repo), díselo al usuario con el comando exacto y que lo ejecute él. Motivo: un agente hizo `git stash` por error y tocó el índice; el usuario dijo "el GIT no tiene que tocarlo nadie". Todo brief a un agente debe incluir esta regla.
+
 Léelo entero antes de tocar código. Si algo de aquí contradice lo que el usuario pide en el momento, manda el usuario.
 
 ## 0. Quién hace qué (modelo de trabajo actual)
@@ -42,7 +45,7 @@ Orden de una entrega: implementación -> QA -> Build -> Limpieza -> informe al u
 - **Todo el arte es procedural**: los personajes, objetos, animales y fondos se dibujan por código (`pixBuf`, `genChar`, `Draw: func(b *pixBuf, v int)` de cada prop). No hay hojas de sprites hechas a mano.
 - **`assets/`** guarda lo que el editor exporta o edita (`assets/sprites/<categoría>/<nombre>/`, `assets/backgrounds/`). Se sube al repositorio.
 - **`imports/`** (junto a `assets/`) guarda lo que el usuario crea importando fotos o dibujos. **Nunca se sube al repositorio** (está en `.gitignore`). El juego y el editor leen las dos carpetas.
-- **Editor** (pestañas Personajes, Objetos y animales, Escenarios) dentro del mismo binario: tecla F2, o `PartyHardEditor`. **Modo debug**: en el menú principal arriba, arriba, abajo, abajo, izquierda, derecha, izquierda, derecha; en el editor la misma secuencia desbloquea editar los niveles originales.
+- **Editor** (pestañas Personajes, Objetos y animales, Escenarios) dentro del mismo binario: tecla F2, o `PartyHardyEditor`. **Modo debug**: en el menú principal arriba, arriba, abajo, abajo, izquierda, derecha, izquierda, derecha; en el editor la misma secuencia desbloquea editar los niveles originales.
 - **Dos jugadores** (interruptor en el menú principal, por defecto 1): `twoplayers.go` (segundo jugador `g.p2`, `g.players()`, `g.asPlayer`, `g.focus`), `input2.go` + `players.go` (teclas y mandos por jugador), `twojail.go` + `suspect.go` (esposas, detención y fuga), `revive.go` (ambulancia), `coop.go` (gags y marcador), `wardrobe.go` (ropa por jugador), `twoscenes.go` y `*2p.go` (cinemáticas). Todo cambio en el juego debe seguir idéntico con 1 jugador (hay tests de regresión).
 - Los niveles son 21 en la campaña (`campaign.go`) más extras para el modo aleatorio. La isla de Jurassic Park y las escenas (intro, interludios, finales) quedan fuera de la campaña.
 
@@ -113,3 +116,6 @@ Compila a una ruta temporal (`go build -o /tmp/ph_chk .`) y bórrala al terminar
 ## 10. Antes de entregar
 
 Como agente de implementación entregas **tu informe** (sección 0), no un build. Sigue la parte A de `checklist.md` (en esta misma carpeta). El build, los zips, los binarios de la raíz y la limpieza los hacen sus agentes (`party-hard-release`, `party-hard-limpieza`) cuando QA ha dado el visto bueno.
+- Regla de datos (2026-11-04): toda bandera de depuración/captura congela el progreso antes de cargar niveles (debugFlagsActive en main.go); las capturas se hacen desde una carpeta temporal con COPIA de assets, nunca desde el proyecto.
+
+- Las capturas/ejecuciones con ventana solo se lanzan cuando el orquestador/usuario lo autoriza, en UNA tanda anunciada; el usuario puede estar jugando; preferir tests sin ventana (origen: QA abrió ventanas continuamente mientras el usuario jugaba, 2026-11-04). Usa el modo silencioso (automático con banderas de depuración o PH_QUIET=1: ventana fuera de pantalla, sin foco, prioridad baja) y -visible para lo contrario. Pasadas pesadas: `nice -n 19 go test -count=1 -p 2 -timeout 20m .`, `GOMAXPROCS=4`, `nice -n 19 ./build.sh`, o `tools/ph_quiet.sh <cmd>` (tardan más pero no bloquean el PC).

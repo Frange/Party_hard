@@ -55,3 +55,40 @@ func (g *Game) enforceGuestCap() {
 		capBreaches++
 	}
 }
+
+// ---------------------------------------------------------------------------
+// The animal cap. A level has between animalMin and animalMax animals alive on
+// the map and never more than bullMax bulls (a bullring or any other level).
+// animalMin is the design target of the generators (not forced: a level that has
+// none gets none); animalMax and bullMax are strict and enforced in ONE place,
+// capAnimals(), at the end of spawnAnimals(). Everything that is a creature in
+// g.animals counts (pets, farm animals, critters, riders, snake, Wally's dog).
+// The T-Rex, the dinosaurs and monsters of the island level and the guests'
+// costumes are not in g.animals and do not count.
+// ---------------------------------------------------------------------------
+
+const (
+	animalMin = 2
+	animalMax = 8
+	bullMax   = 1
+)
+
+// capAnimals trims g.animals to animalMax and bullMax. The ones the level itself defines come first
+// in the list, so the scattered extras (critters, riders, snake, dog) are the first to go.
+func (g *Game) capAnimals() {
+	bulls := 0
+	out := g.animals[:0]
+	for _, a := range g.animals {
+		if a.kind == animBull {
+			if bulls >= bullMax {
+				continue
+			}
+			bulls++
+		}
+		out = append(out, a)
+	}
+	if len(out) > animalMax {
+		out = out[:animalMax]
+	}
+	g.animals = out
+}

@@ -100,14 +100,14 @@ func (g *Game) uniqueFamous() {
 			continue
 		}
 		gu.cs, gu.name = g.plainGuestCS(), ""
-		gu.quirk, gu.quirkInit = "", false
+		gu.quirk, gu.quirkInit, gu.gaitInit = "", false, false
 	}
 }
 
 // ---- how many people a party starts with ---------------------------------------
 
 // pickStartTarget draws the number of guests this party starts with, between the
-// minimum and the maximum of the settings (40 to 60 by default).
+// minimum and the maximum of the settings (45 to 60 by default).
 func (g *Game) pickStartTarget() {
 	lo, hi := g.maxStart(), g.guestMax()
 	g.twoExtra = 0

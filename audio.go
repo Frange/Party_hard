@@ -58,9 +58,12 @@ func newSounds(muted bool) *Sounds {
 	s.sfx["siren"] = siren(2.4)
 	s.sfx["win"] = mix(tone(523, 0.15, 0.4, 6, 0), shift(tone(659, 0.15, 0.4, 6, 0), 0.15), shift(tone(784, 0.15, 0.4, 6, 0), 0.30), shift(tone(1046, 0.4, 0.4, 4, 0), 0.45))
 	s.sfx["lose"] = mix(tone(300, 0.25, 0.5, 4, 0), shift(tone(250, 0.25, 0.5, 4, 0), 0.25), shift(tone(180, 0.6, 0.5, 3, 0), 0.5))
+	s.sfx["clac"] = mix(noise(0.05, 0.8, 40), tone(140, 0.12, 0.7, 18, 0), shift(tone(95, 0.1, 0.5, 20, 0), 0.05))
 	s.sfx["spark"] = toPCM(noise(0.05, 0.25, 40))
 	s.sfx["zap"] = mix(noise(0.6, 0.9, 5), tone(120, 0.6, 0.5, 4, 2), tone(1900, 0.2, 0.3, 12, 1))
 	s.sfx["glug"] = mix(tone(200, 0.08, 0.4, 20, 0), shift(tone(260, 0.08, 0.4, 20, 0), 0.09), shift(tone(320, 0.1, 0.4, 20, 0), 0.18))
+	// the last kill of a party: a deep dry thump and a soft rush of air (slowmo.go)
+	s.sfx["slowmo"] = mix(tone(55, 0.45, 0.85, 7, 0), lowpass(noise(0.5, 0.45, 5), 14), shift(lowpass(noise(0.3, 0.2, 9), 6), 0.1))
 
 	s.SetTrack("menu", musicLoop)
 	warmAmbient() // the music of the story scenes is built in the background, ready when a scene starts
@@ -439,5 +442,19 @@ func (s *Sounds) StopThump() {
 		s.thump.Pause()
 		s.thump.Close()
 		s.thump = nil
+	}
+}
+
+// sfxOnce registers a sound the first time it is needed. It is safe with no Sounds, or with a Sounds whose map was never
+// made (a muted stand-in): then it does nothing instead of writing into a nil map.
+func (g *Game) sfxOnce(name string, build func() []byte) {
+	if g == nil || g.snd == nil {
+		return
+	}
+	if g.snd.sfx == nil {
+		g.snd.sfx = map[string][]byte{}
+	}
+	if _, ok := g.snd.sfx[name]; !ok {
+		g.snd.sfx[name] = build()
 	}
 }

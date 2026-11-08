@@ -16,8 +16,8 @@ import (
 // (see Game.asPlayer). With one player inputP is always 0 and nothing changes.
 //
 // Two players:
-//   keyboard 1 + keyboard 2  -> player 1 uses `binds` (W A S D, E, F, Space, Shift left),
-//                               player 2 uses `binds2` (arrow keys, , . / and Shift right).
+//   keyboard 1 + keyboard 2  -> player 1 uses `binds` (W A S D, E, F, Space, left Shift),
+//                               player 2 uses `binds2` (arrow keys, , . / and right Shift).
 //                               A key bound by player 2 is ignored for player 1 (the arrow
 //                               keys are the second key of the old bindings).
 //   keyboard + gamepad       -> the player on the pad uses that pad, the other the keyboard.
