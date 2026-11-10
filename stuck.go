@@ -42,7 +42,7 @@ func (g *Game) watchStuck(before Vec, dx, dy, dt float64) {
 		if box.Hits(r) || (Rect{p.pos.X + dx*2 - 4, p.pos.Y + dy*2 - 3, 8, 5}).Hits(r) {
 			what := "?"
 			for _, w := range g.lvl.Walls {
-				if w.R == r {
+				if wallFoot(w) == r {
 					what = fmt.Sprintf("wall style %d", w.Style)
 				}
 			}

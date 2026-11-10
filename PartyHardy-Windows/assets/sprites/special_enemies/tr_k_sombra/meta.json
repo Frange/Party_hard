@@ -1,0 +1,11 @@
+{
+  "name": "tr_k_sombra",
+  "display_name": "La Sombra",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "knife",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

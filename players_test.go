@@ -202,30 +202,39 @@ func TestPlayersHelpLines(t *testing.T) {
 	}
 }
 
-// the settings screen: every row once, the arrows walk the rows as laid out, player 2 has its section
+// the settings screen: every row once (J1 tab + J2 tab), the arrows walk the rows of the tab as laid out,
+// player 2 has its own tab with its controls and its input
 func TestPlayersSettingsRows(t *testing.T) {
+	t.Cleanup(func() { settingsTab = 0 })
 	seen := map[int]bool{}
-	row := 0
-	for i := 0; i < setRows; i++ {
-		if seen[row] {
-			t.Fatalf("the arrows come back to row %d too soon", row)
+	for tab := 0; tab < 2; tab++ {
+		settingsTab = tab
+		row := setRowLang
+		for i := 0; i < setRows; i++ {
+			seen[row] = true
+			row = settingsRowAt(row, 1)
+			if row == setRowLang {
+				break
+			}
 		}
-		seen[row] = true
-		row = settingsRowAt(row, 1)
+		if row != setRowLang {
+			t.Fatalf("tab %d: the rows are not a loop", tab)
+		}
 	}
-	if row != 0 || len(seen) != setRows {
-		t.Fatalf("the rows are not a loop: %d of %d", len(seen), setRows)
+	if len(seen) != setRows {
+		t.Fatalf("the two tabs show %d of %d rows", len(seen), setRows)
 	}
-	if settingsRowAt(0, -1) != setRowBack {
-		t.Fatalf("up from the first row must go to the last one, got %d", settingsRowAt(0, -1))
+	settingsTab = 0
+	if settingsRowAt(setRowLang, -1) != setRowDev1 {
+		t.Fatalf("up from the language must go to the last row of J1, got %d", settingsRowAt(setRowLang, -1))
 	}
 	titles := map[string]bool{}
-	for _, it := range settingsLayout() {
+	for _, it := range settingsLayoutTab(1) {
 		if it.row < 0 {
 			titles[it.title] = true
 		}
 	}
-	for _, want := range []string{"JUGADORES", "CONTROLES DEL JUGADOR 2"} {
+	for _, want := range []string{"ENTRADA", "CONTROLES J2"} {
 		if !titles[want] {
 			t.Errorf("section %q missing", want)
 		}
@@ -236,8 +245,8 @@ func TestPlayersSettingsRows(t *testing.T) {
 			t.Errorf("row of player 2 action %d points elsewhere", a)
 		}
 	}
-	if isBindRow(setRowDev1) || isBindRow(setRowLang) {
-		t.Error("device and language rows have no three columns")
+	if isBindRow(setRowDev1) || isBindRow(setRowLang) || isBindRow(setRowTabs) {
+		t.Error("device, language and tab rows have no key / pad columns")
 	}
 }
 

@@ -2,12 +2,12 @@
   "name": "eiffel",
   "category": "furniture",
   "anchor_x": 66,
-  "anchor_y": 201,
+  "anchor_y": 225,
   "foot_x": 24,
-  "foot_y": 187,
+  "foot_y": 211,
   "foot_w": 84,
   "foot_h": 14,
-  "solid": true,
+  "solid": false,
   "hide": false,
   "phone": false,
   "poison": false,
@@ -16,5 +16,10 @@
   "variants": false,
   "fps": 0,
   "sort_off": 0,
-  "ambient_speed": 0
+  "ambient_speed": 0,
+  "light_col": [
+    0,
+    0,
+    0
+  ]
 }

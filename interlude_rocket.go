@@ -10,7 +10,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// The third interlude, between parties 20 (the train station) and 21 (the space station).
+// The third interlude, between the last party before the space station (the 70s disco, 23rd) and the space station (24th).
 //
 // The same angry walk as the other two, this time over the roof of the station, with the memories of
 // the last parties. At the end of the roof there is a home-made rocket: a rusty barrel with a toilet for

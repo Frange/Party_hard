@@ -31,7 +31,7 @@ var iconPNG []byte
 func main() {
 	selftest := flag.Int("selftest", 0, "run N frames of automated play and exit (debug)")
 	mute := flag.Bool("mute", false, "start without sound")
-	level := flag.Int("level", 0, "start level (1-4) directly, debug")
+	level := flag.Int("level", 0, "start level N (1-based, 1..number of levels) directly, debug")
 	findF := flag.String("edfind", "", "search text preset in the editor lists (debug)")
 	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
 	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
@@ -67,6 +67,8 @@ func main() {
 	rigtest := flag.String("rigtest", "", "write a rig comparison sheet to this PNG and exit, debug")
 	noassets := flag.Bool("noassets", false, "ignore the assets folder and use only built-in content")
 	edtab := flag.Int("edtab", 0, "editor tab to open (debug)")
+	pevF := flag.String("pevent", "", "force the party event with this id (see -pevents), debug")
+	pevsF := flag.Bool("pevents", false, "list the party events (id, chance, window) and exit")
 	eventF := flag.Int("event", 0, "start special event N (1 plane,2 ufo,3 superman,4 satan,5 god,6 zombie), debug")
 	settingsF := flag.Bool("settings", false, "open the settings screen (debug)")
 	menuDbgF := flag.Bool("menudebug", false, "main menu with the DEBUG row unlocked (debug, with -shot)")
@@ -81,11 +83,13 @@ func main() {
 	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
 	pyroF := flag.Bool("pyronow", false, "the arsonist walks into the party a moment after the start (debug)")
 	zapF := flag.Bool("zapnow", false, "electrocute a few guests next to the player a moment after the start (debug)")
+	pauseF := flag.Bool("pausenow", false, "open the PAUSE window (Esc) a moment after the party starts (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
 	vipDemoF := flag.String("vipdemo", "", "VIP zone demo: gate | inside | suit | relief | invite | stun (debug)")
 	poisonF := flag.Bool("poisonnow", false, "poison in the pocket and four poisoned guests next to the player (debug)")
 	trapDemoF := flag.Bool("trapdemo", false, "the two traps nearest to the start: one half loaded (circle), one armed (LED and radius), held still (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
+	flag.StringVar(&dbgWild, "wildnow", "", "a wild animal next to the start: frog, squirrel, boar, croc, cheetah, lion, cobaya (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
 	twoDeadF := flag.Int("twodead", 0, "with two players: player 1 or 2 starts dead and the other calls the ambulance (debug)")
 	twoCuffF := flag.Bool("twocuff", false, "two players: the police are called at 3 s and both are suspects (debug)")
@@ -95,13 +99,15 @@ func main() {
 	minimapF := flag.Bool("minimap", false, "start with the minimap on (TAB or Start switches it) (debug, progress frozen)")
 	noEmoteF := flag.Bool("noemotes", false, "no emote icons over the guests (debug)")
 	killerF := flag.Bool("killer", false, "force a special killer at ~6 s in every party (debug, progress frozen)")
+	killerAsF := flag.String("killeras", "", "with -killer: which killer comes, by slug, e.g. el_exterminador (debug)")
 	blackoutF := flag.Bool("blackout", false, "force the BLACKOUT event at ~3 s of the party, 10 s long (debug, progress frozen)")
+	blameF := flag.Bool("blamenow", false, "at ~2 s a guest is killed next to another one and the police are called: the officer takes the passer-by for the suspect (wrongsuspect.go, debug)")
 	camKillF := flag.Bool("camkill", false, "in a level with a camera (3, 5-ish: house party, disco, cinema, casino, station): at ~3 s a guest is killed in front of the camera, to see the red LED/cone and WANTED (debug)")
 	stealthBoxF := flag.Bool("stealthbox", false, "with -stealth: start with the cardboard box already on (debug)")
 	copMemF := flag.Bool("copmemory", false, "DEBUG option on: a scared witness who meets an officer or a guard tells on you (suspect.go) (debug)")
 	stealthF := flag.Bool("stealth", false, "play the STEALTH mode (win a party unseen, cardboard box on E), with -level N for the party (debug)")
 	stealth2F := flag.Bool("stealth2p", false, "play the STEALTH mode with TWO players: 1 decoy (noise on F), 2 sneaks past; with -level N for the party (debug)")
-	challengeF := flag.Bool("challenge", false, "RETO on from the start: x3 per kill, x5 to the total when the party is completed (the C key of the party list does the same) (debug)")
+	challengeF := flag.Bool("challenge", false, "launch RETO DE HOY (today's challenge: VIP + modifiers, x3 per kill, x5 on completion) ignoring the daily lock; -level N picks the party (debug)")
 	levelDoneDemoF := flag.Int("leveldonedemo", 0, "show the end-of-level newspaper at once with sample data; 1 or 2 players (with -players 2) (debug)")
 	alertNowF := flag.Bool("alertnow", false, "a pending witness over each player so the \"!\" alert can be seen (debug)")
 	coopDemoF := flag.Int("coopdemo", 0, "two players: 1 scoreboard, 2 dance duet and marked trap, 3 carrying the partner (debug)")
@@ -112,14 +118,25 @@ func main() {
 	roadF := flag.Bool("testroad", false, "add four one-lane roads to the level (debug)")
 	langF := flag.String("lang", "", "game language for this run: es | en (debug)")
 	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
+	peleaDieF := flag.Bool("peleadie", false, "with -pevent pelea: the fight always ends with a death (debug, progress frozen)")
+	trexKillF := flag.Bool("trexkill", false, "Isla Nublar: the Power Rangers are sent at the first call and always bring the T-Rex down (debug, progress frozen)")
+	unlockedF := flag.Int("unlocked", 0, "play as if the first N police groups were unlocked: 1 police, 2 +FBI, 3 +military, 4 +SWAT, 5 +Power Rangers (debug, progress frozen, nothing saved)")
 	credF := flag.Bool("credits", false, "open the credits (debug)")
 	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
 	dbgF := flag.Bool("debugscreen", false, "open the DEBUG screen (debug)")
 	immF := flag.Bool("immune", false, "start with the immunity halo on (debug)")
-	albumDemoF := flag.Int("albumdemo", 0, "open the TROFEOS screen on the album page with example cards: 1 a few unlocked, 2 all (debug, progress frozen, nothing saved)")
+	albumDemoF := flag.Int("albumdemo", 0, "open the OBJETIVOS screen on the PERSONAJES page with example cards: 1 a few unlocked, 2 all (debug, progress frozen, nothing saved)")
+	goalSelF := flag.Int("goalsel", 0, "with -albumdemo: the card selected in the OBJETIVOS tab (the page scrolls to it) (debug)")
+	goalDetailF := flag.String("goaldetail", "", "open the detail window of OBJETIVOS on tab:index (negative index = from the end; with -albumdemo for example cards) (debug)")
+	goalTabF := flag.Int("goaltab", 0, "with -albumdemo: the OBJETIVOS tab to show: 0 trophies, 1 characters, 2 VIPs, 3 killers, 4 police (debug)")
 	trophyF := flag.Bool("trophyscreen", false, "open the trophies screen (debug)")
 	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
+	wardPageF := flag.Int("wardpage", 0, "with -wardrobe: the page of the wardrobe, 0 character, 1 killers, 2 police (lends some killers and 24 escapes) (debug)")
+	escapesF := flag.Int("escapes", -1, "with -albumdemo or -wardrobe: the escapes the save has, in memory only (debug)")
 	wardF := flag.Int("wardrobe", 0, "open the wardrobe with 1 or 2 players, with some clothes lent (debug, progress frozen)")
+	wardPickF := flag.Int("wardpick", 0, "with -wardrobe: open the character picker, 1 every character won (as DEBUG Album: all won), 2 a few won (debug)")
+	wardPickSelF := flag.Int("wardpicksel", 0, "with -wardpick: the cell selected in the character picker (debug)")
+	wearCharF := flag.String("wearchar", "", "player 1 (and 2) wear these characters: slug[,slug2], in memory only (debug, progress frozen)")
 	levelSel := flag.Bool("levelselect", false, "open the level select screen (debug)")
 	edload := flag.String("edload", "", "character/object/background to load in the editor, name (debug)")
 	edcarry := flag.String("edcarry", "", "held object to give the character in the editor (debug)")
@@ -140,6 +157,10 @@ func main() {
 	quiet := quietMode(flag.CommandLine, os.Getenv("PH_QUIET"))
 	if debugFlagsActive(flag.CommandLine) {
 		progressFrozen = true // any debug/capture/benchmark flag: freeze the progress BEFORE any level or save
+	}
+	if *pevsF || (*pevF != "" && partyByID(*pevF) == nil) {
+		fmt.Print(partyList())
+		os.Exit(0)
 	}
 	if *bowlKidsF {
 		bowlRateDiv = 0.5
@@ -186,7 +207,7 @@ func main() {
 	sc = wholeWindowScale(sc)
 	gameWinW, gameWinH = int(screenW*sc), int(screenH*sc)
 	ebiten.SetWindowSize(gameWinW, gameWinH)
-	ebiten.SetWindowTitle("Party Hardy - Fiesta Nocturna")
+	ebiten.SetWindowTitle(gameWindowTitle())
 	if im, err := png.Decode(bytes.NewReader(iconPNG)); err == nil {
 		ebiten.SetWindowIcon([]image.Image{im})
 	}
@@ -214,6 +235,10 @@ func main() {
 	}
 	if *coopDemoF > 0 {
 		dbgTwoPlayers, twoPlayerMode, coopDemo = true, true, *coopDemoF
+	}
+	if *wearCharF != "" { // before any startLevel: the players are dressed when the party starts
+		progressFrozen = true
+		g.debugWearChars(*wearCharF)
 	}
 	if *edit || defaultEditor {
 		g.openEditor()
@@ -264,12 +289,14 @@ func main() {
 		*level = len(levelDefs)
 	}
 	fastEv = *fastEvents
+	dbgPartyEvent = *pevF
 	*level = demoLevel(*level, *levelDoneDemoF, *stealthF || *stealth2F)
 	if *level > 0 && !*stealthF && !*stealth2F {
 		g.startLevel(*level - 1)
 	}
 	g.dbg.copMemory = *copMemF
 	g.dbgCamKill = *camKillF
+	dbgBlame, dbgBlameSetup, dbgBlameLog = *blameF, *blameF, *blameF
 	dbgLastGuests = *lastGuestsF
 	if *noHintF {
 		levelHintOn = false
@@ -279,6 +306,9 @@ func main() {
 	}
 	if *noEmoteF {
 		emotesOn = false
+	}
+	if *killerAsF != "" {
+		dbgKillerAs, *killerF = *killerAsF, true // terminator_killer.go
 	}
 	if *killerF {
 		dbgKiller = true
@@ -313,7 +343,7 @@ func main() {
 	if *interF > 0 {
 		progressFrozen = true
 		if *interF >= 20 {
-			g.startInterlude(interRocket, 20)
+			g.startInterlude(interRocket, len(campaignLevels)-1)
 		} else if *interF >= 15 {
 			g.startInterlude(interBalloon, 15)
 		} else if *interF >= 10 {
@@ -351,7 +381,7 @@ func main() {
 			g.progress.Stats = map[string]int{}
 		}
 		g.progress.Stats["jp_unlocked"] = 1
-		g.progress.Unlocked = 21
+		g.progress.Unlocked = campaignN
 		g.mode = ModeLevelSelect
 		g.menuSel = campaignN + 1
 	}
@@ -399,8 +429,12 @@ func main() {
 		g.dbg.immune = true
 	}
 	g.dbgCops = *copsF
+	dbgPoliceGroups = *unlockedF // police_groups.go
+	dbgRexKill = *trexKillF      // rexfight.go
+	dbgPeleaDie = *peleaDieF     // pe_pelea.go
 	g.dbgCheer = *cheerF
 	debugZap = *zapF
+	pauseNow = *pauseF
 	pyroNow = *pyroF
 	g.dbgRoad = *roadF
 	if *roadCarsF != "" {
@@ -416,7 +450,13 @@ func main() {
 	g.dbgPoison = *poisonF
 	g.dbgTrap = *trapDemoF
 	g.dbgAlert = *alertNowF
-	g.challenge = *challengeF
+	if *challengeF { // RETO DE HOY (forced, ignores the lock; -level N picks the party); progress frozen by debugFlagsActive
+		lv := -1
+		if *level > 0 {
+			lv = *level - 1
+		}
+		g.startDaily(true, lv)
+	}
 	levelDoneDemo = *levelDoneDemoF
 	g.dbgRing = *ringF
 	if *kidsF {
@@ -433,11 +473,23 @@ func main() {
 		progressFrozen = true
 		g.mode = ModeTrophies
 		g.albumDemo(*albumDemoF)
+		if *goalTabF > 0 {
+			g.goTab(*goalTabF)
+		}
+		g.albumSel = *goalSelF
+		g.albumClamp()
+	}
+	if *goalDetailF != "" { // the detail window of OBJETIVOS (goal_detail.go)
+		progressFrozen = true
+		g.goalDetailDebug(*goalDetailF)
 	}
 	if *shopF {
 		g.mode = ModeShop
 		g.progress.Wallet = 5000
 		g.shopTab = *edtab
+		if g.shopTab == shopChars || g.shopTab == shopKillers || g.shopTab == shopPolice || g.shopTab == shopUniforms { // not sold any more (they are goals)
+			g.shopTab = shopFlat[0]
+		}
 	}
 	if *wardF > 0 {
 		progressFrozen = true
@@ -453,8 +505,22 @@ func main() {
 		if n > 1 {
 			g.progress.EquipP2 = map[string]string{"hat": "hat:caproja", "cape": "cape:roja"}
 		}
+		if *wardPageF > 0 { // lend some unlocked killers and escapes (memory only: progress is frozen)
+			g.progress.Album = map[string]int{"killer:michael": albumKilled, "killer:jason": albumKilled, "killer:freddy": albumKilled}
+			g.progress.Escapes = 24
+			g.progress.Equip["kdress:jason"] = "rojo"
+			g.syncShop()
+			wardKind, wardKiller = *wardPageF%wardKindN, "jason"
+		}
 		g.applyShop()
 		g.mode, g.shopTab = ModeShop, shopWardrobe
+		if *wardPickF > 0 { // the character picker (wardrobe_char.go)
+			g.debugWardPick(*wardPickF, *wardPickSelF)
+		}
+	}
+	if *escapesF >= 0 && (*albumDemoF > 0 || *wardF > 0) {
+		g.progress.Escapes = *escapesF
+		g.syncShop()
 	}
 	if *levelSel {
 		g.mode = ModeLevelSelect

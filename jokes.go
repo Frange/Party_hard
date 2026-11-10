@@ -90,6 +90,14 @@ func mergeJokes(bank DialogueBank) {
 // chatterLine: something funny to say while standing around; sometimes it is
 // about the place.
 func (g *Game) chatterLine(gu *Guest) string {
+	l := g.chatterBase(gu)
+	if v := g.venueTalk(); v != "" { // venuelines.go: its own dice, g.rng above is untouched
+		return v
+	}
+	return l
+}
+
+func (g *Game) chatterBase(gu *Guest) string {
 	if g.rng.Float64() < 0.3 {
 		key := "chatter_" + g.lvl.Def.Icon
 		if lines := g.dialogue["people"][key]; len(lines) > 0 {

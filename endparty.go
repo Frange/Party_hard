@@ -3,6 +3,8 @@ package main
 import (
 	"image/color"
 	"math"
+	"math/rand"
+	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -22,7 +24,7 @@ import (
 
 const (
 	partyLen        = 36.0
-	partyCreditsLen = 26.0
+	partyCreditsLen = 34.0 // slower credits (36 px/s): the names can be read
 )
 
 // the acts
@@ -31,11 +33,18 @@ const (
 	partyActNight = 20.0
 	partyActPhoto = 28.0
 	partyFlashAt  = 31.0
-	partyCongaV   = 82.0 // px/s
-	partyCongaGap = 26.0
+	partyCongaV   = 90.0 // px/s
+	partyCongaGap = 16.0 // two congas side by side: the whole crowd crosses the island in its act
+	partyGuests   = 60   // how many famous guests come to the party (plus the heroes and two rangers)
 )
 
-var partyCastNames = []string{"sonic", "guybrush", "shrek", "homer", "bender", "goku", "pantera_rosa", "elvis", "esqueleto_bailarin", "jack_rey_calabaza", "mario", "fry"}
+// partyCastNames: the famous faces that are always at the party (the balloons talk with some of them: sonic,
+// shrek). The rest of the crowd is picked at random from every famous character of the game (famousNames).
+var partyCastNames = []string{"sonic", "guybrush", "shrek", "homer", "bart", "marge", "lisa", "maggie", "bender", "fry",
+	"goku", "pantera_rosa", "elvis", "esqueleto_bailarin", "jack_rey_calabaza", "mario", "luigi", "crash", "cell", "ron",
+	"kratos", "solid_snake", "neo", "joker", "gb_venkman", "gb_spengler", "gb_stantz", "gb_winston", "chewbacca",
+	"gandalf", "frodo", "knuckles", "lechuck", "johnny5", "don_quijote", "sancho_panza", "tortuga_leonardo",
+	"tortuga_donatello", "tortuga_michelangelo", "tortuga_raphael", "michael_jackson", "papa"}
 
 type partyState struct {
 	built bool
@@ -53,14 +62,74 @@ func (g *Game) partyBuild(e *endState) {
 	}
 	p.built = true
 	g.sfxOnce("rex_roar", jrRoarSound)
-	for i, n := range partyCastNames {
-		cs := castSet(n, int64(77+i))
+	for i, n := range partyCastPick(g.partySeed()) {
+		cs := g.partyGuestCS(n, int64(77+i))
 		if cs == nil {
 			continue
 		}
 		p.cast = append(p.cast, cs)
 		p.names = append(p.names, n)
 	}
+	if g.as != nil { // the Power Rangers come too (two of them, not the whole team)
+		for i, cs := range g.as.rangerCS {
+			if i >= 2 {
+				break
+			}
+			p.cast = append(p.cast, cs)
+			p.names = append(p.names, "ranger")
+		}
+	}
+}
+
+// partySeed: a different crowd each time the ending is watched (fixed when there is no random source).
+func (g *Game) partySeed() int64 {
+	if g.rng != nil {
+		return g.rng.Int63()
+	}
+	return 77
+}
+
+// partyCastPick: the names of the guests: the fixed ones first, then the rest of the famous characters
+// at random, up to partyGuests. Never a killer, a cop or a kid (famousNames leaves them out).
+func partyCastPick(seed int64) []string {
+	all := famousNames()
+	out := make([]string, 0, partyGuests)
+	used := map[string]bool{}
+	for _, n := range partyCastNames {
+		if all[n] && !used[n] && len(out) < partyGuests {
+			out = append(out, n)
+			used[n] = true
+		}
+	}
+	var rest []string
+	for n := range all {
+		if !used[n] {
+			rest = append(rest, n)
+		}
+	}
+	sort.Strings(rest)
+	r := rand.New(rand.NewSource(seed))
+	r.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] })
+	for _, n := range rest {
+		if len(out) >= partyGuests {
+			break
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+// partyGuestCS: the look the game gives that famous guest: the edited one of assets/sprites/special_people
+// when there is one, the built-in design otherwise.
+func (g *Game) partyGuestCS(name string, seed int64) *CharSet {
+	if g.store != nil && g.rigCache != nil {
+		for _, ca := range g.store.Chars["special_people"] {
+			if ca.Meta.Name == name {
+				return g.rigFor(ca)
+			}
+		}
+	}
+	return castSet(name, seed)
 }
 
 // pMember: somebody of the crowd at an instant.
@@ -75,27 +144,53 @@ type pMember struct {
 	alpha     float64
 }
 
-func partySlot(j, n int) (x, y float64) { // act 1: round the stage, in two rows
-	if n < 2 {
+// pRow is a stretch of a row of the crowd: the people stand on y, spread between x0 and x1.
+type pRow struct{ y, x0, x1 float64 }
+
+// partyRows: the rows of the crowd round the stage (act 1 and the photo) or looking at the sky (act 3),
+// cut where the cake, the raptors and the heroes are, so nobody stands on top of them.
+func partyRows(watch, two bool) []pRow {
+	hx0, hx1 := 216.0, 266.0 // the heroes, in the middle
+	if two {
+		hx0, hx1 = 206, 278
+	}
+	if watch {
+		return []pRow{{226, 14, 466}, {242, 14, hx0}, {242, hx1, 466}, {258, 14, hx0}, {258, hx1, 466}}
+	}
+	return []pRow{
+		{204, 128, 176}, {204, 208, 272}, {204, 304, 336}, // just in front of the stage, between the raptors
+		{218, 16, 56}, {218, 122, 176}, {218, 306, 466},
+		{234, 14, 176}, {234, 304, 466},
+		{252, 14, hx0}, {252, hx1, 466},
+	}
+}
+
+// rowSpot spreads n people evenly along the rows (the same gap everywhere) and returns where the j-th is.
+func rowSpot(rows []pRow, j, n int) (x, y float64) {
+	total := 0.0
+	for _, r := range rows {
+		total += r.x1 - r.x0
+	}
+	if n < 1 || total <= 0 {
 		return 60, 220
 	}
-	return 36 + float64(j)*408/float64(n-1), 214 + float64(j%3)*7
+	at := (float64(j) + 0.5) * total / float64(n)
+	for _, r := range rows {
+		l := r.x1 - r.x0
+		if at <= l {
+			return math.Round(r.x0 + at), r.y
+		}
+		at -= l
+	}
+	last := rows[len(rows)-1]
+	return last.x1, last.y
 }
 
-func partyWatch(j, n int) (x, y float64) { // act 3: a row in front of the sky
-	left := n / 2
-	if j < left {
-		return 26 + float64(j)*170/float64(left), 238
-	}
-	return 306 + float64(j-left)*150/float64(n-left), 238
-}
+func partySlot(j, n int, two bool) (x, y float64) { return rowSpot(partyRows(false, two), j, n) } // act 1
 
-func partyPhoto(j, n int) (x, y float64) { // act 4: two rows
-	if n < 2 {
-		return 100, 230
-	}
-	return 56 + float64(j)*368/float64(n-1), 224 + float64(j%2)*14
-}
+func partyWatch(j, n int, two bool) (x, y float64) { return rowSpot(partyRows(true, two), j, n) } // act 3
+
+func partyPhoto(j, n int, two bool) (x, y float64) { return rowSpot(partyRows(false, two), j, n) } // act 4
 
 // partyCrowd lays the heroes and the guests out at time t. The heroes come first.
 func (g *Game) partyCrowd(p *partyState, t float64, two bool) []pMember {
@@ -123,11 +218,12 @@ func (g *Game) partyCrowd(p *partyState, t float64, two bool) []pMember {
 		} else {
 			j := m - nh
 			mem.name, mem.cs = p.names[j], p.cast[j]
-			sx, sy = partySlot(j, n)
-			wx, wy = partyWatch(j, n)
-			px, py = partyPhoto(j, n)
+			sx, sy = partySlot(j, n, two)
+			wx, wy = partyWatch(j, n, two)
+			px, py = partyPhoto(j, n, two)
 		}
-		off := float64(m) * partyCongaGap
+		lane := float64(m % 2) // two congas, one in front of the other
+		off := float64(m/2) * partyCongaGap
 		switch {
 		case t < partyActConga: // act 1: dancing round the stage
 			mem.x, mem.y = sx, sy
@@ -137,14 +233,14 @@ func (g *Game) partyCrowd(p *partyState, t float64, two bool) []pMember {
 				mem.hop = 2 * math.Abs(math.Sin(t*5+float64(m)))
 			}
 		case t < partyActNight: // act 2: everybody runs left, and comes back in a line
-			run := sx - 270*(t-partyActConga)
+			run := math.Max(sx-270*(t-partyActConga), -60) // they wait for their turn just off the picture
 			line := -30 - off + partyCongaV*(t-9.0)
 			if run > line {
 				mem.x, mem.y = run, sy
 				mem.anim, mem.ph, mem.dir = AnimRun, t*11+float64(m), DirLeft
 			} else {
-				mem.x = line
-				mem.y = 228 + 7*math.Sin(line/34+float64(m)*0.4)
+				mem.x = math.Min(line, endCW+60) // the head of the conga waits just off the right edge
+				mem.y = 222 + 24*lane + math.Round(5*math.Sin(line/34+lane*1.7))
 				mem.anim, mem.ph, mem.dir = AnimWalk, t*9+float64(m), DirRight
 				mem.hop = 4 * math.Abs(math.Sin(t*9+float64(m)))
 			}
@@ -305,7 +401,7 @@ func (g *Game) partyAnimals(c *ebiten.Image, t float64, first int) {
 			x = -30 - off + partyCongaV*(t-9.0)
 			y = 236
 		case t >= partyActPhoto:
-			x, y, fr = 30+float64(i)*20, 252, fStand
+			x, y, fr = 24+float64(i)*22, 266, fStand // in front of the front row
 			flip = true
 		default:
 			continue
@@ -421,12 +517,8 @@ func (g *Game) drawParty(dst *ebiten.Image, e *endState) {
 	two := g.scene2P()
 	crowd := g.partyCrowd(p, t, two)
 	g.partyBackdrop(c, t)
-	head := g.partyRex(c, t)
-	g.partyRaptors(c, t)
-	if (t >= partyActConga && t < partyActNight+0.8) || t >= partyActPhoto {
-		g.partyAnimals(c, t, len(crowd))
-	}
-	// the people, from the back to the front
+	// the people, from the back to the front; the back row (by the stage) stands behind the dinosaurs
+	const backRow = 212.0
 	order := make([]int, len(crowd))
 	for i := range order {
 		order[i] = i
@@ -437,22 +529,13 @@ func (g *Game) drawParty(dst *ebiten.Image, e *endState) {
 		}
 	}
 	cs0, cs1 := g.sceneHero(0, false), g.sceneHero(1, false)
-	for _, i := range order {
-		m := crowd[i]
-		if m.cs == nil || m.alpha <= 0 {
-			continue
-		}
-		tint := [3]float32{1, 1, 1}
-		if m.hero == 1 {
-			tint = sceneTint(1, cs0, cs1)
-		}
-		if m.hero >= 0 {
-			recLayer("actor:hero")
-		} else {
-			recLayer("actor:guest")
-		}
-		g.sceneChar(c, m.cs, m.anim, m.dir, m.ph, m.x, m.y, 1, m.alpha, m.hop, 0, tint)
+	g.partyPeople(c, crowd, order, cs0, cs1, func(y float64) bool { return y < backRow })
+	head := g.partyRex(c, t)
+	g.partyRaptors(c, t)
+	if (t >= partyActConga && t < partyActNight+0.8) || t >= partyActPhoto {
+		g.partyAnimals(c, t, -4) // they lead the congas
 	}
+	g.partyPeople(c, crowd, order, cs0, cs1, func(y float64) bool { return y >= backRow })
 	if t < partyActConga { // the trophies
 		for _, m := range crowd {
 			if m.hero >= 0 {
@@ -478,6 +561,26 @@ func (g *Game) drawParty(dst *ebiten.Image, e *endState) {
 	}
 	g.preBlit(dst, e, 0)
 	g.partyTexts(dst, e, crowd, head)
+}
+
+// partyPeople draws the members of the crowd (in depth order) whose feet are where `in` says.
+func (g *Game) partyPeople(c *ebiten.Image, crowd []pMember, order []int, cs0, cs1 *CharSet, in func(y float64) bool) {
+	for _, i := range order {
+		m := crowd[i]
+		if m.cs == nil || m.alpha <= 0 || !in(m.y) {
+			continue
+		}
+		tint := [3]float32{1, 1, 1}
+		if m.hero == 1 {
+			tint = sceneTint(1, cs0, cs1)
+		}
+		if m.hero >= 0 {
+			recLayer("actor:hero")
+		} else {
+			recLayer("actor:guest")
+		}
+		g.sceneChar(c, m.cs, m.anim, m.dir, m.ph, m.x, m.y, 1, m.alpha, m.hop, 0, tint)
+	}
 }
 
 // partyLines: the balloons of the party. who: hero 0, hero 1, "rex" or the name of a guest.

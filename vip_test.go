@@ -31,6 +31,10 @@ func vipGame(t *testing.T, title string, two bool) *Game {
 	old := twoPlayerMode
 	twoPlayerMode = two
 	t.Cleanup(func() { twoPlayerMode = old; vipEliminated = map[string]bool{} })
+	if px == nil { // the white pixel is created by newGame: a VIP test that runs first (-shuffle) draws with it
+		px = ebiten.NewImage(1, 1)
+		t.Cleanup(func() { px = nil })
+	}
 	g.lvl = vipBuildWith(vipLevelDef(t, title), vipPlan[title])
 	if g.lvl.vip == nil {
 		t.Fatalf("%s has no VIP zone", title)

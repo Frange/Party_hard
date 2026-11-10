@@ -20,6 +20,7 @@ var overlayKinds = map[string]bool{
 	"arch": true, "bridge": true, "rope": true, "truss": true, "slide": true, "posters": true, "sign": true,
 	"lifebuoy": true, "jp_gate": true, "jp_trex": true, "jp_brachio": true, "jp_raptor": true, "jp_trike": true,
 	"jp_fin": true, "jp_boat": true, "hen": true, "weapon": true,
+	"bunting": true, "mirrorball": true, "retropanel": true, "beadcurtain": true,
 }
 
 // stageHosts may stand on a stage (the performers' platform).
@@ -36,6 +37,9 @@ var roadOK = map[string]bool{"car": true, "bridge": true, "arch": true, "jp_jeep
 
 // priorities: who keeps its place when two things collide (bigger = stays).
 func propPriority(name string) int {
+	if italyMonument(name) { // the leaning tower, its garden and the amphitheatre (landmarkfade.go) are never swept away
+		return 4
+	}
 	switch name {
 	case "stage", "jp_gate", "booth", "bungalow", "stands", "eiffel", "ferris", "carousel", "coaster", "chalet", "crypt", "goal", "goalv",
 		"screen", "halfpipe", "skatebowl", "lift", "igloo", "jp_lab", "jp_rotunda", "jp_tower", "jp_control", "jp_lighthouse", "fountain",

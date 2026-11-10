@@ -26,6 +26,9 @@ func lsFmtTime(t float64) string { return fmt.Sprintf("%d:%02d", int(t)/60, int(
 // paperStatBox: the statistics of one player (rows already translated).
 type paperStatBox struct {
 	head, sub string
+	tag       string // "J1" / "J2": whose column it is
+	streak    string // the oddest thing this player did (streakline.go), under the rows
+	award     string // 2P: the prize ribbon at the foot of the box (newspaper_awards.go)
 	rows      [][2]string
 }
 
@@ -33,6 +36,7 @@ type paperStatBox struct {
 // In the briefs, .head and .es hold the TRANSLATED head and text.
 type paperData struct {
 	seed                                 int64
+	kills                                int // victims of the party: blood drops on the page
 	two                                  bool
 	title                                string
 	earL1, earL2, earR1, earR2           string
@@ -83,14 +87,28 @@ func (r *prender) block(kind string, x, y, w, h int) {
 
 func briefLines(b paperBrief, w int) []string { return wrapPx(b.es, w-10) }
 
-func briefH(b paperBrief, w int) int { return 4 + pRowH + len(briefLines(b, w))*pRowH + 5 }
+// briefTop: the room above the section head of a small news (with the 7 px under its last line, two small news keep
+// 13 px of paper between their texts: margins rule of the screens).
+const briefTop = 6
+
+func briefH(b paperBrief, w int) int { return briefTop + pRowH + len(briefLines(b, w))*pRowH + 5 }
+
+// headTaken: a section head already used by another small news of this page.
+func (r *prender) headTaken(h string) bool {
+	for _, x := range r.c.lay.heads {
+		if x == h {
+			return true
+		}
+	}
+	return false
+}
 
 // takeBriefs picks briefs (in the shuffled order, none twice on the page) whose heights sum to at most avail.
 func (r *prender) takeBriefs(w, avail int) []pbox {
 	var out []pbox
 	rem := avail
 	for i, b := range r.d.briefs {
-		if r.used[i] || rem < briefH(paperBrief{es: "x"}, w) {
+		if r.used[i] || rem < briefH(paperBrief{es: "x"}, w) || r.headTaken(b.head) {
 			continue
 		}
 		h := briefH(b, w)
@@ -99,12 +117,13 @@ func (r *prender) takeBriefs(w, avail int) []pbox {
 		}
 		r.used[i] = true
 		r.c.lay.briefs = append(r.c.lay.briefs, b.es)
+		r.c.lay.heads = append(r.c.lay.heads, b.head)
 		rem -= h
 		b := b
 		out = append(out, pbox{"brief", h, func(x, y, w, h int) {
-			r.c.bold(b.head, x+5, y+4, paperRed)
+			r.c.bold(b.head, x+5, y+briefTop, paperRed)
 			for k, l := range briefLines(b, w) {
-				r.c.text(l, x+5, y+4+pRowH+k*pRowH, 1, paperInk)
+				r.c.text(l, x+5, y+briefTop+pRowH+k*pRowH, 1, paperInk)
 			}
 		}})
 	}
@@ -152,6 +171,9 @@ func statBoxH(sb paperStatBox) int {
 	if sb.sub != "" {
 		h += statSubH
 	}
+	if sb.streak != "" {
+		h += len(wrapPx(sb.streak, pcLW-14))*pRowH + 4
+	}
 	return h
 }
 
@@ -160,10 +182,21 @@ func (r *prender) statBox(sb paperStatBox) pbox {
 		c := r.c
 		c.shade(x, y, w, h, -9)
 		c.bold(sb.head, x+6, y+6, paperInk)
+		if sb.tag != "" { // a dark label with the player, on the right of the title
+			tw := paperTextW(sb.tag) + 1
+			lx := x + w - 6 - tw - 10
+			c.fill(lx, y+2, tw+10, 16, paperInk)
+			c.textOpt(sb.tag, lx+5, y+4, 1, paperCream, true, true)
+		}
 		c.fill(x+4, y+19, w-8, 1, paperInk)
 		ry := y + statHeadH
 		if sb.sub != "" {
-			c.text(sb.sub, x+6, ry, 1, paperRed)
+			if sb.award != "" { // 2P: the prize ribbon takes the place of the nickname line (no extra height: newspaper_awards.go)
+				c.fill(x+4, ry-1, w-8, statSubH, paperInk)
+				c.textOpt(sb.award, x+4+(w-8-paperTextW(sb.award))/2, ry, 1, paperCream, true, false)
+			} else {
+				c.text(sb.sub, x+6, ry, 1, paperRed)
+			}
 			ry += statSubH
 		}
 		for _, row := range sb.rows {
@@ -171,6 +204,12 @@ func (r *prender) statBox(sb paperStatBox) pbox {
 			c.bold(row[1], x+w-7-paperTextW(row[1]), ry, paperRed)
 			c.dotted(x+4, ry+13, w-8, paperShade)
 			ry += statRowH
+		}
+		if sb.streak != "" {
+			c.fill(x+4, ry, w-8, 1, paperInk)
+			for k, l := range wrapPx(sb.streak, pcLW-14) {
+				c.text(l, x+6, ry+3+k*pRowH, 1, paperRed)
+			}
 		}
 	}}
 }
@@ -370,6 +409,9 @@ func renderPaper(d *paperData, state int) (*image.RGBA, *paperLayout) {
 	r.headline()
 	r.body()
 	r.footer(state)
+	if !paperNoWear {
+		c.wear(d.seed, d.kills)
+	}
 	return c.im, lay
 }
 
@@ -378,14 +420,38 @@ func renderPaper(d *paperData, state int) (*image.RGBA, *paperLayout) {
 var paperC paperCache // the page painted for the party on screen (one at a time)
 
 type paperCache struct {
-	key string
-	tex [2]*ebiten.Image
-	lay *paperLayout
+	key   string
+	tex   [2]*ebiten.Image
+	lay   *paperLayout
+	party string     // the party the frozen page belongs to (paperPartyKey)
+	d     *paperData // the page, composed ONCE per party: every frame shows exactly these words
+}
+
+// paperPartyKey: what identifies the party that has just ended (none of it changes while the paper is on screen).
+func (g *Game) paperPartyKey() string {
+	r := &g.run
+	return fmt.Sprint(g.levelIdx, g.endTime, g.points, r.kills, r.seen, r.cuffed, r.done, g.is2P(), g.challenge, g.stealth, uiLang)
+}
+
+// paperFrozen: the page of the party on screen, composed the first time it is asked for and then kept as it is (the
+// headline, the story, the photo and the small news must not change while the player reads them).
+func (g *Game) paperFrozen() *paperData {
+	pc := &paperC
+	if k := g.paperPartyKey(); pc.d == nil || pc.party != k {
+		pc.party, pc.d = k, g.paperDataNow()
+	}
+	return pc.d
+}
+
+// paperDataKey: every visible word of a page (the textures of both blink states must come from the same page).
+func paperDataKey(d *paperData) string {
+	return fmt.Sprint(d.seed, d.title, d.head, d.dek, d.story, d.quote, d.photoVar, d.caption, d.stats, d.score, d.total,
+		d.wallet, d.briefs, d.hint, d.two)
 }
 
 func (g *Game) drawPaper(dst *ebiten.Image) {
-	d := g.paperDataNow()
-	key := fmt.Sprint(d.seed, d.title, d.head, d.stats, d.score, d.total, d.hint, d.two)
+	d := g.paperFrozen()
+	key := paperDataKey(d)
 	pc := &paperC
 	if pc.key != key {
 		for _, t := range pc.tex {
@@ -393,7 +459,7 @@ func (g *Game) drawPaper(dst *ebiten.Image) {
 				t.Deallocate()
 			}
 		}
-		*pc = paperCache{key: key}
+		*pc = paperCache{key: key, party: pc.party, d: pc.d}
 	}
 	st := int(g.time*4) & 1 // two states, two changes a second
 	if pc.tex[st] == nil {
@@ -418,6 +484,12 @@ func (g *Game) drawPaper(dst *ebiten.Image) {
 func (g *Game) levelDoneContinue() {
 	if g.stealth {
 		g.stealthExit()
+		return
+	}
+	if g.dc != nil { // RETO DE HOY: back to the party list
+		g.loadLevel(0)
+		g.mode = ModeLevelSelect
+		g.menuSel = 0
 		return
 	}
 	g.afterLevel()

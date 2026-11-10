@@ -324,13 +324,22 @@ func paintJurassic() *pixBuf {
 	}
 	jpDockPaint(b)
 	if k := propKinds["jp_boat"]; k != nil { // the ferry moored at the pier
-		bt := newPix(k.W, k.H)
-		k.Draw(bt, 0)
-		bt = bt.outlinedSel(0.4)
-		for y := 0; y < bt.h; y++ {
+		// An exported/edited jp_boat (assets/sprites/objetos/jp_boat) replaces the
+		// built-in kind with Native frames and no Draw func: paint that frame
+		// (already outlined, with a 1 px margin) instead of calling a nil Draw.
+		var bt *pixBuf
+		ox, oy := 26, 448
+		if k.Draw != nil {
+			bt = newPix(k.W, k.H)
+			k.Draw(bt, 0)
+			bt = bt.outlinedSel(0.4)
+		} else if len(k.Native) > 0 {
+			bt, ox, oy = k.Native[0], 25, 447
+		}
+		for y := 0; bt != nil && y < bt.h; y++ {
 			for x := 0; x < bt.w; x++ {
 				if cc := bt.get(x, y); cc.A > 0 {
-					b.set(26+x, 448+y, cc)
+					b.set(ox+x, oy+y, cc)
 				}
 			}
 		}

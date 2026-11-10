@@ -111,7 +111,7 @@ func snakeFrame(a *Animal) int {
 
 // scatterSnake: one snake, now and then, somewhere outdoors.
 func (g *Game) scatterSnake() {
-	if g.rng.Float64() > 0.55 && !g.dbgSnake {
+	if !g.dbgSnake && !snakeDecide(snakeDice(), &snakeMisses) { // snakechance.go: own dice
 		return
 	}
 	pos, ok := g.outdoorSpot()

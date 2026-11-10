@@ -48,3 +48,15 @@ func init() {
 		}
 	}
 }
+
+func init() {
+	for k, v := range map[string]string{
+		"VIPS":                            "VIPS",
+		"Elimínalo dentro de su zona VIP": "Take him out inside his VIP area",
+		"Flechas mover   Tab o izquierda: álbum   ": "Arrows move   Tab or left: album   ",
+	} {
+		if _, ok := langDataEN[k]; !ok {
+			langDataEN[k] = v
+		}
+	}
+}

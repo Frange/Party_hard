@@ -13,20 +13,20 @@ var castPresets2 = []presetEntry{
 	def("korben", hairc(0xe8c860, HairShort), tops(TopTank, 0xf08a20, 0xf08a20), pantsc(0xa89a70), shoesc(0x3a2a1a), bodyc(BodyBig), stat(-1)),
 	// Conan, He-Man
 	def("conan", hairc(0x14101a, HairLong), tops(TopBare, 0xd0a070, 0xd0a070), skinc(0xd0a070), bottomc(BotShorts, 0x6a4a2a), shoesc(0x5a3a1a), bodyc(BodyGiant), stat(-3), weaponc(HoldMachete)),
-	def("he_man", hairc(0xe8d060, HairLong), tops(TopBare, 0xe8b890, 0xe8b890), skinc(0xe8b890), bottomc(BotShorts, 0x6a4a2a), shoesc(0x6a3a1a), suspc(0x2a2a30), capec(0x2a8a4a), bodyc(BodyGiant), stat(-3), weaponc(HoldMachete)),
+	def("he_man", hairc(0xe8d060, HairBob), tops(TopBare, 0xe8b890, 0xe8b890), skinc(0xe8b890), bottomc(BotShorts, 0x6a4a2a), shoesc(0x6a3a1a), capec(0x2a8a4a), bodyc(BodyGiant), stat(-3), weaponc(HoldMachete)),
 	// Back to the Future
-	def("marty_mcfly", hairc(0x5a3a22, HairShort), tops(TopLong, 0xe86a20, 0xe86a20), pantsc(0x3a5a9a), shoesc(0xf4f4f4), glass(GlassShades)),
+	def("marty_mcfly", hairc(0x5a3a22, HairShort), tops(TopLong, 0x5a7ab0, 0x5a7ab0), pantsc(0x3a5a9a), shoesc(0xf4f4f4)),
 	def("doc_brown", hairc(0xf4f4f4, HairMessy), tops(TopSuit, 0xf4f4f0, 0xd8d8e0), pantsc(0x3a3a46), glass(GlassBig), bodyc(BodySlim), stat(-1)),
 	// The Mask, Taz, Donkey
 	def("la_mascara", skinc(0x60c040), hairc(0x14101a, HairComb), hatc(HatFedora, 0xf0d020), tops(TopSuit, 0xf0d020, 0xf0d020), pantsc(0xf0d020), accentc(0xc82a2a), shoesc(0x14141a), headc(HeadBig)),
 	def("taz", skinc(0x6a4020), hairc(0x2a1a10, HairSpiky), tops(TopBare, 0x6a4020, 0x6a4020), bottomc(BotShorts, 0x6a4020), shoesc(0x6a4020), bodyc(BodyFat), headc(HeadBig), stat(3)),
 	def("burro_shrek", skinc(0x9a9aa6), hairc(0x6a6a76, HairMessy), earsn(3), tops(TopLong, 0x9a9aa6, 0x9a9aa6), pantsc(0x8a8a96), shoesc(0x4a4a56), headc(HeadBig), stat(3)),
 	// Michael Jackson
-	def("michael_jackson", hairc(0x14101a, HairCurly), hatc(HatFedora, 0x14141a), tops(TopSuit, 0x14141a, 0xf4f4f4), pantsc(0x14141a), shoesc(0xf4f4f4), accentc(0xf4f4f4), bodyc(BodySlim), stat(-1)),
+	def("michael_jackson", skinc(0xc8946a), hairc(0x101014, HairBob), hatc(HatFedora, 0x14141a), tops(TopSuit, 0x14141a, 0xf4f4f4), pantsc(0x14141a), shoesc(0x101012), accentc(0xf4f4f4), bodyc(BodySlim), stat(-1)), // stage outfit: socks and glove in ptf_art.go
 	// Ninja Turtles
 	def("tortuga_leonardo", skinc(0x5ab040), hatc(HatBeanie, 0x2a5ac8), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), capec(0x8a5a2a), bodyc(BodyBig), weaponc(HoldMachete), stat(1)),
-	def("tortuga_donatello", skinc(0x5ab040), hatc(HatBeanie, 0x7a2aa8), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), capec(0x8a5a2a), bodyc(BodyBig), carryc(HoldBroom), stat(1)),
-	def("tortuga_raphael", skinc(0x5ab040), hatc(HatBeanie, 0xd02828), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), capec(0x8a5a2a), bodyc(BodyBig), weaponc(HoldKnife), stat(1)),
+	def("tortuga_donatello", skinc(0x5ab040), hatc(HatBeanie, 0x7a2aa8), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), capec(0x8a5a2a), bodyc(BodyBig), stat(1)), // his bo is drawn by genTurtle (turtles_art.go)
+	def("tortuga_raphael", skinc(0x5ab040), hairs(HairBald), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), bodyc(BodyBig), weaponc(HoldKnife), stat(1)),
 	def("tortuga_michelangelo", skinc(0x5ab040), hatc(HatBeanie, 0xf08a20), tops(TopBare, 0x5ab040, 0x5ab040), bottomc(BotShorts, 0x5ab040), shoesc(0x5ab040), capec(0x8a5a2a), bodyc(BodyBig), stat(1)),
 	// Ghostbusters
 	def("gb_venkman", hairc(0x3a2a1a, HairComb), tops(TopLong, 0x8a8a6a, 0x8a8a6a), pantsc(0x8a8a6a), capec(0x4a4a52), shoesc(0x3a2a1a)),
@@ -37,34 +37,31 @@ var castPresets2 = []presetEntry{
 	def("alf", skinc(0xb08050), hairc(0x8a6030, HairMessy), earsn(2), headc(HeadBig), tops(TopLong, 0xa87a48, 0xa87a48), pantsc(0x8a6a3a), shoesc(0x5a3a1a), stat(3)),
 	def("johnny5", skinc(0xb0b4bc), hairs(HairBald), hatc(HatAntenna, 0x8a8e98), glass(GlassBig), bodyc(BodyRobot), shoesc(0x4a4e58), headc(HeadBig)),
 	def("inspector_gadget", hatc(HatFedora, 0x6a7a8a), beardc(BeardStubble), tops(TopRobe, 0x7a8a9a, 0x7a8a9a), pantsc(0x4a5a6a), shoesc(0x3a3a46), bodyc(BodyBig), stat(-1), earsn(1)),
-	def("capitan_planeta", skinc(0x5aa8e0), hairc(0x3aa040, HairLong), tops(TopLong, 0xf4f4f4, 0xf4f4f4), pantsc(0xf4f4f4), accentc(0xd02828), shoesc(0xd02828), capec(0xd02828), bodyc(BodyBig), stat(-1)),
+	def("capitan_planeta", skinc(0x5aa8e0), hairc(0x3aa040, HairMohawk), tops(TopTank, 0xd02828, 0xd02828), bottomc(BotTrunks, 0x5aa8e0), accentc(0xd02828), shoesc(0xd02828), bodyc(BodyBig), stat(-1)), // suit, emblem, boots: planet_art.go
 	// Star Trek
 	def("picard", hairs(HairBald), tops(TopUniform, 0xb82828, 0xe8c840), accentc(0x14141a), pantsc(0x14141a), shoesc(0x14141a), bodyc(BodyNormal), stat(-1)),
 	// cartoons
-	def("johnny_bravo", hairc(0xf0d848, HairPompadour), glass(GlassShades), tops(TopTank, 0x14141a, 0x14141a), pantsc(0x3a5a9a), shoesc(0x14141a), bodyc(BodyGiant), stat(-3)),
+	def("johnny_bravo", hairc(0xf0d848, HairComb), glass(GlassShades), tops(TopTank, 0x14141a, 0x14141a), pantsc(0x3a5a9a), shoesc(0x14141a), bodyc(BodyGiant), stat(-3)),
 	def("pedro_picapiedra", hairc(0x14101a, HairShort), tops(TopTee, 0xf08a20, 0x14141a), patn(3), pantsc(0xf08a20), shoesc(0xc8a070), accentc(0x2a4ab8), bodyc(BodyFat), stat(-1)),
 	def("wilma", fem(), hairc(0xe86a20, HairBun), tops(TopDress, 0xf4f4f0, 0xf4f4f0), shoesc(0xc8a070)),
 	def("pablo_marmol", hairc(0xe8d060, HairShort), tops(TopTee, 0x6a4a2a, 0x6a4a2a), pantsc(0x6a4a2a), shoesc(0xc8a070), bodyc(BodyBig), stat(3)),
 	def("betty", fem(), hairc(0x14101a, HairBob), tops(TopDress, 0x3a8aca, 0x3a8aca), shoesc(0xc8a070), stat(2)),
-	def("pitufo", skinc(0x3a8ae0), hairs(HairBald), hatc(HatBeanie, 0xf4f4f4), tops(TopTee, 0x3a8ae0, 0x3a8ae0), pantsc(0xf4f4f4), shoesc(0xf4f4f4), headc(HeadBig), stat(4), bodyc(BodyBig)),
-	def("papa_pitufo", skinc(0x3a8ae0), hatc(HatBeanie, 0xd02828), beardc(BeardFull), hairc(0xf4f4f4, HairShort), tops(TopTee, 0xd02828, 0xd02828), pantsc(0xd02828), shoesc(0xd02828), headc(HeadBig), stat(4), bodyc(BodyBig)),
-	def("pitufina", fem(), skinc(0x3a8ae0), hatc(HatBeanie, 0xf4f4f4), hairc(0xe8d060, HairLong), tops(TopDress, 0xf4f4f4, 0xf4f4f4), shoesc(0xf4f4f4), headc(HeadBig), stat(4)),
+	def("pitufo", skinc(0x3a8ae0), hairs(HairBald), hatc(HatNone, 0xf4f4f4), tops(TopBare, 0x3a8ae0, 0x3a8ae0), pantsc(0xf4f4f4), shoesc(0xf4f4f4), headc(HeadBig), stat(4), bodyc(BodyBig)),
+	def("papa_pitufo", skinc(0x3a8ae0), hatc(HatNone, 0xd02828), beardc(BeardFull), hairc(0xf4f4f4, HairBald), tops(TopBare, 0x3a8ae0, 0x3a8ae0), pantsc(0xd02828), shoesc(0xd02828), headc(HeadBig), stat(4), bodyc(BodyBig)),
+	def("pitufina", fem(), skinc(0x3a8ae0), hatc(HatNone, 0xf4f4f4), hairc(0xe8d060, HairLong), tops(TopDress, 0xf4f4f4, 0xf4f4f4), shoesc(0xf4f4f4), headc(HeadBig), stat(4)),
 	def("lagarto_juancho", skinc(0x6ab048), hairs(HairBald), hatc(HatCap, 0xd02828), tops(TopHawaiian, 0xf0d020, 0xd02828), bottomc(BotShorts, 0x3a5ab8), shoesc(0x14141a), headc(HeadBig), stat(2)),
 	def("bob_esponja", skinc(0xf0e040), hairs(HairBald), glass(GlassBig), tops(TopTee, 0xf4f4f4, 0xf4f4f4), accentc(0xd02828), pantsc(0x8a6a2a), shoesc(0x14141a), bodyc(BodyBig), headc(HeadBig), stat(3)),
 	def("beavis", hairc(0xe8d860, HairPompadour), tops(TopTee, 0x14141a, 0x14141a), bottomc(BotShorts, 0x3a5ab8), shoesc(0xf4f4f4), stat(0), bodyc(BodySlim)),
 	def("butthead", hairc(0x4a3018, HairMessy), tops(TopTee, 0x14141a, 0x8a8a94), pantsc(0x3a5a9a), shoesc(0x14141a), bodyc(BodyBig), stat(-1)),
-	def("doraemon", skinc(0x2a8ad8), hairs(HairBald), glass(GlassWhite), tops(TopTee, 0x2a8ad8, 0xf4f4f4), accentc(0xd02828), pantsc(0x2a8ad8), shoesc(0xf4f4f4), headc(HeadHuge), bodyc(BodyFat), stat(5)),
+	def("doraemon", skinc(0x2a8ad8), hairs(HairBald), glass(GlassNone), tops(TopTee, 0x2a8ad8, 0xf4f4f4), accentc(0xd02828), pantsc(0x2a8ad8), shoesc(0xf4f4f4), headc(HeadHuge), bodyc(BodyFat), stat(5)),
 	def("nobita", hairc(0x14101a, HairShort), glass(GlassRound), tops(TopTee, 0xf0d020, 0xf0d020), bottomc(BotShorts, 0x3a5ab8), shoesc(0xf4f4f4), headc(HeadBig), stat(4)),
 }
 
-// shopOnly: these characters only turn up once they have been bought.
-var shopOnly = map[string]bool{
-	"leeloo": true, "korben": true, "conan": true, "he_man": true, "marty_mcfly": true, "doc_brown": true, "la_mascara": true, "taz": true,
-	"michael_jackson": true, "tortuga_leonardo": true, "tortuga_donatello": true, "tortuga_raphael": true, "tortuga_michelangelo": true,
-	"alf": true, "johnny5": true, "picard": true, "capitan_planeta": true, "johnny_bravo": true,
-}
+// shopOnly: the reward characters of the trophies only turn up once the trophy is won (they are added by trophies.go
+// and powers.go). The characters of the old shop are free to appear now: killing one unlocks it (goalchars.go).
+var shopOnly = map[string]bool{}
 
-// allowedSlug: may this character appear without being bought?
+// allowedSlug: may this character appear without owning its trophy reward?
 func allowedSlug(slug string) bool { return !shopOnly[slug] || ownedID("skin:"+slug) }
 
 func init() {
@@ -95,7 +92,7 @@ func init() {
 // specialPool: characters that turn up on their own, a few in every party.
 var specialPool = []string{
 	"yoda", "vader", "indy", "et", "capitan_america", "terminator", "robocop", "batman", "superman", "spiderman", "hulk", "goku", "mario", "sonic", "shrek", "minion",
-	"jack_sparrow", "elvis", "freddie", "homer", "bart", "bender", "fry", "cartman", "luffy", "mortadelo", "filemon", "asterix", "obelix", "wally", "pantera_rosa", "espinete",
+	"jack_sparrow", "elvis", "freddie", "homer", "bart", "bender", "fry", "cartman", "luffy", "nami", "sanji", "zoro", "chopper", "mortadelo", "filemon", "asterix", "obelix", "wally", "pantera_rosa", "espinete",
 	"conan", "he_man", "marty_mcfly", "doc_brown", "la_mascara", "taz", "burro_shrek", "michael_jackson", "alf", "johnny5", "inspector_gadget", "capitan_planeta", "picard",
 	"johnny_bravo", "lagarto_juancho", "bob_esponja", "doraemon", "nobita", "pitufo", "papa_pitufo", "pitufina", "pedro_picapiedra", "wilma", "beavis", "butthead", "kirk", "spock",
 }

@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
-	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -184,7 +183,7 @@ func (g *Game) editedMainCharacter() bool {
 		return false
 	}
 	l := g.store.Chars["main_character"]
-	return len(l) > 0 && l[0].Meta.Edited
+	return len(l) > 0 && l[0].Meta.Edited && !wardBaseValid(g.equipOf(0, "base")) // a character chosen in the wardrobe wins (wardrobe_char.go)
 }
 
 // ---- the free base outfits ------------------------------------------------------------
@@ -229,18 +228,12 @@ type wardOption struct{ id, name string }
 
 // wardOptions lists what a player can put in a row: only what is owned (the wardrobe never buys).
 func (g *Game) wardOptions(slot string) []wardOption {
+	if out, ok := g.wardKindOptions(slot); ok { // the pages ASESINOS and POLICÍAS (wardrobe_kinds.go)
+		return out
+	}
 	switch slot {
 	case "base":
-		out := []wardOption{{"", "Protagonista"}}
-		have := map[string]bool{}
-		for _, it := range shopCatalog[shopChars] {
-			if it.arg != "" && ownedID("skin:"+it.arg) && !have[it.arg] {
-				have[it.arg] = true
-				out = append(out, wardOption{it.arg, it.name})
-			}
-		}
-		sort.SliceStable(out[1:], func(i, j int) bool { return out[1+i].name < out[1+j].name })
-		return out
+		return g.wardBaseOptions() // default + the characters won or owned (wardrobe_char.go)
 	case "tint":
 		out := []wardOption{{"", "Automático"}}
 		for _, t := range tints {
@@ -249,8 +242,8 @@ func (g *Game) wardOptions(slot string) []wardOption {
 		return append(out, wardOption{"none", "Sin teñir"})
 	}
 	out := []wardOption{{"", "Ninguno"}}
-	for _, tab := range []int{shopOutfits, shopAccess} {
-		for _, it := range shopCatalog[tab] {
+	for _, list := range [][]shopItem{shopCatalog[shopOutfits], shopCatalog[shopAccess], shopRetired} { // shopRetired: left the shop, still worn by whoever owns it
+		for _, it := range list {
 			if it.slot == slot && g.shopOwns(it) {
 				out = append(out, wardOption{it.id, it.name})
 			}
@@ -262,7 +255,7 @@ func (g *Game) wardOptions(slot string) []wardOption {
 // wardCycle moves a row of a player to the next or previous option (what he owns) and returns the new name.
 func (g *Game) wardCycle(player int, slot string, dir int) string {
 	opts := g.wardOptions(slot)
-	cur := g.equipOf(player, slot)
+	cur := g.wardGet(player, slot)
 	i := 0
 	for k, o := range opts {
 		if o.id == cur {
@@ -270,7 +263,7 @@ func (g *Game) wardCycle(player int, slot string, dir int) string {
 		}
 	}
 	i = (i + dir + len(opts)) % len(opts)
-	g.setEquipOf(player, slot, opts[i].id)
+	g.wardSet(player, slot, opts[i].id)
 	saveProgress(g.progress)
 	g.applyShop()
 	wardFlash = 0.45
@@ -278,7 +271,7 @@ func (g *Game) wardCycle(player int, slot string, dir int) string {
 }
 
 func (g *Game) wardName(player int, slot string) string {
-	cur := g.equipOf(player, slot)
+	cur := g.wardGet(player, slot)
 	for _, o := range g.wardOptions(slot) {
 		if o.id == cur {
 			return o.name
@@ -304,26 +297,40 @@ func (g *Game) updateWardrobe() {
 	if wardP >= g.wardPlayers() {
 		wardP = 0
 	}
+	if g.updateWardPick() { // the character picker is open (wardrobe_char.go)
+		return
+	}
+	g.updateWardKinds() // the tabs PERSONAJE | ASESINOS | POLICÍAS (wardrobe_kinds.go)
+	rows := g.wardCurRows()
+	if wardKind == wardKindKiller {
+		g.wardKillerFix()
+	}
+	if wardRow >= len(rows) {
+		wardRow = 0
+	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
-		for p := 0; p < g.wardPlayers(); p++ {
+		for p := 0; wardKind == wardKindPlayer && p < g.wardPlayers(); p++ {
 			if x >= 640+p*90 && x < 640+p*90+86 && y >= 126 && y <= 146 {
 				wardP = p
 			}
 		}
-		for i := range wardRows {
+		for i := range rows {
 			if x >= 244 && x <= 600 && y >= 148+i*25 && y <= 148+i*25+23 {
 				wardRow = i
 			}
 		}
 	}
 	if actDown.just() {
-		wardRow = (wardRow + 1) % len(wardRows)
+		wardRow = (wardRow + 1) % len(rows)
 	}
 	if actUp.just() {
-		wardRow = (wardRow + len(wardRows) - 1) % len(wardRows)
+		wardRow = (wardRow + len(rows) - 1) % len(rows)
 	}
-	slot := wardRows[wardRow].slot
+	slot := rows[wardRow].slot
+	if g.wardPickTry(slot) { // the row "Personaje" opens the character picker
+		return
+	}
 	if actRight.just() || actConfirm.just() {
 		g.wardCycle(wardP, slot, 1)
 		g.snd.Play("alert")
@@ -333,20 +340,32 @@ func (g *Game) updateWardrobe() {
 		g.snd.Play("alert")
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		g.setEquipOf(wardP, slot, "")
+		if slot != "kwho" {
+			g.wardSet(wardP, slot, "")
+		}
 		saveProgress(g.progress)
 		g.applyShop()
 		wardFlash = 0.45
 	}
-	if (actInteract.just() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 {
+	if (actInteract.just() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 && wardKind == wardKindPlayer {
 		wardP = 1 - wardP
 		wardFlash = 0.3
 	}
+	// RePág/AvPág walk the three pages and then leave for the neighbour lists of the shop
 	if inpututil.IsKeyJustPressed(ebiten.KeyPageDown) {
-		g.shopGo(g.shopPos() + 1)
+		if wardKind < wardKindN-1 {
+			g.wardGoKind(wardKind + 1)
+		} else {
+			wardKind = 0
+			g.shopGo(g.shopPos() + 1)
+		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyPageUp) {
-		g.shopGo(g.shopPos() - 1)
+		if wardKind > 0 {
+			g.wardGoKind(wardKind - 1)
+		} else {
+			g.shopGo(g.shopPos() - 1)
+		}
 	}
 	if actBack.just() {
 		g.mode = ModeMenu
@@ -354,8 +373,12 @@ func (g *Game) updateWardrobe() {
 }
 
 func (g *Game) drawWardrobe(dst *ebiten.Image) {
+	rows := g.wardCurRows()
+	if wardRow >= len(rows) {
+		wardRow = 0
+	}
 	// the player tabs
-	for p := 0; p < g.wardPlayers(); p++ {
+	for p := 0; wardKind == wardKindPlayer && p < g.wardPlayers(); p++ {
 		col := playerColor(p)
 		x := float64(640 + p*90)
 		if p == wardP {
@@ -364,10 +387,15 @@ func (g *Game) drawWardrobe(dst *ebiten.Image) {
 		}
 		g.drawText(dst, fmt.Sprintf("JUGADOR %d", p+1), x+6, 130, col, 1)
 	}
-	if g.wardPlayers() == 1 {
+	if g.wardPlayers() == 1 && wardKind == wardKindPlayer {
 		g.drawText(dst, "El J2 se viste cuando juegas de a 2", 640, 152, rgb(0x8a86a0), 1)
 	}
-	for i, r := range wardRows {
+	listRows := rows
+	if wardPick { // the character picker takes the place of the rows (wardrobe_char.go)
+		g.drawWardPick(dst)
+		listRows = nil
+	}
+	for i, r := range listRows {
 		y := 148 + float64(i)*25
 		col := rgb(0x3fb59a)
 		pre := "  "
@@ -377,7 +405,7 @@ func (g *Game) drawWardrobe(dst *ebiten.Image) {
 		}
 		g.drawText(dst, pre+tr(r.label), 250, y, col, 1)
 		val := g.wardName(wardP, r.slot)
-		g.drawText(dst, "< "+val+" >", 596-g.textW("< "+val+" >", 1), y, rgb(0xf0e060), 1)
+		g.drawText(dst, "< "+val+" >", shopRowRight-g.textW("< "+val+" >", 1), y, rgb(0xf0e060), 1)
 	}
 	// the mannequin: it turns round and dances, with a flash when the look changes
 	fillRect(dst, 640, 168, 270, 222, rgba(0x120c24, 220))
@@ -390,7 +418,8 @@ func (g *Game) drawWardrobe(dst *ebiten.Image) {
 	for a := 0.0; a < 2*math.Pi; a += 0.12 {
 		fillRect(dst, math.Round(775+math.Cos(a)*52), math.Round(360+math.Sin(a)*11), 2, 1, ring)
 	}
-	cs := g.shopCS("wd:"+g.equipSigOf(wardP), func() *CharSpec { return g.playerSpecFor(wardP, "", "") })
+	pkey, pmk := g.wardPreviewSpec()
+	cs := g.shopCS(pkey, pmk)
 	dirs := []Dir{DirDown, DirRight, DirUp, DirLeft}
 	dir := dirs[int(wardTime/1.3)%len(dirs)]
 	anim := AnimDance0 + (int(wardTime/5.2) % 3)
@@ -416,15 +445,29 @@ func (g *Game) drawWardrobe(dst *ebiten.Image) {
 			fillRect(dst, math.Round(sx)+1, math.Round(sy)-1, 1, 5, color.RGBA{255, 255, 255, a})
 		}
 	}
-	g.drawText(dst, fmt.Sprintf("Jugador %d", wardP+1), 646, 172, col, 1.2)
-	g.drawWrapped(dst, wardDesc(wardRows[wardRow].slot), 650, 396, 250, rgb(0xb8b0d0))
-	g.drawText(dst, "↑/↓ fila   ←/→ cambiar   Supr quitar   "+actionHint(actInteract)+"/Tab otro jugador   RePág/AvPág lista   "+actionHint(actBack)+" volver", 244, 470, rgb(0x8a86a0), 1)
+	switch wardKind {
+	case wardKindKiller:
+		who := g.wardName(0, "kwho")
+		g.drawText(dst, g.fitText(who, 1.2, 250), 646, 172, rgb(0xff6a6a), 1.2)
+	case wardKindCop:
+		g.drawText(dst, rows[wardRow].label, 646, 172, rgb(0x6ab0ff), 1.2)
+	default:
+		g.drawText(dst, fmt.Sprintf("Jugador %d", wardP+1), 646, 172, col, 1.2)
+	}
+	if wardPick {
+		g.drawWardPickInfo(dst)
+	} else {
+		g.drawWrapped(dst, wardDesc(rows[wardRow].slot), 650, 396, 250, rgb(0xb8b0d0))
+	}
 }
 
 func wardDesc(slot string) string {
+	if wardKind != wardKindPlayer {
+		return wardKindDesc(slot)
+	}
 	switch slot {
 	case "base":
-		return "Con quién sales a la fiesta. Sólo los que has comprado en PERSONAJES."
+		return "Con quién sales a la fiesta: los personajes que has conseguido en OBJETIVOS."
 	case "tint":
 		return "Tiñe todo el conjunto. Automático: azul para el J1 y rojo para el J2."
 	case "outfit":

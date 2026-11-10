@@ -12,7 +12,7 @@ import (
 // ---------------------------------------------------------------------------
 // The ending.
 //
-// Beating the 21st party (the space station) closes the story:
+// Beating the last party (the space station) closes the story:
 //   - without every trophy: the hero walks home through the quiet city (the
 //     camera zooms on him), gets into bed, counts sheep and falls asleep; then the
 //     credits, a big "¿ FINAL ?" and "Gracias por jugar".
@@ -138,6 +138,10 @@ func endLenFor(stage int, secret bool) float64 {
 		return 30
 	case endStinger:
 		return 8.5
+	case endHome:
+		return homeLen
+	case endPaper:
+		return finalPaperLen
 	}
 	return 1e9
 }
@@ -179,7 +183,7 @@ func (g *Game) updateEnding() {
 	}
 	// the quiet night: crickets when the music has gone and he sleeps
 	end := endLenFor(endBed, e.trueEnd)
-	g.cricket(e, (e.stage == endBed && e.t > end-8) || (e.stage == endFinal && e.t < 9) || e.stage == endStinger && e.t < 2.4)
+	g.cricket(e, (e.stage == endBed && e.t > end-8) || (e.stage == endFinal && e.t < 9) || e.stage == endStinger && e.t < 2.4 || e.stage == endHome)
 	if e.skipLock > 0 {
 		e.skipLock -= dt
 	}
@@ -193,7 +197,9 @@ func (g *Game) updateEnding() {
 			return
 		}
 		if e.stage == endFinal {
-			g.leaveEnding()
+			if finMenuOpen(e.trueEnd, e.t) { // both last cards keep the player a while for Murray (20 s secret, 8 s normal)
+				g.leaveEnding()
+			}
 			return
 		}
 		e.stage, e.t = endFinal, 0
@@ -201,7 +207,7 @@ func (g *Game) updateEnding() {
 	}
 	if (actConfirm.just() || ebitenClick()) && e.skipLock <= 0 {
 		switch {
-		case e.stage == endFinal && e.t > 4:
+		case e.stage == endFinal && finMenuOpen(e.trueEnd, e.t):
 			g.leaveEnding()
 			return
 		case e.stage != endFinal:
@@ -215,6 +221,9 @@ func (g *Game) updateEnding() {
 	if e.stage == endParty {
 		g.partySounds(e)
 	}
+	if e.stage == endHome {
+		g.homeSounds(e)
+	}
 	if e.t >= endStageLen(e) {
 		switch e.stage {
 		case endFinal:
@@ -223,6 +232,9 @@ func (g *Game) updateEnding() {
 			return
 		default:
 			e.stage, e.t = nextEndStage(e.stage, e.trueEnd), 0
+			if e.stage == endPaper {
+				e.skipLock = finalPaperLock // the press that skipped the T-Rex does not skip the newspaper too
+			}
 		}
 	}
 	if e.stage == endWalk {
@@ -257,20 +269,28 @@ func (g *Game) drawEnding(dst *ebiten.Image) {
 		g.drawEndCredits(dst, e)
 	case endStinger:
 		g.drawStinger(dst, e)
+	case endHome:
+		g.drawHome(dst, e)
+	case endPaper:
+		g.drawFinalPaper(dst, e)
 	default:
 		g.drawEndFinal(dst, e)
 	}
-	hint := actionHint(actConfirm) + ": saltar   " + actionHint(actBack) + ": salir"
-	if e.stage == endFinal && e.t > 4 {
-		hint = actionHint(actConfirm) + ": volver al menú"
+	// each piece is translated on its own: a key label glued to a Spanish piece is not a whole key of lang_data.go
+	hint := actionHint(actConfirm) + tr(": saltar") + "   " + actionHint(actBack) + tr(": salir")
+	if e.stage == endFinal && finMenuOpen(e.trueEnd, e.t) {
+		hint = actionHint(actConfirm) + tr(": volver al menú")
 	}
-	if e.stage == endInvite || e.stage == endArrival {
-		return // the letter and the arrival have their own hint
+	if e.stage == endInvite || e.stage == endArrival || e.stage == endPaper {
+		return // the letter and the arrival have their own hint; the newspaper has its banner
+	}
+	if e.stage == endFinal && !finMenuOpen(e.trueEnd, e.t) {
+		return // the last card: the first seconds are only for Murray (20 s secret, 8 s normal), no way out yet
 	}
 	if e.stage == endPrelude || e.stage == endParty {
-		hint = actionHint(actConfirm) + ": saltar"
+		hint = actionHint(actConfirm) + tr(": saltar")
 	}
-	g.drawTextC(dst, hint, 480, 518, rgba(0x8a86a0, 190), 1)
+	g.drawTextC(dst, hint, 480, 514, rgba(0x8a86a0, 190), 1) // 18 px from the bottom edge
 }
 
 // ---- the walk home ----------------------------------------------------------------------
@@ -643,6 +663,7 @@ func (g *Game) drawEndCredits(dst *ebiten.Image, e *endState) {
 		y += 38
 	}
 	g.drawWrapped(dst, "Juego hecho como homenaje al Party Hard original, desarrollado por Pinokl Games y distribuido por tinyBuild. Este proyecto es de fans y no tiene ninguna relación oficial con ellos.", 190, y+16, 580, rgb(0xb8b0d0))
+	fillRect(dst, 0, 500, screenW, screenH-500, rgb(0x04050c)) // the names roll away behind this strip: they never run through the hint line
 	fade := math.Min(1, e.t/1.5)
 	fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-fade))))
 }
@@ -651,6 +672,7 @@ func (g *Game) drawEndCredits(dst *ebiten.Image, e *endState) {
 
 func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 	dst.Fill(rgb(0x04050c))
+	g.drawFinRiders(dst, e) // Diego, César and Sam-sam ride round the bottom, under everything (fin_riders.go)
 	k := math.Min(1, e.t/1.4)
 	if e.trueEnd {
 		g.drawTextC(dst, "FIN", 480, 150, rgba(0xf8d030, uint8(255*k)), 8)
@@ -666,8 +688,9 @@ func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 			g.drawTextC(dst, "Y que la última fiesta tiene dientes.", 480, 316, rgb(0xe8c870), 1.3)
 		}
 	}
+	g.drawFinMurray(dst, e) // Murray talks on both last cards, each with his own lines (fin_murray.go)
 	if e.t > 4.6 {
-		g.drawTextC(dst, "Gracias por jugar", 480, 400, rgba(0xf4f0ff, uint8(255*math.Min(1, (e.t-4.6)/1.2))), 2.6)
+		g.drawTextC(dst, "Gracias por jugar", 480, 362, rgba(0xf4f0ff, uint8(255*math.Min(1, (e.t-4.6)/1.2))), 2.6)
 	}
 }
 
@@ -713,6 +736,10 @@ func endMusicVol(e *endState) float64 {
 	case endCredits:
 		return 0.7
 	case endStinger:
+		return 0.12
+	case endHome: // home: no music at all, only the cricket
+		return 0
+	case endPaper: // the morning paper: the tune of the stinger, very low
 		return 0.12
 	}
 	if e.trueEnd {

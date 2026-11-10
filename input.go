@@ -187,6 +187,12 @@ func (a Action) held() bool {
 }
 
 func (a Action) just() bool {
+	if a == actBack && backInject { // the on-screen back button (backbtn.go)
+		return true
+	}
+	if a == actConfirm && backFocus { // Enter / A belongs to the focused back button
+		return false
+	}
 	b := bindsFor(inputP)[a]
 	for _, k := range b.Keys {
 		if k != noKey && keyAllowed(inputP, k) && inpututil.IsKeyJustPressed(k) {

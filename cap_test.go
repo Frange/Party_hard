@@ -30,7 +30,7 @@ func TestGuestCapNeverExceededTwoPlayers(t *testing.T) {
 }
 
 func capStress(t *testing.T, two bool) {
-	defs := testLevels()
+	defs := testLevels(t)
 	if len(defs) > 14 {
 		defs = defs[:14]
 	}
@@ -111,7 +111,7 @@ func capStress(t *testing.T, two bool) {
 }
 
 func TestGuestCapSafetyNet(t *testing.T) {
-	defs := testLevels()
+	defs := testLevels(t)
 	g := capGame(defs[0], 5)
 	capBreaches = 0
 	for i := 0; i < 70; i++ { // a route that forgets to ask

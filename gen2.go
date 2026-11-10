@@ -417,8 +417,8 @@ func genPlaza(rng *rand.Rand, eiffel bool) *LevelDef {
 	cx, cy := 480.0, 280.0
 	if eiffel {
 		d.Floors = append(d.Floors, F(40, 110, 880, 330, "grass"), F(0, 110, 40, 330, "cobble"), F(420, 110, 120, 330, "cobble"), F(40, 300, 880, 40, "cobble"))
-		pl.at("eiffel", cx, 262, 0)
-		pl.avoid = append(pl.avoid, Vec{cx, 250}, Vec{cx, 200}, Vec{cx - 40, 258}, Vec{cx + 40, 258})
+		pl.at("eiffel", cx, eiffelY, 0) // low enough that the top stays clear of the title and the intro plate
+		pl.avoid = append(pl.avoid, Vec{cx, eiffelY - 12}, Vec{cx, eiffelY - 62}, Vec{cx - 40, eiffelY - 4}, Vec{cx + 40, eiffelY - 4})
 		for _, x := range []float64{150, 270, 690, 810} {
 			pl.at("hedge", x, 170, 0)
 			pl.at("hedge", x, 410, 0)
@@ -729,7 +729,7 @@ func genExotic(rng *rand.Rand, d *LevelDef, kind string) {
 		pool, chance = []string{"kangaroo", "bull"}, 0.4
 	case "bullring":
 		pool, chance = []string{"cat", "hen"}, 0.5
-	case "house", "pub", "club":
+	case "house", "pub", "club", "birthday":
 		pool, chance = []string{"cat", "cat", "hen"}, 0.4
 	default:
 		return
@@ -838,6 +838,14 @@ func genByKind0(rng *rand.Rand, kind string) *LevelDef {
 		return genHighway(rng)
 	case "trainstation":
 		return genTrainStation(rng)
+	case "birthday":
+		return genBirthday(rng)
+	case "hockey":
+		return genHockey(rng)
+	case "disco70":
+		return genDisco70(rng)
+	case "italy":
+		return genItaly(rng) // italy.go
 	}
 	return genBeach(rng)
 }
@@ -849,7 +857,7 @@ func genYacht(rng *rand.Rand) *LevelDef {
 	doorLog = nil
 	d := &LevelDef{
 		Title: "CRUCERO NOCTURNO", Intro: "Mar abierto, música alta y ninguna salida elegante.",
-		W: 960, H: 540, Sky: "sea", Police: "car", Transit: "sea", Tint: color.RGBA{0, 16, 35, 95},
+		W: 960, H: 540, Sky: "sea", Police: "car", Transit: "sea", Tint: color.RGBA{0, 16, 35, 72},
 		CarFrom: Vec{1040, 508}, CarTo: Vec{560, 496}, ParkX0: 220, ParkX1: 780,
 		Start: Vec{105, 410}, Pads: []Vec{{835, 271}, {114, 418}}, Guests: 46, CellSize: 16,
 		Hull: true, HullRect: Rect{60, 60, 842, 422}, HullName: "SS ROYAL", Shape: yachtShape,

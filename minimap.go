@@ -249,7 +249,7 @@ func (g *Game) minimapFrame() {
 
 // minimapShown: the panel exists now.
 func (g *Game) minimapShown() bool {
-	return minimapOn && g.mode == ModePlay && g.lvl != nil && !g.helpOv
+	return minimapOn && g.mode == ModePlay && g.lvl != nil && !g.helpOv && !g.dc.has(dmNoMap)
 }
 
 // updateMinimapInput: TAB or Start switch the minimap (session only).

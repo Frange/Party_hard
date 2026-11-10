@@ -42,9 +42,16 @@ Every party has its own genre. When there is no mp3 for a party the game plays i
 | 17 | Rooftop | Rooftop pool bash | Hip-hop (lo-fi) |
 | 18 | Casino | Black-tie night | Jazz (swing) |
 | 19 | Motorway | Traffic jam with speakers | Rock |
-| 20 | Train station | Ticketless party | Rap (boom bap) |
-| 21 | Space station | Zero-gravity rave | Electronic |
+| 20 | Italy | Pasta, amore and chaos | Classical (opera) |
+| 21 | Train station | Ticketless party | Rap (boom bap) |
+| 22 | Birthday party | Candle-blowing mayhem | Pop |
+| 23 | Hockey rink | Overtime without a referee | Rock |
+| 24 | 70s disco | Bell-bottom fever | Disco |
+| 25 | Space station | Zero-gravity rave | Electronic |
 | – | Isla Nublar (secret) | Last Jurassic party | Epic orchestral (wonder and danger) |
+
+Italy (20) was added right after the Motorway: files numbered 1 to 19 keep their party; files you had numbered 20 to 24
+belong one number later now (rename them +1). A file of another style is ignored anyway (see below).
 
 The level select shows "kind of party · genre" under the name of every party, and the title card of the party shows the
 kind and the music (`Música: ...`) for a few seconds.

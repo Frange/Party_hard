@@ -51,25 +51,26 @@ func TestHeliViews(t *testing.T) {
 	}
 }
 
-// boats and shuttles: front, rear and side are three different pictures, in both lengths
+// boats and shuttles: front, rear and side are three different pictures, in both lengths and every style
 func TestTransitViews(t *testing.T) {
 	body, trim := hx(0x2a50c0), hx(0xf4f4f8)
-	for _, long := range []bool{false, true} {
-		for _, sea := range []bool{true, false} {
-			gen := genShipView
-			side := genShip(body, trim, long)
-			if sea {
-				gen, side = genBoatView, genBoat(body, trim, long)
-			}
-			f, r := gen(body, trim, long, true), gen(body, trim, long, false)
-			if opaque(f) < 300 || opaque(r) < 300 {
-				t.Fatalf("sea=%v long=%v: empty view", sea, long)
-			}
-			if same(f, r) || same(f, side) || same(r, side) {
-				t.Fatalf("sea=%v long=%v: two of the three views are identical", sea, long)
-			}
-			if f.w >= side.w { // seen from the bow or the stern it is narrower than long
-				t.Fatalf("sea=%v long=%v: front view (%d) not narrower than the side (%d)", sea, long, f.w, side.w)
+	for style := 0; style < crCount; style++ {
+		for _, long := range []bool{false, true} {
+			for _, sea := range []bool{true, false} {
+				f, r := genShipView(body, trim, long, true, style), genShipView(body, trim, long, false, style)
+				side := genShip(body, trim, long, style)
+				if sea {
+					f, r, side = genBoatView(body, trim, long, true, style), genBoatView(body, trim, long, false, style), genBoat(body, trim, long, style, 0)
+				}
+				if opaque(f) < 300 || opaque(r) < 300 {
+					t.Fatalf("style %d sea=%v long=%v: empty view", style, sea, long)
+				}
+				if same(f, r) || same(f, side) || same(r, side) {
+					t.Fatalf("style %d sea=%v long=%v: two of the three views are identical", style, sea, long)
+				}
+				if f.w >= side.w { // seen from the bow or the stern it is narrower than long
+					t.Fatalf("style %d sea=%v long=%v: front view (%d) not narrower than the side (%d)", style, sea, long, f.w, side.w)
+				}
 			}
 		}
 	}

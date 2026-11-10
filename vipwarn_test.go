@@ -73,6 +73,10 @@ func TestVIPWarningLadder(t *testing.T) {
 
 // updatePlayerStunOnly: drawing the stunned player must not panic.
 func (g *Game) updatePlayerStunOnly(p *Player) {
+	if px == nil { // the white pixel exists only once newGame has run: alone (or first, with -shuffle) it is nil
+		px = ebiten.NewImage(1, 1)
+		defer func() { px = nil }()
+	}
 	img := ebiten.NewImage(screenW, screenH)
 	g.drawStunStars(img, p)
 }
@@ -221,6 +225,10 @@ func TestVIPGuestNoLadderAfterVIPDies(t *testing.T) {
 }
 
 func TestStunStarsAreBigEnough(t *testing.T) {
+	if px == nil { // created by newGame; this test may run first (-shuffle)
+		px = ebiten.NewImage(1, 1)
+		t.Cleanup(func() { px = nil })
+	}
 	g := &Game{}
 	img := ebiten.NewImage(screenW, screenH)
 	p := &Player{stunT: 1}

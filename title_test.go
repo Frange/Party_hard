@@ -28,8 +28,8 @@ func TestTitleGoesToMenuByItself(t *testing.T) {
 	if g.mode != ModeMenu || g.title != nil {
 		t.Fatalf("after the title: the main menu (mode %v)", g.mode)
 	}
-	if titleDuration < 4 || titleDuration > 8 {
-		t.Fatalf("the title must last about 4-8 seconds, not %.1f", titleDuration)
+	if titleDuration < 4 || titleDuration > 9 {
+		t.Fatalf("the title must last about 4-9 seconds, not %.1f", titleDuration)
 	}
 }
 
@@ -91,18 +91,18 @@ func TestPlainStartOnlyWithoutDebugFlags(t *testing.T) {
 	}
 }
 
-// the music of the title exists, is short and bright
+// the music of the title is the menu's anthem (menumusic.go), longer than the title, at the 124 BPM of the intro
 func TestTitleMusic(t *testing.T) {
-	pcm := ambientPCM(ambTitle)
+	pcm := ambientPCM(ambAnthem)
 	if len(pcm) == 0 {
 		t.Fatal("no music for the title")
 	}
 	secs := float64(len(pcm)) / (sampleRate * 4) // 16-bit stereo
-	if secs < 4 || secs > 8 {
+	if secs < titleDuration+1 {
 		t.Fatalf("the title tune lasts %.1f s", secs)
 	}
-	if sd := songs[ambTitle]; sd.bpm < 110 {
-		t.Fatalf("the title tune must be lively, not %.0f BPM", sd.bpm)
+	if bpm := 60 * sampleRate / float64(thumpBeatSamples); bpm < 110 {
+		t.Fatalf("the title tune must be lively, not %.0f BPM", bpm)
 	}
 }
 
@@ -117,5 +117,18 @@ func TestTitleSparksAreNotWhite(t *testing.T) {
 		if int(s.col.R)+int(s.col.G)+int(s.col.B) > 600 {
 			t.Fatalf("a nearly white spark: %v", s.col)
 		}
+	}
+}
+
+// the credits stay fully visible for at least 3 s before the fade to black starts
+func TestTitleCreditsVisibleBeforeFade(t *testing.T) {
+	if tiEnd-(tiCredits+tiCreditsIn) < 3.0-1e-9 {
+		t.Fatalf("credits fully visible only %.2f s before the fade", tiEnd-(tiCredits+tiCreditsIn))
+	}
+	if tiCredits < tiHome || tiHome < tiSub || tiSub < tiSlam {
+		t.Fatal("title timeline out of order")
+	}
+	if tiFadeOut != 0.55 {
+		t.Fatalf("fade out changed: %v", tiFadeOut)
 	}
 }

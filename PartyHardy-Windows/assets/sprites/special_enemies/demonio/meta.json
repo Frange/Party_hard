@@ -1,0 +1,8 @@
+{
+  "name": "demonio",
+  "category": "special_enemies",
+  "role": "killer",
+  "carry": "torch",
+  "width": 24,
+  "height": 44
+}

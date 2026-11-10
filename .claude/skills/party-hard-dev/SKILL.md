@@ -47,7 +47,7 @@ Orden de una entrega: implementación -> QA -> Build -> Limpieza -> informe al u
 - **`imports/`** (junto a `assets/`) guarda lo que el usuario crea importando fotos o dibujos. **Nunca se sube al repositorio** (está en `.gitignore`). El juego y el editor leen las dos carpetas.
 - **Editor** (pestañas Personajes, Objetos y animales, Escenarios) dentro del mismo binario: tecla F2, o `PartyHardyEditor`. **Modo debug**: en el menú principal arriba, arriba, abajo, abajo, izquierda, derecha, izquierda, derecha; en el editor la misma secuencia desbloquea editar los niveles originales.
 - **Dos jugadores** (interruptor en el menú principal, por defecto 1): `twoplayers.go` (segundo jugador `g.p2`, `g.players()`, `g.asPlayer`, `g.focus`), `input2.go` + `players.go` (teclas y mandos por jugador), `twojail.go` + `suspect.go` (esposas, detención y fuga), `revive.go` (ambulancia), `coop.go` (gags y marcador), `wardrobe.go` (ropa por jugador), `twoscenes.go` y `*2p.go` (cinemáticas). Todo cambio en el juego debe seguir idéntico con 1 jugador (hay tests de regresión).
-- Los niveles son 21 en la campaña (`campaign.go`) más extras para el modo aleatorio. La isla de Jurassic Park y las escenas (intro, interludios, finales) quedan fuera de la campaña.
+- Los niveles son 25 en la campaña (`campaign.go`; ITALIA es la fiesta 20, índice 19, tras la AUTOPISTA; la Estación Espacial es la 25 y la Jurásica es secreta) más extras para el modo aleatorio. REGLA: las dos últimas pantallas son SIEMPRE la Estación Espacial (último de la lista) y después la secreta Isla/Parque Jurásico (fuera de la lista); un nivel nuevo se inserta ANTES de `station` y trae su migración de partida (`progress_migrate.go`). La isla y las escenas (intro, interludios, finales) quedan fuera de la campaña.
 
 ## 2. Añadir un personaje famoso
 
@@ -57,6 +57,8 @@ Orden de una entrega: implementación -> QA -> Build -> Limpieza -> informe al u
 4. **Traducción inglesa** de cada texto nuevo en `lang_data.go` (ver sección 5).
 5. **Un famoso solo puede estar una vez por nivel** (hay una función central; no la saltes). Tests: `famous_test.go`, `TestAllBuiltinsExported` (el editor exporta todos los personajes), `lang_test.go`.
 6. Si el personaje es cuadrilla (varios a la vez) deben ser personajes distintos entre sí.
+7. **Nombres de personas reales** (dueño, 2026-11-10): solo los **músicos** de bandas llevan su nombre real, y solo si nombre y rol son seguros: van en `bandRealNames` (bands.go; nombre + parte que toca) y en el `display_name` de su `assets/sprites/special_people/<slug>/meta.json`; la tarjeta de OBJETIVOS pone la banda debajo y la ventana de detalle "banda · parte". Si dudas, "banda · rol" (`bandMemberName`). Nunca el nombre de un miembro con condena penal grave notoria (cantante de Lost Prophets). **Futbolistas** (dueño, 2026-11-10): también con su nombre real completo: `footballRealNames` (futbol_art.go; nombre + selección), tarjeta "nombre / selección" y ventana "selección · Futbolista". Regla: **músicos y futbolistas con nombre real; el resto de personas reales sin nombre visible** salvo decisión expresa. Tests: `TestBandMusiciansRealNames`, `TestFootballersCardsAndDetail`.
+8. **Famoso nuevo, pasos fijos** (ejemplo completo: futbol_art.go + futbol_art_test.go): preset con `rand` PROPIO (`def(...).F(rand.New(rand.NewSource(N)))`, colores de piel/zapatos fijados) para no mover el rand compartido de `builtinChars` (test `TestFootballersKeepOthersSpecs`); `famousPresets` + `specialPool` (tarjeta en OBJETIVOS/PERSONAJES y vestuario); `charDescs` ES/EN, `funnyDesc`, `catchphrases` traducidas; capas propias enganchadas en `genChar` (chars.go); exportar los PNG a `assets/sprites/special_people/<slug>/` (test `*Export` con variable de entorno, método de `TestKtmExport`) y comprobar `TestCharimpReexportedPictures` / `CHARIMP_SCAN=assets go test -run TestCharimpStaleScan`; subir los totales de `TestCharimpICountsUnchanged`. Las claves del álbum son slugs: no hace falta migración si no cambian slugs ni orden de campaña.
 
 ## 3. Añadir un objeto (prop)
 
@@ -69,6 +71,8 @@ Orden de una entrega: implementación -> QA -> Build -> Limpieza -> informe al u
 - Un generador devuelve un `LevelDef` (suelos, muros, props, zonas por donde se camina `Roam`, bailes, guardias, policía, puntos de inicio). Se registra en `campaign.go` (`kind`, `seed`, `title`).
 - Tests que debes pasar: `collision_test.go` (alcanzabilidad), `overlap_test.go`, `famous_test.go`. Usa `-walkbot` para comprobar que nadie se atasca.
 - El nivel debe permitir de 45 a 60 invitados sin atascos, y con 2 jugadores de 20 a 30 más (`cap.go` es el único punto que controla el tope; los ajustes de invitados están solo en DEBUG).
+- **Tope de bajas (BAJAS x/N)** (`cap.go`, dueño 2026-11-10): N = todos los que tuvo la fiesta (inicio + llegadas). `goalMax()` = **65** con 1 jugador (+20..30 con 2); el inicio deja `startRoom()` plazas libres y toda ruta que añade gente (taxis, bus, tren, Dios, famosos, pandillas, niños...) pregunta `guestRoom()`; 2 plazas reservadas para asesino/pirómano. Tests: `killtarget_test.go`.
+- **Fiestas de aforo grande** (mapa `bigCrowd` en `cap.go`, por `Def.Icon`): **PARQUE DE ATRACCIONES (L8, funfair), FESTIVAL (L11) y ESTACIÓN DE ESQUÍ (L16, snow)**, elegidas por suelo libre transitable (`freeRoamCells`, top 5 de 25) y pocos estorbos: +30 (`crowdMax`) → tope de bajas **95**, aforo vivo 90, inicio ~78-83 (`startRoom` = 6 + extra/5). Con 2 jugadores el total combinado no pasa de **110** (`crowdTwoTotal`: el extra grande se recorta). El **RETO DE HOY** y el **sigilo** las juegan con el 65 normal; la isla y las tiradas del modo aleatorio nunca son grandes. El resto de fiestas sigue en 65. Para añadir/quitar una: solo el mapa `bigCrowd` (nunca más de +30 sin medir rendimiento) y pasar `bigcrowd_test.go` (elección por espacio, N/N, Reto/sigilo, tramos de policía con T=95/110, HUD de 3 cifras, coste por fotograma).
 
 ## 5. Traducir
 
@@ -78,9 +82,9 @@ Orden de una entrega: implementación -> QA -> Build -> Limpieza -> informe al u
 
 ## 6. Banderas de depuración (todas con `./PartyHard ...` o `go run . ...`)
 
-**Niveles y capturas:** `-level N` (1 a 21) · `-shot ruta.png` + `-shottick T` (captura en el fotograma T y sale) · `-shotzoom x,y,w,h,zoom` · `-with slug,slug` (fuerza personajes) · `-fastevents` · `-immune` · `-walkbot` (anda al azar y cuenta atascos) · `-gamebench N` (ms por fotograma de Update y Draw) · `-jurassic` · `-jpunlocked` · `-levelselect` · `-event N` · `-lang en|es` · `-solids` · `-testroad` (+ `-roadcars a,b`) · `-vlane`.
+**Niveles y capturas:** `-level N` (1 a 25) · `-shot ruta.png` + `-shottick T` (captura en el fotograma T y sale) · `-shotzoom x,y,w,h,zoom` · `-with slug,slug` (fuerza personajes) · `-fastevents` · `-immune` · `-walkbot` (anda al azar y cuenta atascos) · `-gamebench N` (ms por fotograma de Update y Draw) · `-jurassic` · `-jpunlocked` · `-levelselect` · `-event N` · `-lang en|es` · `-solids` · `-testroad` (+ `-roadcars a,b`) · `-vlane`.
 **Cinemáticas:** `-title` / `-notitle` · `-firstrun` (simula la primera vez, nada se guarda) · `-intro` · `-ending 1|2|3` (+ `-endstage N`) · `-interlude 5|10|20` · `-scenes 1|2` · `-inviteauto N`.
-**Sucesos y objetos:** `-zapnow` · `-poisonnow` · `-pyronow` · `-snakenow` · `-cheernow` · `-kidsnow` · `-bowlkids` · `-copsnow` · `-ring 1|2` · `-ambient vehículo`.
+**Sucesos y objetos:** `-zapnow` · `-poisonnow` · `-pyronow` · `-snakenow` · `-cheernow` · `-kidsnow` · `-bowlkids` · `-copsnow` · `-blamenow` (sospechoso equivocado, wrongsuspect.go) · `-ring 1|2` · `-ambient vehículo`.
 **Dos jugadores:** `-twop` (todas las fiestas a 2) · `-players 1|2` (el interruptor del menú, sin guardar) · `-twocuff` · `-twojail 1|2` · `-twodead 1|2` · `-coopdemo 1|2|3` · `-wardrobe 1|2|3` · `-setsel N` (fila de Ajustes).
 **Pantallas:** `-settings` · `-shopscreen` · `-trophyscreen` · `-trophyov` · `-credits` · `-debugscreen` · `-alltrophies`.
 **Editor:** `-editor` (+ `-edtab N`, `-edload nombre`, `-edorig N`, `-edfind texto`, `-edbench N`, `-eddemo pool|helipad|zone`, `-edobjtool N`, `-edpttool N`).
@@ -112,9 +116,18 @@ Compila a una ruta temporal (`go build -o /tmp/ph_chk .`) y bórrala al terminar
 - Los **zips** salen sin `progress.json` ni `editor_prefs.json` (lo hace `build.sh`).
 - Informa con honestidad: di qué verificaste (tests, capturas) y qué no pudiste verificar.
 - Si ves algo fuera de tu encargo, menciónalo en una frase y no lo toques.
+- Tests aislados: los tests que mutan propKinds/Progress/globales (dbg*, progressFrozen, god, lang) deben restaurarlos con t.Cleanup (helper `snapshotPropKinds(t)` y `snapshotGlobals(t)` en `testiso_test.go`); verifica con `-shuffle=N`.
+
+## 9b. Márgenes y separación en pantallas (obligatorio)
+
+Regla del usuario, fija para siempre: **SIEMPRE MARGEN: ninguna caja, cuadro, pestaña, título, texto o botón puede ir pegado a otro ni al borde; separa todo y revisa todas las pantallas.** Vale para menús y para cualquier pantalla, ventana o panel nuevo.
+- Mínimos (960x540): >= 12 px entre bloques distintos (título y cuadros, cuadro y cuadro, pestaña y contenido); >= 16 px al borde de pantalla (salvo marcos a sangre a propósito); texto dentro de su caja con >= 6 px de relleno; coordenadas y escalas enteras (texto nítido).
+- Proceso: captura silenciosa (sección 7) de la pantalla en ES y EN y con las cifras/nombres más largos; y un TEST DE GEOMETRÍA que compruebe que los rectángulos no se tocan (distancia >= mínimo) ni salen de la pantalla. Patrón existente: `shop_layout_test.go`, `lang_box_test.go`, `TestShopPointsLineClearOfGroups`.
+- Revisa 1 y 2 jugadores, y TODAS las pantallas que compartan el layout o la función tocada, no solo la que pidió el usuario.
 
 ## 10. Antes de entregar
 
+- **VERSIÓN Y CHANGELOG (regla del usuario, 2026-11-10)**: cada tanda con novedades sube la versión semver en `version.go` (`gameVersion`; menor = x.y.Z, medio = x.Y.0, grande = X.0.0) y añade su entrada arriba en `CHANGELOG.md` (`## [vX.Y.Z] - AAAA-MM-DD - menor|medio|grande`, listas Añadido/Cambiado/Arreglado, en español, sin nombres de personas reales salvo músicos y futbolistas) ANTES del build; BUILD verifica que la constante, la cabecera del CHANGELOG y el `VERSION.txt` de los dos zips coinciden y lo reporta (`build.sh` se niega a compilar si constante y CHANGELOG no coinciden; `TestVersionMatchesChangelog`); los tags y commits son del usuario. La versión sale en el menú principal (abajo a la derecha), en Créditos y en el título de la ventana: todo lee `gameVersion`/`versionLabel()` (version.go), nunca un número escrito a mano.
 Como agente de implementación entregas **tu informe** (sección 0), no un build. Sigue la parte A de `checklist.md` (en esta misma carpeta). El build, los zips, los binarios de la raíz y la limpieza los hacen sus agentes (`party-hard-release`, `party-hard-limpieza`) cuando QA ha dado el visto bueno.
 - Regla de datos (2026-11-04): toda bandera de depuración/captura congela el progreso antes de cargar niveles (debugFlagsActive en main.go); las capturas se hacen desde una carpeta temporal con COPIA de assets, nunca desde el proyecto.
 

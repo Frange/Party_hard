@@ -284,6 +284,9 @@ func TestStarsOnlyFromPlayer(t *testing.T) {
 }
 
 func TestCopMinimumStay(t *testing.T) {
+	old := jailHold // global custody flag: nobody is held in this test
+	jailHold = false
+	t.Cleanup(func() { jailHold = old })
 	c := &Cop{}
 	if c.mayLeave() {
 		t.Fatal("a fresh officer must stay")
@@ -326,8 +329,12 @@ func TestShopGating(t *testing.T) {
 	if !animalAllowed(animalKindIndex("elephant")) {
 		t.Fatal("bought animals appear")
 	}
-	if !killerAllowed("jason") || killerAllowed("freddy") {
-		t.Fatal("killer gating")
+	if !killerAllowed("jason") || !killerAllowed("freddy") || killerAllowed("pinhead") || killerAllowed("tr_k_sombra") {
+		t.Fatal("killer gating: the 21 of the catalogue come, the retired ones and the unwon trophy ones do not")
+	}
+	shopOwned["killer:tr_k_sombra"] = true
+	if !killerAllowed("tr_k_sombra") {
+		t.Fatal("a trophy killer joins once the trophy is won")
 	}
 	shopOwned = map[string]bool{"skin:": true, "police:0": true}
 }
@@ -360,9 +367,17 @@ func TestShopCatalog(t *testing.T) {
 			}
 		}
 	}
-	for _, e := range []string{"killer:carnicero", "killer:vampiro"} {
+	for _, e := range []string{"animal:rabbit", "perk:speed1", "kw:knife"} {
 		if !seen[e] {
 			t.Fatalf("missing %s", e)
+		}
+	}
+	// characters and killers are goals now: only the rewards of trophies (locked) are left in their lists
+	for _, tab := range []int{shopChars, shopKillers} {
+		for _, it := range shopCatalog[tab] {
+			if it.trophy == "" {
+				t.Fatalf("%s is for sale but characters and killers are no longer sold", it.id)
+			}
 		}
 	}
 	t.Log("shop items:", total)

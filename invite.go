@@ -173,23 +173,28 @@ func (g *Game) inviteScale() float64 {
 // paintPaper draws the letter (paper and text) into its own image, once.
 func (g *Game) paintPaper(iv *inviteState) {
 	iv.scale = g.inviteScale()
-	im := ebiten.NewImage(int(invPW), int(invPH))
-	paper, edge := rgb(0xf2e6c2), rgb(0xcdb98a)
-	im.Fill(edge)
-	fillRect(im, 3, 3, invPW-6, invPH-6, paper)
-	for y := 12.0; y < invPH-8; y += 18 { // the grain of the paper
-		fillRect(im, 8, y, invPW-16, 1, rgba(0xd8c89c, 90))
-	}
+	lines, _ := g.inviteLayout(iv.scale)
+	// the worn paper (invite_wear.go): creases, stains, blood and rips; the text goes on top, crisp
+	im := ebiten.NewImageFromImage(letterWearImage(g.inviteTextBoxes(lines), 7))
 	// the letterhead: a little amber drop with a mosquito, as in the film
 	filledEllipse(im, 40, 36, 14, 17, rgb(0xd88a10))
 	filledEllipse(im, 40, 36, 10, 13, rgb(0xf0b030))
 	fillRect(im, 39, 28, 2, 16, rgb(0x5a3a08))
 	fillRect(im, 34, 33, 12, 2, rgb(0x5a3a08))
-	lines, _ := g.inviteLayout(iv.scale)
 	for _, l := range lines {
 		g.drawInk(im, l.s, l.x, l.y, l.col, l.scale)
 	}
 	iv.paper = im
+}
+
+// inviteTextBoxes: the boxes the lines of the letter take on the paper (the wear keeps out of them).
+func (g *Game) inviteTextBoxes(lines []invLine) []image.Rectangle {
+	var out []image.Rectangle
+	for _, l := range lines {
+		x, y := int(l.x), int(l.y)
+		out = append(out, image.Rect(x, y, x+int(math.Ceil(g.textW(l.s, l.scale))), y+int(16*pxScale(l.scale))))
+	}
+	return out
 }
 
 // drawInk is text without the drop shadow: crisp strokes of the same width on the paper.
@@ -349,9 +354,9 @@ func (g *Game) drawInvite(dst *ebiten.Image, e *endState) {
 		if iv.phase == invArrive {
 			a = math.Min(1, iv.t/0.8)
 		}
-		g.drawTextC(dst, "ESA MISMA NOCHE, EN EL BUZÓN...", 480, 70, rgba(0xf4f0ff, uint8(255*a)), 2)
+		g.drawTextC(dst, "MIENTRAS, EN LA ESTACIÓN ESPACIAL (QUE NO TIENE BUZÓN)...", 480, 70, rgba(0xf4f0ff, uint8(255*a)), 2)
 		if iv.phase == invWait || iv.t > 1.2 {
-			g.drawTextC(dst, "Una invitación sin remitente. Huele a selva.", 480, 372, rgb(0xe8c870), 2)
+			g.drawTextC(dst, "Sin sello, sin remitente y sin gravedad. Huele a selva.", 480, 372, rgb(0xe8c870), 2)
 		}
 	case invOpen:
 		g.drawEnvelope(dst, e, iv, 1, easeOut(iv.t/invOpenLen))

@@ -35,20 +35,25 @@ type titleState struct {
 	flashT   float64
 	ringT    float64
 	seedBase uint32
+	musicOn  bool // the music was started (the first frame its track is built: StartMenuMusicWhenReady)
 }
 
 // the timeline, in seconds
 const (
-	tiFadeIn   = 0.55
-	tiParty    = 1.2  // PARTY slides in
-	tiSlam     = 1.75 // HARDY hits the ground
-	tiSub      = 2.9  // the subtitle
-	tiHome     = 3.5  // "homenaje a Party Hard"
-	tiCredits  = 4.1  // the credits
-	tiEnd      = 6.0  // the fade to black starts
-	tiFadeOut  = 0.55
-	tiSkipFade = 0.3
-	titleY     = 162.0 // where HARDY lands
+	tiFadeIn    = 0.55
+	tiParty     = 1.2  // PARTY slides in
+	tiSlam      = 1.75 // HARDY hits the ground
+	tiSub       = 2.1  // the subtitle
+	tiHome      = 2.35 // "homenaje a Party Hard"
+	tiCredits   = 2.6  // former credits slot: no text is drawn now, it only keeps the sequence timing
+	tiCreditsIn = 0.5  // the credits fade in
+	// the fade to black starts on the dip of the anthem (menumusic.go: 4 bars of chorus = 7.75 s), so the
+	// picture goes dark when the music drops and the menu comes up while the dip leads into the drop
+	tiEnd         = anthemDipAt
+	tiCreditsHold = tiEnd - tiCredits - tiCreditsIn // fully visible before the fade (4.65 s)
+	tiFadeOut     = 0.55
+	tiSkipFade    = 0.3
+	titleY        = 162.0 // where HARDY lands
 )
 
 // titleDuration is how long the title lasts when nobody skips it.
@@ -57,14 +62,14 @@ const titleDuration = tiEnd + tiFadeOut
 func (g *Game) startTitle() {
 	g.title = &titleState{seedBase: 0x9e3779b9}
 	g.mode = ModeTitle
-	g.snd.StopMusic()
-	g.snd.StartScene("base", "base:title", ambientBuilder(ambTitle), "", true)
+	g.snd.StopMusic() // the music starts with the first frame of the title (updateTitle), in time with the picture
+	// the menu's track (usually already built: newGame asked for it as soon as the save was read)
+	warmMenuMusic(g.menuTier())
 }
 
 // finishTitle ends the title: the intro of the room the very first time, the main menu otherwise.
 func (g *Game) finishTitle() {
 	g.title = nil
-	g.snd.StopScene()
 	if !noAssets && g.firstRun() {
 		g.bootIntro()
 		return
@@ -88,6 +93,13 @@ func (g *Game) updateTitle() {
 		return
 	}
 	const dt = 1.0 / 60
+	if !ti.musicOn {
+		// the menu's own music from the very first frame (the anthem: menumusic.go), so its dip falls on the
+		// fade to black (tiEnd) and the menu goes on with the same song. The frame never waits for it: if the
+		// background thread has not finished it yet the picture runs (fading in from black) and the song
+		// comes in as soon as it is there, at the point where the picture is (ti.t)
+		ti.musicOn = g.snd.StartMenuMusicWhenReady(g.menuTier(), ti.t)
+	}
 	ti.t += dt
 	g.time = ti.t
 	if actConfirm.just() || actBack.just() || ebitenClick() {
@@ -96,12 +108,8 @@ func (g *Game) updateTitle() {
 	if !ti.leaving && ti.t >= tiEnd {
 		ti.leaving, ti.leaveT, ti.fadeLen = true, 0, tiFadeOut
 	}
-	// the music: up with the lights, down with the fade
-	vol := smooth01(ti.t / 0.6)
-	if ti.leaving {
-		vol *= 1 - smooth01(ti.leaveT/ti.fadeLen)
-	}
-	g.snd.SetSceneVolume("base", vol)
+	// the music is the menu's (syncMusic fades it in): it never fades out here, the dip of the anthem
+	// falls on the fade to black and the menu goes on with the same song
 	if ti.leaving {
 		ti.leaveT += dt
 		if ti.leaveT >= ti.fadeLen {
@@ -278,10 +286,6 @@ func (g *Game) drawTitle(dst *ebiten.Image) {
 	if t >= tiHome {
 		k := smooth01((t - tiHome) / 0.5)
 		g.drawTextC(dst, "homenaje a Party Hard", cx, titleY+236, mixc(rgb(0x05030a), rgb(0x9a90c0), k), 1)
-	}
-	if t >= tiCredits {
-		k := smooth01((t - tiCredits) / 0.5)
-		g.drawTextC(dst, "Un juego de Frange", cx, screenH-46, mixc(rgb(0x05030a), rgb(0xe8e0a0), k), 1)
 	}
 
 	// the flash of the impact, the fade in and the fade out

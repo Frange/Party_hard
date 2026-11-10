@@ -51,6 +51,10 @@ type Slasher struct {
 	name     string
 	stabT    float64
 	copRoll  float64
+	gasT     float64    // seconds spent in a gas cloud (trapany.go)
+	term     *termState // the endoskeleton's own state (terminator_killer.go), nil for the others
+	// the beak doctor's own state (plague_killer.go), nil for the others
+	plague *plagueState
 }
 
 // Witnesses should look frightened, not like cartoon sprinters. This is still
@@ -71,22 +75,28 @@ func (v *Vehicle) isHeli() bool { return v.kind == 2 || v.kind == 3 || v.kind ==
 
 // pickKillerCS chooses the look of the special enemy from the assets (or the built-ins).
 func (g *Game) pickKiller() (*CharSet, bool, string) {
-	if len(g.as.killerCS) > 0 {
-		k := g.rng.Intn(len(g.as.killerCS))
-		cs := g.as.killerCS[k]
+	if cs, saw, n, ok := g.termForced(); ok { // -killeras (terminator_killer.go)
+		return cs, saw, n
+	}
+	if cs := g.pickAssetKiller(); cs != nil {
+		cs = g.killerDressed(cs) // the tint chosen in VESTUARIO > ASESINOS (wardrobe_kinds.go)
 		return cs, cs.Spec.Weapon == HoldChainsaw || (cs.rig != nil && cs.rig.carry == HoldChainsaw), cs.Spec.Name
 	}
-	var pool []presetEntry
-	for _, k := range killerPresets {
-		if killerAllowed(k.Name) {
-			pool = append(pool, k)
-		}
+	// the killers not unlocked yet first; with all of them unlocked, any allowed one (goalkillers.go). Own dice, not g.rng.
+	all, missing := g.killerPool()
+	pool := all
+	if len(missing) > 0 {
+		pool = missing
 	}
-	e := pool[g.rng.Intn(len(pool))]
+	if len(pool) == 0 {
+		pool = killerPresets[:1]
+	}
+	e := pool[killerDice().Intn(len(pool))]
 	spec := e.F(g.rng)
 	if w, ok := weaponHold[g.shopEquip("kweapon")]; ok && ownedID(g.shopEquip("kweapon")) {
 		spec.Weapon = w
 	}
+	g.killerWear(&spec, e.Name) // the tint chosen in VESTUARIO > ASESINOS
 	return newCharSet(&spec), spec.Weapon == HoldChainsaw, e.Name
 }
 
@@ -111,6 +121,9 @@ func (g *Game) spawnSlasher() bool {
 	g.veh = append(g.veh, v)
 	g.slasherDone = true
 	g.slasher = &Slasher{cs: cs, state: slArrive, hp: 3, chainsaw: saw, name: name, dir: DirDown, need: 2 + g.rng.Intn(2)}
+	g.termSpawn(g.slasher) // the endoskeleton: tougher and slower (terminator_killer.go)
+	// the beak doctor (plague_killer.go)
+	g.plagueSpawn(g.slasher)
 	v.owner = g.slasher // two players: which killer steps out of this vehicle
 	g.snd.Play("alert")
 	g.say("Algo siniestro se acerca a la fiesta...")
@@ -134,6 +147,7 @@ func (g *Game) updateSlasher(dt float64) {
 		}
 		if g.spawnSlasher() {
 			g.kp.spawned++
+			g.killerArrived()
 		}
 		return
 	}
@@ -147,6 +161,7 @@ func (g *Game) updateSlasher(dt float64) {
 		s.stabT -= dt
 	}
 	s.moving = false
+	g.plagueTick(s, dt) // the beak doctor's sick guests (plague_killer.go)
 	switch s.state {
 	case slCuffed:
 		s.timer -= dt
@@ -186,6 +201,8 @@ func (g *Game) slasherArrives(v *Vehicle) {
 	g.shake = 0.3
 	g.snd.Play("alert")
 	g.say("¡Un asesino ha llegado a la fiesta!")
+	g.termArrive(s)
+	g.plagueArrive(s)
 }
 
 func (g *Game) slasherThink(s *Slasher, dt float64) {
@@ -235,6 +252,8 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 	if s.tgtP {
 		speed = 34 // killers only ever walk
 	}
+	speed = termSpeed(s, speed)
+	speed = plagueSpeed(s, speed)
 	if s.tgtP && !s.alert {
 		// somebody behind him takes a moment to be noticed and turned on
 		v, dv := dirVec(s.dir), dist(p.pos, s.pos)
@@ -264,6 +283,12 @@ func (g *Game) slasherThink(s *Slasher, dt float64) {
 				}
 			}
 		}
+	}
+	if g.termShoot(s, dt) { // the endoskeleton shoots from afar (terminator_killer.go)
+		return
+	}
+	if g.plagueTouch(s) { // the beak doctor makes guests sick instead (plague_killer.go)
+		return
 	}
 	// strike
 	var tp Vec
@@ -320,6 +345,9 @@ func (g *Game) slasherWitness(s *Slasher, at Vec) {
 	s.kills++
 	g.burst(Vec{at.X, at.Y - 14}, 14, 80, rgb(0xb01818), 0.6, 2, 220)
 	saw := g.copSeesAt(at)
+	if g.cameraSawKill(at) { // a security camera filmed it (camera.go)
+		saw = true
+	}
 	for _, o := range g.guests {
 		if o.out() || !g.canWatch(o) || o.perf != "" {
 			continue
@@ -448,6 +476,7 @@ func (g *Game) hitSlasher() {
 	}
 	s.state = slGone
 	g.stat("killers", 1)
+	g.killerDefeated(s.name)
 	g.spawnBody(s.pos, s.cs, s.dir)
 	g.bodies[len(g.bodies)-1].label = slasherActorName(s)
 	g.kills++
@@ -701,15 +730,16 @@ func (g *Game) escalateTo(kind int) {
 	}
 }
 
-func (g *Game) announceStars(stars int) {
-	switch stars {
-	case 2:
+// announceUnit: the news of a higher group being sent in.
+func (g *Game) announceUnit(unit int) {
+	switch unit {
+	case unitFBI:
 		g.sayNews("fbi_arrive", nil)
-	case 3:
+	case unitMilitary:
 		g.sayNews("military_arrive", nil)
-	case 4:
+	case unitSWAT:
 		g.sayNews("swat_arrive", nil)
-	case 5:
+	case unitRangers:
 		g.sayNews("rangers_arrive", nil)
 	}
 }
@@ -723,19 +753,20 @@ func (g *Game) updateStars(dt float64) {
 		g.stars = 0
 		return
 	}
+	// which group handles the case follows the share of the party the player has
+	// killed, not the stars (police_groups.go)
+	g.updatePoliceGroup()
 	if !g.playerHeat() && g.stars <= 1 && g.starFloor == 0 {
 		g.stars = 0
 		return
 	}
-	// stars only go up: more located kills bring the next authority
+	// stars only go up: they are the criminality rating (HUD, trophies, newspaper)
 	if target := g.starsTarget(); target > g.stars {
 		g.stars = target
 		g.statMax("stars", target)
 		if g.stars > g.starFloor {
 			g.starFloor = g.stars
 		}
-		g.escalateTo(unitForStars(g.stars))
-		g.announceStars(g.stars)
 	}
 }
 
@@ -797,6 +828,7 @@ func (g *Game) drawSlasher(dst *ebiten.Image, s *Slasher) {
 	swim := g.lvl.InPool(pos)
 	g.glowAt(dst, Vec{pos.X, pos.Y - 20}, 18, color.RGBA{220, 20, 20, 48})
 	g.drawActor(dst, s.cs, anim, phase, pos, s.dir, 0, swim)
+	g.termDraw(dst, s)
 	if s.state == slCuffed || (s.state == slHunt && g.lastKiller.kind == suspSlasher && g.policeCalled) {
 		g.drawCuffs(dst, pos)
 	}
@@ -807,16 +839,10 @@ func (g *Game) drawSlasher(dst *ebiten.Image, s *Slasher) {
 	}
 }
 
-func (g *Game) drawHearse(dst *ebiten.Image, pi PropImg, v *Vehicle) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(math.Round(g.wx(v.x)-pi.ox), math.Round(g.wy(v.y)-pi.oy))
-	op.ColorScale.Scale(0.28, 0.24, 0.32, 1)
-	dst.DrawImage(pi.img, op)
-	// coffin on the roof and ghostly lights
-	cx, cy := math.Round(g.wx(v.x)), math.Round(g.wy(v.y))
-	fillRect(dst, cx-14, cy-34, 28, 5, color.RGBA{60, 40, 30, 255})
-	fillRect(dst, cx-14, cy-34, 28, 1, color.RGBA{110, 80, 60, 255})
-	fillRect(dst, cx-8, cy-31, 16, 1, color.RGBA{200, 170, 60, 255})
+// drawHearse: the killer's long black hearse with the coffin on its roof rack (vehart.go).
+func (g *Game) drawHearse(dst *ebiten.Image, _ PropImg, v *Vehicle) {
+	pi := hearseImg()
+	g.drawImg(dst, pi.img, g.wx(v.x), g.wy(v.y), pi.ox, pi.oy)
 }
 
 // unitFor: which kind of responders a new vehicle carries (paramedics are
@@ -833,26 +859,21 @@ func (g *Game) unitFor(medic bool) int {
 	return g.respKind
 }
 
+// drawUnitCar: the patrol car of the FBI, the army, SWAT or the Power Rangers (pi, painted per
+// unit with its animated lights in vehart.go) and the unit's name over it.
 func (g *Game) drawUnitCar(dst *ebiten.Image, pi PropImg, v *Vehicle) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(math.Round(g.wx(v.x)-pi.ox), math.Round(g.wy(v.y)-pi.oy))
-	label, col := "SWAT", color.RGBA{230, 230, 240, 255}
+	g.drawImg(dst, pi.img, g.wx(v.x), g.wy(v.y), pi.ox, pi.oy)
+	label, col := "SWAT", color.RGBA{255, 202, 38, 255}
 	switch v.unit {
 	case unitFBI:
-		op.ColorScale.Scale(0.18, 0.2, 0.28, 1)
 		label, col = "FBI", color.RGBA{184, 66, 245, 255}
 	case unitMilitary:
-		op.ColorScale.Scale(0.2, 0.3, 0.18, 1)
 		label, col = "MILITAR", color.RGBA{60, 200, 70, 255}
-	case unitSWAT:
-		op.ColorScale.Scale(0.33, 0.35, 0.4, 1)
-		label, col = "SWAT", color.RGBA{255, 202, 38, 255}
 	case unitRangers:
-		op.ColorScale.Scale(0.4, 0.18, 0.22, 1)
 		label, col = "POWER RANGERS", color.RGBA{255, 60, 60, 255}
 	}
-	dst.DrawImage(pi.img, op)
-	g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y))-30, col, 1)
+	// over the roof (and over the light bar), never on the car itself
+	g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y)-pi.oy)-12, col, 1)
 }
 
 // copBrutal: military, SWAT and Power Rangers that cannot find the killer
@@ -950,7 +971,11 @@ func (g *Game) tankCrush(a *Ambient) {
 		if v.isHeli() || v.dead {
 			continue
 		}
-		if math.Abs(v.x-a.x) < 56 && math.Abs(v.y-a.y) < 12 {
+		vx, reach := v.x, 56.0
+		if v.kind == 6 && g.lvl.Def.Transit == "" { // the long limousine (limo.go)
+			vx, reach = limoCentre(v), limoHalfLen+23
+		}
+		if math.Abs(vx-a.x) < reach && math.Abs(v.y-a.y) < 12 {
 			g.vehicleDestroyed(v)
 		}
 	}

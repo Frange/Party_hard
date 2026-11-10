@@ -364,10 +364,10 @@ type ObjMeta struct {
 	UseKind  string  `json:"use_kind,omitempty"` // drink | toilet | lounge
 	UseX     []int   `json:"use_x,omitempty"`
 	UseY     []int   `json:"use_y,omitempty"`
-	Ambient  float64 `json:"ambient_speed"` // >0: crosses the street now and then
-	LightR   int     `json:"light_r,omitempty"`     // light radius in pixels (0 = the default)
-	LightCol [3]int  `json:"light_col,omitempty"`   // light colour
-	LightA   int     `json:"light_a,omitempty"`     // light strength 0..255 (0 = the default)
+	Ambient  float64 `json:"ambient_speed"`       // >0: crosses the street now and then
+	LightR   int     `json:"light_r,omitempty"`   // light radius in pixels (0 = the default)
+	LightCol [3]int  `json:"light_col,omitempty"` // light colour
+	LightA   int     `json:"light_a,omitempty"`   // light strength 0..255 (0 = the default)
 }
 
 type ObjAsset struct {

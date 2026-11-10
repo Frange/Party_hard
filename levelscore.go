@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"math"
 )
 
@@ -21,7 +20,7 @@ import (
 //       +bonusComplete   for finishing the party,
 //       +bonusUnseen     if no witness ever saw you kill (run.seen == 0),
 //       +bonusTimeFast / +bonusTimeMid  if it took less than timeFastS / timeMidS seconds.
-//   - NEW, RETO (g.challenge, key C in the level list or the -challenge flag):
+//   - NEW, RETO (g.challenge: set by RETO DE HOY, daily.go; the C key is gone):
 //       every kill is worth challengeKillMult times (x3, applied live through killVal, so the HUD shows it),
 //       and when the level is COMPLETED the whole total (kills + bonuses) is multiplied by challengeFinishMult (x5).
 //       Dying, being caught or leaving the party gives no x5 and no completion bonuses (the x3 on the
@@ -94,6 +93,7 @@ type runStats struct {
 	jailed               int  // 2P: times a player was taken into custody
 	wasHeld              [2]bool
 	slasher              bool // another killer walked the party
+	knifed               bool // the knife (or hands, guards, officers, killer) took a life: no "noknife" trophy
 	fin                  finishBreak
 	done                 bool // fin is the real final breakdown (the level was completed)
 }
@@ -185,6 +185,9 @@ func (g *Game) countKill(c killCause, guest bool) {
 	}
 	pi := g.statPlayer(c)
 	r := &g.run
+	if c == kcKnife {
+		r.knifed = true
+	}
 	r.kills[pi][c]++
 	r.lastPl = pi
 	if g.time-r.chainLast[pi] <= chainWindow && r.chainN[pi] > 0 {
@@ -222,6 +225,7 @@ func (g *Game) trackCuffs() {
 			g.run.wasHeld[i] = pl.jail.held
 		}
 	}
+	escaped := false
 	for i, pl := range g.players() {
 		if i > 1 {
 			break
@@ -230,7 +234,13 @@ func (g *Game) trackCuffs() {
 		if s && !g.run.wasSus[i] {
 			g.run.cuffed[i]++
 		}
+		if g.escapeTick(pl, g.run.wasSus[i], s) { // the search ended and he is free (copsets.go)
+			escaped = true
+		}
 		g.run.wasSus[i] = s
+	}
+	if escaped {
+		g.cuffEscaped()
 	}
 }
 
@@ -256,6 +266,9 @@ func (g *Game) previewFinish() finishBreak {
 	f.total = sum
 	if g.challenge {
 		f.total = sum * challengeFinishMult
+		if g.dc != nil {
+			f.total += dailyBonus // RETO DE HOY: extra on top (shown inside the x5 line)
+		}
 		f.finalExtra = f.total - sum
 	}
 	f.wallet = int(float64(f.total) * g.perkMoney)
@@ -273,21 +286,6 @@ func (g *Game) finishScore() {
 	g.run.fin = g.previewFinish()
 	g.points = g.run.fin.total
 	g.run.done = true
-}
-
-// challengeSelectLine / challengeSelectCol: the single line of the party list that shows the RETO switch.
-func challengeSelectLine(on bool) string {
-	if on {
-		return "C: RETO x3 / x5 de puntos: ACTIVADO"
-	}
-	return "C: RETO x3 / x5 de puntos: desactivado"
-}
-
-func challengeSelectCol(on bool) color.RGBA {
-	if on {
-		return rgb(0xff9030)
-	}
-	return rgb(0x6f7b8a)
 }
 
 // levelDoneDemo is the debug flag -leveldonedemo: the end-of-level screen with sample data (frozen progress).

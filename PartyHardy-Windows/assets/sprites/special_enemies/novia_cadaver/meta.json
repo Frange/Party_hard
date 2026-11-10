@@ -1,0 +1,11 @@
+{
+  "name": "novia_cadaver",
+  "display_name": "Novia Cadaver",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "f",
+  "carry": "knife",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

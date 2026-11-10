@@ -27,7 +27,7 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	hudX, hudY = 6.0, 4.0
+	hudX, hudY = 16.0, 16.0 // 16 px from the screen edges (as the trophy counter)
 	hudW       = 248.0
 	hudPad     = 8.0
 	hudBarY    = 46.0 // relative to hudY
@@ -226,7 +226,8 @@ func (g *Game) drawHUDPanel(dst *ebiten.Image) {
 
 	// ---- the time of the level (the one the speed bonus counts)
 	g.drawHUDClock(dst, px+hudPad, py+hudRowTY)
-	g.drawChips(dst, right, py+hudRowTY) // RETO / CADENA moved here: the bigger BAJAS figures need the whole row above
+	g.drawHUDStatus(dst, g.hudIconsX(), py+hudRowTY+hudIconDY) // status icons (hudicons.go): right of the clock, only the active ones
+	g.drawChips(dst, right, py+hudRowTY)                       // RETO / CADENA moved here: the bigger BAJAS figures need the whole row above
 
 	// ---- forces on the scene
 	for i, l := range lines {
@@ -271,8 +272,26 @@ func (g *Game) drawChips(dst *ebiten.Image, right, y float64) {
 	}
 	if g.challenge {
 		s := "RETO x3"
-		g.drawText(dst, s, right-g.textW(s, 1), y, rgb(0xff9030), 1)
+		if left, ok := g.dailyTimeLeft(); ok { // RETO DE HOY "Contrarreloj": the time left, red in the last minute
+			s = "RETO " + hudClockText(left) // compact: the x3 is in the party list and the score anyway
+		}
+		w := g.textW(s, 1)
+		col := rgb(0xff9030)
+		if left, ok := g.dailyTimeLeft(); ok && left < 60 && int(g.time*2)%2 == 0 {
+			col = rgb(0xff4a3a)
+		}
+		g.drawText(dst, s, right-w, y, col, 1)
+		drawChallengeFlag(dst, right-w-9, y, col)
 	}
+}
+
+// drawChallengeFlag: the 6x7 flag icon of the RETO chip (whole pixels, dark edge).
+func drawChallengeFlag(dst *ebiten.Image, x, y float64, c color.RGBA) {
+	dark := rgb(0x1a0c10)
+	fillRect(dst, x, y, 1, 7, rgb(0xd8d0f0))
+	fillRect(dst, x+1, y, 5, 1, dark)
+	fillRect(dst, x+1, y+1, 5, 3, c)
+	fillRect(dst, x+1, y+4, 4, 1, dark)
 }
 
 // hudClockColor: the colour of the level time. Green while the full speed bonus is within reach (<3:00), amber while
@@ -314,4 +333,38 @@ func (g *Game) drawHUDClock(dst *ebiten.Image, x, y float64) {
 	fillRect(dst, x+3, y+2, 1, 2, c) // minute hand
 	fillRect(dst, x+3, y+3, 2, 1, c) // hour hand
 	g.drawText(dst, hudClockText(g.time), x+11, y, c, 1)
+}
+
+// hudSideGap: the free space between the HUD panel and the first note under it.
+const hudSideGap = 12.0
+
+// hudSide: the y of each note stacked in the column under the HUD panel (OBJETO, stamina bar(s), ambulance, jail),
+// one under the other and never touching: a block only takes room when it is on screen. x is always hudX.
+func (g *Game) hudSide() (obj, stam, rev, jail float64) {
+	y := g.hud.bottom - 3 + hudSideGap
+	lines := 1
+	if g.is2P() {
+		lines = 2
+	}
+	obj = y
+	for _, pl := range g.players() {
+		if pl.item != "" && g.mode == ModePlay {
+			y += 12*float64(lines) + 2
+			break
+		}
+	}
+	stam = y
+	for _, pl := range g.players() {
+		if g.mode == ModePlay && pl.stamina < 5.9 {
+			y += 10 + float64(lines-1)*6 // the bar(s) are 4 high, 6 apart
+			y += 6
+			break
+		}
+	}
+	rev = y
+	if g.is2P() {
+		y += 14
+	}
+	jail = y
+	return
 }

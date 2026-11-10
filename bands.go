@@ -48,12 +48,65 @@ var bandList = []Band{
 	{"elvis", "Elvis", []bandMember{{"elvis", "sing", 0, 0}}},
 }
 
+// bandMusician: a band member shown by his real (or stage) name and what he plays (a card word of lang_goals.go).
+type bandMusician struct{ name, part string }
+
+// bandRealNames: the musicians shown by their name. Owner's policy (2026-11-10): only MUSICIANS get their real name, and
+// only when the name and the role are known for sure; the rest keep "<band> · <role>". Never a member with a notorious
+// serious criminal conviction (the singer of Lost Prophets keeps "Lost Prophets · cantante"). The other real people of
+// the game keep no visible real name unless the owner decides otherwise. The slugs (folders) do not change.
+var bandRealNames = map[string]bandMusician{
+	"deryck": {"Deryck Whibley", "Cantante"}, "dave_baksh": {"Dave Baksh", "Guitarra"}, "jason_mc": {"Jason McCaslin", "Bajo"}, "frank_zummo": {"Frank Zummo", "Batería"},
+	"mark_hoppus": {"Mark Hoppus", "Bajo"}, "tom_delonge": {"Tom DeLonge", "Guitarra"}, "travis_barker": {"Travis Barker", "Batería"},
+	"sp_cantante": {"Pierre Bouvier", "Cantante"}, "sp_bajo": {"David Desrosiers", "Bajo"}, "sp_bateria": {"Chuck Comeau", "Batería"},
+	"off_cantante": {"Dexter Holland", "Cantante"}, "off_guitarra": {"Noodles", "Guitarra"},
+	"met_cantante": {"James Hetfield", "Cantante"}, "met_guitarra": {"Kirk Hammett", "Guitarra"}, "met_bajo": {"Robert Trujillo", "Bajo"}, "met_bateria": {"Lars Ulrich", "Batería"},
+	"bt_cantante": {"Ben Kowalewicz", "Cantante"}, "bt_guitarra": {"Ian D'Sa", "Guitarra"}, "bt_bajo": {"Jon Gallant", "Bajo"},
+	"lp_guitarra": {"Lee Gaze", "Guitarra"}, "lp_bajo": {"Stuart Richardson", "Bajo"}, "lp_ritmo": {"Mike Lewis", "Guitarra rítmica"}, "lp_corista": {"Jamie Oliver", "Coros"},
+	"des_cantante": {"Dani Marco", "Cantante"},
+}
+
+// bandMemberName: the visible name of a band member: his real name when it is in bandRealNames, else "<band> · <role>".
+func bandMemberName(slug, band, role string) string {
+	if m, ok := bandRealNames[slug]; ok {
+		return m.name
+	}
+	name := band + " · " + role
+	if en, ok := bandRoleEN[role]; ok { // the fallback must not show a Spanish role in English
+		langDataEN[name] = band + " · " + en
+	}
+	return name
+}
+
+// bandRoleEN: English of the roles used by the "<band> · <role>" fallback of bandMemberName.
+var bandRoleEN = map[string]string{"cantante": "singer", "guitarra": "guitar", "bajo": "bass", "bateria": "drums", "batería": "drums", "rítmica": "rhythm guitar", "corista": "backing vocals"}
+
+// bandOfMember: the band of a musician shown by his name ("" for the others).
+func bandOfMember(slug string) string {
+	if _, ok := bandRealNames[slug]; !ok {
+		return ""
+	}
+	for _, b := range bandList {
+		for _, m := range b.members {
+			if m.slug == slug {
+				return b.name
+			}
+		}
+	}
+	return ""
+}
+
 func init() {
+	for k, v := range map[string]string{"Guitarra rítmica": "Rhythm guitar", "Coros": "Backing vocals"} {
+		if _, ok := langDataEN[k]; !ok {
+			langDataEN[k] = v
+		}
+	}
 	mk := func(prefix, band string, fem bool, opts [4][]po) {
 		for i, role := range []string{"cantante", "guitarra", "bajo", "bateria"} {
 			slug := prefix + "_" + role
 			starPresets = append(starPresets, def(slug, opts[i]...))
-			displayNameOverrides[slug] = band + " · " + role
+			displayNameOverrides[slug] = bandMemberName(slug, band, role)
 		}
 	}
 	mk("sp", "Simple Plan", false, [4][]po{
@@ -62,11 +115,11 @@ func init() {
 		{hairc(0xe8c860, HairSpiky), tops(TopTank, 0x14141a, 0x14141a), pantsc(0x4a4a56), suspc(0xd02828)},
 		{hairc(0x2a1a14, HairShort), tops(TopTee, 0x2a60d0, 0x2a60d0), pantsc(0x14141a), glass(GlassRound)},
 	})
-	mk("off", "The Offspring", false, [4][]po{
-		{hairc(0xe8c860, HairDreads), tops(TopTee, 0x14141a, 0x14141a), pantsc(0x3a4a6a), shoesc(0x14141a)},
-		{hairc(0x2a1a14, HairLong), beardc(BeardFull), tops(TopTank, 0x8a2a2a, 0x8a2a2a), pantsc(0x14141a)},
-		{hairc(0x14101a, HairShort), glass(GlassRound), tops(TopTee, 0xf4f4f4, 0x14141a), patn(2), pantsc(0x4a4a56)},
-		{hairc(0x4a3018, HairMessy), tops(TopTank, 0x2a8a4a, 0x2a8a4a), pantsc(0x14141a), bottomc(BotShorts, 0x14141a)},
+	mk("off", "The Offspring", false, [4][]po{ // polo, check shirt and the flaming skull: pnk_art.go
+		{skinc(0xf0c8a8), hairc(0xf0dc90, HairShort), tops(TopTee, 0x1a1a20, 0x1a1a20), pantsc(0x5a6a80), shoesc(0x14141a)},
+		{skinc(0xecc4a0), hairc(0x14141a, HairShort), glass(GlassShades), tops(TopLong, 0x1c1c22, 0xe2e2e2), pantsc(0x16161c), shoesc(0x14141a)},
+		{skinc(0xf0c8a8), hairc(0x14101a, HairShort), glass(GlassRound), tops(TopTee, 0x1a1a20, 0x1a1a20), pantsc(0x3a4a6a), shoesc(0x14141a)},
+		{skinc(0xe0b090), hairc(0x4a3018, HairMessy), tops(TopTank, 0x1a1a20, 0x1a1a20), bottomc(BotShorts, 0x2a2a30), shoesc(0x14141a)},
 	})
 	mk("met", "Metallica", false, [4][]po{
 		{hairc(0x14101a, HairShort), beardc(BeardGoatee), tops(TopTee, 0x14141a, 0x14141a), pantsc(0x14141a), shoesc(0x14141a), skinc(0xe0b090)},
@@ -74,29 +127,31 @@ func init() {
 		{hairc(0x2a1a14, HairLong), beardc(BeardFull), tops(TopTank, 0x14141a, 0x8a8a94), pantsc(0x14141a), bodyc(BodyBig)},
 		{hairc(0x4a3a2a, HairShort), tops(TopTee, 0x14141a, 0x14141a), pantsc(0x3a4a6a), shoesc(0x14141a)},
 	})
+	// Punk Sailor, Billy Talent, Lost Prophets and Despistaos: every colour fixed (each member always draws the same,
+	// so the exported pictures follow the code); jackets, prints, fringes, tattoos and the cap in bandsb_art.go
 	mk("ps", "Punk Sailor", false, [4][]po{
-		{hatc(HatCap, 0xf4f4f4), hairc(0xe03a8a, HairMohawk), tops(TopTee, 0xf4f4f4, 0x2a4ab8), patn(2), pantsc(0xf4f4f4)},
-		{hairc(0x3ad0a8, HairMohawk), hatc(HatCap, 0xf4f4f4), tops(TopTee, 0xf4f4f4, 0x2a4ab8), patn(2), bottomc(BotShorts, 0x2a4ab8)},
-		{hairc(0xf0c030, HairSpiky), tops(TopTank, 0xf4f4f4, 0xf4f4f4), pantsc(0x2a4ab8), suspc(0xd02828)},
-		{hatc(HatCap, 0x2a4ab8), hairc(0x14101a, HairShort), tops(TopTee, 0xf4f4f4, 0x2a4ab8), patn(2), pantsc(0xf4f4f4)},
+		{skinc(0xf0cca8), hairc(0x2a1e16, HairShort), hatc(HatPolice, 0x161a28), beardc(BeardStubble), tops(TopLong, 0x1c1c22, 0x1c1c22), pantsc(0x18181c), shoesc(0x101014)},
+		{skinc(0xe8c09c), hairc(0x16121a, HairShort), hatc(HatNone, 0), beardc(BeardStubble), tops(TopLong, 0xf4f4f4, 0xf4f4f4), pantsc(0x18181c), shoesc(0x101014)},
+		{skinc(0xe8c4a0), hairc(0x3a2414, HairCurly), hatc(HatNone, 0), glass(GlassShades), tops(TopTank, 0x1a1a1e, 0x1a1a1e), pantsc(0x1a1a1e), shoesc(0x101014)},
+		{skinc(0xe8c09c), hairc(0x1e1410, HairLong), hatc(HatNone, 0), beardc(BeardGoatee), tops(TopSuit, 0xeceae4, 0x18181c), accentc(0x18181c), pantsc(0x16161c), shoesc(0x101014)},
 	})
 	mk("bt", "Billy Talent", false, [4][]po{
-		{hairc(0x14101a, HairCurly), tops(TopSuit, 0x14141a, 0xf4f4f4), pantsc(0x14141a), accentc(0xc82a2a)},
-		{hairc(0x14101a, HairSpiky), tops(TopLong, 0x6a2a2a, 0x6a2a2a), pantsc(0x2a2a30)},
-		{hatc(HatBeanie, 0x14141a), tops(TopTee, 0xe8e8f0, 0xe8e8f0), pantsc(0x3a4a6a), beardc(BeardStubble)},
-		{hairc(0x4a3018, HairComb), tops(TopTank, 0x14141a, 0x14141a), pantsc(0x14141a)},
+		{skinc(0xf0d0b8), hairc(0x0e0c12, HairLong), hatc(HatNone, 0), tops(TopLong, 0x2c2c36, 0x2c2c36), pantsc(0x1c1c22), shoesc(0x101014), bodyc(BodySlim)},
+		{skinc(0xb07a50), hairc(0x0e0c12, HairShort), hatc(HatNone, 0), beardc(BeardStubble), tops(TopLong, 0x1a1a20, 0x1a1a20), pantsc(0x141418), shoesc(0x101014)},
+		{skinc(0xf0c8a8), hairc(0x8a6a4a, HairBald), hatc(HatNone, 0), tops(TopTee, 0x16161c, 0x16161c), pantsc(0x2c3448), shoesc(0x101014), bodyc(BodyBig)},
+		{skinc(0xf2d0b4), hairc(0x5a3a22, HairSide), hatc(HatNone, 0), tops(TopTee, 0xf4f4f4, 0xf4f4f4), pantsc(0x16161c), shoesc(0x101014), suspc(0x101014)},
 	})
 	mk("lp", "Lost Prophets", false, [4][]po{
-		{hairs(HairBald), beardc(BeardGoatee), tops(TopHoodie, 0x14141a, 0x14141a), pantsc(0x3a4a6a)},
-		{hairc(0x14101a, HairMessy), tops(TopHoodie, 0xc02a2a, 0xc02a2a), pantsc(0x14141a)},
-		{hairc(0xe8c860, HairSpiky), tops(TopTee, 0x2a4ab8, 0x2a4ab8), pantsc(0x4a4a56)},
-		{hatc(HatCap, 0xf4f4f4), tops(TopTank, 0x14141a, 0x14141a), pantsc(0x14141a), bottomc(BotShorts, 0x14141a)},
+		{skinc(0xe8c0a0), hairc(0x16121a, HairSide), hatc(HatNone, 0), tops(TopTee, 0x18181c, 0xe8e8e8), pantsc(0xa85e2c), shoesc(0x16161c)},
+		{skinc(0xf0cfb4), hairc(0x2a1a14, HairLong), hatc(HatNone, 0), tops(TopTee, 0x1a1a20, 0xd8d0c0), pantsc(0x7a4426), shoesc(0x16161c), bodyc(BodySlim)},
+		{skinc(0xe8c4a4), hairc(0x16121a, HairShort), hatc(HatNone, 0), tops(TopTee, 0x18181c, 0x18181c), pantsc(0xb06a34), shoesc(0x3a2a1e), bodyc(BodyBig)},
+		{skinc(0xe8c0a0), hairc(0x4a2e1a, HairLong), hatc(HatNone, 0), beardc(BeardFull), tops(TopTee, 0x18181c, 0x9a9ea8), pantsc(0x8a4c26), shoesc(0x2a2018), bodyc(BodyBig), stat(-1)},
 	})
 	mk("des", "Despistaos", false, [4][]po{
-		{hairc(0x3a2414, HairMessy), beardc(BeardStubble), tops(TopLong, 0x8a6a4a, 0x8a6a4a), pantsc(0x3a4a6a)},
-		{hairc(0x14101a, HairShort), tops(TopTee, 0xe8e8f0, 0x2a8a8a), patn(2), pantsc(0x2a2a30)},
-		{hairc(0x5a3a22, HairCurly), tops(TopTank, 0x2a2a30, 0x2a2a30), pantsc(0x6a5a3a)},
-		{hatc(HatBeanie, 0x6a6a74), tops(TopTee, 0xc8a840, 0xc8a840), pantsc(0x2a2a30), beardc(BeardMustache)},
+		{skinc(0xe8c09c), hairc(0xff3cb4, HairMessy), hatc(HatNone, 0), beardc(BeardFull), tops(TopTee, 0x22463a, 0x22463a), pantsc(0x4a5a74), shoesc(0x2a2a30)},
+		{skinc(0xe8c4a0), hairc(0x2a1e16, HairMessy), hatc(HatNone, 0), glass(GlassShades), tops(TopTee, 0x8a929c, 0x8a929c), pantsc(0x22242c), shoesc(0x16161c)},
+		{skinc(0xe4b894), hairc(0x16121a, HairShort), hatc(HatNone, 0), beardc(BeardFull), tops(TopTee, 0xf4f4f4, 0xf4f4f4), pantsc(0x1c1c22), shoesc(0x16161c)},
+		{skinc(0xd8ac84), hairc(0x16121a, HairCurly), hatc(HatNone, 0), glass(GlassRound), tops(TopTee, 0xf4f4f4, 0xf4f4f4), pantsc(0x1c1c22), shoesc(0x16161c)},
 	})
 }
 

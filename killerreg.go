@@ -11,26 +11,37 @@ import (
 //
 // Before: EVERY level had one 28-68 s after the start and, after each one was caught, up to two more 70-130 s later.
 // Now (killerRegulation):
-//   - a level has a killer with probability killerChance (1/3), at a random moment (killerAtMin..killerAtMax);
-//   - the SLOW-PLAYER ACCELERATOR: once the level passes killerLateAfter (3:30) one comes anyway;
+//   - a level has a killer with probability killerChance (0.22), at a random moment (killerAtMin..killerAtMax);
+//     never two parties in a row with one: on average 1 party in 5-6 (0.18). The old slow-player accelerator
+//     (3:30, one comes anyway) was REMOVED: it gave a killer to almost every long party;
 //   - at most ONE per level, unless the level passes killerSecondAfter (5:00): then one more (two in total at most);
 //   - never in STEALTH (those levels never plan one), not in cinematics (they never run updateSlasher);
 //   - 2P: the clock is the level's (g.time), and the budget is shared by both killer slots.
 // The time is g.time: game time without pauses (the one the speed bonus uses).
 // Not part of the rule: the T-Rex / island monsters (level design), and a guest who goes mad for a while
 // (murderT in game.go, a guest, not a new arrival).
+// After one is killed (goalkillers.go): the next different killer comes at the latest 2 parties later (Progress.KillerWait).
 // -killer forces one at ~6 s (like -fastevents) in every party; K (debug key) still sends one by hand.
 // ---------------------------------------------------------------------------
 
 const (
 	killerRegulation  = true
-	killerChance      = 1.0 / 3
+	killerChance      = 0.22 // per party; with no back-to-back parties the real rate is p/(1+p) = ~0.18 (1 in 5-6)
 	killerAtMin       = 30.0
 	killerAtMax       = 150.0
-	killerLateAfter   = 210.0 // 3:30
 	killerSecondAfter = 300.0 // 5:00
 	killerForcedAt    = 6.0
 )
+
+var killerRng *rand.Rand
+
+// killerDice: one own generator for the whole session (a new time-seeded one per level could repeat).
+func killerDice() *rand.Rand {
+	if killerRng == nil {
+		killerRng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
+	return killerRng
+}
 
 // dbgKiller: -killer forces a killer in every party (debug).
 var dbgKiller bool
@@ -43,7 +54,16 @@ type killerPlan struct {
 
 // killerPlanFor decides whether a level gets a killer and when (its own rand: the dice of the party are not moved).
 func killerPlanFor(r *rand.Rand, stealth bool) killerPlan {
+	return killerPlanAfter(r, stealth, false)
+}
+
+// killerPlanAfter: prev = the previous party had a killer, so this one never does (no back-to-back killers).
+func killerPlanAfter(r *rand.Rand, stealth, prev bool) killerPlan {
 	if stealth {
+		return killerPlan{}
+	}
+	if prev {
+		r.Float64() // keep the dice stream the same length
 		return killerPlan{}
 	}
 	if r.Float64() >= killerChance {
@@ -58,17 +78,15 @@ func (k killerPlan) allowed(t float64) int {
 	if k.planned && t >= k.at {
 		n = 1
 	}
-	if t >= killerLateAfter {
-		n = maxI(n, 1)
-	}
-	if t >= killerSecondAfter {
-		n = 2
+	if k.planned && t >= killerSecondAfter {
+		n = 2 // a party that drags on past 5:00 may get one more (only if it had one already)
 	}
 	return n
 }
 
 // killerLevelReset runs when a level loads.
 func (g *Game) killerLevelReset() {
+	prev := g.kp.planned
 	g.kp = killerPlan{}
 	if !killerRegulation {
 		return
@@ -81,7 +99,13 @@ func (g *Game) killerLevelReset() {
 	case dbgKiller || fastEv:
 		g.kp = killerPlan{planned: true, at: killerForcedAt}
 	default:
-		g.kp = killerPlanFor(rand.New(rand.NewSource(time.Now().UnixNano())), g.stealth)
+		g.kp = killerPlanAfter(killerDice(), g.stealth, prev)
+		// after a killer was killed, the next one (a different one: goalkillers.go) is guaranteed within
+		// killerNextWithin parties; never right after a party that had one (the no-back-to-back rule above)
+		if g.killerWaitStep(prev) && !g.kp.planned {
+			d := killerDice()
+			g.kp = killerPlan{planned: true, at: killerAtMin + d.Float64()*(killerAtMax-killerAtMin)}
+		}
 	}
 }
 

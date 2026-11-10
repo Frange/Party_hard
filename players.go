@@ -22,17 +22,19 @@ import (
 //                   the keyboard and player 2 on the pad; no pad -> both share the keyboard
 //                   (player 1 W A S D, player 2 the arrow keys).
 //   binds2          the keys and pad buttons of player 2 (input2.go): arrows, right Shift
-//                   and . , / by default. Player 2 only has the player actions (move, run,
-//                   stab, interact, dance); back, confirm, the event key and the powers
-//                   are shared and belong to player 1.
+//                   and . , / by default, and P N H U Y B T for back, confirm, the event key
+//                   and the powers. Player 2 has every action player 1 has (same list, same
+//                   rows in the settings); the party-wide ones (event key, powers, pause)
+//                   fire when either player presses his own key (Action.justEither).
 //   autoDevices()   the device of each player (input2.go): what the game uses when a party
 //                   starts, and again each frame while two play, so a pad that is plugged in
 //                   or pulled out takes effect at once.
 //   wardrobeNumPlayers (wardrobe.go) answers 2 when this switch says so (twoPlayerMode).
 // ---------------------------------------------------------------------------
 
-// the player actions: movement, run, stab, interact and dance (player 2 has its own keys for them)
-const actPlayerCount = int(actDance) + 1
+// the actions each player has his own keys for: all of them (movement, run, stab, interact, dance, back,
+// confirm, the event key and the powers), so player 2 rebinds exactly what player 1 does
+const actPlayerCount = int(actCount)
 
 const devAutoPref = -2 // "choose for me" in devPref
 
@@ -52,12 +54,14 @@ type savedPlayers struct {
 func loadPlayerSettings() {
 	raw := readSettingsFile()
 	binds2 = defaultBindings2()
+	var saved [actCount]bool
 	for i := 0; i < actPlayerCount; i++ {
 		var sb savedBinding
 		if m, ok := raw["p2_"+actionIDs[i]]; ok && json.Unmarshal(m, &sb) == nil {
-			binds2[i] = bindingFrom(sb, binds2[i])
+			binds2[i], saved[i] = bindingFrom(sb, binds2[i]), true
 		}
 	}
+	dropTakenDefaults2(saved)
 	resolveKeyClashes()
 	twoPlayerMode, devPref = false, [2]int{devAutoPref, devAutoPref}
 	sp := savedPlayers{Dev1: devAutoPref, Dev2: devAutoPref}
@@ -266,6 +270,36 @@ func resolveKeyClashes() {
 				if binds2[b].Keys[0] == k || binds2[b].Keys[1] == k {
 					binds[a].Keys[s] = noKey
 				}
+			}
+		}
+	}
+}
+
+// dropTakenDefaults2: an action of player 2 that the file does not hold (a file written when player 2 only
+// had the movement, run, stab, interact and dance) gets its default keys, unless player 1 or another saved
+// action of player 2 already uses that key: then that slot stays empty instead of taking the key from the
+// player who chose it. Nothing is written to the file.
+func dropTakenDefaults2(saved [actCount]bool) {
+	taken := func(k ebiten.Key, slot int) bool {
+		for a := 0; a < actPlayerCount; a++ {
+			for s := 0; s < 2; s++ {
+				if k1 := binds[a].Keys[s]; k1 == k && !(s == 1 && isArrowKey(k1)) {
+					return true
+				}
+			}
+			if slot == 0 && saved[a] && (binds2[a].Keys[0] == k || binds2[a].Keys[1] == k) { // the second key is an alias of his own (. confirms too)
+				return true
+			}
+		}
+		return false
+	}
+	for a := 0; a < actPlayerCount; a++ {
+		if saved[a] {
+			continue
+		}
+		for s := 0; s < 2; s++ {
+			if k := binds2[a].Keys[s]; k != noKey && taken(k, s) {
+				binds2[a].Keys[s] = noKey
 			}
 		}
 	}

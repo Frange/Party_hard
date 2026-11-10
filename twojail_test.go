@@ -3,7 +3,10 @@ package main
 import "testing"
 
 // two players, the police called and one officer on the scene
-func jailGame() (*Game, *Cop) {
+func jailGame(t *testing.T) (*Game, *Cop) {
+	old := jailHold // the custody flag is a global: leave it as found
+	jailHold = false
+	t.Cleanup(func() { jailHold = old })
 	g := twoGame(true)
 	g.policeCalled, g.pendingCar, g.pendingUnit = true, -1, -1
 	g.p.pos, g.p2.pos = Vec{200, 300}, Vec{240, 300}
@@ -17,7 +20,7 @@ func seenKill(g *Game, p *Player) {
 }
 
 func TestCuffsGoToOneAndThenToBoth(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	p1, p2 := g.p, g.p2
 	g.wanted = 70 // the call to the police raised the search
 	seenKill(g, p1)
@@ -34,7 +37,7 @@ func TestCuffsGoToOneAndThenToBoth(t *testing.T) {
 }
 
 func TestKillerSeenClearsBothAndTheNextKillIsOnlyHis(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	p1, p2 := g.p, g.p2
 	seenKill(g, p1)
 	seenKill(g, p2)
@@ -53,7 +56,7 @@ func TestKillerSeenClearsBothAndTheNextKillIsOnlyHis(t *testing.T) {
 }
 
 func TestTwoKillersKeepTheCaseOpen(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	g.slasher = &Slasher{state: slGone}
 	g.slot2.s = &Slasher{state: slHunt, pos: Vec{400, 300}}
 	g.lastKiller = lastKill{kind: suspSlasher}
@@ -64,7 +67,7 @@ func TestTwoKillersKeepTheCaseOpen(t *testing.T) {
 }
 
 func TestNobodySawItTheLastKillerIsTheSuspect(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	g.p.jail.killT = 5
 	g.p2.jail.killT = 9
 	g.wanted = 0
@@ -75,7 +78,7 @@ func TestNobodySawItTheLastKillerIsTheSuspect(t *testing.T) {
 }
 
 func TestOfficerChasesTheSuspectNotTheOther(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1, p2 := g.p, g.p2
 	g.wanted = 70
 	p2.jail.sus = true
@@ -92,7 +95,7 @@ func TestOfficerChasesTheSuspectNotTheOther(t *testing.T) {
 }
 
 func TestCatchHoldsHimAndPartyGoesOn(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1, p2 := g.p, g.p2
 	p1.jail.sus = true
 	g.wanted = 70
@@ -112,7 +115,7 @@ func TestCatchHoldsHimAndPartyGoesOn(t *testing.T) {
 }
 
 func TestPrisonBreakAfterAMinute(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1 := g.p
 	orig := p1.cs
 	g.jailPlayer(c, p1)
@@ -136,7 +139,7 @@ func TestPrisonBreakAfterAMinute(t *testing.T) {
 }
 
 func TestCaughtAgainOrDyingAfterTheEscapeIsFinal(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1, p2 := g.p, g.p2
 	p1.jail.lastLife = true
 	g.copCatch(c, p1)
@@ -153,7 +156,7 @@ func TestCaughtAgainOrDyingAfterTheEscapeIsFinal(t *testing.T) {
 }
 
 func TestPartnerDiesWhileHeldIsGameOver(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	g.jailPlayer(c, g.p)
 	g.withPlayer(g.p2, func() { g.die("un piano") })
 	if g.mode != ModeLose {
@@ -162,7 +165,7 @@ func TestPartnerDiesWhileHeldIsGameOver(t *testing.T) {
 }
 
 func TestBothCaughtIsGameOver(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	g.jailPlayer(c, g.p)
 	g.copCatch(c, g.p2)
 	if g.mode != ModeLose {
@@ -171,7 +174,7 @@ func TestBothCaughtIsGameOver(t *testing.T) {
 }
 
 func TestPartnerFreesHimUnseen(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1, p2 := g.p, g.p2
 	orig := p1.cs
 	g.jailPlayer(c, p1)
@@ -189,7 +192,7 @@ func TestPartnerFreesHimUnseen(t *testing.T) {
 }
 
 func TestRescueFailsIfAnOfficerSees(t *testing.T) {
-	g, c := jailGame()
+	g, c := jailGame(t)
 	p1, p2 := g.p, g.p2
 	g.jailPlayer(c, p1)
 	p2.pos = Vec{p1.jail.pos.X + 10, p1.jail.pos.Y}
@@ -223,7 +226,7 @@ func TestOnePlayerCatchEndsTheParty(t *testing.T) {
 }
 
 func TestShakeOffAndCloseCaseClearTheCuffs(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	p1, p2 := g.p, g.p2
 	g.wanted = 70
 	p1.jail.sus, p2.jail.sus = true, true
@@ -243,7 +246,7 @@ func TestShakeOffAndCloseCaseClearTheCuffs(t *testing.T) {
 }
 
 func TestPrisonerSuitIsStriped(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	cs := g.prisonerCS(g.p)
 	if cs == nil || cs.Spec == nil || cs.Spec.Pattern != 2 || cs.Spec.Top != TopLong {
 		t.Fatal("the prisoner suit is a striped long-sleeved top")
@@ -257,7 +260,7 @@ func TestPrisonerSuitIsStriped(t *testing.T) {
 }
 
 func TestBallFollowsAtChainLength(t *testing.T) {
-	g, _ := jailGame()
+	g, _ := jailGame(t)
 	p := g.p
 	p.jail.lastLife = true
 	p.jail.ball = p.pos

@@ -31,6 +31,8 @@ GIT: NADIE LO TOCA. Solo el usuario hace commits, push y cambios del índice. Ni
 
 ## Orden de una entrega
 implementación -> QA -> Build -> Limpieza -> informe al usuario.
+
+**VERSIÓN Y CHANGELOG (regla del usuario, 2026-11-10)**: cada tanda con novedades sube la versión semver en `version.go` (`gameVersion`; menor = x.y.Z, medio = x.Y.0, grande = X.0.0) y añade su entrada arriba en `CHANGELOG.md` (`## [vX.Y.Z] - AAAA-MM-DD - menor|medio|grande`, listas Añadido/Cambiado/Arreglado, en español, sin nombres de personas reales salvo músicos y futbolistas) ANTES del build; BUILD verifica que la constante, la cabecera del CHANGELOG y el `VERSION.txt` de los dos zips coinciden y lo reporta (`build.sh` se niega a compilar si constante y CHANGELOG no coinciden; `TestVersionMatchesChangelog`); los tags y commits son del usuario. El orquestador decide el tipo de cambio (menor/medio/grande), encarga a un agente de implementación la subida y la entrada del CHANGELOG antes de lanzar Build y dice al usuario la versión nueva en el informe final.
 Si el usuario añade peticiones mientras trabajan los agentes, se las pasas al agente correspondiente (SendMessage) o lanzas otro agente si es un área nueva.
 
 ## Formato de encargo (todo agente lo recibe así)

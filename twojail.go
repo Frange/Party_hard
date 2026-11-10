@@ -139,6 +139,9 @@ func (g *Game) copInterest(p *Player) bool {
 	if p.carrying != nil {
 		return !p.jail.held
 	}
+	if g.blameGraceOn() {
+		return false // busy with a passer-by they took for the suspect (wrongsuspect.go)
+	}
 	if !g.is2P() {
 		return g.wanted > 0
 	}
@@ -477,7 +480,7 @@ func (g *Game) drawJailHud(dst *ebiten.Image) {
 	if !g.is2P() || g.mode != ModePlay {
 		return
 	}
-	y := 124.0
+	_, _, _, y := g.hudSide()
 	for _, p := range g.players() {
 		c := ringColor(p)
 		col := color.RGBA{c[0], c[1], c[2], 255}
@@ -485,12 +488,12 @@ func (g *Game) drawJailHud(dst *ebiten.Image) {
 		case p.dead:
 		case p.jail.held:
 			left := int(math.Ceil(jailEscapeT - p.jail.t))
-			g.drawText(dst, fmt.Sprintf("%s DETENIDO %d:%02d", g.playerName(p), left/60, left%60), 10, y, col, 1)
+			g.drawText(dst, fmt.Sprintf("%s DETENIDO %d:%02d", g.playerName(p), left/60, left%60), hudX, y, col, 1)
 			y += 12
-			g.drawText(dst, "El otro: E junto a él, 5 s sin que le vean", 10, y, rgb(0xb8b0d0), 1)
+			g.drawText(dst, "El otro: E junto a él, 5 s sin que le vean", hudX, y, rgb(0xb8b0d0), 1)
 			y += 12
 		case p.jail.lastLife:
-			g.drawText(dst, g.playerName(p)+" ÚLTIMA VIDA", 10, y, col, 1)
+			g.drawText(dst, g.playerName(p)+" ÚLTIMA VIDA", hudX, y, col, 1)
 			y += 12
 		}
 	}

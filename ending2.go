@@ -38,9 +38,11 @@ type endExtra struct {
 	camOX    float64
 	camOY    float64
 	cloudTmp *ebiten.Image
-	say      []wText      // little texts of the street (a yawn, a wail, a bump): written on the screen, not on the canvas
-	pre      preludeState // the action before the letter and the endings (prelude.go)
-	party    partyState   // the party of the secret ending (endparty.go)
+	say      []wText         // little texts of the street (a yawn, a wail, a bump): written on the screen, not on the canvas
+	pre      preludeState    // the action before the letter and the endings (prelude.go)
+	party    partyState      // the party of the secret ending (endparty.go)
+	home     [8]bool         // one-shot sounds of the scene at home (endhome.go)
+	fpaper   finalPaperState // the newspaper of the secret ending, after the T-Rex eats the cake (newspaper_final.go)
 }
 
 // wText is a text that belongs to a point of the street's canvas (see endState.sayAt).
@@ -311,16 +313,9 @@ func (g *Game) endNeighbour(c *ebiten.Image, camX, t float64, e *endState) {
 			g.snd.Play("thud")
 		}
 	}
-	// the T-Rex head in the window and... silence
+	// the T-Rex head in the window and... silence (the level's T-Rex, rexscene.go)
 	if e.t > 6.3 {
-		k := clampF((e.t-6.3)/1.2, 0, 1)
-		hx, hy := wx+ww/2+30*(1-k), wy+wh/2+6
-		filledEllipse(c, hx, hy, 15, 10, rgb(0x2a3a1c))
-		fillRect(c, hx-4, hy+3, 20, 5, rgb(0x2a3a1c))
-		fillRect(c, hx-1, hy-3, 3, 3, rgb(0xf0e060))
-		for q := 0.0; q < 16; q += 4 {
-			fillRect(c, hx-2+q, hy+7, 2, 3, rgb(0xf4f0e0))
-		}
+		g.windowRex(c, wx, wy, ww, wh, clampF((e.t-6.3)/1.2, 0, 1))
 	}
 	if e.t > 6.0 && !e.x.roared {
 		e.x.roared = true
@@ -335,8 +330,13 @@ func endCreditRows(secret bool) [][2]string {
 		{"PARTY HARDY", "Fiesta Nocturna"},
 		{"", ""},
 		{"Director", "Frange"},
-		{"Testers", "Diego, César y Samuel"},
+		{"Probadores", "Diego, César y Samuel"},
 		{"Año", "2026"},
+		{"", ""},
+		{"Personajes especiales", "Diego, César y Samuel"},
+		{"Diego", "Encontró bugs que ni existían"},
+		{"César", "Jugó cada fiesta... dos veces"},
+		{"Samuel", "Pidió más dinosaurios. Concedido"},
 		{"", ""},
 	}
 	if !secret {
@@ -345,14 +345,14 @@ func endCreditRows(secret bool) [][2]string {
 			[2]string{"Música del vecino", "Silenciada de por vida"},
 			[2]string{"Ovejas contadas", "4.000 (una iba en pijama)"},
 			[2]string{"Sueño recuperado", "Al 100%"},
-			[2]string{"Fiestas arruinadas", "Las 21. Qué pena, qué pena"},
+			[2]string{"Fiestas arruinadas", "Las 24. Qué pena, qué pena"},
 			[2]string{"", ""},
 		)
 	}
 	return append(rows,
 		[2]string{"Cameo no solicitado", "Un T-Rex con muy mala educación"},
 		[2]string{"Raptores de ceremonia", "Sombrero incluido, comida no"},
-		[2]string{"Helicóptero alquilado", "En paz descanse. Fianza perdida"},
+		[2]string{"Piloto de helicóptero", "Dimitió en pleno vuelo"},
 		[2]string{"Pirata poderoso (poco)", "Guybrush Threepwood"},
 		[2]string{"Erizo sin carnet", "Sonic, multado por exceso de velocidad"},
 		[2]string{"Ogro de pantano", "Shrek, se ha comido el catering"},
@@ -407,45 +407,9 @@ func (g *Game) drawStinger(dst *ebiten.Image, e *endState) {
 	for i := 0; i < 12; i++ {
 		fillRect(dst, 700+float64(i), 470-float64(i)*2, 24-float64(i)*2, 2, rgb(0xe03a8a))
 	}
-	// Murray's stake, bottom right
-	if e.x.haveMur {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(3, 3)
-		op.GeoM.Translate(math.Round(860-e.x.murray.ox*3), math.Round(536-e.x.murray.oy*3))
-		dst.DrawImage(e.x.murray.img, op)
-	}
-	// the head of the T-Rex: it comes, eats the cake, burps and goes
-	if t > 3.2 {
-		u := clampF((t-3.2)/1.8, 0, 1)
-		out := clampF((t-7.0)/1.1, 0, 1)
-		hx := 1060 - 560*easeOut(u) + 560*out*out
-		hy := 330 + math.Sin(t*3)*5
-		if t > 5.0 && t < 5.9 { // down on the cake
-			hy += 44 * math.Sin((t-5.0)/0.9*math.Pi)
-		}
-		filledEllipse(dst, hx, hy, 76, 52, rgb(0x2a4a1c))
-		fillRect(dst, hx-90, hy+12, 120, 24+4*math.Abs(math.Sin(t*5)), rgb(0x2a4a1c))
-		fillRect(dst, hx-14, hy-22, 14, 12, rgb(0xf0e060))
-		fillRect(dst, hx-8, hy-18, 4, 7, rgb(0x14140a))
-		fillRect(dst, hx-98, hy-6, 6, 4, rgb(0x14140a))
-		for q := 0.0; q < 80; q += 11 {
-			fillRect(dst, hx-84+q, hy+34, 4, 8, rgb(0xf4f0e0))
-		}
-		for i := 0; i < 10; i++ { // a party hat
-			w := 30 - float64(i)*3
-			fillRect(dst, hx+4-w/2, hy-50-float64(i)*4, w, 4, rgb(0xf0c030))
-		}
-		fillRect(dst, hx-4, hy-92, 8, 8, rgb(0xff6a8a))
-	}
-	if t > 5.2 && t < 6.5 {
-		g.sceneBang(dst, "ÑAM ÑAM", 400, 250, (t-5.2)/1.3, 0xff8ad0, 3)
-	}
-	if t > 6.9 && t < 8.0 {
-		g.sceneBang(dst, "BUUURP", 520, 230, (t-6.9)/1.1, 0x8ae070, 4)
-	}
-	if t > 5.6 && t < 8.2 {
-		g.drawTextC(dst, "Murray: ¿Alguien me baja de aquí?", 480, 470, rgb(0xf0e8d0), 1)
-	}
+	// the T-Rex of the level (rexscene.go): it comes, puts its head down on the cake, bites, chews, burps and goes
+	g.drawStingRex(dst, e)
+	g.drawStingBangs(dst, t) // ÑAM ÑAM and BUUURP, beside the rex's mouth (rexscene.go)
 	if t > 5.0 && !e.x.roared {
 		e.x.roared = true
 		g.snd.Play("rex_roar")
@@ -504,9 +468,9 @@ func (g *Game) walkCaption(e *endState) string {
 
 func endCreditSpeed(secret bool) float64 {
 	if secret {
-		return 58 // the credits of the party have to be over when the party music is
+		return 36 // slow enough to read every name; partyCreditsLen gives them the time to roll in
 	}
-	return 27
+	return 20
 }
 
 // bedCaption: what the narrator says in the bed.
@@ -596,14 +560,14 @@ func (g *Game) sheepExtra(dst *ebiten.Image, x, y float64, k int, secret bool, a
 	for i := -2; i <= 2; i++ { // a row of spikes along the back
 		fillRect(dst, x+float64(i)*5-1, y-11-float64(2-absI(i)), 3, float64(7-absI(i)), al(green))
 	}
-	fillRect(dst, x-18, y-1, 10, 4, al(green)) // a tail
-	if k == 6 {                                // the sheep that is a T-Rex
-		filledEllipse(dst, x+19, y-3, 12, 9, al(rgb(0x3a8a30)))
-		fillRect(dst, x+17, y+2, 14, 5, al(rgb(0x3a8a30)))
-		fillRect(dst, x+21, y-6, 3, 3, al(rgb(0xf0e060)))
-		for q := 0; q < 4; q++ {
-			fillRect(dst, x+19+float64(q)*3, y+7, 2, 3, al(rgb(0xf4f0e0)))
-		}
+	fillRect(dst, x-18, y-1, 10, 4, al(green))    // a tail
+	if im := rexMiniHead(); k == 6 && im != nil { // the sheep that is a T-Rex: the level's T-Rex head, half size
+		s := miniRexSkull()
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(-1, 1) // the art looks left; the sheep go right
+		op.GeoM.Translate(math.Round(x+19+s.X), math.Round(y-3-s.Y))
+		op.ColorScale.ScaleAlpha(float32(a) / 255)
+		dst.DrawImage(im, op)
 	}
 }
 
@@ -638,6 +602,10 @@ func nextEndStage(stage int, secret bool) int {
 			return endStinger
 		}
 		return endFinal
+	case endStinger:
+		return endPaper // the T-Rex has eaten the cake: the last newspaper, with the photo of the party (newspaper_final.go)
+	case endPaper:
+		return endHome // the secret ending: home at last, and asleep (endhome.go)
 	}
 	return endFinal
 }

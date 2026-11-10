@@ -32,12 +32,13 @@ const (
 	AnimSneak                         // sneaking, crouched
 	AnimGlide                         // slow, upright, regal
 	AnimFilm                          // arm up filming with the phone
+	AnimHeavy                         // heavy armored steps: short, stiff, little swing, a metallic rebound
 	animGaitEnd
 )
 
 var gaitFrames = map[int]int{
 	AnimMoon: 6, AnimRobot: 4, AnimRobotDance: 4, AnimSwagger: 6, AnimHips: 6, AnimMarch: 6, AnimHop: 4,
-	AnimLumber: 6, AnimStagger: 6, AnimWobble: 6, AnimSneak: 6, AnimGlide: 6, AnimFilm: 4,
+	AnimLumber: 6, AnimStagger: 6, AnimWobble: 6, AnimSneak: 6, AnimGlide: 6, AnimFilm: 4, AnimHeavy: 4,
 }
 
 // animFrameCount: frames of any animation, the hidden gait ones included.
@@ -55,7 +56,7 @@ func animFrameCount(a int) int {
 type gaitDef struct{ walk, dance, idle int }
 
 var gaitDefs = map[string]gaitDef{
-	"moon":    {walk: AnimMoon},
+	"moon":    {walk: AnimMoon, dance: AnimMoon}, // he also dances sliding backwards
 	"robot":   {walk: AnimRobot, dance: AnimRobotDance},
 	"hips":    {walk: AnimSwagger, dance: AnimHips, idle: AnimHips},
 	"march":   {walk: AnimMarch},
@@ -66,19 +67,24 @@ var gaitDefs = map[string]gaitDef{
 	"glide":   {walk: AnimGlide},
 	"shy":     {walk: AnimSneak},
 	"filmer":  {idle: AnimFilm},
+	"heavy":   {walk: AnimHeavy, dance: AnimRobotDance},
+	"spin":    {dance: AnimHop},                         // bouncy dance; gaitDir spins him like a top now and then
+	"twister": {walk: AnimLumber, dance: AnimPirouette}, // the Tasmanian Devil dances as a brown whirlwind (taz_art.go)
 }
 
 // gaitSlugs: who walks and dances in which style (slugs of the special pool).
 var gaitSlugs = map[string]string{
 	"michael_jackson": "moon",
-	"robocop":         "robot", "terminator": "robot", "johnny5": "robot", "bender": "robot",
+	"robocop":         "heavy", "terminator": "robot", "johnny5": "robot", "bender": "robot",
 	"elvis":           "hips",
 	"capitan_america": "march", "picard": "march",
 	"mario": "hop", "pitufo": "hop", "papa_pitufo": "hop", "pitufina": "hop", "minion": "hop", "bob_esponja": "hop",
-	"hulk": "lumber", "conan": "lumber", "he_man": "lumber", "taz": "lumber", "pedro_picapiedra": "lumber",
+	"hulk": "lumber", "conan": "lumber", "he_man": "lumber", "taz": "twister", "pedro_picapiedra": "lumber",
 	"jack_sparrow": "stagger", "homer": "stagger",
-	"batman": "sneak", "spiderman": "sneak",
+	"batman": "sneak", "spiderman": "sneak", "obelix": "lumber",
 	"vader": "glide", "spock": "glide",
+	"chopper": "hop",
+	"crash":   "spin",
 }
 
 // gaitOf: the style of a character; ordinary guests get a trait with a low proportion
@@ -152,6 +158,12 @@ func (g *Game) gaitDir(gu *Guest) Dir {
 				seq = [4]Dir{d, DirLeft, d, DirRight}
 			}
 			return seq[int(g.time/1.1+gu.off)%4]
+		}
+	case "spin": // dancing, every few seconds he spins round like a top for one second
+		if gu.state == gDance || gu.state == gDanceWith {
+			if math.Mod(g.time+gu.off*3, 3) < 1 {
+				return [4]Dir{DirDown, DirRight, DirUp, DirLeft}[int(g.time*12)%4]
+			}
 		}
 	case "shy": // turns his back when somebody comes close
 		if !gu.moving && g.p != nil && dist(g.p.pos, gu.pos) < 55 {
@@ -254,6 +266,16 @@ func gaitPoseFor(kind, f int) Pose {
 		walkLegs(&p, phi, 1.4, 0.3)
 		p.LA = Limb{0.5, 6, 3} // arms folded
 		p.RA = Limb{0.5, 6, 3}
+	case AnimHeavy:
+		// one heavy foot at a time: short steps, arms almost still, the body drops a little
+		// when the foot lands (metallic rebound)
+		sg := [4]float64{1, 0.3, -1, -0.3}[f]
+		p.LF = Limb{1.5, 10 - 1.1*b2f(f == 0), 2.6 * sg}
+		p.RF = Limb{1.5, 10 - 1.1*b2f(f == 2), -2.6 * sg}
+		p.LA = Limb{1.1, 8.6, -0.8 * sg}
+		p.RA = Limb{1.1, 8.6, 0.8 * sg}
+		p.Bob = [4]float64{1, 0, 1, 0}[f]
+		p.Sway = 0.3 * sg
 	case AnimFilm:
 		p.RA = Limb{3, -3.5, 6}
 		p.Hold = HoldPhone

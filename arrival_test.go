@@ -116,39 +116,64 @@ func TestArrivalNotRepeatedFromListOrReplay(t *testing.T) {
 	}
 }
 
-// the helicopter blows up exactly once, after the players have got out, and nothing is left flying for ever
-func TestArrivalExplodesOnceAfterExit(t *testing.T) {
+// the helicopter never blows up: the engine catches fire once, after the players have got out, and it is
+// left burning (like the wreck of the last scene); the space and the Earth come first, in that order
+func TestArrivalBurnsNeverExplodes(t *testing.T) {
 	a := &arrivalState{}
 	sounds, done := runArrival(a, arrTotal+1)
 	if !done {
 		t.Fatal("never ended")
 	}
-	booms := 0
+	ignites := 0
 	for _, s := range sounds {
 		if s == "boom" {
-			booms++
+			t.Fatal("the helicopter must not blow up")
+		}
+		if s == "ignite" {
+			ignites++
 		}
 	}
-	if booms != 1 || !a.boomed {
-		t.Fatalf("the helicopter must blow up once, got %d", booms)
+	if ignites != 2 || !a.burning || !a.launched || !a.landed {
+		t.Fatalf("the shuttle and the fire must ignite once each (got %d), burning %v", ignites, a.burning)
 	}
-	if arrBoom <= arrExit2+0.45+0.95 {
-		t.Fatalf("the blast (%.1f) comes before the second player is clear (%.1f)", arrBoom, arrExit2+0.45+0.95)
+	if !(arrLaunch < arrEarthT && arrEarthT < arrShipLand && arrShipLand < arrTravel && arrTravel < arrTouch) {
+		t.Fatal("the order must be: shuttle leaves the station, Earth, helicopter, island")
 	}
-	if arrTotal < 6 || arrTotal > 10 {
-		t.Fatalf("the scene lasts %.1f s: 6 to 10 s wanted", arrTotal)
+	if arrBurn <= arrExit2+0.45+0.95 {
+		t.Fatalf("the fire (%.1f) comes before the second player is clear (%.1f)", arrBurn, arrExit2+0.45+0.95)
 	}
-	for _, i := range []int{0, 1} { // both are on the ground, away from the helicopter, when it blows
-		ac := arrActorAt(i, 2, arrBoom-0.01)
+	if arrTotal < 12 || arrTotal > 18 {
+		t.Fatalf("the scene lasts %.1f s: 12 to 18 s wanted", arrTotal)
+	}
+	for _, i := range []int{0, 1} { // both are on the ground, away from the helicopter, when it catches fire
+		ac := arrActorAt(i, 2, arrBurn-0.01)
 		if !ac.vis || ac.clip {
-			t.Fatalf("player %d is not out of the door before the blast", i)
+			t.Fatalf("player %d is not out of the door before the fire", i)
 		}
 		if ac.y < arrGroundY+80 || ac.x > arrCX-60 && ac.x < arrCX+60 {
-			t.Fatalf("player %d too close to the helicopter when it blows: %.0f,%.0f", i, ac.x, ac.y)
+			t.Fatalf("player %d too close to the helicopter when it burns: %.0f,%.0f", i, ac.x, ac.y)
 		}
 	}
-	if arrRPM(arrBoom) != 0 || arrWind(arrBoom+1) != 0 {
-		t.Fatal("rotor and wind must stop with the blast")
+	if arrRPM(arrBurn) != 0 || arrWind(arrBurn+1) != 0 {
+		t.Fatal("rotor and wind must stop with the fire")
+	}
+	if arrChar(arrBurn-0.1) != 0 || arrChar(arrTotal) < 0.4 {
+		t.Fatal("the helicopter must blacken only once it burns")
+	}
+	// on the Earth: the rotor spins up while they run, they board, then it lifts off
+	if arrEarthRPM(arrEarthT+0.5) != 0 || arrEarthRPM(arrEarthT+arrLift) < 0.9 {
+		t.Fatal("the rotor of the Earth helicopter is wrong")
+	}
+	for i := 0; i < 2; i++ {
+		if vis, _, _, _ := arrEarthActor(i, 2, arrEarthT+1.6); !vis {
+			t.Fatalf("player %d must be running to the helicopter", i)
+		}
+		if vis, _, _, _ := arrEarthActor(i, 2, arrEarthT+arrLift); vis {
+			t.Fatalf("player %d is not aboard when it lifts off", i)
+		}
+	}
+	if _, y := arrEarthHeli(arrTravel - 0.01); y > -40 {
+		t.Fatalf("the helicopter has not left the Earth picture: y %.0f", y)
 	}
 }
 
@@ -162,24 +187,24 @@ func TestArrivalOnePlayerOrTwoAppear(t *testing.T) {
 			if ac := arrActorAt(i, n, arrDoor+0.3); !ac.vis || !ac.clip {
 				t.Fatalf("n=%d player %d must be in the doorway when it opens", n, i)
 			}
-			ac := arrActorAt(i, n, arrBoom-0.01)
+			ac := arrActorAt(i, n, arrBurn-0.01)
 			if !ac.vis || ac.clip || ac.y < arrCY+90 {
 				t.Fatalf("n=%d player %d must be on the ground at the end", n, i)
 			}
 		}
 	}
-	a, b := arrActorAt(0, 2, arrBoom-0.01), arrActorAt(1, 2, arrBoom-0.01)
+	a, b := arrActorAt(0, 2, arrBurn-0.01), arrActorAt(1, 2, arrBurn-0.01)
 	if b.x-a.x < 80 {
 		t.Fatalf("the two players are on top of each other: %.0f and %.0f", a.x, b.x)
 	}
-	if arrActorAt(0, 2, 5.0).anim != AnimWalk || arrActorAt(1, 2, 5.0).anim != AnimRun {
+	if arrActorAt(0, 2, arrTravel+5.0).anim != AnimWalk || arrActorAt(1, 2, arrTravel+5.0).anim != AnimRun {
 		t.Fatal("the blue one must walk out calmly and the red one run")
 	}
-	if !arrActorAt(1, 2, arrBoom-0.01).dizzy {
+	if !arrActorAt(1, 2, arrBurn-0.01).dizzy {
 		t.Fatal("the red one must be dizzy")
 	}
-	if g := arrActorAt(1, 2, arrBoom+0.1); g.soot <= 0 {
-		t.Fatal("the blast must leave them sooty")
+	if g := arrActorAt(1, 2, arrBurn+0.15); g.hop <= 0 {
+		t.Fatal("the fire must make them jump")
 	}
 }
 
@@ -195,7 +220,7 @@ func TestArrivalLines(t *testing.T) {
 			if l.who >= n {
 				t.Errorf("n=%d: a line of player %d", n, l.who+1)
 			}
-			if l.from >= arrBoom {
+			if l.from >= arrBurn {
 				after[l.who] = true
 			}
 			if l.from < 0 || l.to > arrTotal+0.01 || l.to <= l.from {

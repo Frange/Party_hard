@@ -1,0 +1,9 @@
+{
+  "name": "capitan_haddock",
+  "display_name": "Capitán Haddock",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

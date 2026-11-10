@@ -8,7 +8,7 @@ import (
 )
 
 var ovlKinds = []string{"house", "club", "pub", "cinema", "mall", "market", "casino", "station", "graveyard", "ski", "plaza", "paris",
-	"bullring", "stadium", "festival", "funfair", "roof", "yacht", "skatepark", "circuit", "highway", "trainstation", "beach"}
+	"bullring", "stadium", "festival", "funfair", "roof", "yacht", "skatepark", "circuit", "highway", "trainstation", "beach", "birthday", "hockey", "disco70"}
 
 // every scenario the game can put on screen: the campaign, the random pool, the island and a spread of seeds of every kind
 func allGeneratedLevels() map[string]*LevelDef {

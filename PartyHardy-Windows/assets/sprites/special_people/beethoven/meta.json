@@ -1,0 +1,9 @@
+{
+  "name": "beethoven",
+  "display_name": "Beethoven",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

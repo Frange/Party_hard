@@ -1,0 +1,11 @@
+{
+  "name": "chef_frances",
+  "display_name": "Chef Frances",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "baguette",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

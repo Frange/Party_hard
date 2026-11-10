@@ -17,7 +17,8 @@ import (
 //
 // Two players:
 //   keyboard 1 + keyboard 2  -> player 1 uses `binds` (W A S D, E, F, Space, left Shift),
-//                               player 2 uses `binds2` (arrow keys, , . / and right Shift).
+//                               player 2 uses `binds2` (arrow keys, , . / and right Shift, and
+//                               P N H U Y B T for back, confirm, the event key and the powers).
 //                               A key bound by player 2 is ignored for player 1 (the arrow
 //                               keys are the second key of the old bindings).
 //   keyboard + gamepad       -> the player on the pad uses that pad, the other the keyboard.
@@ -52,6 +53,17 @@ func defaultBindings2() Bindings {
 	set(actAttack, ebiten.KeyPeriod, ebiten.StandardGamepadButtonRightBottom)
 	set(actInteract, ebiten.KeyComma, ebiten.StandardGamepadButtonRightLeft)
 	set(actDance, ebiten.KeySlash, ebiten.StandardGamepadButtonRightTop)
+	// the same actions and powers as player 1, on letters of the right hand that player 1 and the fixed
+	// shortcuts (1-9, R, G, M, F11, F2, Esc, Tab, F1, Backspace) do not use. On a pad player 2 has his
+	// own pad, so the buttons are the same as player 1's.
+	set(actBack, ebiten.KeyP, ebiten.StandardGamepadButtonRightRight) // P: pause
+	set(actConfirm, ebiten.KeyN, ebiten.StandardGamepadButtonRightBottom)
+	b[actConfirm].Keys[1] = ebiten.KeyPeriod // like player 1's Space: his stab key also confirms
+	set(actEvent, ebiten.KeyH, ebiten.StandardGamepadButtonFrontTopLeft)
+	set(actImmune, ebiten.KeyU, ebiten.StandardGamepadButtonFrontTopRight)
+	set(actFamous, ebiten.KeyY, ebiten.StandardGamepadButtonFrontBottomLeft)
+	set(actKiller, ebiten.KeyB, ebiten.StandardGamepadButtonLeftStick)
+	set(actPowerEvent, ebiten.KeyT, ebiten.StandardGamepadButtonRightStick)
 	return b
 }
 
@@ -69,9 +81,6 @@ func keyOfPlayer2(k ebiten.Key) bool {
 		return false
 	}
 	for a := Action(0); a < actCount; a++ {
-		if a > actDance {
-			break
-		}
 		for _, bk := range binds2[a].Keys {
 			if bk == k {
 				return true

@@ -5,6 +5,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"image/color"
 	"math"
+	"math/rand"
 	"sort"
 )
 
@@ -92,7 +93,7 @@ func (g *Game) updateEvents(dt float64) {
 		if fastEv {
 			g.eventT = g.time + 14 + g.rng.Float64()*6
 		} else {
-			g.eventT = g.time + 55 + g.rng.Float64()*70
+			g.eventT = g.time + rareGap(g.rng, g.time)
 		}
 		g.startEvent()
 	}
@@ -106,7 +107,10 @@ func (g *Game) updateEvents(dt float64) {
 }
 
 func (g *Game) startEvent() {
-	kind := g.rng.Intn(evKinds)
+	if g.lvl != rareLvl { // a new party: the count of big set pieces starts again
+		rareLvl, rareBigN = g.lvl, 0
+	}
+	kind := rareKind(g.rng, g.time, rareBigN, g.handSat, g.handGod, func(k int) bool { return ownedID(kidEventID[k]) })
 	if fastEv {
 		g.evCycle++
 		kind = g.evCycle % evKinds
@@ -115,15 +119,8 @@ func (g *Game) startEvent() {
 	if forced {
 		kind, g.forceEv = g.forceEv-1, 0
 	}
-	if kind >= evScooters && kind <= evPrank && !forced && !ownedID(kidEventID[kind]) {
-		kind = []int{evPlane, evStars, evBat, evRocket, evSanta, evCow}[g.rng.Intn(6)] // the kids' shows come only once earned
-	}
-	// each hand (Satan, God) shows up at most once per party
-	if kind == evSatan && g.handSat || kind == evGod && g.handGod {
-		kind = []int{evPlane, evStars, evBat, evRocket, evSanta, evCow}[g.rng.Intn(6)]
-	}
-	if kind == evRex && g.rng.Float64() < 0.6 && !fastEv && g.forceEv == 0 {
-		kind = evPlane // the T-Rex is the rarest visitor
+	if rareBigKinds[kind] && !forced && !fastEv {
+		rareBigN++ // counted when tried: a big one that cannot start here does not get a second go in this party
 	}
 	live := g.liveGuests()
 	e := &Event{kind: kind}
@@ -262,8 +259,11 @@ func (g *Game) startEvent() {
 		g.say("El cielo se vuelve rojo...")
 		g.snd.Play("boom")
 	case evGod:
+		if g.guestRoom() < 1 { // the kill target is full (cap.go): there is nobody left to create
+			return
+		}
 		e.x, e.y = 480+(g.rng.Float64()-0.5)*240, -110
-		e.n = 5 + g.rng.Intn(6)
+		e.n = minI(5+g.rng.Intn(6), g.guestRoom())
 		g.handGod = true
 		g.say("Una luz baja del cielo...")
 	case evZombie:
@@ -279,6 +279,70 @@ func (g *Game) startEvent() {
 	g.stat("events", 1)
 	g.stat(fmt.Sprintf("ev_%d", kind), 1)
 	g.events = append(g.events, e)
+}
+
+// ---- how often (feedback: "los eventos raros casi ni los veo") ------------------------------------------------
+// One rare event every 65-120 s at the start of the party, more often as it goes on (down to 70 % of that at 270 s);
+// the first one at 45-90 s (loadLevel). The BIG ones (UFO, Superman, Satan, God, zombies, meteor, ghost, T-Rex) never in
+// the first minute and at most rareBigMax per party: they grow with the length of the party without flooding it. A
+// 5-8 minute party sees 3-6 rare events (4.5 on average, before 3.4-4.8) (pe_freq_test.go measures it). Nothing has to be unlocked except the kids'
+// shows (scooters, skaters, prank), which are trophy rewards and stay so.
+
+const (
+	rareBigMax   = 2
+	rareBigAfter = 60.0  // seconds of party before the first big one
+	zombieExtra  = 0.007 // share of the other small kinds that turn into zombies (feedback: "no recuerdo la última vez que vi zombis")
+)
+
+var rareBigKinds = map[int]bool{evUFO: true, evSuper: true, evSatan: true, evGod: true, evZombie: true, evMeteor: true, evGhost: true, evRex: true}
+
+var (
+	rareLvl  *Level // the party rareBigN counts for
+	rareBigN int
+)
+
+// rareGap: seconds to the next rare event at party time t.
+func rareGap(r *rand.Rand, t float64) float64 {
+	return (65 + r.Float64()*55) * math.Max(0.7, 1-t/900)
+}
+
+var rareSmall = []int{evPlane, evStars, evBat, evRocket, evSanta, evCow}
+
+// rareKind: the kind of the next rare event (not forced). bigN: big ones already this party; sat/god: hands seen.
+func rareKind(r *rand.Rand, t float64, bigN int, sat, god bool, owned func(int) bool) int {
+	kind := r.Intn(evKinds)
+	if kind >= evScooters && kind <= evPrank && !owned(kind) {
+		kind = rareSmall[r.Intn(len(rareSmall))] // the kids' shows come only once earned
+	}
+	// each hand (Satan, God) shows up at most once per party
+	if kind == evSatan && sat || kind == evGod && god {
+		kind = rareSmall[r.Intn(len(rareSmall))]
+	}
+	if kind != evZombie && !rareBigKinds[kind] && r.Float64() < zombieExtra {
+		kind = evZombie // a nudge so that zombies show up in about one party of six (TestZombieOnePartyInSix)
+	}
+	if kind == evRex && r.Float64() < 0.6 {
+		kind = evPlane // the T-Rex is the rarest visitor
+	}
+	if rareBigKinds[kind] && (t < rareBigAfter || bigN >= rareBigMax) {
+		kind = rareSmall[r.Intn(len(rareSmall))]
+	}
+	return kind
+}
+
+// rareSchedule: the rare events of a party of L seconds by the same rules (true = a big one). For the tests.
+func rareSchedule(r *rand.Rand, L float64) []bool {
+	var out []bool
+	big, sat, god := 0, false, false
+	for t := 45 + r.Float64()*45; t < L; t += rareGap(r, t) {
+		k := rareKind(r, t, big, sat, god, func(int) bool { return false })
+		sat, god = sat || k == evSatan, god || k == evGod
+		if rareBigKinds[k] {
+			big++
+		}
+		out = append(out, rareBigKinds[k])
+	}
+	return out
 }
 
 func (g *Game) makeZombie(gu *Guest) {
@@ -472,10 +536,16 @@ func (g *Game) stepEvent(e *Event, dt float64) bool {
 				e.n--
 				p := Vec{e.x + (g.rng.Float64()-0.5)*190, e.y + 70 + (g.rng.Float64()-0.5)*120}
 				p = g.lvl.NearestFree(p)
-				g.addGuestAt(p)
-				g.burst(Vec{p.X, p.Y - 20}, 10, 60, rgb(0xfff0a0), 0.5, 2, -10)
+				if g.guestRoom() < 1 { // the party (or its kill target, cap.go) is full: nobody is created
+					e.t--
+				} else {
+					g.addGuestAt(p)
+					g.burst(Vec{p.X, p.Y - 20}, 10, 60, rgb(0xfff0a0), 0.5, 2, -10)
+				}
 			}
-			if e.n == 0 {
+			if e.n == 0 && e.t < 1 {
+				e.phase = 2 // nobody fitted: the hands go away without a word
+			} else if e.n == 0 {
 				g.say("Dios ha creado " + itoa(int(e.t)) + " invitados nuevos")
 				e.phase = 2
 			}
@@ -564,6 +634,7 @@ func (g *Game) stepSuper(e *Event, dt float64) bool {
 
 func (g *Game) updateZombie(gu *Guest, dt float64) {
 	gu.timer -= dt
+	defer g.focus(gu.pos)() // two players: the zombie hunts and bites the nearest one, not always the first
 	p := g.p
 	speed := 8.0
 	var tp Vec
@@ -919,23 +990,46 @@ func (g *Game) drawBatwing(dst *ebiten.Image, x, y float64, left bool, t float64
 	g.glowAt(dst, Vec{x - g.camI.X, y - g.camI.Y + 20}, 36, color.RGBA{240, 220, 90, 40})
 }
 
+// rocketImg: the cached rocket sprite (vessels.go genRocket).
+var rocketImg *ebiten.Image
+
 func (g *Game) drawRocket(dst *ebiten.Image, e *Event, x, y float64) {
 	for i, p := range e.bolts {
 		a := uint8(8 + i*i/180)
 		r := 4 + float64(len(e.bolts)-i)*0.1
 		filledEllipse(dst, g.wx(p.X), g.wy(p.Y), r, r, rgba(0xb8bcc8, a))
 	}
-	b := func(dx, dy, w, h float64, c color.RGBA) { fillRect(dst, x+dx, y+dy, w, h, c) }
-	b(-8, -26, 16, 40, rgb(0xe8e8f0)) // body
-	b(-8, -26, 4, 40, rgb(0xb8b8c8))
-	b(-5, -38, 10, 12, rgb(0xd83030)) // nose cone
-	b(-2, -44, 4, 6, rgb(0xd83030))
-	b(-3, -16, 6, 6, rgb(0x5aa8e0)) // porthole
-	b(-16, 4, 8, 14, rgb(0xd83030)) // fins
-	b(8, 4, 8, 14, rgb(0xd83030))
-	fl := 14 + math.Sin(e.t*40)*5
-	b(-5, 14, 10, fl, rgb(0xffa020))
-	b(-3, 14, 6, fl*0.6, rgb(0xfff0a0))
+	x, y = math.Round(x), math.Round(y)
+	ny := y - 44 + rocketH - 3 // the mouth of the nozzles
+	// the flame of each engine: red, orange, yellow and a white-hot core, flickering, and its sparks
+	for k, ex := range []float64{x - 5, x + 4} {
+		fl := math.Round(18 + math.Sin(e.t*40+float64(k)*2)*5)
+		for _, ly := range []struct {
+			w, l float64
+			col  uint32
+		}{{4, fl, 0xe0381a}, {3, fl * 0.8, 0xff8a20}, {2, fl * 0.55, 0xffd040}, {1, fl * 0.3, 0xfff4c0}} {
+			for r := 0.0; r < ly.l; r++ {
+				hw := math.Max(1, math.Round(ly.w*(1-r/ly.l*0.6)))
+				fillRect(dst, ex-hw+1, ny+r, 2*hw, 1, rgb(ly.col))
+			}
+		}
+		for i := 0; i < 5; i++ {
+			fi := float64(i)
+			py := ny + fl + math.Mod(e.t*90+fi*11, 26)
+			px := ex + math.Round(math.Sin(fi*2.3+e.t*5)*3)
+			col := rgb(0xffa020)
+			if i%2 == 1 {
+				col = rgb(0xe0381a)
+			}
+			fillRect(dst, px, math.Round(py), 2, 2, col)
+		}
+	}
+	if rocketImg == nil {
+		rocketImg = genRocket().img()
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(x-rocketW/2, y-44)
+	dst.DrawImage(rocketImg, op)
 	g.glowAt(dst, Vec{x - g.camI.X, y - g.camI.Y + 24}, 50, color.RGBA{255, 160, 50, 110})
 }
 

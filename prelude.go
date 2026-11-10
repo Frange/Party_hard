@@ -415,7 +415,7 @@ func preRexX(t float64) float64 {
 }
 
 var preIslandLines = []preLine{
-	{0, 1.2, 2.9, "Y el helicóptero era alquilado...", false},
+	{0, 1.2, 2.9, "Nota mental: no abrir cartas que brillan.", false},
 	{0, 3.4, 4.9, "¡¡RAPTORES!! ¡Corred!", false},
 	{1, 5.0, 6.4, "¡Tú primero, yo te sigo!", true},
 	{0, 7.0, 8.6, "Adiós, mundo cruel...", false},
@@ -474,6 +474,7 @@ func (g *Game) preProp(c *ebiten.Image, name string, v int, x, y, s float64, fli
 	if len(imgs) == 0 {
 		return
 	}
+	recProp(name, v)
 	p := imgs[((v%len(imgs))+len(imgs))%len(imgs)]
 	if p.img == nil {
 		return

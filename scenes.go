@@ -44,7 +44,7 @@ var sceneList = [sceneCount]sceneInfo{
 		"FINAL: ???", "Dicen que lo ven quienes lo tienen todo... todo todo."},
 	sceneInvite: {"seen_invite", "INVITACIÓN A ISLA NUBLAR", "Una carta brilla en el suelo de la estación, sin gravedad ni remitente. Huele a selva y a problemas con dientes.",
 		"UNA CARTA MISTERIOSA", "Alguien te espera en una isla."},
-	sceneArrival: {"seen_arrival", "LLEGADA A ISLA NUBLAR", "Un helicóptero alquilado, un helipuerto, un mareo y un final con más fuego del que dice el contrato.",
+	sceneArrival: {"seen_arrival", "LLEGADA A ISLA NUBLAR", "Una nave desde la estación, un helicóptero alquilado en la Tierra, un mareo y más fuego del que dice el contrato.",
 		"¿VUELO SIN RETORNO?", "Tras la carta, alguien te lleva volando. Y no vuelve."},
 	sceneInter1: {"seen_interlude5", "INTERLUDIO: OTRA FIESTA MÁS", "Cabreado y con humo en las orejas, repasa las fiestas ya vencidas y se va en coche a por la siguiente.",
 		"¿QUIÉN CONDUCE?", "El viaje continúa... tras la fiesta número 5."},
@@ -106,9 +106,9 @@ func sceneMission(i int) int {
 	case sceneInter15:
 		return 15
 	case sceneInter3:
-		return 20
+		return len(campaignLevels) - 1 // the rocket leaves after the last party before the space station
 	case sceneEnd1, sceneInvite, sceneArrival, sceneEnd2:
-		return campaignN // they come after the last party (the island ones after the 21st and its trophies)
+		return campaignN // they come after the last party (the island ones after the last story party and its trophies)
 	}
 	return 0
 }
@@ -156,7 +156,7 @@ func (g *Game) playScene(i int, back Mode) {
 	case sceneInter15:
 		g.startInterlude(interBalloon, 15)
 	case sceneInter3:
-		g.startInterlude(interRocket, 20)
+		g.startInterlude(interRocket, len(campaignLevels)-1)
 	case sceneEnd1:
 		g.startEndingPre(false)
 	case sceneInvite:
@@ -213,7 +213,7 @@ func sceneRowY(i int) float64 { return 100 + float64(i)*26 } // nine rows fit ab
 
 func (g *Game) drawScenes(dst *ebiten.Image) {
 	g.drawBedroom(dst)
-	g.drawLogo(dst, 160, 30)
+	g.drawLogo(dst, logoSideCX, 30)
 	fillRect(dst, 230, 60, 700, 440, rgba(0x05070e, 228))
 	fillRect(dst, 230, 60, 700, 1, rgba(0x6a4ab0, 160))
 	fillRect(dst, 230, 499, 700, 1, rgba(0x6a4ab0, 160))
@@ -261,8 +261,4 @@ func (g *Game) drawScenes(dst *ebiten.Image) {
 	}
 	g.drawText(dst, head, 266, 352, hc, 1.4)
 	g.drawWrapped(dst, g.sceneText(g.sceneSel), 266, 382, 628, rgb(0xe0d8f0))
-	if open {
-		g.drawTextC(dst, actionHint(actConfirm)+": "+tr("ver la escena de nuevo"), 580, 466, rgb(0x3fb59a), 1.1)
-	}
-	g.drawTextC(dst, "↑↓ "+tr("elegir")+"   "+actionHint(actConfirm)+": "+tr("ver")+"   "+actionHint(actBack)+": "+tr("volver"), 580, 482, rgb(0x8a86a0), 1)
 }

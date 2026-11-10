@@ -34,7 +34,7 @@ func unitSpecs() unitSet {
 	for _, rc := range []struct {
 		name string
 		col  uint32
-	}{{"ranger_red", 0xd01818}, {"ranger_blue", 0x1858d0}, {"ranger_yellow", 0xe0c010}, {"ranger_green", 0x18a030}, {"ranger_pink", 0xe050a8}} {
+	}{{"ranger_red", 0xd01818}, {"ranger_blue", 0x1858d0}, {"ranger_yellow", 0xe0c010}, {"ranger_green", 0x18a030}, {"ranger_pink", 0xe050a8}, {"ranger_black", 0x2a2a34}} {
 		u.rangers = append(u.rangers, CharSpec{Name: rc.name, Skin: hx(0xe0b088), Hair: hx(0x1a1a1a), Shirt: hx(rc.col), Shirt2: hx(rc.col), Pants: hx(0x1a1a22), Shoes: hx(0x0a0a0c),
 			Top: TopArmor, Hat: HatHelmet, HatCol: hx(rc.col), Accent: hx(0xf4f4f8), Body: BodyBig})
 	}

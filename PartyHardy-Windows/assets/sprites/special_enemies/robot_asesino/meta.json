@@ -1,0 +1,11 @@
+{
+  "name": "robot_asesino",
+  "display_name": "Robot Asesino",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "chainsaw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

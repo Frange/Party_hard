@@ -43,7 +43,7 @@ func TestSpecialVehicleViews(t *testing.T) {
 
 // the specials do come up as traffic, tank at most twice a party
 func TestRoadSpecialPick(t *testing.T) {
-	testLevels()
+	testLevels(t)
 	g := &Game{rng: rand.New(rand.NewSource(11))}
 	seen := map[string]int{}
 	for i := 0; i < 4000; i++ {

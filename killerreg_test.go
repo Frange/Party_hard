@@ -9,11 +9,14 @@ import (
 func killerGame(t *testing.T, two bool) *Game {
 	t.Helper()
 	g := auditGame(t)
-	prevTwo, prevDbg, prevK, prevFast := twoPlayerMode, dbgTwoPlayers, dbgKiller, fastEv
+	prevTwo, prevDbg, prevK, prevFast, prevSnd, prevProg := twoPlayerMode, dbgTwoPlayers, dbgKiller, fastEv, g.snd, progressFrozen
 	t.Cleanup(func() {
 		twoPlayerMode, dbgTwoPlayers, dbgKiller, fastEv = prevTwo, prevDbg, prevK, prevFast
 		g.slasher, g.slot2 = nil, slasherSlot{}
+		g.snd = prevSnd // the shared game keeps its real Sounds: a Sounds without a context crashes syncMusic in later tests
+		progressFrozen = prevProg
 	})
+	progressFrozen = true
 	dbgKiller, fastEv = false, false
 	auditPlay(g, two)
 	g.snd = &Sounds{muted: true}
@@ -45,11 +48,11 @@ func TestKillerChanceAboutOneInThree(t *testing.T) {
 			}
 		}
 	}
-	if hits < 75 || hits > 125 {
-		t.Errorf("%d of %d levels have a killer, want about a third", hits, n)
+	if hits < 45 || hits > 90 { // 0.22 of 300 = 66
+		t.Errorf("%d of %d levels have a killer, want about 22%%", hits, n)
 	}
-	if killerChance != 1.0/3 || killerLateAfter != 210 || killerSecondAfter != 300 {
-		t.Errorf("constants changed: %v %v %v", killerChance, killerLateAfter, killerSecondAfter)
+	if killerChance != 0.22 || killerSecondAfter != 300 {
+		t.Errorf("constants changed: %v %v", killerChance, killerSecondAfter)
 	}
 }
 
@@ -82,7 +85,7 @@ func TestKillerAllowedThresholds(t *testing.T) {
 	for _, c := range []struct {
 		tm   float64
 		want int
-	}{{0, 0}, {209, 0}, {210, 1}, {299, 1}, {300, 2}} {
+	}{{0, 0}, {209, 0}, {210, 0}, {299, 0}, {300, 0}} {
 		if got := none.allowed(c.tm); got != c.want {
 			t.Errorf("unplanned: allowed(%v)=%d want %d", c.tm, got, c.want)
 		}
@@ -108,24 +111,32 @@ func TestKillerNeverMoreThanOneBeforeFiveMinutes(t *testing.T) {
 	}
 }
 
-func TestKillerSlowPlayerGetsAnAccelerator(t *testing.T) {
+func TestKillerSlowPlayerHasNoAccelerator(t *testing.T) {
 	g := killerGame(t, false)
 	g.kp = killerPlan{} // the level had no killer planned
-	runKillerTo(g, killerLateAfter-1)
+	runKillerTo(g, 400)
 	if g.kp.spawned != 0 {
 		t.Fatalf("a killer came at %v s without being planned", g.time)
 	}
-	runKillerTo(g, killerLateAfter+2)
-	if g.kp.spawned != 1 {
-		t.Fatalf("no accelerator after %v s", killerLateAfter)
+}
+
+// About one party in 5-6 has a killer and never two in a row.
+func TestKillerRateAndNeverBackToBack(t *testing.T) {
+	r := rand.New(rand.NewSource(3))
+	n, hits, prev := 6000, 0, false
+	for i := 0; i < n; i++ {
+		p := killerPlanAfter(r, false, prev)
+		if p.planned && prev {
+			t.Fatal("two parties in a row with a killer")
+		}
+		if p.planned {
+			hits++
+		}
+		prev = p.planned
 	}
-	runKillerTo(g, 299)
-	if g.kp.spawned != 1 {
-		t.Fatalf("second one too early: %d", g.kp.spawned)
-	}
-	runKillerTo(g, 302)
-	if g.kp.spawned != 2 {
-		t.Fatalf("no second killer after 5:00: %d", g.kp.spawned)
+	rate := float64(hits) / float64(n)
+	if rate < 1.0/7 || rate > 1.0/4.5 {
+		t.Errorf("rate %.3f, want about 1 in 5-6", rate)
 	}
 }
 

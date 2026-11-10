@@ -235,6 +235,7 @@ func (g *Game) hitPlayer(att, vic *Player) bool {
 	g.burst(Vec{vic.pos.X, vic.pos.Y - 20}, 10, 60, rgb(0xf8e040), 0.6, 2, 40)
 	if att != nil {
 		att.stabT = 0.18
+		g.withPlayer(att, func() { g.witnessAct(true) }) // whoever sees the beating may call the police
 	}
 	return true
 }

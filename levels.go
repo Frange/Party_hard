@@ -183,7 +183,7 @@ func rooftop(title, intro string, neon bool) *LevelDef {
 	base := "rooftop"
 	if neon {
 		base = "rooftop2"
-		d.Tint = color.RGBA{0, 6, 40, 100}
+		d.Tint = color.RGBA{0, 6, 40, 66}
 		d.Guests = 40
 		d.Strobe = []uint32{0x30e0f0, 0xc060f0, 0x50f0a0, 0x30e0f0}
 	} else {
@@ -312,7 +312,7 @@ func level4() *LevelDef {
 		P("palm", 60, 450), P("palm", 200, 452), P("palm", 340, 452), P("palm", 620, 452), P("palm", 740, 452), P("palm", 900, 452),
 		P("lamp", 400, 450), P("lamp", 580, 450), P("sign", 520, 300), P("bush", 440, 330),
 		PV("car", 200, 534, 1), PV("motorbike", 880, 530, 0),
-		P("truss", 800, 196), P("screen", 640, 168),
+		P("truss", 800, 196), P("screen", 760, 158), // the screen stands clear of the stage: its right side is a passage
 		PV("sunbed", 130, 438, 0), P("umbrella", 130, 410),
 		PV("sunbed", 470, 438, 1), P("umbrella", 470, 410),
 		PV("sunbed", 850, 438, 0), P("umbrella", 850, 410),

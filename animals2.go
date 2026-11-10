@@ -36,75 +36,6 @@ func legSwing(frame int, i int) (dx, lift float64) {
 	return math.Sin(p), math.Max(0, math.Cos(p))
 }
 
-var bullCoats = []coatCols{
-	{hx(0x6a3a22), hx(0x2e1a0e), hx(0x8a5a38), hx(0xe8e0d0)},
-	{hx(0x26222a), hx(0x0e0c10), hx(0x3e3a44), hx(0xe8e0d0)},
-	{hx(0xd8c8a8), hx(0x8a6a48), hx(0xf0e4cc), hx(0xf8f4ec)},
-}
-
-func genBullFrame(frame, coat int) *pixBuf {
-	b := newPix(52, 34)
-	b.ox, b.oy = 2, 2
-	cc := bullCoats[coat%len(bullCoats)]
-	body, dark, light, horn := cc.body, cc.dark, cc.light, cc.mane
-	const ground = 32.0
-	charge := frame == fKick
-	bob := 0.0
-	if frame >= fWalk0 && frame <= fWalk3 {
-		bob = float64((frame - fWalk0) % 2)
-	}
-	by := 16.0 - bob
-	// tail
-	b.line(12, int(by)-4, 8, int(by)+8, dark)
-	b.rect(7, int(by)+8, 3, 3, dark)
-	leg := func(x float64, i int, col c4) {
-		dx, lift := legSwing(frame, i)
-		fx, fy := x+dx*4.5, ground-lift*3.5
-		if frame == fWarn && i == 1 {
-			fx, fy = x-6, ground-6 // pawing
-		}
-		if charge {
-			fx = x + []float64{-6, 6, -4, 4}[i]
-			fy = ground - []float64{0, 2, 3, 0}[i]
-		}
-		mx, my, ex, ey := ik2(x, by+5, fx, fy, 7, 0.5, 0.2)
-		thickLine(b, x, by+5, mx, my, 3, col)
-		thickLine(b, mx, my, ex, ey, 2, shade(col, 0.92))
-		b.rect(int(ex)-1, int(ey), 4, 2, c(0x1a1410))
-	}
-	leg(14, 2, shade(body, 0.7))
-	leg(36, 0, shade(body, 0.7))
-	b.ellipse(25, by, 15, 8.5, body)
-	b.ellipse(26, by-3, 11, 4, light)
-	b.ellipse(15, by+1, 7, 7, shade(body, 0.92))
-	b.ellipse(35, by-3, 8, 7, shade(body, 1.08)) // hump
-	leg(16, 3, body)
-	leg(34, 1, body)
-	hy := 19.0
-	hx0 := 43.0
-	switch frame {
-	case fGraze:
-		hy, hx0 = 27, 43
-	case fWarn:
-		hy = 22
-	case fKick:
-		hy, hx0 = 22, 45
-	}
-	thickLine(b, 36, by-1, hx0-3, hy-2, 7, shade(body, 1.02))
-	b.ellipse(hx0, hy, 6, 5, body)
-	b.ellipse(hx0+4, hy+2, 3.4, 3, light)
-	b.set(int(hx0)+6, int(hy)+2, c(0x14100c))
-	b.set(int(hx0)+1, int(hy)-1, c(0xf4f4f0))
-	b.set(int(hx0)+2, int(hy)-1, c(0x14100c))
-	// horns
-	b.line(int(hx0)-3, int(hy)-4, int(hx0)-5, int(hy)-9, horn)
-	b.line(int(hx0)-5, int(hy)-9, int(hx0)-3, int(hy)-11, horn)
-	b.line(int(hx0)+2, int(hy)-4, int(hx0)+3, int(hy)-9, horn)
-	b.line(int(hx0)+3, int(hy)-9, int(hx0)+5, int(hy)-10, horn)
-	b.ellipse(hx0-4, hy-1, 2, 2.6, dark)
-	return b
-}
-
 var elephantCoats = []coatCols{
 	{hx(0x8a8c9a), hx(0x5a5c6a), hx(0xa8aab8), hx(0xf2eee0)},
 	{hx(0x6e707e), hx(0x464854), hx(0x8a8c9a), hx(0xf2eee0)},
@@ -246,67 +177,127 @@ func genGiraffeFrame(frame, coat int) *pixBuf {
 }
 
 var kangarooCoats = []coatCols{
-	{hx(0xb8683a), hx(0x7a4022), hx(0xe0a070), hx(0x3a2014)},
-	{hx(0x8a8a92), hx(0x5a5a62), hx(0xb4b4bc), hx(0x2a2a30)},
-	{hx(0xd8b080), hx(0x9a7448), hx(0xf0d4a8), hx(0x4a3020)},
+	{hx(0xe2742a), hx(0xb44a1a), hx(0xf8dcaa), hx(0x3a1a0c)},
+	{hx(0x9a9aa4), hx(0x6a6a76), hx(0xf0ece4), hx(0x24242a)},
+	{hx(0xd8a860), hx(0xa87838), hx(0xf8ecc8), hx(0x4a2c14)},
+}
+
+// kangUpper is the torso, neck, head and ears of the side view (30 columns, 24 rows),
+// drawn at x+6 in the sprite: O fur, D dark fur, C cream belly/pouch/chest, K eye/nose, N dark.
+var kangUpper = []string{
+	".....................O..O.....",
+	".....................OO.OO....",
+	".....................OD.OD....",
+	".....................OD.OD....",
+	".....................ODOOD....",
+	"....................OOOOOOO...",
+	"....................OOOOOOOO..",
+	"....................OOOOOOKOO.",
+	".....................OOOOOOOOO",
+	".....................OOOOOOOON",
+	".....................OOOOOOOO.",
+	"...................OOOOOCC....",
+	"..................OOOOOOCC....",
+	".................OOOOOOOCC....",
+	"...........OOOOOOOOOOOOOOCC...",
+	"........OOOOOOOOOOOOOOOOOCC...",
+	"......OOOOOOOOOOOOOOOOOOOC....",
+	".....OOOOOOOOOOOOCCCCCCDCO....",
+	".....OOOOOOOOOOOOCCCCCOOOO....",
+	".....OOOOOOOOOOOOCCCCCOKOO....",
+	".....OOOOOOOOOOOCCCCCCCCC.....",
+	"......OOOOOOOOOOCCCCCCCCC.....",
+	"........OOOOOOOOCCCCCCCC......",
+	"..........OOOOOOCCCCCC........",
 }
 
 func genKangarooFrame(frame, coat int) *pixBuf {
-	b := newPix(30, 44)
+	b := newPix(40, 40)
 	b.ox, b.oy = 1, 1
 	cc := kangarooCoats[coat%len(kangarooCoats)]
-	body, dark, light, eye := cc.body, cc.dark, cc.light, cc.mane
-	const ground = 42.0
+	body, dark, light, ink := cc.body, cc.dark, cc.light, cc.mane
+	mid := shade(body, 0.88)
+	const ground = 39
 	hop := 0.0
-	tuck := false
 	if frame >= fWalk0 && frame <= fWalk3 {
-		hop = []float64{0, 4, 7, 3}[frame-fWalk0]
-		tuck = frame == fWalk2
+		hop = []float64{1, 4, 7, 3}[frame-fWalk0]
 	}
-	by := 26.0 - hop
-	lean := 0.0
+	yo := 5 - int(hop)
+	yb := yo + 2 // old torso origin: legs, tail and arms hang from it
+	air := hop > 0
+	// tail: long, thick, thinning towards the ground (it balances the jump)
+	lift := hop * 0.5
 	if frame == fKick {
-		lean = 3
+		lift = 3
 	}
-	// tail
-	thickLine(b, 9, by+5, 2, ground-2-hop*0.4, 3, dark)
-	// legs
-	if tuck {
-		b.ellipse(11, by+9, 5, 4, body)
-		b.rect(9, int(by)+12, 9, 2, dark)
-	} else {
-		b.ellipse(11, by+8, 5, 7, shade(body, 0.9))
-		b.rect(8, int(ground-hop*0.3)-2, 11, 3, dark)
-		b.rect(18, int(ground-hop*0.3)-1, 2, 2, c(0x1a1410))
+	tip := float64(ground-1) - lift
+	pts := [][2]float64{{14, float64(yb + 13)}, {9, float64(yb+13) + (tip-float64(yb+13))*0.4}, {4, float64(yb+13) + (tip-float64(yb+13))*0.75}, {0, tip}}
+	for i := 0; i < 3; i++ {
+		w := []int{4, 3, 2}[i]
+		thickLine(b, pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1], w, body)
+		thickLine(b, pts[i][0], pts[i][1]+float64(w), pts[i+1][0], pts[i+1][1]+float64(w), w-1, dark)
 	}
-	// torso
-	b.ellipse(13+lean*0.5, by, 6.5, 11, body)
-	b.ellipse(15+lean*0.5, by+2, 3.5, 6, light)
-	// head
-	hx0, hy := 17+lean, by-13
-	b.ellipse(hx0, hy, 4, 4.6, body)
-	b.ellipse(hx0+3.5, hy+1.5, 3, 2.4, light)
-	b.set(int(hx0)+1, int(hy), eye)
-	b.set(int(hx0)+6, int(hy)+1, eye)
-	// ears
-	b.line(int(hx0)-2, int(hy)-3, int(hx0)-3, int(hy)-9, body)
-	b.line(int(hx0)-1, int(hy)-3, int(hx0)-2, int(hy)-9, body)
-	b.line(int(hx0)+1, int(hy)-4, int(hx0)+1, int(hy)-10, shade(body, 0.85))
-	b.set(int(hx0)+1, int(hy)-10, dark)
-	// arms
+	// torso, neck, head
+	for y, row := range kangUpper {
+		for x, ch := range row {
+			col := body
+			switch ch {
+			case '.':
+				continue
+			case 'D':
+				col = dark
+			case 'C':
+				col = light
+			case 'K', 'N':
+				col = ink
+			}
+			b.set(x+6, y+yo, col)
+		}
+	}
+	// big hind thigh with a darker rim
+	b.ellipse(17.5, float64(yb)+18.5, 6, 6.5, mid)
+	b.ellipse(17.5, float64(yb)+18, 5, 5.5, body)
+	b.ellipse(16.5, float64(yb)+16, 2.5, 3, shade(body, 1.08))
+	// lower leg and long foot resting on the ground
+	fy := ground - 1 - int(hop*0.6)
+	kneeY := float64(yo) + 20
+	switch {
+	case frame == fKick:
+		thickLine(b, 22, kneeY-1, 30, kneeY-3, 3, body)
+		thickLine(b, 22, kneeY+1, 30, kneeY-1, 1, dark)
+		b.rect(29, int(kneeY)-4, 7, 3, dark)
+		b.rect(29, int(kneeY)-4, 7, 1, body)
+		// support leg
+		thickLine(b, 21, kneeY+2, 21, ground-1, 3, body)
+		b.rect(20, ground-2, 13, 2, dark)
+		b.rect(21, ground-2, 12, 1, body)
+	case air:
+		thickLine(b, 22, kneeY, 20, float64(fy-1), 3, body)
+		thickLine(b, 24, kneeY, 22, float64(fy-1), 1, dark)
+		b.rect(19, fy-1, 14, 2, dark)
+		b.rect(20, fy-1, 13, 1, body)
+	default:
+		thickLine(b, 21, kneeY, 21, float64(fy-1), 3, body)
+		thickLine(b, 24, kneeY, 24, float64(fy-1), 1, dark)
+		b.rect(20, fy-1, 14, 2, dark)
+		b.rect(21, fy-1, 13, 1, body)
+	}
+	// arms: short, bent against the chest with small claws
+	sx, sy := 30.0, float64(yb+13)
 	switch frame {
 	case fWarn:
-		thickLine(b, 17, by-6, 23, by-9, 2, shade(body, 0.85))
-		thickLine(b, 16, by-4, 22, by-6, 2, body)
-		b.ellipse(23, by-9, 2, 2, dark)
-		b.ellipse(22, by-6, 2, 2, dark)
+		thickLine(b, sx, sy, 34, sy+1, 2, body)
+		thickLine(b, 34, sy+1, 36, sy-2, 2, dark)
+		b.set(37, int(sy)-3, ink)
 	case fKick:
-		thickLine(b, 18, by-5, 28, by-6, 2, body)
-		b.ellipse(28, by-6, 2.4, 2.4, c(0xd83030)) // boxing glove
-		thickLine(b, 16, by-3, 21, by-1, 2, shade(body, 0.85))
+		thickLine(b, sx, sy, 34, sy+1, 2, body)
+		b.ellipse(36, sy+1, 2.5, 2.5, c(0xd83030)) // boxing glove
+		b.set(35, int(sy), c(0xf06060))
 	default:
-		thickLine(b, 17, by-4, 20, by+1, 2, body)
-		thickLine(b, 15, by-3, 18, by+2, 2, shade(body, 0.85))
+		thickLine(b, sx, sy, 32, sy+3, 2, body)
+		thickLine(b, 32, sy+3, 34, sy+5, 2, dark)
+		b.set(34, int(sy)+7, ink)
+		b.set(35, int(sy)+6, ink)
 	}
 	return b
 }
@@ -395,9 +386,14 @@ func genChickFrame(frame int) *pixBuf {
 
 func buildMoreAnimalSprites(out AnimalSprites) {
 	for coat := 0; coat < 3; coat++ {
-		for f := fStand; f <= fKick; f++ {
+		for f := fStand; f <= fBullLast; f++ {
+			if f >= fSit && f < fBullIdle0 {
+				continue
+			}
 			out[animalKey(animBull, coat, f)] = genBullFrame(f, coat).outlinedSel(0.4).img()
-			out[animalKey(animKangaroo, coat, f)] = genKangarooFrame(f, coat).scaled(0.8).outlinedSel(0.4).img()
+		}
+		for f := fStand; f <= fKick; f++ {
+			out[animalKey(animKangaroo, coat, f)] = genKangarooFrame(f, coat).outlinedSel(0.4).img()
 		}
 		for _, f := range []int{fStand, fWalk0, fWalk1, fWalk2, fWalk3, fGraze, fWarn} {
 			out[animalKey(animElephant, coat, f)] = genElephantFrame(f, coat).outlinedSel(0.4).img()
@@ -472,6 +468,7 @@ func (g *Game) animalKill(v any, msg, actor string) bool {
 }
 
 func (g *Game) updateBull(a *Animal, dt float64) {
+	a.sprayT = math.Max(0, a.sprayT-dt) // impact pose timer (see bullFrame)
 	switch a.state {
 	case aIdle, aGraze, aWalk:
 		g.animalWander(a, 18, dt, 0.4)
@@ -509,10 +506,14 @@ func (g *Game) updateBull(a *Animal, dt float64) {
 		a.moving = true
 		a.victimRepath(g, t, dt)
 		g.animalWalk(a, 125, dt)
+		if int(a.anim*8) != int((a.anim-dt)*8) { // dust kicked up by the hooves
+			g.burst(Vec{a.pos.X - a.face*10, a.pos.Y - 1}, 2, 28, rgb(0xb8a888), 0.45, 2, -20)
+		}
 		if dist(a.pos, t) < 16 {
 			if g.animalKill(a.victim, "Un toro te ha embestido", "Un toro") {
 				g.snd.Play("thud")
 				g.burst(Vec{a.pos.X, a.pos.Y - 14}, 10, 80, rgb(0xd8d0c0), 0.4, 2, 100)
+				a.sprayT = 0.7 // toss the guest: impact pose
 			}
 			a.state, a.timer = aIdle, 4
 		} else if a.timer <= 0 {
@@ -675,16 +676,7 @@ func (g *Game) updateChick(a *Animal, dt float64) {
 func (g *Game) animalFrameMore(a *Animal) int {
 	switch a.kind {
 	case animBull:
-		switch a.state {
-		case aGraze:
-			return fGraze
-		case aWarn:
-			return fWarn
-		case aCharge:
-			return fKick
-		case aWalk:
-			return fWalk0 + int(a.anim*6)%4
-		}
+		return g.bullFrame(a)
 	case animElephant:
 		switch a.state {
 		case aGraze:

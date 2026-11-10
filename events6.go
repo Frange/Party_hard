@@ -43,7 +43,7 @@ func (g *Game) drawBubbles(dst *ebiten.Image) {
 func (g *Game) startSport(e *Event) bool {
 	var idle []*Guest
 	for _, gu := range g.guests {
-		if !gu.out() && gu.perf == "" && gu.state == gIdle && gu.partner == nil && gu.leader == nil {
+		if !gu.out() && gu.perf == "" && gu.state == gIdle && gu.timer < 1000 && gu.partner == nil && gu.leader == nil {
 			idle = append(idle, gu)
 		}
 	}

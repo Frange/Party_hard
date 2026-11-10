@@ -206,6 +206,7 @@ func (g *Game) stabCop(c *Cop) {
 	g.killByPlayer = false
 	g.bodies[len(g.bodies)-1].label = label + g.personalName(c, g.copCSFor(c))
 	g.removeCop(c)
+	g.copDefeated(c) // POLICÍAS card of OBJETIVOS (goalcops.go)
 	g.kills++
 	g.countKill(kcKnife, false)
 	g.points += g.killVal(100)

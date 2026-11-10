@@ -44,7 +44,7 @@ func TestOnePlayerIsUnchanged(t *testing.T) {
 }
 
 func TestTwoPlayersStartApart(t *testing.T) {
-	for _, def := range testLevels()[:10] {
+	for _, def := range testLevels(t)[:10] {
 		g := twoGame(true)
 		g.lvl = buildLevel(def)
 		g.p = &Player{pos: def.Start, dir: DirUp, cs: g.as.playerCS, stamina: 6}
@@ -244,7 +244,7 @@ func TestOneKillerSlotWithOnePlayer(t *testing.T) {
 
 // two bots walking at random for a while: neither of the players stays stuck for more than ~5 s
 func TestTwoBotsDoNotStayStuck(t *testing.T) {
-	defs := testLevels()
+	defs := testLevels(t)
 	if len(defs) > 8 {
 		defs = defs[:8]
 	}

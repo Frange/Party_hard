@@ -43,6 +43,7 @@ type zipReport struct {
 	mod     time.Time
 	entries int
 	mp3     int
+	version string // the text of VERSION.txt inside the zip ("" if there is none)
 	issues  []string
 }
 
@@ -79,6 +80,13 @@ func verifyZip(path string, want []string) *zipReport {
 		}
 		if strings.HasSuffix(strings.ToLower(name), ".mp3") {
 			rep.mp3++
+		}
+		if base == "VERSION.txt" && len(parts) <= 2 {
+			if rc, err := f.Open(); err == nil {
+				b, _ := io.ReadAll(io.LimitReader(rc, 256))
+				rc.Close()
+				rep.version = strings.TrimSpace(string(b))
+			}
 		}
 		for _, w := range want {
 			if strings.HasSuffix(name, w) {
@@ -210,6 +218,12 @@ func buildRelease(root string, a map[string]any) (string, error) {
 			bad = true
 		}
 	}
+	if line, ok := versionCheck(root, reps); ok {
+		sb.WriteString(line + "\n")
+	} else {
+		sb.WriteString(line + "\n")
+		bad = true
+	}
 	if stale := staleRootBinaries(root); len(stale) > 0 {
 		fmt.Fprintf(&sb, "ROOT BINARIES STALE (copy them from dist/ with cp, then codesign the mac ones): %s\n", strings.Join(stale, ", "))
 	} else {
@@ -225,3 +239,49 @@ func buildRelease(root string, a map[string]any) (string, error) {
 }
 
 var _ = sort.Strings
+
+// projectVersions reads the version constant of version.go and the first "## [vX.Y.Z]" header of CHANGELOG.md.
+func projectVersions(root string) (code, changelog string) {
+	if b, err := os.ReadFile(filepath.Join(root, "version.go")); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(l, "const gameVersion = \"") {
+				code = strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(l), "const gameVersion = \""), "\"")
+			}
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(root, "CHANGELOG.md")); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(l, "## [v") {
+				if i := strings.Index(l, "]"); i > 5 {
+					changelog = l[5:i]
+				}
+				break
+			}
+		}
+	}
+	return
+}
+
+// versionCheck: the version constant, the CHANGELOG header and the VERSION.txt of every zip must agree.
+func versionCheck(root string, reps []*zipReport) (string, bool) {
+	code, cl := projectVersions(root)
+	ok := code != "" && code == cl
+	parts := []string{"version.go " + code, "CHANGELOG " + cl}
+	for _, r := range reps {
+		v := "" // VERSION.txt says "Party Hardy v1.0.0": the last word without the v
+		if f := strings.Fields(r.version); len(f) > 0 {
+			v = strings.TrimPrefix(f[len(f)-1], "v")
+		}
+		if v == "" {
+			v = "(no VERSION.txt)"
+		}
+		if v != code {
+			ok = false
+		}
+		parts = append(parts, r.name+" "+v)
+	}
+	if ok {
+		return "VERSION: ok, all v" + code + " (" + strings.Join(parts, ", ") + ")", true
+	}
+	return "VERSION: MISMATCH (" + strings.Join(parts, ", ") + "): raise the version and the CHANGELOG together, then rebuild", false
+}

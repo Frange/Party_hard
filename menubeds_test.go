@@ -42,7 +42,7 @@ func TestMenuListClearOfBeds(t *testing.T) {
 		uiLang = lang
 		for _, dbg := range []bool{false, true} {
 			for _, save := range []bool{false, true} {
-				list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+				list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuCredits, menuQuit}
 				if !save {
 					list = list[1:]
 				}
@@ -96,7 +96,7 @@ func TestPlayersNoteClear(t *testing.T) {
 			for _, save := range []bool{false, true} {
 				for _, two := range []bool{false, true} {
 					g.debugMenu = dbg
-					list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+					list := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuCredits, menuQuit}
 					if !save {
 						list = list[1:]
 					}

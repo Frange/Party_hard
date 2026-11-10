@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
-	"strings"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,17 @@ type paperFacts struct {
 	two, challenge                 bool
 	secs                           int
 	seed                           int64
+	animalsDead, animalsAlive      int             // animals killed in this party / still alive at the end
+	island, dj                     bool            // the island level / a DJ was playing
+	venue                          string          // icon of the party (cake, hockey, disco70): its own brief (venues_text.go)
+	events                         map[string]bool // events of the party that took place (newspaper_events.go)
+	avoid                          map[string]bool // what the last parties already printed (Spanish keys): left out when possible
+	// for the template news (newspaper_tpl.go)
+	theme                        string          // the kind of level (hintThemeOf; "island" for the Jurassic island)
+	rare                         map[string]bool // big set pieces that started in the party (ufo, zombie, rex...)
+	famous, famousDead           []ptPerson      // famous guests of the party, with the names the game shows
+	animalKinds, animalDeadKinds []string        // kinds of the animals of the party (all / dead)
+	tplAvoid                     map[string]bool // template ids printed by the last parties of the session
 }
 
 func (g *Game) paperFactsNow() paperFacts {
@@ -45,8 +57,94 @@ func (g *Game) paperFactsNow() paperFacts {
 	f.poison, f.traps, f.blast = r.total(kcPoison), r.total(kcTrap), r.total(kcBlast)
 	f.slasher, f.medic, f.camera, f.jailed = r.slasher, r.medic, r.camSeen > 0, r.jailed > 0
 	f.units = r.units
+	for _, a := range g.animals {
+		if a.dead {
+			f.animalsDead++
+		} else {
+			f.animalsAlive++
+		}
+	}
+	f.island = g.isIsland()
+	f.events = g.paperEventSet()
+	if g.lvl != nil && g.lvl.Def != nil {
+		f.venue = g.lvl.Def.Icon
+		f.theme = hintThemeOf(g.lvl.Def)
+	}
+	if f.island {
+		f.theme = "island"
+	}
+	f.rare = g.paperRareSet()
+	f.famous, f.famousDead = g.paperFamousNow()
+	f.animalKinds, f.animalDeadKinds = g.paperAnimalsNow()
+	for _, gu := range g.guests {
+		if gu.perf == "dj" {
+			f.dj = true
+			break
+		}
+	}
 	f.seed = int64(g.levelIdx+3)*1000003 + int64(f.kills)*131 + int64(f.seen)*17 + int64(f.secs)
+	return paperVary(f, fmt.Sprint(g.levelIdx, g.endTime, f.kills, f.seen, f.secs))
+}
+
+// ---- variety between parties --------------------------------------------------------------------------------------
+// The words of the paper do not come from the game's random numbers (g.rng): the session has its own generator and a
+// short memory, so the headline, the story and the small news of the last two parties are not repeated in this one.
+
+type paperSessionT struct {
+	rng    *rand.Rand
+	id     string          // the party the page on screen belongs to
+	salt   int64           // its random salt (the same every frame of the same party)
+	avoid  map[string]bool // what the previous parties printed
+	recent [2][]string     // the printed keys of the last two parties
+	// template news (newspaper_tpl.go): the ids printed by the last three parties (memory only, never saved)
+	tplAvoid  map[string]bool
+	tplRecent [3][]string
+}
+
+var paperSession = &paperSessionT{rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
+
+// paperVary gives the facts of a NEW party a fresh salt and the memory of the last ones; the same party keeps its words.
+func paperVary(f paperFacts, id string) paperFacts {
+	s := paperSession
+	if s.id != id {
+		s.id, s.salt = id, s.rng.Int63()
+		s.avoid = map[string]bool{}
+		for _, r := range s.recent {
+			for _, k := range r {
+				s.avoid[k] = true
+			}
+		}
+		s.tplAvoid = map[string]bool{}
+		for _, r := range s.tplRecent {
+			for _, k := range r {
+				s.tplAvoid[k] = true
+			}
+		}
+		f.seed ^= s.salt >> 8
+		f.avoid, f.tplAvoid = s.avoid, s.tplAvoid
+		s.recent[1], s.recent[0] = s.recent[0], paperPrinted(f)
+		s.tplRecent[2], s.tplRecent[1], s.tplRecent[0] = s.tplRecent[1], s.tplRecent[0], paperTplIDs(f)
+		return f
+	}
+	f.seed ^= s.salt >> 8
+	f.avoid, f.tplAvoid = s.avoid, s.tplAvoid
 	return f
+}
+
+// paperPrinted: the keys (Spanish) of what the page of these facts prints, to be remembered.
+func paperPrinted(f paperFacts) []string {
+	out := []string{paperHeadlineForm(f)}
+	out = append(out, paperSentences(f)...)
+	out = append(out, paperQuote(f))
+	sc := paperPhotoScene(f)
+	out = append(out, fmt.Sprintf("FOTO:%d", sc), paperPhotoCaption(f, sc))
+	for i, b := range paperBriefsFor(f, "0:00") {
+		if i >= 14 {
+			break
+		}
+		out = append(out, b.es)
+	}
+	return out
 }
 
 // paperPick: a deterministic choice among the variants of a situation.
@@ -73,120 +171,179 @@ func (f paperFacts) dominant() string {
 	return ""
 }
 
-// paperHeadline: the big title with the number of the party.
-func paperHeadline(f paperFacts) string {
+// paperHeadlineForm: the template of the big title ("FIESTA %s: ..."), from the main situation of the party plus the
+// general pool. paperHeadline fills in the number of the party and the count.
+func paperHeadlineForm(f paperFacts) string {
 	k := f.kills
-	var forms []string
+	var pool []paperTxt
 	switch {
+	case k == 0:
+		pool = pHeadNone
+	case f.animalsDead >= 3:
+		pool = pHeadAnimalsMany
 	case f.seen == 0 && k >= 5:
-		forms = []string{"FIESTA %s: LA MÁS LIMPIA DEL BARRIO", "FIESTA %s: %d AUSENTES Y NI UN TESTIGO"}
+		pool = pHeadClean
 	case f.blast > 0 && f.dominant() == "blast":
-		forms = []string{"FIESTA %s: ¡BOOM! %d AUSENTES EN LA PISTA", "FIESTA %s: LA PISTA VOLÓ CON %d INVITADOS"}
+		pool = pHeadBlast
 	case f.poison > 0 && f.dominant() == "poison":
-		forms = []string{"FIESTA %s: EL PONCHE SE LLEVÓ A %d", "FIESTA %s: %d INVITADOS SE QUEDAN SIN POSTRE"}
-	case k <= 3:
-		forms = []string{"FIESTA %s: %d BAJAS Y CERO ESCÁNDALO", "FIESTA %s: UNA VELADA TRANQUILA, DICEN"}
+		pool = pHeadPoison
+	case f.traps > 0 && f.dominant() == "trap":
+		pool = pHeadTrap
 	case k >= 20:
-		forms = []string{"FIESTA %s: %d DESAPARECIDOS Y NI UNA PROPINA", "FIESTA %s: SE ACABARON LOS INVITADOS"}
+		pool = pHeadMany
 	case f.cuffed > 0:
-		forms = []string{"FIESTA %s: %d BAJAS Y LA POLI AVISADA TARDE", "FIESTA %s: SALDO %d, Y LA POLI SIN PISTAS"}
+		pool = pHeadCops
+	case k <= 3:
+		pool = pHeadFew
+	case f.animalsDead >= 1:
+		pool = pHeadAnimalsFew
 	default:
-		forms = []string{"FIESTA %s — SALDO: %d DESAPARECIDOS", "FIESTA %s: %d INVITADOS NO VOLVERÁN A CASA"}
+		pool = pHeadMixed
 	}
-	form := paperPick(f.seed, 1, forms)
-	if strings.Count(form, "%d") == 0 {
-		return fmt.Sprintf(form, f.level)
+	all := append([]paperTxt{}, pool...)
+	if k > 0 { // the general pool gives a second chance of variety
+		all = append(all, pHeadMixed...)
 	}
-	return fmt.Sprintf(form, f.level, k)
+	return f.pick(1, all)
 }
 
-// paperSentences: the sentences of the story in priority order (the first one always exists).
-func paperSentences(f paperFacts) []string {
-	var open []string
-	switch f.dominant() {
-	case "knife":
-		open = []string{"El asesino de la fiesta lo hizo a la antigua: ¡ZAS, ZAS!", "Un misterioso invitado repartió ¡ZAS! y ¡PLAF! sin pedir permiso."}
-	case "poison":
-		open = []string{"Según fuentes cercanas al aperitivo, el ponche llevaba un extra no pedido.", "El veneno fue el invitado más puntual: nadie lo vio llegar."}
-	case "trap":
-		open = []string{"Las trampas hicieron ¡CLAC! y ¡PUM! sin que nadie leyera el manual.", "El asesino de la fiesta dejó trampas por todas partes. ¡CLAC!"}
-	case "blast":
-		open = []string{"Un ¡BOOM! de los gordos dejó la pista sin sobremesa.", "Los vecinos oyeron ¡BOOM! y creyeron que era el DJ."}
-	default:
-		open = []string{"Cuchillo, veneno y trampas: un menú degustación completo.", "El asesino de la fiesta no tiene método: lo prueba todo."}
+// paperHeadline: the big title with the number of the party.
+func paperHeadline(f paperFacts) string {
+	form := paperHeadlineForm(f)
+	n := f.kills
+	for _, t := range pHeadAnimalsMany {
+		if t.es == form {
+			n = f.animalsDead
+		}
 	}
-	switch {
-	case f.kills <= 3:
-		open = append(open, "Fueron bajas discretas: casi nadie se enteró del asunto.")
-	case f.kills >= 20:
-		open = append(open, "Los forenses perdieron la cuenta a mitad de canapés.")
+	if formatCount(form) == 0 {
+		return fmt.Sprintf(form, f.level)
 	}
-	s := []string{paperPick(f.seed, 2, open)}
+	return fmt.Sprintf(form, f.level, n)
+}
 
-	var opt []string // the rest, in a stable order shuffled by the seed
-	add := func(salt int, list ...string) { opt = append(opt, paperPick(f.seed, salt, list)) }
-	if f.seen == 0 {
-		add(10, "Nadie vio nada. Los testigos juran estar mirando el móvil.", "Ni un solo testigo: todos miraban al DJ, claro.")
-	} else if f.seen >= 4 {
-		add(11, "Hubo más testigos que canapés y todos corrían a chivarse.", "Testigos aseguran haberlo visto cuatro, cinco, ¡mil veces!")
-	} else {
-		add(12, "Testigos aseguran haberlo visto, aunque iba disfrazado de sombra.", "Un testigo lo vio, pero dice que fue sin querer.")
+// paperSentences: the sentences of the story in priority order (the first one always exists, the last one closes).
+func paperSentences(f paperFacts) []string {
+	var open []paperTxt
+	switch {
+	case f.kills == 0:
+		open = pOpenNone
+	case f.dominant() == "knife":
+		open = pOpenKnife
+	case f.dominant() == "poison":
+		open = pOpenPoison
+	case f.dominant() == "trap":
+		open = pOpenTrap
+	case f.dominant() == "blast":
+		open = pOpenBlast
+	default:
+		open = pOpenMixed
+	}
+	open = append([]paperTxt{}, open...)
+	switch {
+	case f.kills >= 1 && f.kills <= 3:
+		open = append(open, pOpenFew...)
+	case f.kills >= 20:
+		open = append(open, pOpenManyK...)
+	}
+	s := []string{f.pick(2, open)}
+
+	// the most newsworthy first (animals), then the rest in an order shuffled by the seed
+	switch {
+	case f.animalsDead >= 4:
+		s = append(s, f.pick(50, pAnimalsMany))
+	case f.animalsDead >= 1:
+		s = append(s, f.pick(51, pAnimalsDead))
+	case f.animalsAlive >= 2:
+		s = append(s, f.pick(52, pAnimalsAlive))
+	}
+	if f.island {
+		s = append(s, f.pick(53, pIsland))
+	}
+	if pool := pVenue[f.venue]; len(pool) > 0 { // the cake, the rink, the mirror ball (venues_text.go)
+		s = append(s, f.pick(54, pool))
+	}
+	var opt []string
+	add := func(salt int, pool []paperTxt) { opt = append(opt, f.pick(salt, pool)) }
+	switch {
+	case f.seen == 0:
+		add(10, pSeen0)
+	case f.seen >= 4:
+		add(11, pSeenMany)
+	default:
+		add(12, pSeenFew)
 	}
 	if f.cuffed > 0 {
-		add(13, "Alguien avisó a la policía, pero el sospechoso se esfumó.", "Un testigo llamó a la poli. Casi lo pillan... y se escapó.")
+		add(13, pCuffed)
 	}
 	if f.jailed {
-		add(14, "Uno de los asesinos pasó por el calabozo; el otro, de rositas.", "Hubo detenido, hubo fianza y hubo mucha cara dura.")
+		add(14, pJailed)
 	}
 	if f.camera {
-		add(15, "Una cámara lo grabó, pero la imagen salió fatal.", "La cámara de seguridad lo pilló, y encima salió mal peinado.")
+		add(15, pCamera)
 	}
 	if f.slasher {
-		add(16, "Por si fuera poco, otro asesino rondaba por allí. ¡Competencia!", "Otro asesino andaba suelto. Qué fiesta más concurrida.")
+		add(16, pSlasher)
 	}
 	switch {
 	case f.units&(1<<unitMilitary) != 0:
-		add(17, "El ejército desembarcó con tanques para un simple aperitivo.")
+		add(17, pMilitary)
 	case f.units&(1<<unitSWAT) != 0:
-		add(17, "Llegó el SWAT, con megáfono, cuerda y todo.")
+		add(17, pSWAT)
 	case f.units&(1<<unitRangers) != 0:
-		add(17, "Hasta unos rangers de colores llegaron dando saltos.")
+		add(17, pRangers)
 	case f.units&(1<<unitFBI) != 0:
-		add(17, "Dos agentes del FBI aparecieron muy serios y sin una pista.")
+		add(17, pFBI)
 	case f.units&(1<<unitPolice) != 0:
-		add(17, "Una patrulla acudió con sirena y cero resultados.", "La policía llegó tarde, como siempre. ¡NI-NO, NI-NO!")
+		add(17, pPolice)
 	default:
-		add(17, "Ni una sirena: la ciudad dormía a pierna suelta.")
+		add(17, pNoPolice)
 	}
 	if f.medic {
-		add(18, "Las ambulancias hicieron horas extra. ¡PIII-PIII!")
+		add(18, pMedic)
 	}
 	if f.chainMax >= 4 {
-		add(19, "Mató en cadena, ¡ZAS-ZAS-ZAS!, sin parar a respirar.", "Una racha de bajas tan seguida que ni dio tiempo al brindis.")
+		add(19, pChain)
 	}
 	if f.two {
-		add(20, "Los asesinos se repartieron el trabajo. Lo llaman equipo.")
+		add(20, pTwo)
 	}
 	if f.challenge {
-		add(21, "Se rumorea que lo hizo todo por un premio extra.")
+		add(21, pChallenge)
+	}
+	if f.dj {
+		add(22, pDJ)
+	}
+	switch {
+	case f.secs > 0 && f.secs <= 100:
+		add(23, pFast)
+	case f.secs >= 420:
+		add(24, pSlow)
+	}
+	switch {
+	case f.level == "EXTRA":
+		add(25, pExtra)
+	case f.levelN >= 15:
+		add(26, pLevelLate)
+	case f.levelN >= 1 && f.levelN <= 5:
+		add(27, pLevelEarly)
 	}
 	type keyed struct {
-		k int
+		k uint64
 		s string
 	}
 	ks := make([]keyed, len(opt))
 	for i, o := range opt {
-		ks[i] = keyed{int(paperPick(f.seed, 100+i, []string{"0", "1", "2", "3", "4", "5", "6", "7"})[0]), o}
+		h := uint64(f.seed)*6364136223846793005 + uint64(i+100)*1442695040888963407
+		h ^= h >> 31
+		ks[i] = keyed{h * 0x9e3779b97f4a7c15, o}
 	}
 	sort.SliceStable(ks, func(i, j int) bool { return ks[i].k < ks[j].k })
-	for i := range ks {
-		opt[i] = ks[i].s
+	for _, k := range ks {
+		s = append(s, k.s)
 	}
-	s = append(s, opt...)
-	return append(s, paperPick(f.seed, 30, []string{"El culpable sigue en libertad, seguramente comiendo tortilla.", "El culpable sigue suelto. Se le ofrece un canapé por su captura."}))
+	return append(s, f.pick(30, pClose))
 }
 
 // paperQuote: the witness at the bottom of the front page.
-func paperQuote(f paperFacts) string {
-	return paperPick(f.seed, 40, []string{"«Yo solo vine por el aperitivo.»", "«Se lo juro, estaba en el baño.»", "«Yo no vi nada. Y tampoco me pagan.»", "«La música estaba demasiado alta para gritar.»"})
-}
+func paperQuote(f paperFacts) string { return f.pick(40, pQuotes) }

@@ -375,8 +375,8 @@ func TestPaperPlayerColumns(t *testing.T) {
 			if stats[1].x != pcRX || stats[1].h != stats[0].h && stats[1].h < statBoxH(d.stats[1]) {
 				t.Errorf("J2 statistics at x=%d, want the right column (%d)", stats[1].x, pcRX)
 			}
-			if len(d.stats[0].rows) != len(d.stats[1].rows) || d.stats[0].head == d.stats[1].head {
-				t.Error("J1 and J2 boxes must have the same structure and different titles")
+			if len(d.stats[0].rows) != len(d.stats[1].rows) || d.stats[0].tag == d.stats[1].tag {
+				t.Error("J1 and J2 boxes must have the same structure and different tags")
 			}
 		} else if rightBlocks < 3 || rightH != pbY1-pbY0 {
 			t.Errorf("1P: the right column has %d small news over %d px, want it filled (%d px)", rightBlocks, rightH, pbY1-pbY0)
@@ -533,5 +533,24 @@ func TestPaperDataFromGame(t *testing.T) {
 	}
 	if len(d.score) < 6 || d.total == "" {
 		t.Errorf("score table %+v", d.score)
+	}
+}
+
+// the section heads of the small news never repeat on a page (a capture showed three GASTRONOMÍA in a row)
+func TestPaperBriefHeadsNeverRepeat(t *testing.T) {
+	for seed := int64(0); seed < 40; seed++ {
+		two := seed%2 == 1
+		f := paperFacts{level: "5", seed: seed*977 + 13, kills: int(seed % 9)}
+		_, lay := renderPaper(paperSample(f, two, false, 1+int(seed)%27), 0)
+		if len(lay.heads) != len(lay.briefs) || len(lay.heads) == 0 {
+			t.Fatalf("seed %d: %d heads for %d briefs", seed, len(lay.heads), len(lay.briefs))
+		}
+		set := map[string]bool{}
+		for _, h := range lay.heads {
+			if set[h] {
+				t.Fatalf("seed %d (two=%v): head %q repeated in %v", seed, two, h, lay.heads)
+			}
+			set[h] = true
+		}
 	}
 }

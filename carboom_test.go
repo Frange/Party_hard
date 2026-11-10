@@ -7,7 +7,7 @@ import (
 
 func f1Games(t *testing.T) []*Game {
 	var out []*Game
-	for i, def := range testLevels() {
+	for i, def := range testLevels(t) {
 		if i > 10 {
 			break
 		}

@@ -319,16 +319,61 @@ func trackKey(style string, i int, title string) string {
 	return fmt.Sprintf("%s:%s:%d", style, title, i)
 }
 
+// menuMusicScreen: the screens that hang from the main menu play the menu's own track (the same player:
+// opening the shop, the trophies, the settings, the party list, the scenes, a confirmation or DEBUG never
+// cuts or restarts it). g.lvl is never nil (the first party is loaded behind the menu), so without this
+// those screens would start its song. The settings opened from the pause window are not one of them: the
+// party is still there and its song goes on.
+func (g *Game) menuMusicScreen() bool {
+	switch g.mode {
+	case ModeMenu, ModeTitle, ModeEditor, ModeLevelSelect, ModeShop, ModeConfirm, ModeTrophies, ModeDebug, ModeScenes:
+		return true
+	case ModeSettings:
+		return !g.pause.inSet
+	}
+	return g.lvl == nil
+}
+
 // syncMusic picks the song that fits the moment: the menu theme, the level playlist or punk after the DJ dies.
 func (g *Game) syncMusic() {
 	if g.snd == nil {
 		return
 	}
-	if g.mode == ModeMenu || g.mode == ModeEditor || g.lvl == nil {
-		g.musicMode = ""
-		g.snd.SetTrack("menu", musicLoop)
+	if g.mode == ModeIntro || (g.mode == ModeTitle && (g.title == nil || !g.title.musicOn)) {
+		// the intro plays its own party through the wall (intro.go) and keeps the menu music paused: the
+		// party of the level loaded behind it (g.lvl is never nil) must not start here, or the menu that
+		// follows would open with that song and switch to its own a moment later. The title starts the
+		// menu's music on its first frame (updateTitle): nothing before that either.
 		return
 	}
+	if g.mode == ModeInterlude || g.mode == ModeEnding {
+		// the cinematics play their own music (scene layers): the song of the level loaded behind them must
+		// never start here. Watched again from the scenes list / DEBUG, the menu's song waits paused
+		// (leaveScene resumes it where it was).
+		if g.sceneReplay {
+			g.snd.StopMusic()
+		}
+		return
+	}
+	if g.pause.keepSong {
+		if g.mode == ModeLevelSelect {
+			// SALIR A ELEGIR FIESTA from the pause window: the song of the abandoned party goes on in the list
+			// (loadLevel(0) put the first party behind it: its song must not start)
+			// NOTE: if that mp3 has ended, SetFile of the same file starts it again from the top (a loop, by
+			// design: the list never goes silent). It is not resumed where it was, and nothing else changes.
+			if g.snd.FileEnded() && g.songFile != "" {
+				g.snd.SetFile(g.songFile, false)
+			}
+			return
+		}
+		g.pause.keepSong = false
+	}
+	if g.menuMusicScreen() {
+		g.musicMode = ""
+		g.snd.syncMenuMusic(g.menuTier(), 1.0/60) // the anthem, or the lullaby on the gold menu (menumusic.go)
+		return
+	}
+	g.snd.ClearFade()
 	skip := g.skipSong
 	if g.syncRealMusic() {
 		g.skipSong = false
@@ -338,11 +383,14 @@ func (g *Game) syncMusic() {
 	if skip {
 		g.songIdx++
 		g.nextSong = g.time + 70 + g.rng.Float64()*40
+		g.lifeOopsOnChange(true)
 	}
 	title := g.lvl.Def.Title
 	if g.time >= g.nextSong {
 		g.songIdx++
 		g.nextSong = g.time + 70 + g.rng.Float64()*40
+		g.lifeOopsOnChange(false)
+		g.lifeSongChanged() // some guests go dancing (partylife.go)
 		if g.mode == ModePlay {
 			g.say("El DJ cambia de canción")
 		}
@@ -359,6 +407,9 @@ func (g *Game) syncMusic() {
 	} else {
 		pl := playlistFor(title)
 		sp = pl[g.songIdx%len(pl)]
+		if g.life.oops { // the DJ got the record wrong: a waltz (partylife.go)
+			sp, title = lifeOopsSpec(), "oops"
+		}
 	}
 	if _, isGenre := genreSongs[sp.style]; isGenre {
 		// the new genres take about a second to render: a background thread does it and the

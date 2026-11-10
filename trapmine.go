@@ -12,8 +12,8 @@ import (
 // Traps work like mines. E on a trap prop (speaker, stove, barbecue, fuse box, gas tank...) starts
 // a LOAD of trapArmTime seconds (a clock-like circle fills over it); while it loads nothing happens.
 // When the circle is full the trap is ARMED and stays so FOR EVER (no expiry, no way to disarm it):
-// it goes off the moment somebody comes within trapDetectR of it: a guest, a guard, a cop (not the
-// medics), an animal or a player.
+// it goes off the moment somebody comes within trapDetectR of it: anybody: a guest (even one on the phone), a guard, a cop, a
+// soldier, a medic, an animal, a special killer or a player.
 // NO exceptions when it goes off: any player (the one who armed it, his partner) who comes within the
 // radius of an ARMED trap sets it off and suffers the same effect as anybody (real death/damage).
 // The only rule is about ARMING, not about affecting: when the load ends and a player (J1 or J2) is
@@ -90,12 +90,17 @@ func (g *Game) trapDetects(pr *Prop) bool {
 		}
 	}
 	for _, cp := range g.cops {
-		if !cp.medic && near(cp.pos) {
+		if near(cp.pos) { // police, soldiers and medics alike
 			return true
 		}
 	}
 	for _, a := range g.animals {
-		if near(a.pos) {
+		if !a.dead && near(a.pos) {
+			return true
+		}
+	}
+	for _, s := range g.allSlashers() {
+		if s.state != slGone && near(s.pos) {
 			return true
 		}
 	}

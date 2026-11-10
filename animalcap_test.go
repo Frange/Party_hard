@@ -14,7 +14,7 @@ func animalCounts(g *Game) (total, bulls int) {
 
 // every level (campaign, classics and 10 seeds per generator) ends with animalMax animals or fewer and one bull at most
 func TestAnimalCapSweep(t *testing.T) {
-	defs := testLevels()
+	defs := testLevels(t)
 	for _, kind := range genKinds {
 		for sd := int64(1); sd <= 10; sd++ {
 			if d := genNamed(kind, sd*977, ""); d != nil {

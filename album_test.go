@@ -11,11 +11,12 @@ import (
 // albumTestGame: the shared headless game with a private copy of the progress, frozen, restored afterwards.
 func albumTestGame(t *testing.T) *Game {
 	g := auditGame(t)
-	prevP, prevF, prevTab, prevTwo := cloneProgress(g.progress), progressFrozen, g.trophyTab, twoPlayerMode
+	prevP, prevF, prevTab, prevTwo, prevOwned := cloneProgress(g.progress), progressFrozen, g.trophyTab, twoPlayerMode, shopOwned
+	shopOwned = map[string]bool{"skin:": true, "police:0": true} // a card unlocked by a kill adds "skin:<slug>" to it
 	progressFrozen = true
 	g.progress.Album = nil
 	t.Cleanup(func() {
-		g.progress, progressFrozen, g.trophyTab, twoPlayerMode = prevP, prevF, prevTab, prevTwo
+		g.progress, progressFrozen, g.trophyTab, twoPlayerMode, shopOwned = prevP, prevF, prevTab, prevTwo, prevOwned
 		g.albumSel, g.albumScroll, g.mode = 0, 0, ModeMenu
 	})
 	return g
@@ -30,8 +31,8 @@ func TestAlbumListsVIPAndSpecials(t *testing.T) {
 		}
 		keys[c.key] = true
 	}
-	if len(vipRegistry()) != 11 {
-		t.Fatalf("expected 11 VIPs, got %d", len(vipRegistry()))
+	if len(vipRegistry()) != 50 {
+		t.Fatalf("expected 50 VIPs, got %d", len(vipRegistry()))
 	}
 	for _, d := range vipRegistry() {
 		if !keys["vip:"+d.id] {
@@ -46,6 +47,14 @@ func TestAlbumListsVIPAndSpecials(t *testing.T) {
 	if len(cards) < 22 {
 		t.Errorf("only %d cards", len(cards))
 	}
+	// the three collections
+	n := map[int]int{}
+	for _, c := range cards {
+		n[c.kind()]++
+	}
+	if n[cardVIP] != 50 || n[cardKiller] != len(killerCatalog)+len(killerTrophy) || n[cardChar] < 282 {
+		t.Errorf("cards by kind: %v", n)
+	}
 }
 
 func TestAlbumUnlockAndSilhouette(t *testing.T) {
@@ -59,7 +68,11 @@ func TestAlbumUnlockAndSilhouette(t *testing.T) {
 		t.Error("a VIP must need a kill or help")
 	}
 	g.albumMark("vip:"+vipRegistry()[0].id, albumKilled)
-	g.albumMark("diego", albumSeen)
+	g.albumMark("diego", albumSeen) // a character is not unlocked by sight either...
+	if g.albumCount() != 1 {
+		t.Error("seeing a character must not unlock it")
+	}
+	g.albumMark("diego", albumKilled) // ...only by a kill
 	g.albumMark("vip:"+vipRegistry()[1].id, albumHelped)
 	if !g.albumUnlocked(vip) || g.albumCount() != 3 {
 		t.Errorf("count = %d, want 3", g.albumCount())
@@ -67,7 +80,7 @@ func TestAlbumUnlockAndSilhouette(t *testing.T) {
 	if g.progress.Stats["album"] != 3 {
 		t.Errorf("album stat = %d", g.progress.Stats["album"])
 	}
-	g.albumMark("diego", albumSeen) // again: nothing changes
+	g.albumMark("diego", albumKilled) // again: nothing changes
 	if g.albumCount() != 3 {
 		t.Error("count moved")
 	}
@@ -75,7 +88,7 @@ func TestAlbumUnlockAndSilhouette(t *testing.T) {
 	dst := ebiten.NewImage(960, 540)
 	for _, two := range []bool{false, true} {
 		twoPlayerMode = two
-		g.mode, g.trophyTab = ModeTrophies, tabAlbum
+		g.mode, g.trophyTab = ModeTrophies, tabChars
 		g.drawTrophies(dst)
 	}
 }
@@ -109,7 +122,7 @@ func TestAlbumNeverWritesWhenFrozen(t *testing.T) {
 	g := albumTestGame(t)
 	path := progressPath()
 	before, _ := os.ReadFile(path)
-	g.albumMark("yoda", albumSeen)
+	g.albumMark("yoda", albumKilled)
 	g.albumMark("vip:king", albumKilled)
 	after, _ := os.ReadFile(path)
 	if string(before) != string(after) {
@@ -119,7 +132,8 @@ func TestAlbumNeverWritesWhenFrozen(t *testing.T) {
 
 func TestAlbumScroll(t *testing.T) {
 	g := albumTestGame(t)
-	n := len(albumCards())
+	g.trophyTab = tabChars
+	n := len(g.albumView())
 	if n <= albumCols*albumRows {
 		t.Skip("everything fits")
 	}
@@ -153,7 +167,7 @@ func TestSecretTrophiesHiddenUntilWon(t *testing.T) {
 			t.Errorf("%s must be hidden", tr.id)
 		}
 	}
-	if n < 8 || n > 12 {
+	if n < 8 || n > 16 {
 		t.Errorf("%d secret trophies", n)
 	}
 	g.progress.Trophies = map[string]bool{"s_mine": true}
@@ -210,9 +224,10 @@ func TestSecretTrapBurst(t *testing.T) {
 // albumNearGame: a play session with a frozen, empty progress and one special guest we control.
 func albumNearGame(t *testing.T) (*Game, *Guest, albumCard) {
 	g := hudPlay(t, false)
-	prevP, prevF := cloneProgress(g.progress), progressFrozen
+	prevP, prevF, prevOwned := cloneProgress(g.progress), progressFrozen, shopOwned
 	progressFrozen = true
-	t.Cleanup(func() { g.progress, progressFrozen = prevP, prevF; g.toasts = nil })
+	shopOwned = map[string]bool{"skin:": true, "police:0": true} // what other tests own must not unlock cards here
+	t.Cleanup(func() { g.progress, progressFrozen, shopOwned = prevP, prevF, prevOwned; g.toasts = nil })
 	g.progress.Album = nil
 	g.progress.Trophies = map[string]bool{}
 	g.progress.Stats = map[string]int{}
@@ -359,7 +374,10 @@ func TestAlbumCardNamesFit(t *testing.T) {
 	for _, lg := range []string{"es", "en"} {
 		uiLang = lg
 		for _, c := range albumCards() {
-			for _, s := range []string{c.cardName(), c.roleES} {
+			for _, s := range []string{c.cardName(), c.roleES, c.roleCard} {
+				if s == "" {
+					continue
+				}
 				if w := g.textW(tr(s), 1); w > albumCardW-8 {
 					t.Errorf("%s card %s: %q is %.0f px wide (max %.0f)", lg, c.key, tr(s), w, albumCardW-8)
 				}

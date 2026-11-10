@@ -207,6 +207,14 @@ func (g *Game) updateCritter(a *Animal, dt float64) {
 		scareD, fleeV, walkV, cry = 36, 90, 16, "PIO PIO!"
 	case animDeer:
 		scareD, fleeV, walkV, cry = 64, 95, 16, "¡!"
+	case animFrog:
+		scareD, fleeV, walkV, cry = 26, 60, 10, "CROAC!"
+	case animSquirrel:
+		scareD, fleeV, walkV, cry = 40, 85, 20, "¡CHIC CHIC!"
+	case animBoar:
+		scareD, fleeV, walkV, cry = 30, 60, 14, "¡GRUÑ!"
+	case animCobaya:
+		scareD, fleeV, walkV, cry = 34, 70, 11, "¡WHEEK!"
 	}
 	scare := dist(g.p.pos, a.pos) < scareD && !g.p.hidden
 	if !scare {
@@ -302,7 +310,8 @@ func (g *Game) killAnimal(a *Animal) {
 
 func animalNameEs(k int) string {
 	if k >= 0 && k < len(animalKinds) {
-		if n, ok := map[string]string{"hen": "una gallina", "dog": "un perro", "cat": "un gato", "kangaroo": "un canguro", "chick": "un pollito", "rabbit": "un conejo", "pig": "un cerdo", "duck": "un pato", "budgie": "un periquito", "snake": "una serpiente"}[animalKinds[k]]; ok {
+		if n, ok := map[string]string{"hen": "una gallina", "dog": "un perro", "cat": "un gato", "kangaroo": "un canguro", "chick": "un pollito", "rabbit": "un conejo", "pig": "un cerdo", "duck": "un pato", "budgie": "un periquito", "snake": "una serpiente",
+			"frog": "una rana", "squirrel": "una ardilla", "boar": "un jabalí", "croc": "un cocodrilo", "cheetah": "un guepardo", "lion": "un león", "cobaya": "una cobaya"}[animalKinds[k]]; ok {
 			return n
 		}
 	}

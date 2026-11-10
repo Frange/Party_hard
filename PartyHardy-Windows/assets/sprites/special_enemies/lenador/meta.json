@@ -1,0 +1,11 @@
+{
+  "name": "lenador",
+  "display_name": "Lenador",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "chainsaw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

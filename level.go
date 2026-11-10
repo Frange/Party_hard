@@ -163,6 +163,7 @@ type Prop struct {
 
 type Level struct {
 	Def       *LevelDef
+	iceOn     int8 // 0 = not looked at yet, 1 = the level has ice floor, -1 = it has none (ice.go)
 	W, H      float64
 	Walls     []Wall
 	Props     []*Prop
@@ -188,10 +189,11 @@ const navCell = 8.0
 func buildLevelRaw(def *LevelDef) *Level {
 	l := &Level{Def: def, W: def.W, H: def.H, Walls: def.Walls, Pools: def.Pools, POIs: map[string][]Vec{}}
 	for _, w := range def.Walls {
-		l.solidsP = append(l.solidsP, w.R)
-		l.solidsN = append(l.solidsN, w.R)
-		if w.Style != WallFence {
-			l.sight = append(l.sight, w.R)
+		wr := wallFoot(w) // house walls are a touch thicker than their design rect (walls_look.go)
+		l.solidsP = append(l.solidsP, wr)
+		l.solidsN = append(l.solidsN, wr)
+		if w.Style != WallFence && w.Style != WallBoards {
+			l.sight = append(l.sight, wr)
 		}
 	}
 	for _, in := range def.Props {

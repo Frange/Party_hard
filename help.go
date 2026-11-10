@@ -31,7 +31,7 @@ import (
 
 const (
 	helpBtnW, helpBtnH     = 26.0, 24.0
-	helpBtnX, helpBtnY     = trophyHudX - helpBtnW - 6, trophyHudY
+	helpBtnX, helpBtnY     = trophyHudX - helpBtnW - 12, trophyHudY // 12 px from the trophy counter
 	helpPanX, helpPanY     = 30.0, 24.0
 	helpPanW, helpPanH     = 900.0, 492.0
 	helpCloseW             = 84.0
@@ -124,7 +124,7 @@ func (g *Game) drawHelp(dst *ebiten.Image) {
 		if hot { // tooltip under the button, right aligned to the screen edge
 			s := "Ayuda: controles (F1 / Select)"
 			w := g.textW(s, 1) + 12
-			x := float64(screenW) - w - 8
+			x := float64(screenW) - w - 16
 			y := helpBtnY + helpBtnH + 4
 			fillRect(dst, x, y, w, 18, rgba(0x05070e, 235))
 			fillRect(dst, x, y, w, 1, rgb(0x6a4ab0))
@@ -139,8 +139,16 @@ func (g *Game) drawHelp(dst *ebiten.Image) {
 
 const helpCapH = 18.0
 
-// helpModeRowH: the rows of MODOS Y OBJETOS (seven fit above the footer).
+// helpModeRowH: the rows of MODOS Y OBJETOS (eight fit above the footer, a cap is 18 high).
 const helpModeRowH = 22.0
+
+// the vertical layout of the window (>= 12 px between blocks, 4 px between key rows)
+const (
+	helpColsY    = helpPanY + 62.0                                 // the titles of the three columns
+	helpRowPitch = 24.0                                            // a cap is 18 high
+	helpModesY0  = helpColsY + 24 + 6*helpRowPitch + helpCapH + 12 // the rule above MODOS Y OBJETOS
+	helpFooterY  = helpPanY + helpPanH - 18                        // the fixed keys and the closing hint
+)
 
 // helpCap draws a key as a key: a rectangle with its label. It returns the width.
 func (g *Game) helpCap(dst *ebiten.Image, x, y float64, label string, edge color.RGBA) float64 {
@@ -259,7 +267,11 @@ var helpModes = []helpModeLine{
 	{actInteract, "Traje dorado: recógelo y nadie te ve durante 8 s"},
 	{actInteract, "Invitación VIP: quita la tarjeta dorada; ayuda al VIP que da propina"},
 	{actDance, "Bailar: pulsa quieto; si te mueves, paras"},
+	{actInteract, helpUseNear}, // (pe_*.go, stash.go, partylife.go)
 }
+
+// helpUseNear: the other uses of E in the party: pizza boy, mascot, live DJ, waiter, magician, stashes.
+const helpUseNear = "Cerca de: pizzero, mascota, DJ (canción), camarero (copa), mago (propina), escondites"
 
 // helpMinimapText: the minimap row (minimap.go). TAB and Start are not rebindable, so they are fixed caps.
 const helpMinimapText = "Minimapa: muestra u oculta el mapa de la fiesta"
@@ -271,7 +283,7 @@ func (g *Game) helpColumn(dst *ebiten.Image, x, y float64, title string, edge co
 	g.drawText(dst, title, x, y, edge, 1)
 	fillRect(dst, x, y+14, 262, 1, edge)
 	for i, r := range rows {
-		ry := y + 24 + float64(i)*26
+		ry := y + 24 + float64(i)*helpRowPitch
 		g.drawText(dst, r.label, x, ry+3, rgb(0xd8d0f0), 1)
 		cx := x + 128
 		for _, c := range r.caps {
@@ -297,13 +309,13 @@ func (g *Game) drawHelpWindow(dst *ebiten.Image) {
 	fillRect(dst, helpCloseX, helpCloseY, helpCloseW, helpCloseH, bg)
 	g.drawTextC(dst, "CERRAR", helpCloseX+helpCloseW/2, helpCloseY+5, rgb(0xffd0d8), 1)
 
-	y := helpPanY + 70
+	y := helpColsY
 	g.helpColumn(dst, helpPanX+20, y, "JUGADOR 1 · TECLADO", playerColor(0), helpKeyboardRows(0))
 	g.helpColumn(dst, helpPanX+20+300, y, "JUGADOR 2 · TECLADO", playerColor(1), helpKeyboardRows(1))
 	g.helpColumn(dst, helpPanX+20+600, y, "MANDO", rgb(0x70d890), helpPadRows())
 
 	// the modes
-	my0 := y + 24 + 7*26 + 8
+	my0 := helpModesY0
 	fillRect(dst, helpPanX+20, my0, helpPanW-40, 1, rgb(0x4a4470))
 	g.drawText(dst, "MODOS Y OBJETOS", helpPanX+20, my0+8, rgb(0xf0e060), 1)
 	if twoPlayerMode {
@@ -330,9 +342,9 @@ func (g *Game) drawHelpWindow(dst *ebiten.Image) {
 		cx += g.helpCap(dst, cx, ly, "Start", rgb(0x70d890)) + 10
 		g.drawText(dst, helpMinimapText, cx, ly+3, rgb(0xe8e4f4), 1)
 	}
-	g.drawText(dst, helpGeneral, helpPanX+20, helpPanY+helpPanH-26, rgb(0xa89cd0), 1)
+	g.drawText(dst, helpGeneral, helpPanX+20, helpFooterY, rgb(0xa89cd0), 1)
 	hint := tr("Cerrar con") + " Esc, F1, " + padLabel(binds[actBack].Pad) + ", Select"
-	g.drawText(dst, hint, helpPanX+helpPanW-20-g.textW(hint, 1), helpPanY+helpPanH-26, rgb(0xa89cd0), 1)
+	g.drawText(dst, hint, helpPanX+helpPanW-20-g.textW(hint, 1), helpFooterY, rgb(0xa89cd0), 1)
 }
 
 func init() {
@@ -370,10 +382,10 @@ func init() {
 }
 
 // menuCornerMargin: distance of the version lines of the main menu to the right and bottom edges.
-const menuCornerMargin = 8.0
+const menuCornerMargin = 16.0
 
 // menuVersionLine is the first line of the bottom right corner of the main menu.
-func menuVersionLine() string { return "v." + gameVersion + " - Frange" }
+func menuVersionLine() string { return versionLabel() + " - Frange" }
 
 const menuHomageLine = "Homenaje a Party Hard (Pinokl Games · tinyBuild)"
 
@@ -383,7 +395,7 @@ func (g *Game) drawMenuCorner(dst *ebiten.Image) {
 		s string
 		c color.RGBA
 	}{{menuVersionLine(), rgb(0xb8b0d0)}, {menuHomageLine, rgb(0x7a7690)}} {
-		g.drawText(dst, l.s, float64(screenW)-menuCornerMargin-g.textW(l.s, 1), float64(screenH)-38+float64(i)*14, l.c, 1)
+		g.drawText(dst, l.s, float64(screenW)-menuCornerMargin-g.textW(l.s, 1), float64(screenH)-43+float64(i)*14, l.c, 1)
 	}
 }
 

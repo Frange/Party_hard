@@ -481,5 +481,6 @@ func (g *Game) drawReviveHud(dst *ebiten.Image) {
 	case g.rev.used:
 		txt, col = "Ambulancia: 0", rgb(0x7a7a90)
 	}
-	g.drawText(dst, txt, 10, 114, col, 1)
+	_, _, ry, _ := g.hudSide()
+	g.drawText(dst, txt, hudX, ry, col, 1)
 }

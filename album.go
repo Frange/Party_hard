@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -10,15 +11,17 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// COLLECTOR CARD ALBUM (idea 25) and SECRET TROPHIES (idea 47).
-//
-// The second page of the TROFEOS screen (and of its in-game window) is an album with one card per VIP of
-// vipRegistry() and one per special character (famous guests of specialPool / starGroups, the three kids Sam-sam,
-// Cesar and Diego included). Progress.Album maps a card key to bits: albumSeen, albumKilled, albumHelped.
-//   VIP keys are "vip:<id>"; the rest use the character slug.
-//   A VIP card is unlocked by killing him (vipOnKill) or helping him (vipInteract, the ones who tip).
-//   A special card is unlocked by seeing the character on screen in a party (albumScan) or by killing him.
-// A locked card is a dark silhouette with "???". Old saves have no "album" field: it loads as an empty map.
+// GOALS (OBJETIVOS, formerly TROFEOS) = the trophy list + three card collections: PERSONAJES, VIPS and ASESINOS.
+// What you earn by playing lives here; what you buy lives in the shop. Progress.Album maps a card key to bits:
+// albumSeen, albumKilled, albumHelped.
+//   VIPS: key "vip:<id>", 50 of them (vipRegistry); unlocked by killing him INSIDE his VIP area (vipOnKill) or helping
+//         him (vipInteract, the ones who tip).
+//   PERSONAJES: key = the character slug (goalchars.go: the 282 of the old shop, kids, album extras, trophy rewards);
+//         unlocked by killing a guest of that kind the first time. Seeing him only shows his card as VISTO.
+//   ASESINOS: key "killer:<slug>" (goalkillers.go: 21 + 4 trophy rewards); unlocked by killing that killer.
+// The tabs are data (goalTabs) and the cards come from goalCardSources: a new tab (the police, for instance) is one
+// entry in each plus its unlock rule in albumUnlocked. A locked card is a dark silhouette with "???". Old saves have
+// no "album" field: it loads as an empty map, and what they bought in the shop still counts (charUnlocked, killerGot).
 //
 // Secret trophies: ordinary entries of trophyList (so nothing of the old logic changes) listed in secretTrophy.
 // They show as "???" until won, are not needed for the legend trophy, and are won through the usual stats
@@ -31,15 +34,24 @@ const (
 	albumSeen   = 1
 	albumKilled = 2
 	albumHelped = 4
+	albumElim   = 8 // a character killed at least once but fewer than charKillsNeed times (ELIMINADO; goalchars.go)
 
 	albumCols  = 5
 	albumRows  = 3 // visible rows
 	albumCardW = 126.0
-	albumCardH = 112.0
+	albumCardH = 104.0
 	albumGapX  = 10.0
 	albumGapY  = 6.0
 	albumX0    = 244.0
-	albumY0    = 94.0
+	albumY0    = 123.0 // under the row of tabs (goalTabY)
+)
+
+// the kinds of card, one per collection tab
+const (
+	cardChar = iota
+	cardVIP
+	cardKiller
+	cardCop
 )
 
 type albumCard struct {
@@ -47,17 +59,35 @@ type albumCard struct {
 	nameES   string
 	cardES   string // the name as written on the card (short when the full one does not fit); detail line uses nameES
 	roleES   string
+	roleCard string // the line under the name on the card when it differs from roleES (band members: the band)
 	vip      bool
 	vipIdx   int
 	slug     string
 	tipsVIP  bool
 	roleKind int
+	killer   bool   // an ASESINOS card (slug = the killer preset)
+	cop      bool   // a POLICÍAS card (roleKind = the unit, goalcops.go)
+	trophyID string // a reward of this trophy: it unlocks with the trophy, not by a kill
+}
+
+func (c albumCard) kind() int {
+	switch {
+	case c.vip:
+		return cardVIP
+	case c.killer:
+		return cardKiller
+	case c.cop:
+		return cardCop
+	}
+	return cardChar
 }
 
 var albumList []albumCard
 
 // albumShortName: short card names of the special characters whose full name is wider than a card.
-var albumShortName = map[string]string{"taz": "Taz", "stan_barcos": "Stan", "pantera_rosa": "Pantera Rosa", "lagarto_juancho": "Juancho"}
+var albumShortName = map[string]string{"taz": "Taz", "stan_barcos": "Stan", "pantera_rosa": "Pantera Rosa", "lagarto_juancho": "Juancho",
+	"caperucita_roja": "Caperucita", "colon_almirante": "Colón", "isabel_la_catolica": "Isabel",
+	"tr_bailarina_disco": "Bailarina", "tr_rockero_leyenda": "Rockero", "tr_rey_fiesta": "Rey Fiesta"}
 
 // cardName: what the card prints as the name.
 func (c albumCard) cardName() string {
@@ -67,62 +97,66 @@ func (c albumCard) cardName() string {
 	return c.nameES
 }
 
-// albumCards builds the list once: 11 VIP, then the kids, then every other special character.
+// goalCardSources: where the cards of every collection come from (a new collection adds its function here).
+var goalCardSources = []func() []albumCard{vipCards, charCards, killerCards, copCards}
+
+// albumCards builds the list once: the VIPs, then the characters, then the killers.
 func albumCards() []albumCard {
 	if albumList != nil {
 		return albumList
 	}
 	out := []albumCard{}
-	for i, d := range vipRegistry() {
-		out = append(out, albumCard{key: "vip:" + d.id, nameES: d.es, cardES: d.cardES, roleES: d.rankES, vip: true, vipIdx: i, tipsVIP: d.behaviour == vbTip})
-	}
-	seen := map[string]bool{}
-	probe := rand.New(rand.NewSource(1))
-	add := func(slug, role string) {
-		if seen[slug] {
-			return
-		}
-		f := presetByName(slug)
-		if f == nil {
-			return
-		}
-		seen[slug] = true
-		spec := f(probe)
-		nm := nameFromSpec(&spec)
-		out = append(out, albumCard{key: slug, nameES: nm, cardES: albumShortName[slug], roleES: role, slug: slug})
-	}
-	for _, k := range kidSlugs {
-		add(k, "Peque travieso")
-	}
-	for _, s := range specialPool {
-		add(s, "Invitado famoso")
-	}
-	for _, grp := range starGroups {
-		for _, s := range grp {
-			add(s, "Invitado famoso")
-		}
+	for _, src := range goalCardSources {
+		out = append(out, src()...)
 	}
 	albumList = out
 	return out
 }
 
+func vipCards() []albumCard {
+	var out []albumCard
+	for i, d := range vipRegistry() {
+		out = append(out, albumCard{key: "vip:" + d.id, nameES: d.es, cardES: d.cardES, roleES: d.rankES, vip: true, vipIdx: i, tipsVIP: d.behaviour == vbTip})
+	}
+	return out
+}
+
+var albumKeyIdx map[string]string
+
+// albumKeyOf: the card key of a character (guest) slug, "" when it has no card.
 func albumKeyOf(slug string) string {
-	for _, c := range albumCards() {
-		if !c.vip && c.slug == slug {
-			return c.key
+	if albumKeyIdx == nil {
+		albumKeyIdx = map[string]string{}
+		for _, c := range albumCards() {
+			if c.kind() == cardChar {
+				albumKeyIdx[c.slug] = c.key
+			}
 		}
 	}
-	return ""
+	return albumKeyIdx[slug]
 }
 
 func (g *Game) albumBits(c albumCard) int { return g.progress.Album[c.key] }
 
+// albumUnlocked: the card is won. A VIP needs a kill inside his area or a favour; a character or a killer needs a
+// kill (or the old shop purchase / the trophy that gives it: charUnlocked, killerGot). Just seeing one is not enough.
 func (g *Game) albumUnlocked(c albumCard) bool {
 	b := g.albumBits(c)
-	if c.vip {
+	switch c.kind() {
+	case cardVIP:
 		return b&(albumKilled|albumHelped) != 0
+	case cardKiller:
+		return g.killerGot(c.slug)
+	case cardCop:
+		return g.copGot(c.roleKind)
 	}
-	return b != 0
+	return charUnlocked(g.progress.Album, c.slug)
+}
+
+// albumSeenOnly: a character seen close up, or killed fewer than charKillsNeed times, but not won yet (its card
+// shows his face, marked VISTO or ELIMINADO n/5, and does not count).
+func (g *Game) albumSeenOnly(c albumCard) bool {
+	return c.kind() == cardChar && !g.albumUnlocked(c) && g.albumBits(c)&(albumSeen|albumElim) != 0
 }
 
 func (g *Game) albumCount() int {
@@ -149,6 +183,9 @@ func (g *Game) albumMark(key string, bit int) {
 	}
 	before := g.albumCount()
 	g.progress.Album[key] = old | bit
+	if charKey(key) && bit&albumKilled != 0 {
+		shopOwned["skin:"+key] = true // wardrobe, kids and riders see him at once (charSyncOwned does it on load)
+	}
 	if g.albumCount() > before {
 		g.say("Cromo nuevo en el álbum")
 		g.statMax("album", g.albumCount())
@@ -298,17 +335,79 @@ func (g *Game) secretTrapKill() {
 
 const (
 	tabTrophies = 0
-	tabAlbum    = 1
+	tabChars    = 1 // PERSONAJES
+	tabVIPs     = 2
+	tabKillers  = 3
+	tabCops     = 4
+	tabCareer   = 5 // CARRERA: the totals of the whole career (goalstats.go)
+	tabCount    = 6
 )
 
-var (
-	tabRects = [2][4]float64{{244, 62, 56, 22}, {304, 62, 46, 22}}
-	tabNames = [2]string{"TROFEOS", "ÁLBUM"}
+// goalTab: one page of OBJETIVOS. kind is the card kind it lists (-1 = the list of trophies).
+type goalTab struct {
+	name string // Spanish label; tr() gives the English one
+	kind int
+}
+
+var goalTabs = [tabCount]goalTab{{"TROFEOS", -1}, {"PERSONAJES", cardChar}, {"VIPS", cardVIP}, {"ASESINOS", cardKiller}, {"POLICÍAS", cardCop}, {"CARRERA", -2}}
+
+// the row of tabs sits under the title and the toast column (the toast covers y 16-80), above the list
+const (
+	goalTabY = 91.0
+	goalTabH = 20.0
 )
+
+// goalTabRects: x, y, w, h of every tab, laid out from the width of its label in the current language.
+func (g *Game) goalTabRects() [tabCount][4]float64 {
+	var out [tabCount][4]float64
+	x := 244.0 // the title's column (and the cards')
+	for i, t := range goalTabs {
+		w := math.Ceil(g.textW(t.name, 1)) + 14
+		out[i] = [4]float64{x, goalTabY, w, goalTabH}
+		x += w + 6
+	}
+	return out
+}
+
+// albumView: the cards of the page in view (none on the trophy list).
+func (g *Game) albumView() []albumCard {
+	all := albumCards()
+	k := goalTabs[clampI(g.trophyTab, 0, tabCount-1)].kind
+	out := make([]albumCard, 0, len(all))
+	if k < 0 {
+		return out
+	}
+	// the order: first the cards never met (???), then the ones met or killed but not won yet, the won ones last;
+	// stable inside every group (catalogue order)
+	var grp [4][]albumCard
+	for _, c := range all {
+		if c.kind() == k {
+			gi := g.albumGroup(c)
+			grp[gi] = append(grp[gi], c)
+		}
+	}
+	for _, l := range grp {
+		out = append(out, l...)
+	}
+	return out
+}
+
+// albumGroup: 0 = never met (???), 1 = seen only (VISTO), 2 = killed but fewer times than needed (ELIMINADO), 3 = won.
+func (g *Game) albumGroup(c albumCard) int {
+	switch {
+	case g.albumUnlocked(c):
+		return 3
+	case g.albumBits(c)&albumElim != 0:
+		return 2
+	case g.albumBits(c) != 0:
+		return 1
+	}
+	return 0
+}
 
 func (g *Game) albumClamp() {
-	n := len(albumCards())
-	g.albumSel = clampI(g.albumSel, 0, n-1)
+	n := len(g.albumView())
+	g.albumSel = clampI(g.albumSel, 0, maxI(n-1, 0))
 	row := g.albumSel / albumCols
 	if row < g.albumScroll {
 		g.albumScroll = row
@@ -320,29 +419,41 @@ func (g *Game) albumClamp() {
 	g.albumScroll = clampI(g.albumScroll, 0, maxScroll)
 }
 
-// updateAlbumTabs: the two tabs (mouse, Tab key) and the album navigation. It returns true when the album is
-// the page in view (the trophy list must not move then).
+func (g *Game) goTab(i int) {
+	g.trophyTab = clampI(i, 0, tabCount-1)
+	g.albumSel, g.albumScroll = 0, 0
+}
+
+// updateAlbumTabs: the tabs (mouse, Tab key) and the card navigation. It returns true when a card page is the
+// page in view (the trophy list must not move then).
 func (g *Game) updateAlbumTabs() bool {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		mx, my := ebiten.CursorPosition()
-		for i, r := range tabRects {
+		for i, r := range g.goalTabRects() {
 			if float64(mx) >= r[0] && float64(mx) <= r[0]+r[2] && float64(my) >= r[1] && float64(my) <= r[1]+r[3] {
-				g.trophyTab = i
+				if g.trophyTab != i {
+					g.goTab(i)
+				}
 			}
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		g.trophyTab = 1 - g.trophyTab
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			g.goTab((g.trophyTab + tabCount - 1) % tabCount)
+		} else {
+			g.goTab((g.trophyTab + 1) % tabCount)
+		}
 	}
 	if g.trophyTab == tabTrophies {
 		if actRight.just() {
-			g.trophyTab = tabAlbum
+			g.goTab(tabChars)
 			return true
 		}
 		return false
 	}
-	n := len(albumCards())
-	g.mouseMenu(func(mx, my float64) int {
+	view := g.albumView()
+	n := len(view)
+	clicked := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < albumCols*albumRows; i++ {
 			idx := (g.albumScroll+i/albumCols)*albumCols + i%albumCols
 			x, y := albumCardXY(i)
@@ -355,13 +466,22 @@ func (g *Game) updateAlbumTabs() bool {
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.albumSel = clampI(g.albumSel-int(wy)*albumCols, 0, n-1)
 	}
+	// the mouse resting on the top or bottom strip of the grid scrolls it (listscroll.go)
+	g.albumSel, g.albumScroll = edgeListScroll("goals", g.albumSel, g.albumScroll, albumRows, albumCols, n,
+		[4]float64{albumX0, albumY0, albumCols*(albumCardW+albumGapX) - albumGapX, albumRows*(albumCardH+albumGapY) - albumGapY}, 2.5)
 	switch {
 	case actRight.just():
-		g.albumSel = minI(g.albumSel+1, n-1)
+		if g.albumSel >= n-1 { // past the last card: the next tab
+			if g.trophyTab < tabCount-1 {
+				g.goTab(g.trophyTab + 1)
+			}
+		} else {
+			g.albumSel = minI(g.albumSel+1, n-1)
+		}
 	case actLeft.just():
 		if g.albumSel%albumCols == 0 {
-			g.trophyTab = tabTrophies
-			return false
+			g.goTab(g.trophyTab - 1)
+			return g.trophyTab != tabTrophies
 		}
 		g.albumSel--
 	case actDown.just():
@@ -374,6 +494,9 @@ func (g *Game) updateAlbumTabs() bool {
 		g.albumSel = maxI(g.albumSel-albumCols*albumRows, 0)
 	}
 	g.albumClamp()
+	if n > 0 && (clicked || goalDetailAsk()) { // the detail window of the card (goal_detail.go)
+		g.openGoalDetail()
+	}
 	return true
 }
 
@@ -381,16 +504,17 @@ func albumCardXY(slot int) (float64, float64) {
 	return albumX0 + float64(slot%albumCols)*(albumCardW+albumGapX), albumY0 + float64(slot/albumCols)*(albumCardH+albumGapY)
 }
 
-// drawTabs: the two tabs of the TROFEOS screen.
+// drawTabs: the title and the row of tabs of the OBJETIVOS screen.
 func (g *Game) drawTabs(dst *ebiten.Image) {
-	for i, r := range tabRects {
+	g.drawText(dst, "OBJETIVOS", 244, 66, rgb(0xff6a8a), 1.6)
+	for i, r := range g.goalTabRects() {
 		bg, fg := rgba(0x120c24, 220), rgb(0x8a86a0)
 		if g.trophyTab == i {
 			bg, fg = rgba(0x3a2a6a, 235), rgb(0xf4f0ff)
 		}
 		fillRect(dst, r[0], r[1], r[2], r[3], bg)
 		fillRect(dst, r[0], r[1]+r[3]-2, r[2], 2, rgba(0x6a4ab0, 200))
-		g.drawTextC(dst, tabNames[i], r[0]+r[2]/2, r[1]+3, fg, 1)
+		g.drawText(dst, goalTabs[i].name, r[0]+7, r[1]+6, fg, 1)
 	}
 }
 
@@ -411,8 +535,15 @@ func (g *Game) fitText(s string, scale, w float64) string {
 
 func (g *Game) albumCS(c albumCard) *CharSet {
 	return g.shopCS("album:"+c.key, func() *CharSpec {
-		if c.vip {
+		switch c.kind() {
+		case cardVIP:
 			s := vipRegistry()[c.vipIdx].spec()
+			return &s
+		case cardKiller:
+			s := killerSpecOf(c.slug)
+			return &s
+		case cardCop:
+			s := copSpecOf(c.roleKind)
 			return &s
 		}
 		s := presetByName(c.slug)(rand.New(rand.NewSource(1)))
@@ -422,9 +553,19 @@ func (g *Game) albumCS(c albumCard) *CharSet {
 
 // drawAlbumPanel: the card grid (inside the same panel as the trophy list).
 func (g *Game) drawAlbumPanel(dst *ebiten.Image) {
-	cards := albumCards()
+	cards := g.albumView()
 	g.albumClamp()
-	g.drawText(dst, fmt.Sprintf("%d / %d", g.albumCount(), len(cards)), 770, 66, rgb(0xf0e060), 1.6)
+	got := 0
+	for _, c := range cards {
+		if g.albumUnlocked(c) {
+			got++
+		}
+	}
+	g.drawText(dst, fmt.Sprintf("%d / %d", got, len(cards)), 770, 66, rgb(0xf0e060), 1.6)
+	if goalTabs[clampI(g.trophyTab, 0, tabCount-1)].kind == cardCop { // the escapes that open the uniforms (copsets.go)
+		line := tr(g.copEscapeLine())
+		g.drawText(dst, line, 914-math.Ceil(g.textW(line, 1)), goalTabY+6, rgb(0x70e0c0), 1)
+	}
 	for i := 0; i < albumCols*albumRows; i++ {
 		idx := (g.albumScroll+i/albumCols)*albumCols + i%albumCols
 		if idx >= len(cards) {
@@ -445,16 +586,37 @@ func (g *Game) drawAlbumPanel(dst *ebiten.Image) {
 	// the selected card, in words
 	c := cards[clampI(g.albumSel, 0, len(cards)-1)]
 	line := "???"
-	if g.albumUnlocked(c) {
+	switch {
+	case c.kind() == cardChar:
+		line = g.charDetailLine(c) // own description + kills left (goalchars.go)
+	case g.albumUnlocked(c):
 		line = tr(c.nameES) + " - " + tr(c.roleES)
+	case g.albumSeenOnly(c):
+		line = tr(c.nameES) + " - " + tr("Visto: mátalo para conseguirlo")
+	default:
+		line = "??? - " + tr(c.lockedHint())
 	}
-	g.drawText(dst, g.fitText(line, 1.2, 676), 244, 448, rgb(0xf0e060), 1.2)
-	g.drawText(dst, "Flechas mover   Tab o izquierda: trofeos   "+actionHint(actBack)+" volver", 244, 472, rgb(0x8a86a0), 1)
+	g.drawText(dst, g.fitText(line, 1.2, 676), 244, 459, rgb(0xf0e060), 1.2)
+}
+
+// lockedHint: how to win a locked card (Spanish; the caller translates it).
+func (c albumCard) lockedHint() string {
+	switch {
+	case c.vip:
+		return "Elimínalo dentro de su zona VIP"
+	case c.trophyID != "":
+		return "Se gana con un trofeo (pestaña TROFEOS)"
+	case c.killer:
+		return "Derrota a este asesino especial"
+	case c.cop:
+		return copLockedHint(c.roleKind)
+	}
+	return "Mata a un invitado de este tipo"
 }
 
 func (g *Game) drawAlbumCard(dst *ebiten.Image, c albumCard, x, y float64, sel bool) {
 	ok := g.albumUnlocked(c)
-	bits := g.albumBits(c)
+	seen := g.albumSeenOnly(c) // seen close up, not killed yet: the face shows, the card is not won
 	frame := rgb(0x3a3450)
 	if ok {
 		frame = rgb(0xc8a030)
@@ -468,13 +630,17 @@ func (g *Game) drawAlbumCard(dst *ebiten.Image, c albumCard, x, y float64, sel b
 	fillRect(dst, x-2, y-2, albumCardW+4, albumCardH+4, frame)
 	fillRect(dst, x, y, albumCardW, albumCardH, rgb(0x120c24))
 	// portrait box: foil gradient (gold/violet for the unlocked ones, dull for the locked ones)
-	const ph = 66.0
+	const ph = 62.0
 	for r := 0.0; r < ph; r += 2 {
 		f := r / ph
 		var col color.RGBA
 		if ok {
 			if c.vip {
 				col = color.RGBA{uint8(70 + 90*f), uint8(40 + 60*f), uint8(90 - 40*f), 255}
+			} else if c.cop {
+				col = color.RGBA{uint8(30 + 20*f), uint8(50 + 50*f), uint8(100 + 70*f), 255}
+			} else if c.killer {
+				col = color.RGBA{uint8(70 + 60*f), uint8(26 + 20*f), uint8(34 + 10*f), 255}
 			} else {
 				col = color.RGBA{uint8(40 + 30*f), uint8(60 + 70*f), uint8(110 + 40*f), 255}
 			}
@@ -501,30 +667,29 @@ func (g *Game) drawAlbumCard(dst *ebiten.Image, c albumCard, x, y float64, sel b
 		}
 		op.GeoM.Scale(s, s)
 		op.GeoM.Translate(float64(int(x+albumCardW/2-w*s/2)), float64(int(y+ph-2-h*s)))
-		if !ok {
+		if !ok && !seen {
 			op.ColorScale.Scale(0.06, 0.05, 0.1, 1) // dark silhouette
 		}
 		dst.DrawImage(im, op)
 	}
 	name, role := "???", "???"
-	if ok {
+	if ok || seen {
 		name, role = c.cardName(), c.roleES
+		if c.roleCard != "" {
+			role = c.roleCard
+		}
 	}
 	ncol := rgb(0xf4f0ff)
 	if !ok {
 		ncol = rgb(0x6a6680)
-	}
-	g.drawText(dst, g.fitText(name, 1, albumCardW-8), x+4, y+ph+4, ncol, 1)
-	g.drawText(dst, g.fitText(role, 1, albumCardW-8), x+4, y+ph+18, rgb(0x9a96b0), 1)
-	if ok { // seal
-		seal, scol := "VISTO", rgb(0x8ac0f0)
-		switch {
-		case bits&albumHelped != 0:
-			seal, scol = "AMIGO", rgb(0x70e090)
-		case bits&albumKilled != 0:
-			seal, scol = "ELIMINADO", rgb(0xff6a6a)
+		if seen {
+			ncol = rgb(0xb8b4d0)
 		}
-		g.drawText(dst, seal, x+4, y+ph+32, scol, 1)
+	}
+	g.drawText(dst, g.fitText(name, 1, albumCardW-8), x+4, y+ph+3, ncol, 1)
+	g.drawText(dst, g.fitText(role, 1, albumCardW-8), x+4, y+ph+15, rgb(0x9a96b0), 1)
+	if seal, scol := g.albumSeal(c); seal != "" { // the stamp (goal_detail.go, shared with the detail window)
+		g.drawText(dst, seal, x+4, y+ph+27, scol, 1)
 	}
 }
 
@@ -535,6 +700,12 @@ func (g *Game) albumDemo(n int) {
 		bit := albumSeen
 		if i%3 == 0 {
 			bit = albumKilled
+		} else if i%3 == 1 && !c.vip && !c.killer && !c.cop { // killed a few times, not won yet (ELIMINADO n/5)
+			bit = albumSeen | albumElim
+			if g.progress.CharKills == nil {
+				g.progress.CharKills = map[string]int{}
+			}
+			g.progress.CharKills[c.key] = 1 + i%(charKillsNeed-1)
 		}
 		if c.vip {
 			bit = albumKilled
@@ -542,9 +713,12 @@ func (g *Game) albumDemo(n int) {
 				bit = albumHelped
 			}
 		}
+		if c.killer || c.cop {
+			bit = albumKilled
+		}
 		if n >= 2 || i%4 == 0 || (c.vip && i%2 == 0) {
 			g.progress.Album[c.key] = bit
 		}
 	}
-	g.trophyTab = tabAlbum
+	g.trophyTab = tabChars
 }

@@ -26,6 +26,7 @@ var carryNames = map[string]int{
 	"camera": HoldCamera, "bigcup": HoldBigCup, "saber": HoldSaber, "beer": HoldBeer, "flag": HoldFlag, "pizza": HoldPizza, "sign": HoldSign,
 	"machete": HoldMachete, "chainsaw": HoldChainsaw, "claw": HoldClaw, "broom": HoldBroom, "vacuum": HoldVacuum, "selfie": HoldSelfie, "plant": HoldPlant,
 	"sax": HoldSax, "trophy": HoldTrophy, "balloons": HoldBalloons, "megaphone": HoldMegaphone, "briefcase": HoldBriefcase, "torch": HoldTorch,
+	"rifle": HoldRifle, // the endoskeleton killer (ktm_art.go)
 }
 
 // ---------------------------------------------------------------------------

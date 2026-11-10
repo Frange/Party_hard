@@ -22,7 +22,7 @@ func vipRoomyDef(t *testing.T) *LevelDef {
 	return d
 }
 
-func TestVIPChanceIsAboutOneInFive(t *testing.T) {
+func TestVIPChanceIsAboutOneInThree(t *testing.T) {
 	vipChanceSetup(t, 12345)
 	d := vipRoomyDef(t)
 	n, hit := 500, 0
@@ -31,13 +31,13 @@ func TestVIPChanceIsAboutOneInFive(t *testing.T) {
 			hit++
 		}
 	}
-	// 1/5 plus the pity (one extra every 9 at worst): between 15% and 26%
-	if hit < n*15/100 || hit > n*26/100 {
-		t.Errorf("%d zones in %d parties, want about %d", hit, n, n/5)
+	// 1/3 plus the pity (certain after 5 misses: the real rate is 1/2.74 = 36.5%): between 30% and 42%
+	if hit < n*30/100 || hit > n*42/100 {
+		t.Errorf("%d zones in %d parties, want about %d", hit, n, n/3)
 	}
 }
 
-func TestVIPPityAfterEightWithoutZone(t *testing.T) {
+func TestVIPPityAfterFiveWithoutZone(t *testing.T) {
 	vipChanceSetup(t, 7)
 	d := vipRoomyDef(t)
 	run := 0
@@ -90,7 +90,7 @@ func TestVIPPicksOnlyMissingWhileAnyLeft(t *testing.T) {
 	}
 	vipEliminated[only] = true
 	seen := map[string]bool{}
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 2000; i++ {
 		seen[vipPick(vipDice(), album2, "TORRE EIFFEL")] = true
 	}
 	if len(seen) < len(reg)-1 {
@@ -105,15 +105,15 @@ func TestVIPAllGotIsRandomAndMissingVariety(t *testing.T) {
 		album["vip:"+d.id] = albumKilled
 	}
 	seen := map[string]bool{}
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 2000; i++ {
 		seen[vipPick(vipDice(), album, "PLAZA DE TOROS")] = true
 	}
 	if len(seen) != len(vipRegistry()) {
-		t.Errorf("with all 11 got every VIP should come out, saw %d", len(seen))
+		t.Errorf("with all 50 got every VIP should come out, saw %d", len(seen))
 	}
 	// none got (old save without Album): variety and the affinity shows up
 	seen = map[string]bool{}
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 2000; i++ {
 		seen[vipPick(vipDice(), nil, "PLAZA DE TOROS")] = true
 	}
 	if len(seen) < 8 || !seen["king"] {

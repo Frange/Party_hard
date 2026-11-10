@@ -1,0 +1,9 @@
+{
+  "name": "catwoman",
+  "display_name": "Catwoman",
+  "category": "special_people",
+  "gender": "f",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

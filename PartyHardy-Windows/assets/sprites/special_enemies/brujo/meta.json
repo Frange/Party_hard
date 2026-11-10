@@ -1,0 +1,11 @@
+{
+  "name": "brujo",
+  "display_name": "Brujo",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "torch",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

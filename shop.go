@@ -32,9 +32,15 @@ func (g *Game) syncShop() {
 		}
 	}
 	delete(g.progress.Equip, "skin") // characters are no longer skins of the player
+	charSyncOwned(g.progress.Album)  // the characters unlocked by kills (goalchars.go) are "owned" too
+	copSetSync(g.progress.Escapes)   // the police uniforms the escapes opened (copsets.go)
+	// castSlugs: the characters bought in the old shop and the trophy rewards; they come more often. The ones
+	// unlocked by kills do NOT (they would crowd out the faces still to be found).
 	castSlugs = nil
-	for id := range shopOwned {
-		if len(id) > 5 && id[:5] == "skin:" {
+	seen := map[string]bool{}
+	for _, id := range g.progress.Owned {
+		if len(id) > 5 && id[:5] == "skin:" && !seen[id] {
+			seen[id] = true
 			castSlugs = append(castSlugs, id[5:])
 		}
 	}
@@ -155,12 +161,128 @@ func (g *Game) playerSpecWith(skin, previewSlot, previewID string) *CharSpec {
 	return g.playerSpecFor(wardP, previewSlot, previewID)
 }
 
-func (g *Game) shopItems() []shopItem { return shopCatalog[g.shopTab] }
+// shopItems: the list of the current tab, the ones not bought yet first and the bought ones at the end (each
+// group keeps the catalog order, which is by price). It is recomputed on every call, so it follows tab changes and
+// purchases at once.
+func (g *Game) shopItems() []shopItem { return shopUnboughtFirst(shopCatalog[g.shopTab]) }
+
+// shopUnboughtFirst: stable partition of a list, not owned first. The input is not modified.
+func shopUnboughtFirst(list []shopItem) []shopItem {
+	out := make([]shopItem, 0, len(list))
+	for _, it := range list {
+		if !(it.price == 0 || ownedID(it.id)) {
+			out = append(out, it)
+		}
+	}
+	for _, it := range list {
+		if it.price == 0 || ownedID(it.id) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
 
 // shopGo moves to another list (a position in shopFlat).
 func (g *Game) shopGo(i int) {
 	n := len(shopFlat)
 	g.shopTab, g.shopSel, g.shopScroll = shopFlat[(i%n+n)%n], 0, 0
+	g.shopBuyFocus = false
+}
+
+// BUY ALL button of the lists (under the message, over the key hints; the BACK button is at the bottom left).
+const (
+	shopBuyX, shopBuyY = 244.0, 456.0
+	shopBuyW, shopBuyH = 176.0, 20.0
+)
+
+// the Yes / No buttons of the popup
+const (
+	shopYesX, shopNoX = 330.0, 490.0
+	shopPopBtnY       = 296.0
+	shopPopBtnW       = 140.0
+	shopPopBtnH       = 28.0
+)
+
+// The groups of the top row are shopGroupW wide every 104 px; VESTUARIO (always the last group) goes shopWardGap px
+// further right, framed and in orange, so it is not mistaken for one more list of things to buy.
+const (
+	shopGroupW  = 100.0
+	shopWardGap = 56.0
+)
+
+// The PUNTOS line: right edge and top, above the group row (frames at y 77+), so a long figure never touches VESTUARIO's frame.
+const (
+	shopPointsRight = 916.0
+	shopPointsY     = 50.0 // same row as the TIENDA title: 10 px under the panel top
+	shopPointsH     = 14.0 // text height at scale 1.6, rounded up
+	shopGroupFrameY = 77.0
+	shopTitleY      = 50.0
+)
+
+// the shop panel: it ends 12 px above the BACK button (y=500) and starts 12+ px under the top edge of the screen
+const (
+	shopPanX, shopPanY = 230.0, 40.0
+	shopPanW, shopPanH = 700.0, 448.0
+	shopTabTextY       = 109.0 // the second row of tabs: 10+ px under the frame of VESTUARIO (it ends at y=99)
+	shopTabLineY       = 123.0
+	shopMsgY           = 430.0 // the message of a list (the counter above it, BUY ALL under it)
+	shopMsgWardY       = 456.0 // in the wardrobe there is no BUY ALL button: the bottom line
+	shopRowRight       = 594.0 // right edge of the prices: 6 px of air inside the row (it ends at x=600)
+)
+
+func shopGroupX(gi int) float64 {
+	x := 244 + float64(gi)*104
+	if gi >= 0 && gi < len(shopGroups) && shopGroups[gi].tabs[0] == shopWardrobe {
+		x += shopWardGap
+	}
+	return x
+}
+
+// shopGroupAt: the group under the x of a click on the top row (-1: none; the gap before VESTUARIO is nothing).
+func shopGroupAt(x float64) int {
+	for gi := range shopGroups {
+		if gx := shopGroupX(gi); x >= gx-4 && x < gx+shopGroupW {
+			return gi
+		}
+	}
+	return -1
+}
+
+func inRect(x, y, rx, ry, rw, rh float64) bool { return x >= rx && x < rx+rw && y >= ry && y < ry+rh }
+
+// updateShopPopup: the Yes / No question of BUY ALL (the shop below does not move).
+func (g *Game) updateShopPopup() {
+	if actLeft.just() || actRight.just() || actUp.just() || actDown.just() {
+		g.shopBuyYes = !g.shopBuyYes
+	}
+	yes, no := false, false
+	x, y := ebiten.CursorPosition()
+	fx, fy := float64(x), float64(y)
+	moved := x != g.lastMX || y != g.lastMY
+	g.lastMX, g.lastMY = x, y
+	if moved {
+		if inRect(fx, fy, shopYesX, shopPopBtnY, shopPopBtnW, shopPopBtnH) {
+			g.shopBuyYes = true
+		} else if inRect(fx, fy, shopNoX, shopPopBtnY, shopPopBtnW, shopPopBtnH) {
+			g.shopBuyYes = false
+		}
+	}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		yes = inRect(fx, fy, shopYesX, shopPopBtnY, shopPopBtnW, shopPopBtnH)
+		no = inRect(fx, fy, shopNoX, shopPopBtnY, shopPopBtnW, shopPopBtnH)
+	}
+	if actConfirm.just() {
+		yes, no = g.shopBuyYes, !g.shopBuyYes
+	}
+	if actBack.just() {
+		no = true
+	}
+	switch {
+	case yes:
+		g.shopBuyAllDo()
+	case no:
+		g.shopBuyOpen = false
+	}
 }
 
 func (g *Game) shopPos() int {
@@ -191,7 +313,7 @@ func (g *Game) shopActivate() {
 			if g.shopTab == shopPolice {
 				g.shopMsg = fmt.Sprintf("Desbloquea al llegar a %d asesinatos", policeNeed(it.id))
 			} else {
-				g.shopMsg = "Se consigue con un trofeo (mira TROFEOS)"
+				g.shopMsg = "Se consigue con un trofeo (mira OBJETIVOS)"
 			}
 			g.snd.Play("alert")
 			return
@@ -201,23 +323,8 @@ func (g *Game) shopActivate() {
 			g.snd.Play("alert")
 			return
 		}
-		g.progress.Wallet -= it.price
-		g.progress.Owned = append(g.progress.Owned, it.id)
-		g.syncShop()
-		g.stat("bought", 1)
-		g.shopMsg = "¡Comprado: " + it.name + "!"
+		g.shopMsg = "¡Comprado: " + it.name + "!" + g.shopBuyOne(it)
 		g.snd.Play("win")
-		// buying is not dressing: it only puts the new thing on when that slot of the player was empty
-		if it.slot != "" && isWearSlot(it.slot) {
-			if g.equipOf(wardP, it.slot) == "" {
-				g.setEquipOf(wardP, it.slot, it.id)
-				g.shopMsg += fmt.Sprintf(" Puesto al J%d.", wardP+1)
-			} else {
-				g.shopMsg += " Póntelo en VESTUARIO."
-			}
-		} else if it.slot != "" {
-			g.setEquip(it.slot, it.id)
-		}
 		saveProgress(g.progress)
 		g.applyShop()
 		return
@@ -240,6 +347,90 @@ func (g *Game) shopActivate() {
 		saveProgress(g.progress)
 		g.applyShop()
 	}
+}
+
+// shopBuyOne: pays and adds one item (the caller checked that it is for sale and affordable). Buying is not
+// dressing: it only puts the new thing on when that slot of the player was empty. It returns the note for the
+// message; saving and applyShop are up to the caller.
+func (g *Game) shopBuyOne(it shopItem) string {
+	g.progress.Wallet -= it.price
+	g.progress.Owned = append(g.progress.Owned, it.id)
+	g.syncShop()
+	g.stat("bought", 1)
+	if shopAllBought() {
+		g.stat("shopall", 1) // the secret trophy of owning everything (trophies3.go)
+	}
+	note := ""
+	if it.slot != "" && isWearSlot(it.slot) {
+		if g.equipOf(wardP, it.slot) == "" {
+			g.setEquipOf(wardP, it.slot, it.id)
+			note = fmt.Sprintf(" Puesto al J%d.", wardP+1)
+		} else {
+			note = " Póntelo en VESTUARIO."
+		}
+	} else if it.slot != "" {
+		g.setEquip(it.slot, it.id)
+	}
+	return note
+}
+
+// shopBuyAllPlan: what BUY ALL would take in the current list with the points at hand: the items for sale (no
+// trophy lock, not free, not owned) from the cheapest up, as many as the wallet pays. Fewer points than the
+// cheapest one: nothing. The cheapest-first order is what reaches the biggest number of items.
+func (g *Game) shopBuyAllPlan() (items []shopItem, cost int) {
+	var cand []shopItem
+	for _, it := range shopCatalog[g.shopTab] {
+		if shopBuyable(it) && !g.shopOwns(it) {
+			cand = append(cand, it)
+		}
+	}
+	sort.SliceStable(cand, func(i, j int) bool { return cand[i].price < cand[j].price })
+	for _, it := range cand {
+		if cost+it.price > g.progress.Wallet {
+			break
+		}
+		cost += it.price
+		items = append(items, it)
+	}
+	return items, cost
+}
+
+// shopBuyAllAsk: the BUY ALL button was pressed: opens the Yes/No popup, or says there is nothing to buy.
+func (g *Game) shopBuyAllAsk() {
+	items, cost := g.shopBuyAllPlan()
+	if len(items) == 0 {
+		any := false
+		for _, it := range shopCatalog[g.shopTab] {
+			if shopBuyable(it) && !g.shopOwns(it) {
+				any = true
+			}
+		}
+		if any {
+			g.shopMsg = "No tienes puntos para comprar nada de esta lista"
+		} else {
+			g.shopMsg = "No hay nada que comprar en esta lista"
+		}
+		g.snd.Play("alert")
+		return
+	}
+	g.shopBuyOpen, g.shopBuyYes, g.shopBuyN, g.shopBuyCost = true, true, len(items), cost
+}
+
+// shopBuyAllDo: buys the plan (recomputed now, never more than the wallet pays). Returns how many were bought.
+func (g *Game) shopBuyAllDo() int {
+	g.shopBuyOpen = false
+	items, cost := g.shopBuyAllPlan()
+	if len(items) == 0 {
+		return 0
+	}
+	for _, it := range items {
+		g.shopBuyOne(it)
+	}
+	g.shopMsg = fmt.Sprintf("¡Comprados %d artículos por %d puntos!", len(items), cost)
+	g.snd.Play("win")
+	saveProgress(g.progress)
+	g.applyShop()
+	return len(items)
 }
 
 func (g *Game) setEquip(slot, id string) {
@@ -267,6 +458,10 @@ const shopRows = 9
 
 func (g *Game) updateShop() {
 	g.time += 1.0 / 60
+	if g.shopBuyOpen {
+		g.updateShopPopup()
+		return
+	}
 	items := g.shopItems()
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < shopRows; i++ {
@@ -279,17 +474,15 @@ func (g *Game) updateShop() {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
 		if y >= 78 && y <= 98 { // top level: the groups
-			for gi := range shopGroups {
-				if x >= 244+gi*104 && x < 244+(gi+1)*104 {
-					g.shopTab, g.shopSel, g.shopScroll = shopGroups[gi].tabs[0], 0, 0
-				}
+			if gi := shopGroupAt(float64(x)); gi >= 0 {
+				g.shopTab, g.shopSel, g.shopScroll, g.shopBuyFocus = shopGroups[gi].tabs[0], 0, 0, false
 			}
 		}
 		if y >= 100 && y <= 120 { // second level: the lists of the group
 			gr := shopGroups[shopGroupOf(g.shopTab)]
 			for i, t := range gr.tabs {
 				if x >= 244+i*104 && x < 244+(i+1)*104 {
-					g.shopTab, g.shopSel, g.shopScroll = t, 0, 0
+					g.shopTab, g.shopSel, g.shopScroll, g.shopBuyFocus = t, 0, 0, false
 				}
 			}
 		}
@@ -304,17 +497,42 @@ func (g *Game) updateShop() {
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.shopSel = clampI(g.shopSel-int(wy)*3, 0, len(items)-1)
 	}
+	g.shopSel, g.shopScroll = edgeListScroll("shop", g.shopSel, g.shopScroll, shopRows, 1, len(items), [4]float64{244, 142, 356, shopRows * 28}, 6) // listscroll.go
 	if inpututil.IsKeyJustPressed(ebiten.KeyPageDown) {
 		g.shopSel = clampI(g.shopSel+shopRows, 0, len(items)-1)
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyPageUp) {
 		g.shopSel = clampI(g.shopSel-shopRows, 0, len(items)-1)
 	}
-	if actDown.just() {
-		g.shopSel = (g.shopSel + 1) % len(items)
+	// the BUY ALL button is one more stop after the last item (down) and before the first (up)
+	switch {
+	case g.shopBuyFocus && actDown.just():
+		g.shopBuyFocus, g.shopSel = false, 0
+	case g.shopBuyFocus && actUp.just():
+		g.shopBuyFocus, g.shopSel = false, len(items)-1
+	case actDown.just():
+		if g.shopSel+1 >= len(items) {
+			g.shopBuyFocus = true
+		} else {
+			g.shopSel++
+		}
+	case actUp.just():
+		if g.shopSel <= 0 {
+			g.shopBuyFocus = true
+		} else {
+			g.shopSel--
+		}
 	}
-	if actUp.just() {
-		g.shopSel = (g.shopSel + len(items) - 1) % len(items)
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+		if inRect(float64(x), float64(y), shopBuyX, shopBuyY, shopBuyW, shopBuyH) {
+			g.shopBuyAllAsk()
+			return
+		}
+	}
+	if g.shopBuyFocus && actConfirm.just() && !backFocus {
+		g.shopBuyAllAsk()
+		return
 	}
 	if actRight.just() {
 		g.shopGo(g.shopPos() + 1)
@@ -332,7 +550,7 @@ func (g *Game) updateShop() {
 	if g.shopSel >= g.shopScroll+shopRows {
 		g.shopScroll = g.shopSel - shopRows + 1
 	}
-	if actConfirm.just() || click {
+	if (actConfirm.just() || click) && !g.shopBuyFocus {
 		g.shopActivate()
 	}
 	if actBack.just() {
@@ -447,43 +665,61 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		return
 	}
 	g.drawBedroom(dst)
-	g.drawLogo(dst, 160, 30)
-	fillRect(dst, 230, 56, 700, 440, rgba(0x05070e, 228))
-	fillRect(dst, 230, 56, 700, 1, rgba(0x6a4ab0, 160))
-	fillRect(dst, 230, 495, 700, 1, rgba(0x6a4ab0, 160))
-	g.drawText(dst, "TIENDA", 244, 62, rgb(0xff6a8a), 1.6)
-	g.drawText(dst, fmt.Sprintf("PUNTOS: %d", g.progress.Wallet), 700, 62, rgb(0xf0e060), 1.6)
+	if g.shopBuyOpen { // the question hides the shop: opaque, so nothing shows through
+		g.drawShopPopup(dst)
+		return
+	}
+	g.drawLogo(dst, logoSideCX, 30)
+	fillRect(dst, shopPanX, shopPanY, shopPanW, shopPanH, rgba(0x05070e, 228))
+	fillRect(dst, shopPanX, shopPanY, shopPanW, 1, rgba(0x6a4ab0, 160))
+	fillRect(dst, shopPanX, shopPanY+shopPanH-1, shopPanW, 1, rgba(0x6a4ab0, 160))
+	g.drawText(dst, "TIENDA", 244, shopTitleY, rgb(0xff6a8a), 1.6)
+	pts := fmt.Sprintf("PUNTOS: %d", g.progress.Wallet)
+	g.drawText(dst, pts, shopPointsRight-g.textW(pts, 1.6), shopPointsY, rgb(0xf0e060), 1.6) // right-aligned: long figures grow to the left, above the group row
 	curG := shopGroupOf(g.shopTab)
 	for gi, gr := range shopGroups {
+		gx := shopGroupX(gi)
 		col := rgb(0x3fb59a)
-		if gi == curG {
-			col = rgb(0xff6a8a)
-			fillRect(dst, float64(244+gi*104), 98, 100, 2, col)
+		if gr.tabs[0] == shopWardrobe { // VESTUARIO: apart, framed and in its own colour
+			edge := rgba(0xf0a040, 150)
+			col = rgb(0xf0a040)
+			if gi == curG {
+				edge, col = rgb(0xffc060), rgb(0xffe0a0)
+			}
+			shopFrame(dst, gx-4, 77, shopGroupW+2, 22, rgba(0x2a1a08, 230), edge)
 		}
-		g.drawText(dst, gr.name, float64(246+gi*104), 82, col, 1.2)
+		if gi == curG {
+			if gr.tabs[0] != shopWardrobe {
+				col = rgb(0xff6a8a)
+			}
+			fillRect(dst, gx, 98, shopGroupW, 2, col)
+		}
+		g.drawText(dst, gr.name, gx+2, 82, col, 1.2)
 	}
-	if gr := shopGroups[curG]; len(gr.tabs) > 1 {
+	if g.shopTab == shopWardrobe { // the three pages of the wardrobe (wardrobe_kinds.go)
+		g.drawWardKinds(dst)
+	} else if gr := shopGroups[curG]; len(gr.tabs) > 1 {
 		for i, t := range gr.tabs {
 			col := rgb(0x8a86a0)
 			if t == g.shopTab {
 				col = rgb(0xf0e060)
-				fillRect(dst, float64(244+i*104), 118, 100, 1, col)
+				fillRect(dst, float64(244+i*104), shopTabLineY, 100, 1, col)
 			}
-			g.drawText(dst, shopTabNames[t], float64(246+i*104), 104, col, 0.95)
+			g.drawText(dst, shopTabNames[t], float64(246+i*104), shopTabTextY, col, 0.95)
 		}
 	} else {
-		g.drawText(dst, shopTabNames[g.shopTab], 246, 104, rgb(0xf0e060), 0.95)
+		g.drawText(dst, shopTabNames[g.shopTab], 246, shopTabTextY, rgb(0xf0e060), 0.95)
 	}
 	if g.shopTab == shopWardrobe {
 		g.drawWardrobe(dst)
 		if g.shopMsg != "" {
-			g.drawText(dst, g.shopMsg, 244, 428, rgb(0xf0e060), 1.3)
+			g.drawText(dst, g.shopMsg, 244, shopMsgWardY, rgb(0xf0e060), 1.3)
 		}
 		return
 	}
 	items := g.shopItems()
 	if g.wardTwo() && (g.shopTab == shopOutfits || g.shopTab == shopAccess) {
-		g.drawText(dst, fmt.Sprintf("Se pone el J%d (Tab: cambiar)", wardP+1), 640, 108, playerColor(wardP), 1)
+		g.drawText(dst, fmt.Sprintf("Se pone el J%d (Tab: cambiar)", wardP+1), 640, 410, playerColor(wardP), 1) // under the card (it ends at y=400)
 	}
 	for i := 0; i < shopRows; i++ {
 		idx := g.shopScroll + i
@@ -514,7 +750,7 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		case g.progress.Wallet < it.price:
 			tcol = rgb(0x8a6a6a)
 		}
-		g.drawText(dst, tag, 600-g.textW(tag, 1.3), y, tcol, 1.3)
+		g.drawText(dst, tag, shopRowRight-g.textW(tag, 1.3), y, tcol, 1.3)
 	}
 	if len(items) > shopRows {
 		g.drawText(dst, fmt.Sprintf("%d/%d", g.shopSel+1, len(items)), 244, 408, rgb(0x6a6680), 1)
@@ -555,9 +791,47 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		}
 	}
 	if g.shopMsg != "" {
-		g.drawText(dst, g.shopMsg, 244, 428, rgb(0xf0e060), 1.3)
+		g.drawText(dst, g.shopMsg, 244, shopMsgY, rgb(0xf0e060), 1.3)
 	}
-	g.drawText(dst, "←/→ lista   ↑/↓ o rueda elegir   "+actionHint(actConfirm)+" comprar / ponerse   "+actionHint(actBack)+" volver", 244, 470, rgb(0x8a86a0), 1)
+	mx, my := ebiten.CursorPosition()
+	hot := g.shopBuyFocus || inRect(float64(mx), float64(my), shopBuyX, shopBuyY, shopBuyW, shopBuyH)
+	bg, edge, tc := rgba(0x120c24, 230), rgba(0x6a4ab0, 220), rgb(0xf0e060)
+	if hot {
+		bg, edge, tc = rgba(0x2a1a4a, 250), rgb(0xff6a8a), rgb(0xffffff)
+	}
+	shopFrame(dst, shopBuyX, shopBuyY, shopBuyW, shopBuyH, bg, edge)
+	g.drawTextC(dst, "COMPRAR TODO", shopBuyX+shopBuyW/2, shopBuyY+5, tc, 1)
+}
+
+func shopFrame(dst *ebiten.Image, x, y, w, h float64, bg, edge color.RGBA) {
+	fillRect(dst, x, y, w, h, bg)
+	fillRect(dst, x, y, w, 1, edge)
+	fillRect(dst, x, y+h-1, w, 1, edge)
+	fillRect(dst, x, y, 1, h, edge)
+	fillRect(dst, x+w-1, y, 1, h, edge)
+}
+
+// drawShopPopup: "BUY ALL?" with how many items and the total cost, and Yes / No.
+func (g *Game) drawShopPopup(dst *ebiten.Image) {
+	fillRect(dst, 0, 0, screenW, screenH, rgb(0x05070e))
+	fillRect(dst, 260, 150, 440, 210, rgb(0x120c24))
+	shopFrame(dst, 260, 150, 440, 210, rgb(0x120c24), rgb(0xff6a8a))
+	g.drawTextC(dst, "¿COMPRAR TODO?", 480, 166, rgb(0xff6a8a), 2)
+	g.drawTextC(dst, fmt.Sprintf("Artículos: %d", g.shopBuyN), 480, 214, rgb(0xf4f0ff), 1)
+	g.drawTextC(dst, fmt.Sprintf("Coste total: %d puntos", g.shopBuyCost), 480, 234, rgb(0xf0e060), 1)
+	g.drawTextC(dst, fmt.Sprintf("Te quedarán: %d puntos", g.progress.Wallet-g.shopBuyCost), 480, 254, rgb(0xb8b0d0), 1)
+	for _, b := range []struct {
+		x     float64
+		label string
+		on    bool
+	}{{shopYesX, "SÍ", g.shopBuyYes}, {shopNoX, "NO", !g.shopBuyYes}} {
+		bg, edge, tc := rgb(0x1c1634), rgb(0x6a4ab0), rgb(0xb8b0d0)
+		if b.on {
+			bg, edge, tc = rgb(0x2a1a4a), rgb(0xff6a8a), rgb(0xffffff)
+		}
+		shopFrame(dst, b.x, shopPopBtnY, shopPopBtnW, shopPopBtnH, bg, edge)
+		g.drawTextC(dst, b.label, b.x+shopPopBtnW/2, shopPopBtnY+9, tc, 1)
+	}
 }
 
 // drawWrapped draws text broken into lines that fit width w.
@@ -597,21 +871,12 @@ func animalAllowed(kind int) bool {
 		return true
 	}
 	switch n := animalKinds[kind]; n {
-	case "elephant", "giraffe", "kangaroo", "deer", "rabbit", "pig", "duck", "budgie":
+	case "elephant", "giraffe", "kangaroo", "deer", "rabbit", "pig", "duck", "budgie", "boar", "croc", "cheetah", "lion":
 		return ownedID("animal:" + n)
 	case "quijote", "sancho":
 		return quijoteUnlocked()
 	}
 	return true
-}
-
-// killerAllowed: Michael, Ghostface and Jason are free, the rest are bought.
-func killerAllowed(name string) bool {
-	switch name {
-	case "michael", "ghostface", "jason":
-		return true
-	}
-	return ownedID("killer:" + name)
 }
 
 // quijoteUnlocked: buying either of the two playable characters brings the

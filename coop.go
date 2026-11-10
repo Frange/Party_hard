@@ -86,9 +86,10 @@ type coopState struct {
 	distractNext [2]float64
 	distract     map[*Cop]float64 // officer stands still until
 
-	trapOwner map[*Prop]int
-	lastTrap  *Prop
-	lastTrapT float64
+	trapOwner            map[*Prop]int
+	lastTrap             *Prop
+	lastTrapT            float64
+	takenPts, takenKills int // points / kills already credited to a trap owner (coopTrack must not credit them again)
 
 	duo      bool
 	duoAcc   float64 // points earned in this duet
@@ -173,12 +174,13 @@ func (g *Game) coopTrack(i int, fn func()) {
 	if o != nil {
 		knock = o.knockT
 	}
+	tp, tk := g.coop.takenPts, g.coop.takenKills
 	fn()
 	st := &g.coop.score[i]
-	if d := g.points - pts; d > 0 {
+	if d := g.points - pts - (g.coop.takenPts - tp); d > 0 {
 		st.points += d
 	}
-	if d := g.kills - kl; d > 0 {
+	if d := g.kills - kl - (g.coop.takenKills - tk); d > 0 {
 		st.kills += d
 	}
 	if o != nil && o.knockT >= hitDownT-0.05 && knock < 0.5 && !g.coopIsCarried(o) {
@@ -885,5 +887,40 @@ func (g *Game) coopDemoSetup() {
 		b.knockT = 999
 		g.coop.carry[0] = b
 		g.coop.handUp[1] = g.time + 999
+	}
+}
+
+// coopTrapOwnerNow: the player whose trap went off last (within 12 s), or -1.
+func (g *Game) coopTrapOwnerNow() int {
+	if !g.is2P() || g.coop.lastTrap == nil || g.time-g.coop.lastTrapT > 12 {
+		return -1
+	}
+	if o, ok := g.coop.trapOwner[g.coop.lastTrap]; ok && o >= 0 && o < 2 {
+		return o
+	}
+	return -1
+}
+
+// coopCreditOwner runs fn and gives the points and kills it caused to player owner ALONE (his trap killed them),
+// whoever's update was running. owner < 0 (one player, unknown owner): fn runs as it was.
+func (g *Game) coopCreditOwner(owner int, fn func()) {
+	if owner < 0 || owner > 1 || !g.is2P() {
+		fn()
+		return
+	}
+	g.coopEnsure()
+	pts, kl := g.points, g.kills
+	rk := g.run.killsOf(0) + g.run.killsOf(1) // trap kills of guests are in the run statistics, not in g.kills
+	fn()
+	st := &g.coop.score[owner]
+	if d := g.points - pts; d > 0 {
+		st.points += d
+		g.coop.takenPts += d
+	}
+	if d := g.kills - kl; d > 0 {
+		g.coop.takenKills += d // g.kills went up here: coopTrack must not credit them to the player who was updating
+	}
+	if d := g.run.killsOf(0) + g.run.killsOf(1) - rk; d > 0 {
+		st.kills += d
 	}
 }

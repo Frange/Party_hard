@@ -66,6 +66,10 @@ type Animal struct {
 	label  string  // proper name shown on hover (Woof)
 	home   bool    // placed by the level (stable, paddock): keeps to its own area
 	vert   float64 // -1 walking up the screen, +1 down, 0 sideways or standing (the horse then shows its back or its front)
+	gasT   float64 // seconds spent in a gas cloud (trapany.go)
+	bites  int     // wild hunters (animals6.go): kills so far (a crocodile or a big cat never makes more than one)
+	huntT  float64 // big cats: seconds until their one hunt; crocodile: rest after a snap
+	gone   bool    // left the party (a big cat after its hunt): removed at the end of updateAnimals
 }
 
 // frames of each animal sprite
@@ -326,6 +330,7 @@ func buildAnimalSprites() AnimalSprites {
 	buildCritterSprites(out)
 	buildRiderSprites(out)
 	buildSnakeSprites(out)
+	buildWildSprites(out)
 	return out
 }
 
@@ -346,6 +351,7 @@ func (g *Game) spawnAnimals() {
 		}
 		g.animals = append(g.animals, a)
 	}
+	g.scatterWild() // animals6.go: frogs, squirrels, boars, crocodiles and (rarely) a big cat; own dice
 	g.scatterCritters()
 	g.scatterRiders()
 	g.scatterSnake()
@@ -393,9 +399,16 @@ func (g *Game) updateAnimals(dt float64) {
 			g.animalWander(a, 13, dt, 0.15)
 		case animSnake:
 			g.updateSnake(a, dt)
+		case animFrog, animSquirrel, animBoar, animCobaya:
+			g.updateCritter(a, dt)
+		case animCroc:
+			g.updateCroc(a, dt)
+		case animCheetah, animLion:
+			g.updateBigCat(a, dt)
 		}
 		restore()
 	}
+	g.dropGoneAnimals()
 }
 
 func (g *Game) animalWalk(a *Animal, speed, dt float64) bool {
@@ -614,6 +627,9 @@ func (g *Game) animalFrame(a *Animal) int {
 	if a.kind == animSnake {
 		return snakeFrame(a)
 	}
+	if a.kind > animSnake {
+		return wildFrame(a)
+	}
 	if a.kind >= animRabbit {
 		return critterFrame(a)
 	}
@@ -664,9 +680,9 @@ func (g *Game) drawAnimal(dst *ebiten.Image, a *Animal) {
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	x, y := g.wx(a.pos.X), g.wy(a.pos.Y)
 	fillShadow(dst, x, y)
-	if a.vert != 0 && a.moving && animalKinds[a.kind] == "horse" {
+	if a.vert != 0 && a.moving && animalHasFreeView(a.kind) {
 		// walking up or down the screen: its back or its chest, not the profile
-		vp := horseFreeView(a.coat, a.vert > 0)
+		vp := animalFreeView(a)
 		bob := math.Round(math.Sin(a.anim * 9))
 		vop := &ebiten.DrawImageOptions{}
 		vop.GeoM.Translate(math.Round(x-vp.ox), math.Round(y-vp.oy+2+bob))

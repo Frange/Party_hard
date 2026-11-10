@@ -9,28 +9,36 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// The arrival on the island: after the letter blows up, a yellow rented helicopter flies over the
-// sea to the coast of Isla Nublar and lands on the helipad. The players are seen in the cockpit from the
-// start; the door slides open, they get out (the blue one calm, the red one in a hurry and dizzy),
-// they step away and the helicopter blows up (a show: nobody gets hurt and nothing is left behind but
-// a scorch mark that fades). Then the party of the island begins.
+// The arrival on the island, after the letter blows up. In this order:
+//   1. space (arrival_travel.go): a little shuttle undocks from the party space station and flies down to the Earth,
+//      which grows until it fills the picture (re-entry glow, white flash);
+//   2. the Earth (arrival_travel.go): the shuttle lands next to a rental helipad, the players run to the yellow rented
+//      helicopter and it takes off;
+//   3. the island: the helicopter flies over the sea to the coast of Isla Nublar (the big gate of the park in the
+//      jungle) and lands on the helipad. Its engine coughs smoke on the way; the door slides open, they get out (the
+//      blue one calm, the red one in a hurry and dizzy), they step away and the engine catches FIRE: it does not blow
+//      up, it is left burning and smoking (that is how the last scene finds it, preWreck in prelude.go). A T-Rex comes
+//      to the gate to watch. Then the party of the island begins.
 //
 // It plays only in the story (letter -> arrival -> island). The island played from the list of parties or
 // from DEBUG starts directly (see finishInvite); ESCENAS and DEBUG can watch it again (-jparrival too).
 // ---------------------------------------------------------------------------
 
-// the timeline, in seconds
+// the timeline, in seconds from the start of the scene
 const (
-	arrFlyEnd  = 2.2  // the camera has reached the helipad; the landing starts
-	arrTouch   = 3.4  // the skids touch the pad
-	arrDoor    = 3.7  // the door starts to slide open
-	arrDoorLen = 0.4  // ...and takes this long
-	arrExit1   = 4.1  // the first player steps out
-	arrExit2   = 4.3  // the second one
-	arrBoom    = 6.1  // the helicopter blows up
-	arrGagEnd  = 8.7  // the gag ends and the picture fades
-	arrTotal   = 9.5  // the end of the scene
-	arrCamEnd  = 620. // how far the camera travels down the world
+	arrEarthT  = 3.4             // the space part ends: the Earth part begins (arrival_travel.go)
+	arrTravel  = 6.6             // the helicopter has left the Earth: the island part begins
+	arrSmokeT  = arrTravel + 1.0 // the engine starts to cough smoke over the sea
+	arrFlyEnd  = arrTravel + 2.2 // the camera has reached the helipad; the landing starts
+	arrTouch   = arrTravel + 3.4 // the skids touch the pad
+	arrDoor    = arrTravel + 3.7 // the door starts to slide open
+	arrDoorLen = 0.4             // ...and takes this long
+	arrExit1   = arrTravel + 4.1 // the first player steps out
+	arrExit2   = arrTravel + 4.3 // the second one
+	arrBurn    = arrTravel + 6.1 // the engine catches fire (it does NOT blow up)
+	arrGagEnd  = arrTravel + 8.7 // the gag ends and the picture fades
+	arrTotal   = arrTravel + 9.5 // the end of the scene
+	arrCamEnd  = 620.            // how far the camera travels down the world
 	arrWorldH  = 1160
 	arrK       = 3.0 // scale of the helicopter (whole number: crisp pixels)
 )
@@ -45,16 +53,16 @@ const (
 )
 
 type arrivalState struct {
-	t, skipArm, rot float64
-	touched, boomed bool
-	parts           []carPart
-	world, canvas   *ebiten.Image
+	t, skipArm, rot  float64
+	touched, burning bool
+	launched, landed bool // the shuttle's engine and its landing on the Earth (one sound each)
+	world, canvas    *ebiten.Image
 }
 
-// the rotor speed: full until the touch-down, slowing after it, stopped when it blows
+// the rotor speed: full until the touch-down, slowing after it, stopped when the engine burns
 func arrRPM(t float64) float64 {
 	switch {
-	case t >= arrBoom:
+	case t >= arrBurn:
 		return 0
 	case t < arrTouch:
 		return 1
@@ -68,10 +76,10 @@ func arrHash(i, k int) float64 { return jpHash(i, k, 131) }
 
 // arrWind: how hard the rotor wash blows (palms, grass, dust)
 func arrWind(t float64) float64 {
-	if t >= arrBoom {
+	if t >= arrBurn || t < arrTravel {
 		return 0
 	}
-	return clampF((t-1.4)/1.0, 0, 1) * arrRPM(t)
+	return clampF((t-arrTravel-1.4)/1.0, 0, 1) * arrRPM(t)
 }
 
 // arrAlt: the height of the helicopter above the ground in pixels
@@ -87,12 +95,7 @@ func arrAlt(t float64) float64 {
 
 // arrCam: the top of the screen in the world picture
 func arrCam(t float64) float64 {
-	return arrCamEnd * arrSmooth(t/arrFlyEnd)
-}
-
-// the pieces that fly off: size of each kind
-var arrPartSize = [][2]float64{
-	{120, 6}, {96, 6}, {70, 5}, {70, 5}, {100, 22}, {14, 40}, {40, 30}, {40, 30}, {30, 24}, {36, 40}, {26, 18}, {8, 26},
+	return arrCamEnd * arrSmooth((t-arrTravel)/(arrFlyEnd-arrTravel))
 }
 
 // advance moves the scene on by dt. A first press arms the skip, a second one within 2.2 s ends it.
@@ -108,60 +111,32 @@ func (a *arrivalState) advance(dt float64, press bool) (sounds []string, done bo
 		}
 		a.skipArm = 2.2
 	}
-	a.rot += dt * arrRPM(a.t) * 38
+	a.rot += dt * math.Max(arrRPM(a.t)*arrIsland(a.t), arrEarthRPM(a.t)) * 38
+	if !a.launched && a.t >= arrLaunch {
+		a.launched = true
+		sounds = append(sounds, "ignite")
+	}
+	if !a.landed && a.t >= arrShipLand {
+		a.landed = true
+		sounds = append(sounds, "thud")
+	}
 	if !a.touched && a.t >= arrTouch {
 		a.touched = true
 		sounds = append(sounds, "thud")
 	}
-	if !a.boomed && a.t >= arrBoom {
-		a.boomed = true
-		a.spawnParts()
-		sounds = append(sounds, "boom", "spark")
-	}
-	if a.boomed {
-		a.stepParts(dt)
+	if !a.burning && a.t >= arrBurn {
+		a.burning = true
+		sounds = append(sounds, "ignite", "crackle")
 	}
 	return sounds, a.t >= arrTotal
 }
 
-// spawnParts: the blades, the skids, the tail and the panels of the helicopter, in its own colours.
-func (a *arrivalState) spawnParts() {
-	body, trim, dark := rgb(0xf2c230), rgb(0xd0402a), rgb(0x2a2a34)
-	cols := []color.RGBA{dark, dark, rgb(0x3a3a46), rgb(0x3a3a46), body, trim, body, shade(body, 0.8), trim, body, rgb(0x7ab0d8), dark}
-	for k := range arrPartSize {
-		h1, h2, h3 := arrHash(k, 1), arrHash(k, 2), arrHash(k, 3)
-		ang := h1 * 2 * math.Pi
-		sp := 110 + h2*170
-		a.parts = append(a.parts, carPart{x: arrCX + (h3-0.5)*30, y: arrGroundY, z: 18 * arrK,
-			vx: math.Cos(ang) * sp, vy: math.Sin(ang) * sp * 0.4, vz: 150 + h2*200,
-			kind: k, col: cols[k], spin: (h3 - 0.5) * 32})
+// arrIsland: 1 once the island part has begun.
+func arrIsland(t float64) float64 {
+	if t >= arrTravel {
+		return 1
 	}
-}
-
-// stepParts: the pieces fly, fall and bounce (the same physics as the car that blows up).
-func (a *arrivalState) stepParts(dt float64) {
-	for i := range a.parts {
-		p := &a.parts[i]
-		if p.rest {
-			continue
-		}
-		p.x += p.vx * dt
-		p.y += p.vy * dt
-		p.z += p.vz * dt
-		p.vz -= 520 * dt
-		p.rot += p.spin * dt
-		if p.z <= 0 {
-			p.z = 0
-			if math.Abs(p.vz) < 50 {
-				p.rest = true
-				continue
-			}
-			p.vz = -p.vz * 0.4
-			p.vx *= 0.6
-			p.vy *= 0.6
-			p.spin *= 0.5
-		}
-	}
+	return 0
 }
 
 // ---- the people ----------------------------------------------------------------------------------
@@ -175,7 +150,6 @@ type arrActor struct {
 	lean, hop float64
 	clip      bool // still inside the door: only what is in the doorway shows
 	dizzy     bool
-	soot      float64 // 0..1: blackened by the blast
 }
 
 // arrActorAt: where player i (of n) is and what he does at time t.
@@ -237,17 +211,18 @@ func arrActorAt(i, n int, t float64) arrActor {
 			}
 		}
 	}
-	if t >= arrBoom { // the blast pushes them back, blackens them, and they look at each other
-		bt := t - arrBoom
+	if t >= arrBurn { // the fire makes them jump, they turn round to look, then at each other
+		bt := t - arrBurn
 		sgn := 1.0
 		if a.x < arrCX {
 			sgn = -1
 		}
-		a.x += sgn * 14 * easeOut(bt/0.35)
-		a.soot = arrSmooth(bt / 0.3)
 		a.dizzy, a.clip = false, false
 		a.dir, a.anim, a.ph, a.hop = DirUp, AnimIdle, 0, 0
-		a.lean = 0.15 * sgn * (1 - clampF(bt/0.6, 0, 1))
+		if bt < 0.3 {
+			a.hop = 10 * math.Sin(bt/0.3*math.Pi)
+		}
+		a.lean = 0.1 * sgn * (1 - clampF(bt/0.6, 0, 1))
 		if bt >= 0.9 {
 			a.anim, a.ph, a.lean = AnimTalk, t*6, 0
 			switch {
@@ -275,21 +250,25 @@ type arrLine struct {
 
 // arrLines: the short jokes (each at most 48 characters; nobody speaks over somebody else).
 func arrLines(n int) []arrLine {
+	const T = arrTravel
 	out := []arrLine{
-		{0, 0.4, 1.6, "Qué vistas, ¿eh?"},
-		{0, 2.9, 3.7, "Aterrizaje de diez."},
+		{0, arrEarthT + 1.25, arrEarthT + 2.2, "¡Taxi! ¡A Isla Nublar!"}, // on the Earth, running to the helicopter
+		{0, T + 0.4, T + 1.6, "Qué vistas, ¿eh?"},
+		{0, T + 2.9, T + 3.7, "Aterrizaje de diez."},
 	}
 	if n == 2 {
 		out = append(out,
-			arrLine{1, 1.7, 2.8, "¿Falta mucho? ¡Me mareo!"},
-			arrLine{1, 4.75, 5.9, "¡Suelo! ¡Cómo te echaba de menos!"},
-			arrLine{0, arrBoom + 0.7, arrBoom + 1.6, "Eso no sonaba bien."},
-			arrLine{1, arrBoom + 1.7, arrTotal, "¡Era alquilado!"})
+			arrLine{1, arrEarthT + 2.3, T - 0.1, "¿Este trasto vuela?"},
+			arrLine{1, T + 1.7, T + 2.8, "¿Huele a quemado? ¡Me mareo!"},
+			arrLine{1, T + 4.75, T + 5.9, "¡Suelo! ¡Cómo te echaba de menos!"},
+			arrLine{0, arrBurn + 0.7, arrBurn + 1.6, "Eso no sonaba bien."},
+			arrLine{1, arrBurn + 1.7, arrTotal, "¡Era alquilado!"})
 	} else {
 		out = append(out,
-			arrLine{0, 4.5, 5.8, "Qué sitio tan tranquilo."},
-			arrLine{0, arrBoom + 0.7, arrBoom + 1.6, "Eso no sonaba bien."},
-			arrLine{0, arrBoom + 1.7, arrTotal, "Y era alquilado..."})
+			arrLine{0, arrEarthT + 2.3, T - 0.1, "¿Este trasto vuela?"},
+			arrLine{0, T + 4.5, T + 5.8, "Qué sitio tan tranquilo."},
+			arrLine{0, arrBurn + 0.7, arrBurn + 1.6, "Eso no sonaba bien."},
+			arrLine{0, arrBurn + 1.7, arrTotal, "Y era alquilado..."})
 	}
 	return out
 }
@@ -329,7 +308,8 @@ func (g *Game) finishArrival(e *endState) {
 	g.startLevel(specialJurassic)
 }
 
-// arrMusicVol: the music (the theme of the invitation) swells in and fades with the picture.
+// arrMusicVol: the music (the theme of the invitation) swells in and fades with the picture (the whole scene,
+// space, Earth and island: arrTotal).
 func arrMusicVol(t float64) float64 {
 	return 0.55 * math.Min(1, t/0.8) * (1 - clampF((t-(arrTotal-0.9))/0.9, 0, 1))
 }
@@ -390,7 +370,7 @@ func arrBuildWorld() *ebiten.Image {
 }
 
 var arrPalms = [][2]float64{
-	{110, 812}, {300, 790}, {660, 795}, {850, 820}, {190, 880}, {770, 885}, // behind the pad
+	{660, 795}, {850, 820}, {770, 885}, // behind the pad (the left side is the gate's)
 	{130, 1060}, {840, 1066}, {300, 1100}, {680, 1104}, // in front of it
 }
 
@@ -412,9 +392,9 @@ func arrPalm(cv *ebiten.Image, bx, by float64, i int, t, wind float64) {
 			d := float64(m) * 14
 			fx := x + math.Cos(ang)*d
 			fy := y - 8 + math.Sin(ang)*d*0.45 + float64(m*m)*1.6
-			col := rgb(0x2e8a3a)
+			col := rgb(0x1c6a2a)
 			if (k+m)%2 == 0 {
-				col = rgb(0x3aa04a)
+				col = rgb(0x2a8a36)
 			}
 			fillRect(cv, math.Round(fx-6), math.Round(fy-3), 12, 6, col)
 		}
@@ -487,19 +467,24 @@ func (g *Game) arrNumPlayers() int {
 
 func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 	a := &e.x.arr
-	if a.world == nil {
-		a.world = arrBuildWorld()
-	}
 	if a.canvas == nil {
 		a.canvas = ebiten.NewImage(screenW, screenH)
 	}
-	cv, t := a.canvas, a.t
 	n := g.arrNumPlayers()
 	var cs [2]*CharSet
 	cs[0] = g.sceneHero(0, false)
 	if n == 2 {
 		cs[1] = g.sceneHero(1, false)
 	}
+	if a.t < arrTravel { // the space and the Earth (arrival_travel.go)
+		g.drawArrTravel(dst, a, cs, n)
+		return
+	}
+	if a.world == nil {
+		a.world = arrBuildWorld()
+	}
+	cv, t := a.canvas, a.t
+	tl := t - arrTravel // the island's own clock
 	cam := math.Round(arrCam(t))
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(0, -cam)
@@ -513,17 +498,9 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 		wx := math.Mod(arrHash(i, 2)*screenW+t*(14+arrHash(i, 3)*14), screenW+40) - 20
 		fillRect(cv, math.Round(wx), math.Round(sy), 14+arrHash(i, 4)*16, 2, rgba(0x9ad8f0, 150))
 	}
-	bt := t - arrBoom
+	bt := t - arrBurn
 	wind := arrWind(t)
 	padSY := arrPadWY - cam
-	// the scorch mark the helicopter leaves: it fades away
-	if a.boomed {
-		k := clampF((bt-0.15)/0.3, 0, 1) * (1 - clampF((bt-1.6)/1.7, 0, 1))
-		if k > 0 {
-			filledEllipse(cv, arrPadWX, padSY+4, 110, 40, rgba(0x3a2a1c, uint8(120*k)))
-			filledEllipse(cv, arrPadWX, padSY+4, 84, 30, rgba(0x14141a, uint8(190*k)))
-		}
-	}
 	// the grass lies down under the rotor wash
 	for k := 0; k < 30; k++ {
 		ang := arrHash(k, 30) * 2 * math.Pi
@@ -534,20 +511,16 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 			fillRect(cv, math.Round(gx+float64(b)*3+lean), math.Round(gy-9), 2, 9, rgb(0x2a7a34))
 		}
 	}
+	// the T-Rex (the game's own, rexart.go) comes to the gate to see the fire, and the gate of the park
+	g.arrGate(cv, cam, bt)
 	// palms behind the pad
 	for i, p := range arrPalms {
 		if sy := p[1] - cam; sy < arrGroundY && sy > -10 {
 			arrPalm(cv, p[0], sy, i, t, wind)
 		}
 	}
-	// the helicopter
-	if !a.boomed {
-		g.arrDrawHeli(cv, a, cs, n)
-	}
-	// the fire ball, behind the people
-	if a.boomed {
-		arrFire(cv, bt)
-	}
+	// the helicopter, smoking and then burning
+	g.arrDrawHeli(cv, a, cs, n)
 	for i, p := range arrPalms {
 		if sy := p[1] - cam; sy >= arrGroundY && sy < screenH+130 {
 			arrPalm(cv, p[0], sy, i, t, wind)
@@ -578,10 +551,6 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 			filledEllipse(cv, x, arrGroundY+2-u*10, 26+u*30, 14+u*10, rgba(0xc8b080, uint8(170*(1-u))))
 		}
 	}
-	// smoke of the wreck, behind the people
-	if a.boomed {
-		arrSmoke(cv, bt)
-	}
 	// the people (the lower ones in front)
 	order := []int{0, 1}
 	if n == 2 && arrActorAt(1, 2, t).y < arrActorAt(0, 2, t).y {
@@ -597,17 +566,11 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 		}
 		g.arrDrawActor(cv, cs, i, n, acts[i], t)
 	}
-	// the pieces, the shock wave and the sparks fly in front of everything
-	if a.boomed {
-		arrDebris(cv, a, bt)
-		arrShock(cv, bt)
-		if bt < 0.25 {
-			fillRect(cv, 0, 0, screenW, screenH, rgba(0xfff4d0, uint8(230*(1-bt/0.25))))
-		}
-	}
+	// the smoke of the fire rises in front of everything
+	arrHeliSmoke(cv, t, arrCX, arrCY-arrAlt(t), a.touched)
 	// the jokes
 	for _, l := range arrLines(n) {
-		if t < l.from || t >= l.to || cs[l.who] == nil {
+		if t < l.from || t >= l.to || cs[l.who] == nil || l.from < arrTravel {
 			continue
 		}
 		var x, y float64
@@ -619,14 +582,14 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 		}
 		g.speechBubble(cv, x, y, l.text)
 	}
-	// the picture, shaken by the landing and the blast
+	// the picture, shaken by the landing and by the burst of flame
 	var sx, sy float64
 	amp := 0.0
 	if a.touched && t < arrTouch+0.25 {
 		amp = 3 * (1 - (t-arrTouch)/0.25)
 	}
-	if a.boomed {
-		amp = math.Max(amp, 11*math.Max(0, 1-bt/0.9))
+	if a.burning && bt < 0.35 {
+		amp = math.Max(amp, 4*(1-bt/0.35))
 	}
 	if amp > 0 {
 		sx, sy = math.Round(math.Sin(t*71)*amp), math.Round(math.Cos(t*67)*amp)
@@ -635,22 +598,60 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 	dop := &ebiten.DrawImageOptions{}
 	dop.GeoM.Translate(sx, sy)
 	dst.DrawImage(cv, dop)
-	if t < 2.4 {
-		al := clampF(t/0.5, 0, 1) * (1 - clampF((t-1.8)/0.6, 0, 1))
+	if tl < 2.4 {
+		al := clampF(tl/0.5, 0, 1) * (1 - clampF((tl-1.8)/0.6, 0, 1))
 		g.drawTextC(dst, "VUELO A ISLA NUBLAR: SIN TURBULENCIAS (CASI)", 480, 468, rgba(0xf4f0ff, uint8(255*al)), 2)
 	}
-	if t < 0.5 {
-		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-t/0.5))))
+	if tl < 0.5 {
+		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-tl/0.5))))
 	}
 	if t > arrGagEnd {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*clampF((t-arrGagEnd)/(arrTotal-arrGagEnd), 0, 1))))
 	}
+	g.arrSkipHint(dst, a)
+}
+
+// arrSkipHint: the line at the bottom (two presses skip the scene).
+func (g *Game) arrSkipHint(dst *ebiten.Image, a *arrivalState) {
 	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
 	col := rgba(0x8a86a0, 170)
 	if a.skipArm > 0 {
 		hint, col = "Otra vez para saltar", rgb(0xffe060)
 	}
 	g.drawTextC(dst, hint, 480, 524, col, 1)
+}
+
+// where the gate of the park stands in the world picture (its bottom centre), at scale 2
+const (
+	arrGateWX, arrGateWY = 190.0, 896.0
+	arrGateS             = 2.0
+)
+
+// arrRexX: the T-Rex walks from the left into the open gate after the fire starts (bt: seconds since then).
+func arrRexX(bt float64) float64 { return -120 + (arrGateWX+10+120)*arrSmooth((bt-0.6)/2.0) }
+
+// arrGate draws the T-Rex (behind) and the big gate of the park in the jungle, left of the helipad.
+func (g *Game) arrGate(cv *ebiten.Image, cam, bt float64) {
+	gy := arrGateWY - cam
+	if gy < -10 || gy > screenH+240 {
+		return
+	}
+	if bt > 0.6 {
+		v := rexPoseWalkA
+		if int(bt*3)%2 == 1 {
+			v = rexPoseWalkB
+		}
+		if bt > 2.6 { // it stops to look, then roars at the smoke
+			v = rexPoseWalkA
+			if bt > 3.0 && bt < 3.9 {
+				v = 4
+			}
+		}
+		recLayer("actor:rex")
+		g.preProp(cv, "jp_trex", v, arrRexX(bt), gy-26, arrGateS, true, 1) // flipped: it looks right, at the fire
+	}
+	g.preProp(cv, "jp_gate", 0, arrGateWX, gy, arrGateS, false, 1)
+	recLayer("front:gate") // the gate is in front of the T-Rex on purpose: it walks behind it
 }
 
 // arrCabinHead: where the head of player i is seen through the glass (for his joke).
@@ -668,7 +669,8 @@ func arrCabinHead(i, n int, t float64) (x, topY float64) {
 	return cx - 15*arrK, cy - 6*arrK - 22
 }
 
-// arrDrawHeli: the helicopter (seen from the front while it comes down, from the side once it has landed).
+// arrDrawHeli: the helicopter (seen from the front while it comes down, from the side once it has landed); it
+// darkens as it burns.
 func (g *Game) arrDrawHeli(cv *ebiten.Image, a *arrivalState, cs [2]*CharSet, n int) {
 	t := a.t
 	alt := arrAlt(t)
@@ -681,8 +683,10 @@ func (g *Game) arrDrawHeli(cv *ebiten.Image, a *arrivalState, cs [2]*CharSet, n 
 	for i := 0; i < n; i++ {
 		tint[i] = sceneTint(i, cs[0], cs[i])
 	}
+	char := float32(arrChar(t))
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(arrK, arrK)
+	op.ColorScale.Scale(1-char, 1-char*1.05, 1-char*1.1, 1)
 	if !a.touched {
 		op.GeoM.Translate(math.Round(cx-33*arrK), math.Round(cy-35*arrK))
 		cv.DrawImage(front, op)
@@ -702,27 +706,42 @@ func (g *Game) arrDrawHeli(cv *ebiten.Image, a *arrivalState, cs [2]*CharSet, n 
 		}
 	}
 	// the sliding door
+	dk := func(c color.RGBA) color.RGBA { return mixc(c, rgb(0x1a1414), float64(char)) }
 	dx0, dy0, dw, dh := cx-6*arrK, cy-12*arrK, 22*arrK, 24*arrK
 	slide := clampF((t-arrDoor)/arrDoorLen, 0, 1)
 	if slide > 0 {
 		fillRect(cv, dx0, dy0, dw, dh, rgb(0x1c1a24))
-		fillRect(cv, dx0+dw-20, dy0+dh-32, 18, 28, rgb(0x3a3a48)) // the seats
-		fillRect(cv, dx0+4, dy0+dh-28, 16, 24, rgb(0x3a3a48))
+		fillRect(cv, dx0+dw-20, dy0+dh-32, 18, 28, dk(rgb(0x3a3a48))) // the seats
+		fillRect(cv, dx0+4, dy0+dh-28, 16, 24, dk(rgb(0x3a3a48)))
 	}
 	if slide < 1 {
 		w := math.Round(dw * (1 - slide))
 		x := dx0 + dw - w
-		fillRect(cv, x, dy0, w, dh, rgb(0xc89a1c))
-		fillRect(cv, x+2, dy0+2, math.Max(0, w-4), dh-4, rgb(0xf2c230))
+		fillRect(cv, x, dy0, w, dh, dk(rgb(0xc89a1c)))
+		fillRect(cv, x+2, dy0+2, math.Max(0, w-4), dh-4, dk(rgb(0xf2c230)))
 		if w > 24 {
-			fillRect(cv, x+6, dy0+8, w-12, 18, rgb(0x7ab0d8))
-			fillRect(cv, x+6, dy0+8, w-12, 3, rgb(0xa8d8f0))
+			fillRect(cv, x+6, dy0+8, w-12, 18, dk(rgb(0x7ab0d8)))
+			fillRect(cv, x+6, dy0+8, w-12, 3, dk(rgb(0xa8d8f0)))
 		}
 	}
 	arrRotor(cv, cx-arrK, cy-25*arrK, arrRPM(t), a.rot)
 	if rpm := arrRPM(t); rpm > 0.1 { // the tail rotor
 		fillRect(cv, cx+50*arrK, cy-10*arrK-14, 3, 8+28*math.Abs(math.Cos(a.rot*1.7)), rgba(0x22222a, 170))
 	}
+	if a.burning {
+		g.arrHeliFire(cv, t-arrBurn, cx, cy)
+	}
+}
+
+// arrChar: how burnt the helicopter looks (0 new .. 0.55, close to the wreck of the last scene).
+func arrChar(t float64) float64 { return 0.55 * arrSmooth((t-arrBurn)/2.5) }
+
+// arrEngine: where the engine is (the smoke and the flames come out of it), from the anchor of the helicopter.
+func arrEngine(cx, cy float64, landed bool) (x, y float64) {
+	if !landed {
+		return cx + 6*arrK, cy - 22*arrK // seen from the front: behind the mast
+	}
+	return cx + 12*arrK, cy - 21*arrK
 }
 
 // arrDrawActor: a player on the pad, with the ring of his colour under his feet.
@@ -735,10 +754,6 @@ func (g *Game) arrDrawActor(cv *ebiten.Image, cs [2]*CharSet, i, n int, ac arrAc
 		ringCol = rgba(0xff5a5a, 150)
 	}
 	tint := sceneTint(i, cs[0], cs[i])
-	k := float32(ac.soot)
-	tint[0] *= 1 - 0.28*k // a smudge of soot: still easy to tell who is who
-	tint[1] *= 1 - 0.32*k
-	tint[2] *= 1 - 0.36*k
 	target := cv
 	if ac.clip {
 		target = cv.SubImage(image.Rect(int(arrCX-6*arrK), int(arrCY-12*arrK), int(arrCX+16*arrK), screenH)).(*ebiten.Image)
@@ -753,87 +768,61 @@ func (g *Game) arrDrawActor(cv *ebiten.Image, cs [2]*CharSet, i, n int, ac arrAc
 	}
 }
 
-// arrFire: the fire ball (flash, then three layers that rise and fade).
-func arrFire(cv *ebiten.Image, bt float64) {
-	if bt > 1.1 {
+// arrHeliFire: the engine catches fire (no blast): a puff of flame, then tongues of fire on the engine and a small
+// one on the tail that keep burning, with an orange glow.
+func (g *Game) arrHeliFire(cv *ebiten.Image, bt, cx, cy float64) {
+	ex, ey := arrEngine(cx, cy, true)
+	if bt < 0.45 { // the "fwoosh"
+		f := bt / 0.45
+		filledEllipse(cv, ex, ey-10*f, 18+46*f, 12+30*f, rgba(0xff8a20, uint8(220*(1-f))))
+		filledEllipse(cv, ex, ey-8*f, 10+24*f, 7+16*f, rgba(0xffe080, uint8(230*(1-f))))
+	}
+	grow := clampF(bt/0.5, 0, 1)
+	g.preGlow(cv, ex, ey-12, 70*grow, color.RGBA{255, 120, 40, uint8(90 * grow)})
+	tongue := func(x, base, w, h float64, k int) {
+		h *= grow * (0.75 + 0.35*arrHash(k+int(bt*14), 70))
+		if h < 2 {
+			return
+		}
+		x = math.Round(x + 2*math.Sin(bt*17+float64(k)))
+		fillRect(cv, x-w/2, math.Round(base-h), w, math.Round(h), rgb(0xe8501a))
+		fillRect(cv, x-w/2+2, math.Round(base-h*0.72), w-4, math.Round(h*0.72), rgb(0xff9a28))
+		fillRect(cv, x-w/2+4, math.Round(base-h*0.4), math.Max(2, w-8), math.Round(h*0.4), rgb(0xffe27a))
+	}
+	for k, h := range []float64{18, 30, 40, 34, 26, 16} {
+		tongue(ex-28+float64(k)*11, ey+8, 12, h, k)
+	}
+	tongue(cx+44*arrK, cy-12*arrK, 10, 16, 9) // the tail
+}
+
+// arrHeliSmoke: the smoke of the engine: a thin grey trail over the sea, thicker after the landing, black once it
+// burns. It goes on rising from the wreck to the end of the scene.
+func arrHeliSmoke(cv *ebiten.Image, t, cx, cy float64, landed bool) {
+	if t < arrSmokeT {
 		return
 	}
-	cx, cy := arrCX, arrCY+10
-	grow := math.Min(1, bt/0.35)
-	fade := 1 - math.Max(0, (bt-0.35)/0.75)
-	r := 40 + 110*grow
-	al := func(v float64) uint8 { return uint8(255 * math.Max(0, math.Min(1, v*fade))) }
-	fillDisc(cv, cx, cy-40*grow, r, rgba(0xe84610, al(0.9)))
-	fillDisc(cv, cx, cy-44*grow, r*0.72, rgba(0xffa01e, al(0.95)))
-	fillDisc(cv, cx, cy-48*grow, r*0.42, rgba(0xffec8c, al(1)))
-	for k := 0; k < 5; k++ { // smaller blasts a moment later (the fuel)
-		s := 0.1 + 0.12*float64(k)
-		u := (bt - s) / 0.55
-		if u < 0 || u > 1 {
-			continue
-		}
-		x := cx + (arrHash(k, 40)-0.5)*210
-		y := cy + (arrHash(k, 41)-0.5)*90 - 20 - u*30
-		fillDisc(cv, x, y, 18+30*math.Sin(u*math.Pi), rgba(0xff8c1c, uint8(230*(1-u))))
-		fillDisc(cv, x, y, 9+16*math.Sin(u*math.Pi), rgba(0xffe278, uint8(230*(1-u))))
+	ex, ey := arrEngine(cx, cy, landed)
+	k := clampF((t-arrSmokeT)/0.6, 0, 1) * 0.35
+	col := uint32(0x8a8a96)
+	if landed {
+		k = 0.55
 	}
-	if bt > 0.4 && bt < 1.7 { // flames on the pad
-		for k := 0; k < 5; k++ {
-			h := 10 + 12*arrHash(k+int(bt*12), 43)
-			fillRect(cv, arrCX-90+float64(k)*44, arrGroundY-h+8, 14, h, rgba(0xff8218, uint8(200*(1-(bt-0.4)/1.3))))
-		}
+	if t >= arrBurn {
+		k = 0.55 + 0.4*clampF((t-arrBurn)/0.8, 0, 1)
+		col = 0x2a2a30
 	}
-}
-
-// arrSmoke: the black smoke that rises from the wreck and thins out.
-func arrSmoke(cv *ebiten.Image, bt float64) {
-	for i := 0; i < 16; i++ {
-		age := (bt - 0.1 - 0.04*float64(i)) / 2.8
-		if age <= 0 || age >= 1 {
-			continue
-		}
-		x := arrCX + (arrHash(i, 50)-0.5)*180 + age*40
-		y := arrCY + 50 - age*190 - arrHash(i, 51)*40
-		filledEllipse(cv, x, y, 18+40*age, 15+34*age, rgba(0x3a3a46, uint8(190*(1-age))))
+	n := 9
+	if t >= arrBurn {
+		n = 16
 	}
-}
-
-// arrShock: the shock wave along the ground and the sparks.
-func arrShock(cv *ebiten.Image, bt float64) {
-	if bt < 0.7 {
-		rr := 20 + bt*700
-		al := uint8(220 * (1 - bt/0.7))
-		for ang := 0.0; ang < 2*math.Pi; ang += 1.5 / rr {
-			fillRect(cv, math.Round(arrCX+math.Cos(ang)*rr), math.Round(arrGroundY+math.Sin(ang)*rr*0.38), 3, 2, rgba(0xffe8b4, al))
+	for i := 0; i < n; i++ {
+		u := math.Mod(t*0.55+float64(i)/float64(n), 1)
+		x := ex + u*70 + math.Sin(u*6+float64(i))*8 // the sea breeze takes it to the right
+		y := ey - 10 - u*170
+		r := 6 + u*22
+		if t >= arrBurn {
+			r += 6
 		}
-	}
-	for i := 0; i < 60; i++ {
-		ang := arrHash(i, 60) * 2 * math.Pi
-		sp := 120 + 380*arrHash(i, 61)
-		al := clampF(1-bt/(0.5+arrHash(i, 62)), 0, 1)
-		if al <= 0 {
-			continue
-		}
-		x := arrCX + math.Cos(ang)*sp*bt
-		y := arrCY + math.Sin(ang)*sp*bt*0.6 + 300*bt*bt
-		fillRect(cv, math.Round(x), math.Round(y), 3, 3, rgba([]uint32{0xffc828, 0xff9628, 0xff6428}[i%3], uint8(255*al)))
-	}
-}
-
-// arrDebris: the blades, the skids, the tail and the panels flying through the air, fading out.
-func arrDebris(cv *ebiten.Image, a *arrivalState, bt float64) {
-	fade := 1 - clampF((bt-1.7)/0.6, 0, 1)
-	if fade <= 0 {
-		return
-	}
-	for _, p := range a.parts {
-		sz := arrPartSize[p.kind]
-		sz = [2]float64{sz[0] * arrK / 4, sz[1] * arrK / 4}
-		if !p.rest && p.z > 0.5 { // the shadow under a flying piece
-			fillRect(cv, math.Round(p.x-sz[0]/4), math.Round(p.y), sz[0]/2, 2, rgba(0x000000, uint8(60*fade)))
-		}
-		col := p.col // premultiplied by hand: the alpha fades the whole piece
-		col.R, col.G, col.B, col.A = uint8(float64(col.R)*fade), uint8(float64(col.G)*fade), uint8(float64(col.B)*fade), uint8(255*fade)
-		arrRect(cv, p.x, p.y-p.z, sz[0], sz[1], p.rot, col)
+		filledEllipse(cv, math.Round(x), math.Round(y), r, r*0.8, rgba(col, uint8(200*k*(1-u))))
 	}
 }

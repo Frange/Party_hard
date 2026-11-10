@@ -1,0 +1,20 @@
+{
+  "name": "arch",
+  "category": "furniture",
+  "anchor_x": 61,
+  "anchor_y": 71,
+  "foot_x": 59,
+  "foot_y": 67,
+  "foot_w": 4,
+  "foot_h": 4,
+  "solid": false,
+  "hide": false,
+  "phone": false,
+  "poison": false,
+  "trap": "",
+  "light": false,
+  "variants": false,
+  "fps": 0,
+  "sort_off": 80,
+  "ambient_speed": 0
+}

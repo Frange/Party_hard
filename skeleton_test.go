@@ -78,13 +78,13 @@ func TestSkeletonCast(t *testing.T) {
 			t.Errorf("%s has no description or name", s)
 		}
 		found := false
-		for _, it := range shopCatalog[shopChars] {
-			if it.id == "skin:"+s {
+		for _, c := range albumCards() { // the characters are goals now (OBJETIVOS > PERSONAJES), not shop items
+			if c.kind() == cardChar && c.slug == s {
 				found = true
 			}
 		}
 		if !found {
-			t.Errorf("%s is not in the shop", s)
+			t.Errorf("%s has no card in PERSONAJES", s)
 		}
 		inPool := false
 		for _, p := range specialPool {

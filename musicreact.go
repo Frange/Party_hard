@@ -59,5 +59,5 @@ func (s *Sounds) SetReact(k float64) {
 	if s.isFile {
 		base = 0.6
 	}
-	s.music.SetVolume(musicReactVolume(base, k))
+	s.music.SetVolume(musicReactVolume(base, k) * s.fadeGain()) // fadeGain: the crossfade of the menu (menumusic.go)
 }

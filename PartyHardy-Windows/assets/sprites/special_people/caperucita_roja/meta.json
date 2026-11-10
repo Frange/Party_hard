@@ -1,0 +1,10 @@
+{
+  "name": "caperucita_roja",
+  "display_name": "Caperucita Roja",
+  "category": "special_people",
+  "gender": "f",
+  "carry": "plant",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

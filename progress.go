@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"os"
+	"fmt"
 	"path/filepath"
+	"time"
 )
 
 // Progress is how many of the fixed campaign levels are unlocked (1 = only
@@ -20,7 +20,26 @@ type Progress struct {
 	Equip    map[string]string `json:"equip"`             // what player 1 wears (and the party: uniforms, weapons)
 	EquipP2  map[string]string `json:"equipP2,omitempty"` // what player 2 wears (old saves have none)
 	Album    map[string]int    `json:"album,omitempty"`   // collector cards: key -> albumSeen|albumKilled|albumHelped bits (album.go; old saves have none)
+	// RETO DE HOY (daily.go): the date YYYY-MM-DD of the day it was lost / completed; locked while it equals today's date.
+	ChallengeLock string `json:"challengeLock,omitempty"`
+	ChallengeDone string `json:"challengeDone,omitempty"`
+	// KillerWait (goalkillers.go): parties left until the next killer is guaranteed after one was killed (0 = none; old saves have none).
+	KillerWait int `json:"killerWait,omitempty"`
+	// CampaignRev (progress_migrate.go): which campaign layout the save was written with (0 = the old 21 parties).
+	CampaignRev int `json:"campaignRev,omitempty"`
+	// Escapes (copsets.go): times the player was wanted (cuffs mark) and got away without being caught; every few of
+	// them unlock a new police uniform (old saves have none: 0).
+	Escapes int `json:"escapes,omitempty"`
+	// CharKills (goalchars.go): times the player killed each character (key = slug). charKillsNeed of them win the
+	// character. Old saves have none: a character they had already killed (albumKilled) stays won, nothing is lost.
+	CharKills map[string]int `json:"charKills,omitempty"`
+	// Started: when this game was begun (unix seconds). New games stamp it; old saves get the age of their file
+	// (progress_store.go). Shown at the bottom of CARRERA.
+	Started int64 `json:"started,omitempty"`
 }
+
+// progressNow: the stamp of a game begun right now.
+func progressNow() int64 { return time.Now().Unix() }
 
 func progressPath() string {
 	root := assetsRoot(true)
@@ -39,9 +58,12 @@ func loadProgress() Progress {
 	if path == "" {
 		return p
 	}
-	if data, err := os.ReadFile(path); err == nil {
-		json.Unmarshal(data, &p)
+	if fp, found := readProgressFile(path); found { // signed save, old plain JSON, or the .bak (progress_store.go)
+		p = fp
+	} else {
+		p.Started = progressNow() // no save: a new game begins
 	}
+	migrateProgress(&p)
 	if p.Unlocked < 1 {
 		p.Unlocked = 1
 	}
@@ -56,11 +78,11 @@ func saveProgress(p Progress) {
 	if path == "" {
 		return
 	}
-	data, err := json.MarshalIndent(p, "", "  ")
-	if err != nil {
-		return
+	p.CampaignRev = campaignRev
+	if p.Started == 0 {
+		p.Started = progressNow()
 	}
-	os.WriteFile(path, data, 0o644)
+	writeProgressFile(path, p) // obfuscated + signed, atomic, keeps progress.json.bak (progress_store.go)
 }
 
 // unlockNext advances the campaign by one level, but only when the level
@@ -119,6 +141,13 @@ func cloneProgress(p Progress) Progress {
 			c.Album[k] = v
 		}
 	}
+	c.CharKills = nil
+	if p.CharKills != nil {
+		c.CharKills = map[string]int{}
+		for k, v := range p.CharKills {
+			c.CharKills[k] = v
+		}
+	}
 	c.EquipP2 = nil
 	if p.EquipP2 != nil {
 		c.EquipP2 = map[string]string{}
@@ -127,4 +156,13 @@ func cloneProgress(p Progress) Progress {
 		}
 	}
 	return c
+}
+
+// careerSinceLine: the bottom line of CARRERA, with the day and hour the game was begun (day/month/year, local).
+func careerSinceLine(started int64) string {
+	if started <= 0 {
+		return "Toda tu carrera: se cuenta desde la primera fiesta."
+	}
+	t := time.Unix(started, 0).Local()
+	return fmt.Sprintf("Toda tu carrera: desde el %d/%d/%d, %02d:%02d.", t.Day(), int(t.Month()), t.Year(), t.Hour(), t.Minute())
 }

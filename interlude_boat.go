@@ -294,7 +294,14 @@ func (g *Game) boatHull(c *ebiten.Image, x, y float64) {
 			col = rgb(0x4a2c16)
 		}
 		fillRect(c, x+off, y-44+r, w, 1, col)
+		if int(r)%8 == 7 && r < 34 { // the seam between two planks
+			fillRect(c, x+off, y-44+r, w, 1, rgb(0x6a4220))
+		}
+		fillRect(c, x+off, y-44+r, 2, 1, rgb(0x14101a)) // the dark outline of the stern and the bow
+		fillRect(c, x+off+w-2, y-44+r, 2, 1, rgb(0x14101a))
 	}
+	fillRect(c, x+12, y-4, 253, 1, rgb(0x14101a)) // the keel
+	fillRect(c, x, y-48, 300, 2, rgb(0x14101a))
 	fillRect(c, x, y-46, 300, 4, rgb(0xe8d4a8)) // the rim
 	fillRect(c, x+26, y-34, 200, 3, rgb(0xd8402a))
 	fillRect(c, x+26, y-34, 200, 1, rgb(0xf0705a))

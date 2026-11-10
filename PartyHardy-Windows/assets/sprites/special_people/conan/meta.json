@@ -1,0 +1,10 @@
+{
+  "name": "conan",
+  "display_name": "Conan el Bárbaro",
+  "category": "special_people",
+  "gender": "m",
+  "carry": "machete",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

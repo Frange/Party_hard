@@ -68,7 +68,7 @@ var monkeyDesc = map[string]string{
 	"skin:guybrush":          "Un aspirante a pirata con coleta rubia que puede aguantar la respiración diez minutos. Y poco más.",
 	"skin:stan_barcos":       "Vendedor de barcos de segunda mano con chaqueta a cuadros y brazos que no paran. Te venderá hasta tu propio barco.",
 	"skin:elaine_marley":     "La gobernadora de la isla. Tiene mucha paciencia... y se le está acabando.",
-	"skin:lechuck":           "El pirata fantasma de barba de fuego. Aterrador y rencoroso, pero llega siempre tarde a la fiesta.",
+	"skin:lechuck":           "El pirata fantasma verde de barba negra. Aterrador y rencoroso, pero llega siempre tarde.",
 	"skin:voodoo_lady":       "Una señora muy misteriosa que lee el futuro. Nunca da un consejo gratis.",
 	"skin:meathook":          "Un pirata con ganchos en lugar de manos y un loro llamado Marcel. Aplaudir se le da fatal.",
 	"skin:pirata_importante": "Uno de esos piratas muy importantes del bar. Nadie sabe qué hacen, pero son importantes.",

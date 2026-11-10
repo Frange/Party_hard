@@ -1,10 +1,5 @@
 package main
 
-import (
-	"fmt"
-	"sort"
-)
-
 // The small news of the newspaper front page (newspaper_draw.go): funny made-up briefs (no real people) and a few
 // that come from the party itself. The bank is chosen by the seed of the party, never twice on one page.
 
@@ -17,7 +12,7 @@ var paperBriefHeads = map[string]string{
 	"TESTIGOS": "WITNESSES", "ESCÁNDALO": "SCANDAL", "DÚO DINÁMICO": "DYNAMIC DUO",
 }
 
-var paperBriefBank = []paperBrief{
+var paperBriefBank1 = []paperBrief{
 	{"SUCESOS", "Avistan un pato en la piscina. Dice que solo pasaba por allí.", "Duck spotted in the pool. Says he was only passing by."},
 	{"MÚSICA", "El DJ pide perdón por el último tema. Nadie sabe cuál fue.", "The DJ apologises for the last track. Nobody knows which one."},
 	{"VECINOS", "Vecino se queja del ruido: nadie le oyó por la música.", "Neighbour complains about the noise: nobody heard him over the music."},
@@ -67,44 +62,8 @@ var paperBriefBank = []paperBrief{
 	{"GASTRONOMÍA", "Pepinillo sospechoso hallado en la ensaladilla. Se investiga.", "Suspicious pickle found in the potato salad. Under investigation."},
 }
 
-// paperDerived: the briefs that come from the party itself (facts known to the paper).
-func paperDerived(f paperFacts, timeStr string) []paperBrief {
-	out := []paperBrief{{"CRONÓMETRO", fmt.Sprintf("La fiesta duró %s. Los invitados juran que se hizo larga.", timeStr), ""}}
-	if f.kills > 0 {
-		out = append(out, paperBrief{"BALANCE", fmt.Sprintf("%d abrigos se quedaron sin recoger en el guardarropa.", f.kills), ""})
-	}
-	if f.seen > 0 {
-		out = append(out, paperBrief{"TESTIGOS", fmt.Sprintf("%d testigos quedaron en el bar para contrastar versiones.", f.seen), ""})
-	} else {
-		out = append(out, paperBrief{"TESTIGOS", "Cero testigos: el barrio entero miraba el móvil.", ""})
-	}
-	if f.two {
-		out = append(out, paperBrief{"DÚO DINÁMICO", "Dos asesinos en una sola fiesta: hostelería pide cita previa.", ""})
-	}
-	return out
-}
-
-// paperBriefsFor: every candidate, shuffled by the seed (the layout takes the ones that fit; none twice).
-func paperBriefsFor(f paperFacts, timeStr string) []paperBrief {
-	all := append(append([]paperBrief{}, paperDerived(f, timeStr)...), paperBriefBank...)
-	type kv struct {
-		k uint64
-		b paperBrief
-	}
-	ks := make([]kv, len(all))
-	for i, b := range all {
-		h := uint64(f.seed)*6364136223846793005 + uint64(i+7)*1442695040888963407
-		h ^= h >> 31
-		h *= 0x9e3779b97f4a7c15
-		ks[i] = kv{h, b}
-	}
-	sort.SliceStable(ks, func(i, j int) bool { return ks[i].k < ks[j].k })
-	out := make([]paperBrief, len(ks))
-	for i := range ks {
-		out[i] = ks[i].b
-	}
-	return out
-}
+// the whole bank: this file's and the second one's (newspaper_briefs2.go)
+var paperBriefBank = append(append([]paperBrief{}, paperBriefBank1...), paperBriefBank2...)
 
 func init() {
 	add := func(k, v string) {
@@ -112,15 +71,10 @@ func init() {
 			langDataEN[k] = v
 		}
 	}
-	for _, b := range paperBriefBank {
+	for _, b := range paperBriefBank1 {
 		add(b.es, b.en)
 	}
 	for k, v := range paperBriefHeads {
 		add(k, v)
 	}
-	add("La fiesta duró %s. Los invitados juran que se hizo larga.", "The party lasted %s. Guests swear it felt longer.")
-	add("%d abrigos se quedaron sin recoger en el guardarropa.", "%d coats were left uncollected in the cloakroom.")
-	add("%d testigos quedaron en el bar para contrastar versiones.", "%d witnesses met at the bar to compare versions.")
-	add("Cero testigos: el barrio entero miraba el móvil.", "Zero witnesses: the whole neighbourhood was on their phones.")
-	add("Dos asesinos en una sola fiesta: hostelería pide cita previa.", "Two killers at one party: catering demands an appointment.")
 }

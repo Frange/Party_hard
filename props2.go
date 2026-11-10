@@ -66,8 +66,11 @@ func init() {
 		b.rect(172, 6, 14, 10, c(0x3a2a08))
 		b.rect(182, 18, 3, 30, c(0x8a8a96))
 	}}
+	// Only the back wall (the backdrop) is solid, plus the feet of the two front truss posts: the
+	// platform can be walked on and left or rounded by both sides (it used to have two 40 px side
+	// walls that closed the sides; stage_sides_test.go keeps them open).
 	pk["stage"] = &PropKind{W: 276, H: 124, FW: 268, FH: 56, SortOff: -90, NoSolid: true,
-		Solids: []Rect{{-134, -56, 268, 14}, {-134, -56, 14, 40}, {120, -56, 14, 40}}, Draw: func(b *pixBuf, v int) {
+		Solids: []Rect{{-134, -56, 268, 14}, {-136, -20, 6, 4}, {130, -20, 6, 4}}, Draw: func(b *pixBuf, v int) {
 			b.rect(0, 0, 276, 8, c(0x2a2a36))
 			for x := 4; x < 272; x += 8 {
 				b.line(x, 0, x+4, 8, c(0x4a4a5a))
@@ -213,19 +216,7 @@ func init() {
 		b.rect(10, 14, 36, 4, c(0xe8d8a0))
 		b.rect(74, 14, 36, 4, c(0xe8d8a0))
 	}}
-	pk["motorbike"] = &PropKind{W: 52, H: 30, FW: 44, FH: 8, Vars: 2, Draw: func(b *pixBuf, v int) {
-		cc := []uint32{0x8a3ad0, 0xc82a2a}[v%2]
-		b.ellipse(10, 24, 7, 5, c(0x14141a))
-		b.ellipse(10, 24, 3, 2.4, c(0x8a8a96))
-		b.ellipse(42, 24, 7, 5, c(0x14141a))
-		b.ellipse(42, 24, 3, 2.4, c(0x8a8a96))
-		b.rect(14, 14, 24, 8, c(cc))
-		b.rect(14, 14, 24, 2, shade(c(cc), 1.4))
-		b.rect(34, 8, 8, 8, c(cc))
-		b.rect(38, 4, 8, 3, c(0x3a3a46))
-		b.rect(12, 20, 20, 4, c(0x2a2a34))
-		b.rect(2, 22, 6, 2, c(0xe8e8f0))
-	}}
+	pk["motorbike"] = &PropKind{W: 52, H: 30, FW: 44, FH: 8, Vars: 2, Draw: vaMotorbikeSide}
 	pk["rope"] = &PropKind{W: 124, H: 28, FW: 4, FH: 4, NoSolid: true, SortOff: -4, Draw: func(b *pixBuf, v int) {
 		for _, x := range []int{4, 60, 118} {
 			b.rect(x, 6, 3, 20, c(0xc0c8d4))

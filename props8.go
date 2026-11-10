@@ -188,86 +188,9 @@ func init() {
 	}}
 	// The rex, in the poses of its meal (see rex.go):
 	// 0 walking, 1 head down with the jaws open, 2 head down biting, 3 head up swallowing, 4 head up roaring.
-	pk["jp_trex"] = &PropKind{W: 160, H: 92, FW: 40, FH: 12, Vars: 5, NoSolid: true, Draw: func(b *pixBuf, v int) {
-		b.ox, b.oy = 22, 6 // room on the left and above for the head when it bends down
-		col := c(0x8a6a40)
-		belly := c(0xc8b078)
-		dark := shade(col, 0.6)
-		b.ellipse(62, 83, 40, 3.4, color.RGBA{0, 0, 0, 90})
-		capsule(b, 80, 48, 108, 66, 11, 2, dark) // tail
-		capsule(b, 80, 46.5, 108, 64.5, 9.4, 1.2, col)
-		capsule(b, 82, 56, 84, 76, 8, 5, dark) // far leg
-		b.ellipse(84, 79, 9, 3.4, dark)
-		capsule(b, 66, 54, 60, 72, 11, 6.4, shade(col, 0.8)) // near leg
-		b.ellipse(58, 79, 11, 3.8, shade(col, 0.7))
-		for k := 0; k < 3; k++ {
-			b.rect(49+k*4, 80, 2, 3, c(0xe8e0c8))
-		}
-		dinoBody(b, 58, 43, 30, 17, col)
-		b.ellipse(50, 50, 18, 7, belly)
-		for k := 0; k < 6; k++ { // stripes
-			capsule(b, 46+float64(k)*5, 30, 49+float64(k)*5, 40, 0.8, 0.5, dark)
-		}
-		capsule(b, 82, 46, 100, 58, 0.8, 0.4, dark)
-		capsule(b, 90, 52, 96, 54, 0.8, 0.5, dark)
-		// pose: where the head is, how far it is bent down (rad), how open the jaws are
-		type pose struct{ hx, hy, down, jaw float64 }
-		poses := []pose{{26, 18, 0.05, 0.5}, {13, 62, 1.0, 1}, {13, 64, 1.0, 0}, {30, 9, -0.5, 0}, {31, 8, -0.55, 1}}
-		ps := poses[v%len(poses)]
-		th := -ps.down
-		cs, sn := math.Cos(th), math.Sin(th)
-		// local head coordinates (head looks left) -> sprite
-		at := func(x, y float64) (float64, float64) { return ps.hx + x*cs - y*sn, ps.hy + x*sn + y*cs }
-		bx, by := at(14, 6)
-		capsule(b, 46, 38, bx, by, 12, 10, dark) // neck
-		capsule(b, 46, 36.5, bx, by-1.4, 11, 9, col)
-		cap2 := func(x0, y0, x1, y1, r0, r1 float64, cc color.RGBA) {
-			ax, ay := at(x0, y0)
-			bx2, by2 := at(x1, y1)
-			capsule(b, ax, ay, bx2, by2, r0, r1, cc)
-		}
-		ell := func(x, y, rx, ry float64, cc color.RGBA) {
-			ax, ay := at(x, y)
-			b.ellipse(ax, ay, rx, ry, cc)
-		}
-		// lower jaw first (it hinges below the skull)
-		jx := -17.0
-		jy := 10 + 14*ps.jaw
-		if ps.jaw > 0.3 {
-			cap2(-3, 6, jx, jy-2, 5, 3, c(0x7a2a3a)) // the mouth inside
-			cap2(-3, 6, jx, jy-3, 3.8, 2, c(0xc84a5a))
-		}
-		cap2(-2, 10, jx, jy, 4.2, 3, dark)
-		cap2(-2, 9.2, jx, jy-0.6, 3.4, 2.4, shade(col, 0.9))
-		ell(0, 0, 16, 11, dark) // skull
-		ell(0, -1, 15, 10, col)
-		cap2(-4, 1, -19, 3, 8, 6.4, dark) // snout
-		cap2(-4, -0.4, -19, 1.6, 7, 5.6, col)
-		for k := 0; k < 6; k++ { // teeth
-			ax, ay := at(-8-float64(k)*2.6, 8.5)
-			b.rect(int(ax), int(ay), 1, 3, c(0xf4f0e0))
-			if ps.jaw > 0.3 {
-				bx3, by3 := at(-8-float64(k)*2.6, jy-3.5-float64(k)*0.15)
-				b.rect(int(bx3), int(by3), 1, 2, c(0xf4f0e0))
-			}
-		}
-		ex, ey := at(3, -6)
-		b.ellipse(ex, ey, 2.6, 2.6, c(0xe8c030))
-		b.rect(int(ex), int(ey)-1, 2, 2, c(0x14101a))
-		nx, ny := at(-19, -1)
-		b.set(int(nx), int(ny), dark)
-		b.set(int(nx)+1, int(ny), dark)
-		if v == 3 || v == 2 { // a scrap in the mouth
-			qx, qy := at(-16, 9)
-			b.rect(int(qx)-2, int(qy), 5, 3, c(0xb01818))
-			b.rect(int(qx)+1, int(qy)+2, 2, 3, c(0xe0b088))
-		}
-		if v == 3 { // the throat swells as it swallows
-			tx, ty := at(8, 14)
-			b.ellipse(tx, ty, 4.5, 4, shade(col, 1.15))
-		}
-		capsule(b, 40, 46, 31, 55, 2.6, 1.6, dark) // tiny arms
-		b.rect(29, 55, 3, 1, c(0xe8e0c8))
+	pk["jp_trex"] = &PropKind{W: 160, H: 92, FW: 40, FH: 12, Vars: rexPoses, NoSolid: true, Draw: func(b *pixBuf, v int) {
+		b.ox, b.oy = rexArtOX, rexArtOY // room on the left and above for the head when it bends down
+		drawRexArt(b, v)
 	}}
 	pk["jp_hadro"] = &PropKind{W: 88, H: 52, FW: 40, FH: 10, Vars: 4, NoSolid: true, Draw: func(b *pixBuf, v int) {
 		col := []color.RGBA{c(0x5a9a58), c(0xa8782a)}[(v>>1)%2]
@@ -568,57 +491,10 @@ func init() {
 	}}
 
 	// ---- vehicles: the Jurassic Park jeep (faces right: headlight on the right) ---------
-	pk["jp_jeep"] = &PropKind{W: 60, H: 34, FW: 52, FH: 14, Vars: 3, Category: "vehicle", Draw: func(b *pixBuf, v int) {
-		body := []color.RGBA{c(0xf2c418), c(0x4aa048), c(0xf2c418)}[v%3]
-		trim := []color.RGBA{c(0x2c8a3c), c(0xf2c418), c(0xb83030)}[v%3]
-		b.ellipse(30, 31, 27, 3, color.RGBA{0, 0, 0, 90})
-		b.rect(3, 17, 52, 10, body) // lower body
-		b.rect(3, 17, 52, 1, shade(body, 1.3))
-		b.rect(3, 25, 52, 2, shade(body, 0.6))
-		b.rect(40, 13, 15, 6, shade(body, 1.05)) // hood
-		b.rect(3, 14, 8, 4, shade(body, 0.9))    // spare wheel
-		b.ellipse(7, 15, 4, 4, c(0x15151b))
-		b.ellipse(7, 15, 2, 2, c(0x4a4a54))
-		b.rect(11, 20, 28, 2, trim) // stripe
-		b.rect(14, 18, 20, 3, c(0x2a2a32))
-		for _, px := range []int{14, 30} { // roll bar
-			b.rect(px, 5, 2, 14, c(0x23232b))
-		}
-		b.rect(14, 4, 20, 2, c(0x23232b))
-		b.rect(38, 7, 2, 11, c(0x9ac8e0)) // windscreen
-		b.rect(38, 7, 1, 11, c(0xe8f8ff))
-		b.ellipse(24, 14, 3, 3, c(0xd8a070)) // a driver
-		b.rect(21, 17, 6, 3, c(0xe8e0d0))
-		b.ellipse(26, 20, 2.6, 2.6, c(0xb82a2a)) // logo roundel
-		b.ellipse(26, 20, 1.2, 1.2, c(0x14101a))
-		b.rect(53, 18, 3, 3, c(0xfff0b0)) // headlight
-		b.rect(2, 20, 2, 3, c(0xd03030))
-		for _, wx := range []float64{14, 44} {
-			b.ellipse(wx, 27, 5.6, 5.6, c(0x15151b))
-			b.ellipse(wx, 27, 2.8, 2.8, c(0x8a8a94))
-			b.ellipse(wx, 27, 1, 1, c(0x15151b))
-		}
-	}}
+	pk["jp_jeep"] = &PropKind{W: 60, H: 34, FW: 52, FH: 14, Vars: 3, Category: "vehicle", Draw: vaJeepSide} // vehart.go
 	pk["jp_boat"] = &PropKind{W: 124, H: 66, FW: 100, FH: 20, NoSolid: true, Draw: func(b *pixBuf, v int) {
 		b.ellipse(62, 60, 56, 4, color.RGBA{255, 255, 255, 70})
-		b.rect(6, 36, 108, 18, c(0xf0f0f4)) // hull
-		for x := 0; x < 20; x++ {
-			b.rect(114+x/2, 36+x, 6-x/3, 1, c(0xf0f0f4))
-		}
-		b.rect(6, 46, 108, 4, c(0xc83030))
-		b.rect(6, 52, 108, 2, c(0x20305a))
-		b.rect(18, 26, 70, 12, c(0xf8f8fc)) // cabin
-		b.rect(26, 14, 40, 12, c(0xf8f8fc))
-		for x := 22; x < 84; x += 8 {
-			b.rect(x, 29, 5, 5, c(0x2a4a78))
-		}
-		b.rect(30, 17, 32, 6, c(0x2a4a78))
-		b.rect(56, 4, 8, 12, c(0xc83030)) // funnel
-		b.rect(56, 4, 8, 2, c(0x20202a))
-		b.rect(34, 8, 2, 8, c(0x8a8a94))
-		for k := 0; k < 4; k++ {
-			b.ellipse(12+float64(k)*2, 56+float64(k%2), 2.4, 1.2, c(0xffffff))
-		}
+		genFerry(b) // vessels.go: the same style as every other boat
 	}}
 	pk["jp_fin"] = &PropKind{W: 40, H: 26, FW: 8, FH: 4, NoSolid: true, Vars: 2, Draw: func(b *pixBuf, v int) {
 		if v == 1 { // a rubber duck, somebody lost it

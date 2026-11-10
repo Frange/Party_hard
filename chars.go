@@ -31,6 +31,7 @@ type Pose struct {
 	Hold           int
 	Sit            bool
 	Open           bool
+	Anim, F        int // animation and frame this pose was made for (vader.go reads them)
 }
 
 // Hold items
@@ -69,6 +70,8 @@ const (
 	HoldGun
 	HoldExt    // fire extinguisher
 	HoldPompom // a pompom in each hand (cheerleaders)
+	HoldStick  // hockey stick
+	HoldRifle  // the endoskeleton's big rifle (ktm_art.go)
 )
 
 const (
@@ -504,6 +507,7 @@ const (
 	BotTrunks
 	BotNone
 	BotSkirt
+	BotFlare // bell-bottom trousers: the hem flares out over the shoe (70s disco)
 )
 
 const (
@@ -528,6 +532,7 @@ const (
 	HairMessy
 	HairComb
 	HairSide // short hair with a fringe swept to one side
+	HairAfro // a big round afro
 )
 
 const (
@@ -706,6 +711,55 @@ func bodyWidth(b int) int {
 var trackParts bool
 
 func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
+	if isSponge(s) {
+		return genSponge(s, vw, p)
+	}
+	if isJohnny5(s) { // Cortocircuito: robot on tracks (johnny5_art.go)
+		return genJohnny5(s, vw, p)
+	}
+	if isCrash(s) { // Crash: cartoon bandicoot (crash_art.go)
+		return genCrash(s, vw, p)
+	}
+	if isBean(s) { // the Fall Guys beans (fallguys.go)
+		return genFallBean(s, vw, p)
+	}
+	if isTaz(s) { // the Tasmanian Devil (taz_art.go)
+		return genTaz(s, vw, p)
+	}
+	if isTurtle(s) { // the four Ninja Turtles (turtles_art.go)
+		return genTurtle(s, vw, p)
+	}
+	if isSimpson(s) { // the yellow family (simpsons_art.go)
+		return genSimpson(s, vw, p)
+	}
+	if isTia(s) { // Mortadelo and Filemon (tia_art.go)
+		return genTia(s, vw, p)
+	}
+	if isBenderArt(s) { // Bender (bender_art.go)
+		return genBenderArt(s, vw, p)
+	}
+	if isHeroArt(s) { // Superman, Batman, Hulk, Captain America, Wolverine, Deadpool (hero_art.go)
+		return genHero(s, vw, p)
+	}
+	if isRangerArt(s) { // the Power Rangers of the 5-star squad (rangers_art.go)
+		return genRanger(s, vw, p)
+	}
+	if isZbp(s) { // Zipi, Zape, the Pink Panther and Mr Bean (zbp_art.go)
+		return genZbp(s, vw, p)
+	}
+	if isDnh(s) { // Doraemon, Nobita, Harry, Hermione and Ron (dnh_art.go)
+		return genDnh(s, vw, p)
+	}
+	if isNjg(s) { // Neo and the Joker (njg_art.go)
+		return genNjg(s, vw, p)
+	}
+	if isCsm(s) { // Chewbacca, Steve, the plumbers, Gandalf, Frodo, Knuckles (csm_art.go)
+		return genCsm(s, vw, p)
+	}
+	if isLmdy(s) { // Lara Croft, Marty McFly, Doc Brown and Yoda (lmdy_art.go)
+		return genLmdy(s, vw, p)
+	}
+	p = opPose(s, p)
 	b := newPix(charW, charH)
 	if trackParts {
 		b.pid = make([]uint8, charW*charH)
@@ -713,6 +767,14 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 	cx := charCX
 	c0 := float64(cx) + 0.5
 	robot := s.Body == BodyRobot
+	robo := isRobocop(s)
+	gaul := gaulKind(s)
+	wally := isWally(s)
+	vd := isVader(s)
+	fk := foxKind(s)
+	if fk == foxTwin && foxDancing(p) {
+		p.Bob -= 2 + float64(p.F%2) // hovers while dancing
+	}
 	tw := bodyWidth(s.Body)
 	if robot {
 		tw = 5
@@ -806,6 +868,9 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		thickLine(b, sx, sy, mx, my, armW, up)
 		thickLine(b, mx, my, ex, ey, armW, fo)
 		hand := s.Skin
+		if fk != foxNone {
+			hand = hx(0xf4f4f4)
+		}
 		if robot {
 			hand = hx(0x6a7280)
 		}
@@ -816,6 +881,19 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			hand = shade(hand, 0.8)
 		}
 		b.rect(cI(ex), cI(ey), armW, 2, hand)
+		qzHand(b, s, vw, ex, ey, armW, dark, id)                // gloves Q-Z (charimp_q.go)
+		dbArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id) // Dragon Ball (dragonball_art.go)
+		// ptf_art.go
+		ptfHand(b, s, vw, ex, ey, armW, dark, id)
+		ktmArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id) // Kratos, Snake, endoskeleton (ktm_art.go)
+		pnkArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id) // punk bands (pnk_art.go)
+		plagueArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id)
+		planetHand(b, s, vw, ex, ey, armW, dark, id) // planet_art.go
+		// tattoos and wristbands of the bands (bandsb_art.go)
+		bsbArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id)
+		if robo {
+			roboArm(b, vw, sx, sy, mx, my, ex, ey, armW, dark, id)
+		}
 		return ex, ey
 	}
 	legCol, shinCol := s.Pants, s.Pants
@@ -866,10 +944,34 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			shoe = shade(shoe, 0.8)
 		}
 		sxx, syy := cI(ex), cI(ey)
+		if s.Bottom == BotFlare && s.Top != TopDress && s.Top != TopRobe { // bell-bottoms
+			if vw == vSide {
+				b.rect(sxx-2, syy-3, legW+4, 3, sc)
+			} else {
+				b.rect(sxx-1, syy-3, legW+2, 3, sc)
+			}
+		}
 		if vw == vSide {
 			b.rect(sxx-1, syy, legW+2, 2, shoe)
 		} else {
 			b.rect(sxx, syy, legW, 2, shoe)
+		}
+		if vd {
+			vaderLeg(b, vw, mx, my, sxx, syy, legW, shoe)
+		}
+		miLeg(b, s, vw, sign, sxx, syy, legW, dark)
+		dbLeg(b, s, vw, mx, my, ex, ey, sxx, syy, legW, dark) // Dragon Ball boots (dragonball_art.go)
+		// ptf_art.go
+		ptfLeg(b, s, vw, sxx, syy, legW, dark)
+		ktmLeg(b, s, vw, hxp, hipY, mx, my, ex, ey, sxx, syy, legW, dark) // ktm_art.go
+		plagueLeg(b, s, vw, hxp, hipY, mx, my, ex, ey, sxx, syy, legW, dark)
+		planetLeg(b, s, vw, sxx, syy, legW, dark)   // planet_art.go
+		fbLeg(b, s, vw, mx, my, ex, ey, legW, dark) // football socks (futbol_art.go)
+		if fk != foxNone {
+			foxFoot(b, fk, vw, sxx, syy, legW, p)
+		}
+		if robo {
+			roboLeg(b, vw, hxp, hipY, mx, my, ex, ey, legW, dark, sign)
 		}
 	}
 	torsoRows := func() (int, int, int, int) {
@@ -916,7 +1018,9 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 						col = hx(0xd8d8e0)
 					}
 				case TopArmor:
-					if y == y0+5 || (x == x0+tw/2) {
+					if vd {
+						col = vaderTorsoCol(x, y, x0, x1, y0, y1, vw)
+					} else if y == y0+5 || (x == x0+tw/2) {
 						col = shade(s.Shirt, 0.8)
 					}
 				}
@@ -982,10 +1086,18 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			b.rect(x0, y0, 1, 2, s.Skin)
 			b.rect(x1-1, y0, 1, 2, s.Skin)
 		case TopArmor:
-			if vw != vBack {
+			if vd {
+				vaderChest(b, vw, x0, x1, y0, y1, mid, p)
+			} else if vw != vBack {
 				b.rect(mid-1, y0+2, 3, 2, hx(0x2a2a30))
 				b.set(mid, y0+2, hx(0xe03030))
 			}
+		}
+		if fk != foxNone {
+			foxBody(b, fk, vw, x0, x1, y0, y1, mid)
+		}
+		if !dbOwn(s) { // Dragon Ball guests are drawn in dragonball_art.go
+			ciBody(b, s, vw, x0, x1, y0, y1, mid, p) // famous guests I-P (charimp_i.go)
 		}
 		if s.Susp.A != 0 && vw != vBack {
 			b.rect(x0+1, y0, 1, y1-y0, s.Susp)
@@ -1033,6 +1145,30 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				b.rect(x0-1, y, tw+2, 1, shade(s.Shirt, 1-0.02*float64(y-y1)))
 			}
 		}
+		if robo {
+			roboTorso(b, s, vw, x0, x1, y0, y1, p)
+		}
+		if wally {
+			wallyTorso(b, x0, x1, y0, y1, vw)
+		}
+		if gaul != gaulNone {
+			gaulTorso(b, s, gaul, vw, x0, x1, y0, y1)
+		}
+		miTorso(b, s, vw, x0, x1, y0, y1, mid, p)
+		if !dbOwn(s) {
+			caTorso(b, s, vw, x0, x1, y0, y1, mid, p) // famous A-H details (charimp_a.go)
+			qzTorso(b, s, vw, x0, x1, y0, y1, mid, p) // famous Q-Z details (charimp_q.go)
+		}
+		dbTorso(b, s, vw, x0, x1, y0, y1, mid, p) // Dragon Ball (dragonball_art.go)
+		// Pope, Michael, Quijote, Sancho (ptf_art.go)
+		ptfTorso(b, s, vw, x0, x1, y0, y1, mid, p)
+		ktmTorso(b, s, vw, x0, x1, y0, y1, mid, p) // ktm_art.go
+		pnkTorso(b, s, vw, x0, x1, y0, y1, mid, p) // punk bands (pnk_art.go)
+		plagueTorso(b, s, vw, x0, x1, y0, y1, mid, p)
+		planetTorso(b, s, vw, x0, x1, y0, y1, mid, p) // planet_art.go
+		// band prints, belts, jackets (bandsb_art.go)
+		bsbTorso(b, s, vw, x0, x1, y0, y1, mid, p)
+		fbTorso(b, s, vw, x0, x1, y0, y1, mid, p) // national shirts and numbers (futbol_art.go)
 		if s.Female && !robot {
 			// curves: bust on the chest, wide hips under the waist. From the
 			// front they are drawn after the arms so they stay visible.
@@ -1098,10 +1234,17 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 	}
 	cape := func(front bool) {
 		b.cur = 2
+		if fk == foxTwin {
+			foxTails(b, vw, c0+sway, hipY, p)
+		}
 		if s.Cape.A == 0 {
 			return
 		}
 		x0, x1, y0, y1 := torsoRows()
+		if vd {
+			vaderCape(b, s, vw, front, x0, x1, y0, y1, p)
+			return
+		}
 		for y := y0; y < y1+14; y++ {
 			grow := (y - y0) / 4
 			if vw == vSide {
@@ -1148,9 +1291,18 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		// volumes behind the head
 		switch s.Hair2 {
 		case HairLong:
-			b.rect(cI(hxp-rx-0.5), cI(hyp), cI(2*rx+1), 11, hairC)
+			if vw == vFront { // seen from the front the hair falls down both sides over the shoulders; the middle (neck, torso, clothes) stays free
+				x0, x1 := cI(hxp-rx-0.5), cI(hxp-rx-0.5)+cI(2*rx+1)
+				b.rect(x0, cI(hyp), x1-x0, cI(ry), hairC)
+				b.rect(x0, cI(hyp), 2, 11, hairC)
+				b.rect(x1-2, cI(hyp), 2, 11, hairC)
+			} else {
+				b.rect(cI(hxp-rx-0.5), cI(hyp), cI(2*rx+1), 11, hairC)
+			}
 		case HairCurly:
 			b.ellipse(hxp, hyp-0.4, rx+1.6, ry+1.2, hairC)
+		case HairAfro:
+			b.ellipse(hxp, hyp-1.3, rx+3.4, ry+2.9, hairC)
 		case HairPony:
 			if vw != vFront {
 				b.rect(cI(hxp-rx-1), cI(hyp+1), 2, 8, hairC)
@@ -1215,7 +1367,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				return dy < -ry*0.25 || (math.Abs(dx) > rx*0.8 && dy < ry*0.2)
 			}
 			switch s.Hair2 {
-			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive, HairSide:
+			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive, HairSide, HairAfro:
 				hair(capCond, hairC)
 				if s.Hair2 != HairBald {
 					b.set(ihx-1, top+1, shade(hairC, 1.45))
@@ -1642,6 +1794,10 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			b.line(ihx-rxi, top, ihx-rxi-3, top-3, hx(0xf0c030))
 			b.line(ihx+rxi, top, ihx+rxi+3, top-3, hx(0xf0c030))
 		case HatVader, HatTrooper:
+			if s.Hat == HatVader {
+				vaderHelmet(b, vw, hxp, hyp, rx, ry, hc)
+				break
+			}
 			b.ellipse(hxp, hyp, rx+0.9, ry+0.6, hc)
 			if vw != vBack {
 				b.rect(ihx-1, cI(hyp+0.2), 3, 1, hx(0x0a0a0e))
@@ -1652,15 +1808,80 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				}
 			}
 		}
+		if wally {
+			wallyHead(b, s, vw, ihx, top, ey, cI(rx), p)
+		}
+		if gaul != gaulNone {
+			gaulHead(b, s, gaul, vw, ihx, top, ey, cI(rx), p)
+		}
+		if !noCharExtras {
+			charExtras(b, s, vw, p, hxp, hyp, rx, ry, ey)
+		}
+		opHead(b, s, vw, p, hxp, hyp, rx, ry, ey)
+		miHead(b, s, vw, p, hxp, hyp, rx, ry, ey)
+		if !dbOwn(s) {
+			caHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // famous A-H details (charimp_a.go)
+			ciHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // famous I-P details (charimp_i.go)
+			qzHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // famous Q-Z details (charimp_q.go)
+		}
+		dbHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // Dragon Ball (dragonball_art.go)
+		// ptf_art.go
+		ptfHead(b, s, vw, p, hxp, hyp, rx, ry, ey)
+		ktmHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // ktm_art.go
+		bsbHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // band fringes, crest, cap (bandsb_art.go)
+		fbHead(b, s, vw, p, hxp, hyp, rx, ry, ey)  // footballers' hair (futbol_art.go)
+		pnkHead(b, s, vw, p, hxp, hyp, rx, ry, ey) // punk bands (pnk_art.go)
+		plagueHead(b, s, vw, p, hxp, hyp, rx, ry, ey)
+		if robo {
+			roboHead(b, s, vw, ihx, top, p)
+			if roboFiring(p) {
+				_, rx1, _, ry1 := torsoRows()
+				roboFlash(b, vw, rx1, ry1)
+			}
+		}
+		if fk != foxNone {
+			foxHead(b, fk, vw, hxp, hyp, rx, ry, p)
+		}
 	}
 	held := func(hx0, hy0 float64, id uint8) {
 		b.cur = id
 		kind := p.Hold
+		if wally && kind == HoldNone {
+			wallyCane(b, hx0, hy0, p)
+		}
+		if gaul == gaulObelix && kind == HoldKnife {
+			kind = HoldNone // a bare fist, with stars
+		}
+		if robo && kind == HoldKnife {
+			kind = HoldGun // his shot instead of a knife
+			if vw == vSide {
+				hx0 -= 3 // keeps the pistol inside the sprite box
+			}
+		}
 		if kind == HoldNone {
 			kind = s.Carry
 		}
 		if s.Weapon != 0 && (kind == HoldKnife || kind == HoldNone) {
 			kind = s.Weapon
+		}
+		if opHeld(b, s, kind, vw, hx0, hy0, p) {
+			return
+		}
+		if ptfHeld(b, s, kind, vw, hx0, hy0) { // the Pope's cross staff (ptf_art.go)
+			return
+		}
+		if qzHeld(b, s, kind, vw, hx0, hy0, p) { // Thor's hammer, Zorro's rapier (charimp_q.go)
+			return
+		}
+		if ktmHeld(b, s, kind, vw, hx0, hy0) { // Kratos's axe (ktm_art.go)
+			return
+		}
+		if plagueHeld(b, s, kind, vw, hx0, hy0) { // the beak doctor's staff (plague_killer.go)
+			return
+		}
+		if vd && (kind == HoldSaber || kind == HoldKnife) {
+			vaderSaber(b, vw, hx0, hy0, p)
+			return
 		}
 		drawHeld(b, kind, s.CarryCol, vw, hx0, hy0)
 	}
@@ -1731,6 +1952,8 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 	if s.Ride != 0 {
 		drawRide(b, s, vw, charCX, int(hipY)-2)
 	}
+	opBody(b, s, vw, p, c0, hipY, shY, tw, sway)
+	dbOver(b, s, vw, p, c0+sway+shiftX, hipY, torsoTop, tw) // Dragon Ball pads and capes (dragonball_art.go)
 	return b
 }
 
@@ -1885,7 +2108,9 @@ func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 	case AnimPee:
 		b = genChar(cs.Spec, vw, peePose(f, cs.Spec.Female))
 	default:
-		b = genChar(cs.Spec, vw, poseFor(anim, f))
+		pp := poseFor(anim, f)
+		pp.Anim, pp.F = anim, f
+		b = genChar(cs.Spec, vw, pp)
 	}
 	im := b.outlinedSel(0.42).img()
 	cs.cache[key] = im
@@ -1997,6 +2222,10 @@ func drawHeld(b *pixBuf, kind int, col color.RGBA, vw int, hx0, hy0 float64) {
 	case HoldBroom:
 		b.line(x+1, y-12, x+1, y+3, hx(0x8a5a2e))
 		b.rect(x-1, y+3, 5, 4, hx(0xd8b050))
+	case HoldStick:
+		b.line(x+1, y-13, x+1, y+4, hx(0xc8a060))
+		b.rect(x+1, y+4, 5, 2, hx(0x6a4a2a))
+		b.rect(x+1, y-13, 1, 3, hx(0xe8e8f0))
 	case HoldVacuum:
 		b.rect(x-2, y-1, 6, 4, hx(0x7a8a9a))
 		b.set(x, y, hx(0xe03030))
@@ -2068,6 +2297,8 @@ func drawHeld(b *pixBuf, kind int, col color.RGBA, vw int, hx0, hy0 float64) {
 		b.rect(x, y-3, 5, 2, hx(0x2a2a32))
 		b.rect(x, y-1, 2, 3, hx(0x3a3a46))
 		b.set(x+4, y-3, hx(0x8a8a96))
+	case HoldRifle:
+		drawRifle(b, vw, x, y)
 	case HoldSax:
 		b.line(x+1, y-8, x+1, y+1, hx(0xe8b830))
 		b.line(x+1, y+1, x+4, y+3, hx(0xe8b830))

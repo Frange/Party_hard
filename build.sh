@@ -5,6 +5,11 @@ set -e
 cd "$(dirname "$0")"
 export CGO_ENABLED=0
 OUT=dist
+# the version of the game: the only source is the constant of version.go (CHANGELOG.md must start with the same one)
+VERSION=$(sed -n 's/^const gameVersion = "\(.*\)"$/\1/p' version.go)
+[ -n "$VERSION" ] || { echo "no gameVersion in version.go" >&2; exit 1; }
+CLVER=$(sed -n 's/^## \[v\([^]]*\)\].*/\1/p' CHANGELOG.md 2>/dev/null | head -1)
+[ "$CLVER" = "$VERSION" ] || { echo "version.go says $VERSION but the first CHANGELOG.md entry says '$CLVER'" >&2; exit 1; }
 rm -f PartyHardy-Mac.zip PartyHardy-Windows.zip
 rm -rf $OUT && mkdir -p $OUT/mac $OUT/win $OUT/tmp
 
@@ -23,8 +28,8 @@ mkapp() { # name binary dest
 <key>CFBundleExecutable</key><string>$name</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleVersion</key><string>1.0</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>CFBundleVersion</key><string>$VERSION</string>
+<key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>LSMinimumSystemVersion</key><string>11.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
@@ -47,16 +52,22 @@ if [ -d assets ]; then
   for d in mac win; do
     cp -R assets $OUT/$d/assets
     # personal data stays out of the packages: your own save and editor preferences
-    rm -f $OUT/$d/assets/progress.json $OUT/$d/assets/editor_prefs.json $OUT/$d/assets/settings.json $OUT/$d/assets/.held_objects_fixed $OUT/$d/assets/.DS_Store
-    cp LEEME.txt ASSETS.md $OUT/$d/
+    rm -f $OUT/$d/assets/progress.json* $OUT/$d/assets/editor_prefs.json* $OUT/$d/assets/settings.json* $OUT/$d/assets/.held_objects_fixed
+    cp LEEME.txt ASSETS.md CHANGELOG.md $OUT/$d/
+    printf 'Party Hardy v%s\n' "$VERSION" > $OUT/$d/VERSION.txt
+    # music of music/, more/ and DJ/ is shipped; intros/*.mp3 is not (only .bpm and README)
     mkdir -p $OUT/$d/music $OUT/$d/more $OUT/$d/DJ $OUT/$d/intros
     [ -d music ] && cp music/*.mp3 $OUT/$d/music/ 2>/dev/null || true
     [ -d more ] && cp more/*.mp3 $OUT/$d/more/ 2>/dev/null || true
     [ -d DJ ] && cp DJ/*.mp3 $OUT/$d/DJ/ 2>/dev/null || true
-    [ -d intros ] && cp intros/*.mp3 intros/*.bpm $OUT/$d/intros/ 2>/dev/null || true
+    [ -d intros ] && cp intros/*.bpm $OUT/$d/intros/ 2>/dev/null || true
     [ -f intros/README.md ] && cp intros/README.md $OUT/$d/intros/ || true
+    # safety net: no personal data, imports, backups or intros mp3 in the package
+    find $OUT/$d \( -name 'progress.json*' -o -name 'settings.json*' -o -name 'editor_prefs.json*' -o -name '.DS_Store' \) -type f -delete
+    rm -f $OUT/$d/intros/*.mp3
+    find $OUT/$d \( -name imports -o -name AI_with_Claude -o -name 'assets_backup_*' \) -type d -prune -exec rm -rf {} +
   done
   (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHardy-Mac.zip 2>/dev/null || zip -qr ../../PartyHardy-Mac.zip .)
   (cd $OUT/win && zip -qr ../../PartyHardy-Windows.zip .)
 fi
-echo "built into $OUT"
+echo "built v$VERSION into $OUT"

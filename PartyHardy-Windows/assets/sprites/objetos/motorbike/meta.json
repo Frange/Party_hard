@@ -1,0 +1,25 @@
+{
+  "name": "motorbike",
+  "category": "vehicle",
+  "anchor_x": 27,
+  "anchor_y": 31,
+  "foot_x": 3,
+  "foot_y": 16,
+  "foot_w": 49,
+  "foot_h": 15,
+  "solid": true,
+  "hide": false,
+  "phone": false,
+  "poison": false,
+  "trap": "",
+  "light": false,
+  "variants": true,
+  "fps": 0,
+  "sort_off": 0,
+  "ambient_speed": 0,
+  "light_col": [
+    0,
+    0,
+    0
+  ]
+}

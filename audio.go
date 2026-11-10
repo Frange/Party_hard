@@ -34,6 +34,11 @@ type Sounds struct {
 	sceneP    map[string]*audio.Player
 	sceneF    map[string]*os.File
 	sceneVol  map[string]float64
+
+	// the crossfade of the menu music (menumusic.go): 0 = full volume, 1 = silent before the switch
+	fadeDip   float64
+	fadePend  string
+	fadeBuild func() []byte
 }
 
 // audioCtx: the audio context can only be created once per process; later Sounds (tests) share it.
@@ -65,7 +70,7 @@ func newSounds(muted bool) *Sounds {
 	// the last kill of a party: a deep dry thump and a soft rush of air (slowmo.go)
 	s.sfx["slowmo"] = mix(tone(55, 0.45, 0.85, 7, 0), lowpass(noise(0.5, 0.45, 5), 14), shift(lowpass(noise(0.3, 0.2, 9), 6), 0.1))
 
-	s.SetTrack("menu", musicLoop)
+	// the menu song (the anthem, menumusic.go) starts when the background thread has built it (syncMusic)
 	warmAmbient() // the music of the story scenes is built in the background, ready when a scene starts
 	return s
 }
@@ -240,54 +245,6 @@ func siren(dur float64) []byte {
 	return toPCM(out)
 }
 
-// musicLoop builds an 8-bar electro loop at 128 BPM: kick, hats, bass and a lead.
-func musicLoop() []byte {
-	bpm := 128.0
-	beat := 60 / bpm
-	bars := 8
-	total := beat * 4 * float64(bars)
-	out := samples(total)
-	// bass notes per half bar (Hz)
-	bassNotes := []float64{55, 55, 65.4, 73.4, 55, 55, 49, 58.3, 55, 55, 65.4, 73.4, 55, 82.4, 73.4, 65.4}
-	leadNotes := []float64{0, 440, 0, 523, 0, 392, 440, 0, 0, 440, 0, 587, 0, 523, 440, 0, 0, 440, 0, 523, 0, 392, 349, 0, 0, 440, 494, 523, 587, 523, 494, 440}
-	for i := range out {
-		t := float64(i) / sampleRate
-		beatPos := t / beat
-		inBeat := math.Mod(beatPos, 1)
-		var v float64
-		// kick on every beat
-		kt := inBeat * beat
-		v += math.Sin(2*math.Pi*(50+120*math.Exp(-kt*30))*kt) * math.Exp(-kt*10) * 0.9
-		// hi-hat on off beats
-		ht := math.Mod(beatPos+0.5, 1) * beat
-		v += (math.Mod(float64(i)*7919.0/13.0, 2) - 1) * math.Exp(-ht*60) * 0.12
-		// snare on 2 and 4
-		if int(beatPos)%2 == 1 {
-			v += (math.Mod(float64(i)*104729.0/17.0, 2) - 1) * math.Exp(-kt*25) * 0.25
-		}
-		// bass
-		bi := int(beatPos/2) % len(bassNotes)
-		bt := math.Mod(beatPos, 2) * beat
-		bf := bassNotes[bi]
-		sq := 0.0
-		if math.Sin(2*math.Pi*bf*t) > 0 {
-			sq = 1
-		} else {
-			sq = -1
-		}
-		v += (sq*0.5 + math.Sin(2*math.Pi*bf*t)*0.5) * 0.28 * math.Min(1, 1.2-bt/(2*beat)*0.6)
-		// lead (every half beat)
-		li := int(beatPos*2) % len(leadNotes)
-		lf := leadNotes[li]
-		if lf > 0 {
-			lt := math.Mod(beatPos*2, 1) * beat / 2
-			v += (2*math.Mod(lf*t, 1) - 1) * 0.10 * math.Exp(-lt*6)
-		}
-		out[i] = v * 0.8
-	}
-	return toPCM(out)
-}
-
 // ---------------------------------------------------------------------------
 // The neighbours' party through the wall: a muffled "pum pum pum" with a catchy
 // hook (partyHook in songs.go), used by the first intro only. The other scenes
@@ -303,6 +260,11 @@ const (
 	thumpBeatSamples = 23250 // 0.484375 s per beat: about 124 BPM
 	thumpBeats       = 16    // four bars
 	thumpLatency     = 0.030 // what the sound takes to reach the speakers: the picture waits for it
+
+	// how much of the party gets through the wall (it used to be heard only faintly: hook 0.42, wall 22, gain 0.7)
+	thumpHookGain = 0.6 // the synth hook against the kick
+	thumpWall     = 12  // the low-pass of the wall (samples of the moving average: smaller = brighter)
+	thumpGain     = 1.0 // the player volume at level 1 (see introMusicVol, scenemusic.go)
 )
 
 // thumpBeat is how long a beat lasts: the synthesised loop by default; with a song of the intros/
@@ -328,7 +290,10 @@ func thumpKick(t float64) float64 {
 // buildThump makes the loop: kick on every beat, a dull bass on the off beats, a hi-hat and the
 // catchy synth hook of the party (partyHook, songs.go); the high part is low-passed so it sounds
 // like music heard through a wall.
-func buildThump() []byte {
+func buildThump() []byte { return buildThumpWith(thumpHookGain, thumpWall) }
+
+// buildThumpWith: the loop with a given gain of the hook and low-pass of the wall (the tests compare levels).
+func buildThumpWith(hookGain float64, wall int) []byte {
 	n := thumpBeatSamples * thumpBeats
 	low := make([]float64, n)  // kick and bass
 	high := make([]float64, n) // hats and synth: the part the wall eats
@@ -357,11 +322,11 @@ func buildThump() []byte {
 	for _, nt := range parseNotes(partyHook) { // the hook: a clean chiptune lead, the wall eats its top
 		at := int(math.Round(nt.at * thumpBeatSamples))
 		for _, m := range nt.midi {
-			add(high, at, instruments["square"].play(midiFreq(m), nt.dur*float64(thumpBeatSamples)/sampleRate, 0.5), 0.42)
+			add(high, at, instruments["square"].play(midiFreq(m), nt.dur*float64(thumpBeatSamples)/sampleRate, 0.5), hookGain)
 		}
 	}
 	high = echoLoop(high, 0.75*float64(thumpBeatSamples)/sampleRate, 0.3, 0.3)
-	high = lowpass(high, 22)
+	high = lowpass(high, wall)
 	low = lowpass(low, 3)
 	peak, mean := 0.0, 0.0
 	for i := range low {
@@ -433,7 +398,7 @@ func (s *Sounds) SetThumpVolume(v float64) {
 	if s.muted {
 		v = 0
 	}
-	s.thump.SetVolume(math.Max(0, math.Min(1, v)) * 0.7)
+	s.thump.SetVolume(math.Max(0, math.Min(1, v)) * thumpGain)
 }
 
 func (s *Sounds) StopThump() {

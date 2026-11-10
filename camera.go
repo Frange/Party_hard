@@ -16,10 +16,21 @@ import (
 //   - Each one sweeps about camSweep (+-45 degrees = 90 total) around its axis, resting camPause seconds at
 //     each end (camOffset). The vision cone is camHalf wide and camRange long, cut by opaque walls
 //     (LOS). It is drawn semi-transparent: green when calm, red for camAlertTime s after it has caught a kill.
-//   - NORMAL game: walking through the cone does nothing but a short red LED (camLedTime s). KILLING while the
+//   - NORMAL game: walking through the cone does nothing but a short red LED (camLedTime s), unless LOCATING applies. KILLING while the
 //     player stands inside a cone (cameraWitness, called by witness() in game.go) makes the camera an
 //     immediate, direct witness: like an officer who sees it (suspectSeenBy direct=true), it calls the
 //     police at once (raisePolice informed) and the cuffs go on (BUSCADO), per player with 2 players.
+//   - LOCATING (normal game, 2026-11-09, "the police know you were there"): a working camera (not in a
+//     blackout) that films a player walking through its cone while (a) he is WANTED (cuffs), (b) he has
+//     the ALERT "!" (witnesses on their way), or (c) one of HIS knife bodies, younger than camRecent s,
+//     lies in the camera's zone, reports his position (camReport): an officer on the scene walks there,
+//     the crew on its way heads there (alertPos) or, with no police yet, they are called (raisePolice,
+//     which never makes a second call). (a) also keeps the cuffs fresh (seenNow). (b) and (c) put no
+//     cuffs on: the camera locates, it did not see the crime. Only knife kills are registered
+//     (camStabs, from cameraWitness): traps, poison and accidents never incriminate. Message
+//     "CÁMARA: te ha grabado", once per camera and player every camReportCD s.
+//   - The killer and an armed guest killing inside a cone are filmed too (cameraSawKill, called by
+//     slasherWitness / the rampage in game.go): they become the suspect and the player is cleared.
 //   - STEALTH mode (stealth.go): simply being inside a cone also counts as being seen (stealthSeen asks
 //     cameraSees), so it fills the detection meter and fires the red ALERT like a guard would. Under the
 //     cardboard box or hidden in a bush the camera sees nothing.
@@ -67,7 +78,8 @@ type secCam struct {
 	led   float64 // seconds of red LED left
 	alert float64 // seconds of red cone left
 	corn  bool
-	still bool // does not sweep (tests)
+	still bool       // does not sweep (tests)
+	cool  [2]float64 // seconds before this camera reports the same player again (per player)
 	rays  [camRays]float64
 }
 
@@ -95,7 +107,7 @@ func (c *secCam) aim() float64 { return c.base + camSweep*camOffset(c.t) }
 // ---- placement ------------------------------------------------------------------------------------
 
 func (g *Game) setupCameras() {
-	g.cams = nil
+	g.cams, g.camStabs = nil, nil
 	if g.lvl == nil || g.lvl.Def == nil {
 		return
 	}
@@ -287,6 +299,14 @@ func (g *Game) cameraWitness() {
 	if len(g.cams) == 0 || g.lvl == nil || p == nil || p.dead || p.hidden {
 		return
 	}
+	if n := len(g.bodies); n > 0 { // the knife body that just fell: filmed walking past it later = located
+		if b := g.bodies[n-1]; b.byPlayer && b.born == g.time {
+			if g.camStabs == nil {
+				g.camStabs = map[*Body]*Player{}
+			}
+			g.camStabs[b] = p
+		}
+	}
 	seen := false
 	for _, c := range g.cams {
 		if c.sees(g, p.pos) {
@@ -298,11 +318,123 @@ func (g *Game) cameraWitness() {
 		return
 	}
 	g.run.camSeen++
-	g.say("¡Una cámara te ha grabado!")
+	g.say(camMsg)
 	g.killPos = p.pos
 	g.suspectSeenBy(suspPlayer, nil, true) // direct witness: the cuffs go on, per player (2P)
 	g.raisePolice(p.pos, true)             // and the police are called at once
 	g.markPlayerWanted(70)
+	if i := g.playerIndex(p); i < 2 {
+		for _, c := range g.cams {
+			c.cool[i] = camReportCD // the kill itself was the report: no second message at once
+		}
+	}
+}
+
+const (
+	camMsg      = "CÁMARA: te ha grabado"
+	camRecent   = 25.0 // seconds a knife body counts as fresh for the cameras
+	camReportCD = 6.0  // seconds between two reports of one camera about the same player
+)
+
+// cameraSawKill: somebody who is not a player (the killer, an armed guest) killed at `at`. Every working
+// camera with the spot in its cone turns red; true = filmed.
+func (g *Game) cameraSawKill(at Vec) bool {
+	seen := false
+	for _, c := range g.cams {
+		if c.sees(g, at) {
+			c.alert, c.led = camAlertTime, camAlertTime
+			seen = true
+		}
+	}
+	return seen
+}
+
+// camZone: the point lies in the area the camera covers over its whole sweep (range, walls, angle).
+func (c *secCam) camZone(g *Game, q Vec) bool {
+	if g.blackoutOn() {
+		return false
+	}
+	rng := camRange
+	if g.visK > 0 {
+		rng *= g.visK
+	}
+	if dist(c.eye, q) > rng {
+		return false
+	}
+	da := math.Atan2(q.Y-c.eye.Y, q.X-c.eye.X) - c.base
+	for da > math.Pi {
+		da -= 2 * math.Pi
+	}
+	for da < -math.Pi {
+		da += 2 * math.Pi
+	}
+	return math.Abs(da) <= camSweep+camHalf && g.lvl.LOS(c.eye, q)
+}
+
+// camFreshBody: a knife body of p, younger than camRecent s, still lying in the camera's zone.
+func (g *Game) camFreshBody(c *secCam, p *Player) bool {
+	if len(g.camStabs) == 0 {
+		return false
+	}
+	for _, b := range g.bodies {
+		if g.camStabs[b] == p && !b.bagged && !b.carried && g.time-b.born <= camRecent && c.camZone(g, b.pos) {
+			return true
+		}
+	}
+	return false
+}
+
+// camLocates: why this camera reports p now ("" = it does not). p is inside its cone.
+func (g *Game) camLocates(c *secCam, p *Player) string {
+	switch {
+	case g.isSuspectP(p):
+		return "wanted"
+	case g.playerAlert(p):
+		return "alert"
+	case g.camFreshBody(c, p):
+		return "body"
+	}
+	return ""
+}
+
+// camReport: the camera tells the police where p is. Officers on the scene: the nearest free one walks
+// there. Crew on its way: it heads there. No police yet: they are called (raisePolice keeps the rule of a
+// single call). Only a WANTED player is reported as "informed" (the cuffs stay on); the rest is a location.
+func (g *Game) camReport(c *secCam, p *Player, why string) {
+	c.alert = math.Max(c.alert, 1.5)
+	c.led = math.Max(c.led, camAlertTime)
+	if i := g.playerIndex(p); i < 2 {
+		c.cool[i] = camReportCD
+	}
+	g.run.camSeen++
+	g.withPlayer(p, func() {
+		g.say(camMsg)
+		if why == "wanted" {
+			g.killPos = p.pos
+		}
+		if !g.policeCalled {
+			g.alertPos = p.pos
+			g.raisePolice(p.pos, why == "wanted")
+			return
+		}
+		var best *Cop
+		for _, cp := range g.cops {
+			if cp.medic || (cp.state != cSweep && cp.state != cGoto && cp.state != cSearch && cp.state != cReturn) {
+				continue
+			}
+			if best == nil || dist(cp.pos, p.pos) < dist(best.pos, p.pos) {
+				best = cp
+			}
+		}
+		if best == nil {
+			g.alertPos = p.pos // the crew on its way goes for the tip
+			return
+		}
+		g.releaseCop(best)
+		best.state, best.wait = cGoto, 0
+		best.path = g.lvl.Path(best.pos, p.pos)
+		best.icon, best.iconT = g.line(copCategory(best.kind), "understood"), 2
+	})
 }
 
 func (g *Game) updateCameras(dt float64) {
@@ -324,11 +456,25 @@ func (g *Game) updateCameras(dt float64) {
 		if c.alert > 0 {
 			c.alert -= dt
 		}
+		for i := range c.cool {
+			if c.cool[i] > 0 {
+				c.cool[i] -= dt
+			}
+		}
 		for _, p := range g.players() {
 			if g.camWatched(p) && c.sees(g, p.pos) {
 				c.led = math.Max(c.led, camLedTime)
 				if g.stealth {
 					c.alert = math.Max(c.alert, 0.35)
+					continue // stealth has its own detection meter (stealth.go)
+				}
+				why := g.camLocates(c, p)
+				if why == "wanted" {
+					g.seenNow = true // filmed: the search does not cool down while he is on screen
+					g.killPos = p.pos
+				}
+				if i := g.playerIndex(p); why != "" && i < 2 && c.cool[i] <= 0 {
+					g.camReport(c, p, why)
 				}
 			}
 		}
@@ -417,7 +563,7 @@ func (g *Game) drawCamCone(dst *ebiten.Image, c *secCam) {
 }
 
 // drawCamBody: bracket on the wall, arm, the housing turned toward where it looks, the lens and a LED that
-// blinks green (calm) or red (it has seen somebody).
+// blinks dim red slowly (recording) or bright red fast (it has seen somebody).
 func (g *Game) drawCamBody(dst *ebiten.Image, c *secCam) {
 	mx, my := math.Round(g.wx(c.mount.X)), math.Round(g.wy(c.mount.Y))
 	if mx < -30 || mx > screenW+30 || my < -30 || my > screenH+30 {
@@ -476,8 +622,8 @@ func (g *Game) drawCamBody(dst *ebiten.Image, c *secCam) {
 	switch {
 	case c.led > 0:
 		col, on = 0xff2a1a, int(g.time*7)%2 == 0
-	default:
-		col, on = 0x40ff70, math.Mod(g.time*0.9+c.t*0.13, 1) < 0.55
+	default: // REC: a slow dim red blink, the camera is on (off in a blackout: not drawn)
+		col, on = 0xc02018, math.Mod(g.time*0.9+c.t*0.13, 1) < 0.55
 	}
 	fillRect(dst, lx, hy-1, 2, 2, dark)
 	if on {
@@ -491,7 +637,7 @@ func (g *Game) drawCamBody(dst *ebiten.Image, c *secCam) {
 // strings of the cameras in English (same pattern as stealth.go: lang_data.go stays untouched)
 func init() {
 	for es, en := range map[string]string{
-		"¡Una cámara te ha grabado!": "A camera caught you on tape!",
+		camMsg: "CAMERA: you're on tape",
 	} {
 		if _, ok := langDataEN[es]; !ok {
 			langDataEN[es] = en

@@ -115,7 +115,10 @@ func newPaperCanvas(seed int64, lay *paperLayout) *pcv {
 			}
 		}
 	}
+	c.wrinkles(s)
 	c.tears(s)
+	c.dirt(s)
+	c.ragged(s)
 	return c
 }
 
@@ -180,5 +183,163 @@ func (c *pcv) tears(s uint64) {
 			c.shade(x, screenH-14+k, 1, 1, 10)
 		}
 		c.shade(k, screenH-14+k, 2, 1, -36)
+	}
+}
+
+// deskPx paints one pixel of the table showing through a torn edge.
+func (c *pcv) deskPx(x, y int, s uint64) {
+	if x < 0 || y < 0 || x >= screenW || y >= screenH {
+		return
+	}
+	n := int(paperHash(x, y, s+3)&7) - 3
+	c.put(x, y, color.RGBA{pclamp(0x2c + n), pclamp(0x25 + n), pclamp(0x1e + n), 255})
+}
+
+// inMargin: the strip around the page where there is no text (stains may be strong there).
+func inMargin(x, y int) bool { return x < 13 || x >= screenW-13 || y < 13 || y >= screenH-11 }
+
+// wrinkles: crumple lines across the whole page, a thin dark line with a light one beside it. Very subtle (a few grey
+// levels), so the reading text over them stays as sharp as everywhere else.
+func (c *pcv) wrinkles(s uint64) {
+	for i := 0; i < 11; i++ {
+		h := paperHash(i, 21, s)
+		x, y := float64(h%screenW), float64((h>>11)%screenH)
+		ang := float64((h>>22)%628) / 100
+		n := 70 + int((h>>32)%170)
+		for k := 0; k < n; k++ {
+			ang += (float64(paperHash(i, k, s+5)&15) - 7.5) * 0.012
+			x += math.Cos(ang)
+			y += math.Sin(ang)
+			xi, yi := int(x), int(y)
+			c.shade(xi, yi, 1, 1, -11)
+			c.shade(xi+1, yi, 1, 1, 7)
+			if k%7 == 0 {
+				c.shade(xi-1, yi+1, 1, 1, -4)
+			}
+		}
+	}
+}
+
+// dirt: a cigarette burn at the top right, coffee rings, oil and greasy fingerprints. Strong only on the margins; over
+// the printed area they are a faint tint (the text is painted afterwards and stays crisp).
+func (c *pcv) dirt(s uint64) {
+	stain := func(x, y int, hex uint32, a int) {
+		if !inMargin(x, y) {
+			a /= 5
+		}
+		c.tint(x, y, hex, a)
+	}
+	ring := func(cx, cy, r, a int) {
+		for y := -r - 3; y <= r+3; y++ {
+			for x := -r - 3; x <= r+3; x++ {
+				dd := math.Sqrt(float64(x*x + y*y))
+				wob := float64(paperHash(x*3, y*3, s+9)&3) * 0.3
+				switch {
+				case math.Abs(dd-float64(r)) < 1.8+wob:
+					stain(cx+x, cy+y, 0x6a4420, a)
+				case dd < float64(r):
+					stain(cx+x, cy+y, 0x8a6a40, a/6)
+				case dd < float64(r)+4: // the drip that ran outside
+					stain(cx+x, cy+y, 0x8a6a40, a/9)
+				}
+			}
+		}
+	}
+	ring(-6, 140+int(s%60), 24, 90)
+	ring(screenW+7, 290+int(s%70), 20, 80)
+	ring(int(s%200)+120, screenH+8, 18, 80)
+	// oil: a soft yellowish blot that darkens the paper like grease
+	oil := func(cx, cy, r int) {
+		for y := -r; y <= r; y++ {
+			for x := -r; x <= r; x++ {
+				d2 := float64(x*x+y*y) / float64(r*r)
+				if d2 <= 1 {
+					stain(cx+x, cy+y, 0x9a7a1c, int(110*(1-d2)))
+				}
+			}
+		}
+	}
+	oil(14+int(s%40), -4, 15)
+	oil(screenW-8, int(s%90)+390, 17)
+	oil(int(s%260)+420, screenH+5, 12)
+	// greasy fingerprints: an oval with curved ridges
+	finger := func(cx, cy int, tilt float64) {
+		for y := -10; y <= 10; y++ {
+			for x := -7; x <= 7; x++ {
+				u := float64(x)*math.Cos(tilt) + float64(y)*math.Sin(tilt)
+				v := -float64(x)*math.Sin(tilt) + float64(y)*math.Cos(tilt)
+				e := u*u/49 + v*v/100
+				if e > 1 {
+					continue
+				}
+				if int(math.Sqrt(u*u*1.6+v*v*0.5)*1.7)%3 == 0 {
+					stain(cx+x, cy+y, 0x4a3a22, 66)
+				} else {
+					stain(cx+x, cy+y, 0x4a3a22, 14)
+				}
+			}
+		}
+	}
+	finger(5, 410+int(s%40), 0.3)
+	finger(screenW-5, 60+int(s%50), -0.4)
+	finger(int(s%300)+300, 4, 1.2)
+	finger(int(s%200)+640, screenH-4, 0.8)
+	// the cigarette burn: a hole with a charred ring and a brown halo; it stays in the top-right margin above the ear
+	bx, by := screenW-52+int(s%6), 9
+	for y := -17; y <= 17; y++ {
+		for x := -17; x <= 17; x++ {
+			dd := math.Sqrt(float64(x*x + y*y))
+			dd += float64(paperHash(x+40, y+40, s+13)&3)*0.55 - 0.8 // ragged edge
+			px, py := bx+x, by+y
+			switch {
+			case dd < 3.4:
+				c.deskPx(px, py, s) // burnt through
+			case dd < 5.2:
+				c.tint(px, py, 0x120a06, 245)
+			case dd < 7.4:
+				c.tint(px, py, 0x4a2a12, 225)
+			case dd < 9.6:
+				c.tint(px, py, 0x8a5424, 175)
+			case dd < 12.5:
+				c.tint(px, py, 0xa8742e, 90)
+			case dd < 15.5:
+				c.tint(px, py, 0xa8742e, 34)
+			}
+		}
+	}
+}
+
+// ragged: the top edge is irregular, with a few cuts and rips; none goes below y = 11, the page rules start at 14 and the
+// first text at 20.
+func (c *pcv) ragged(s uint64) {
+	depth := 2.0
+	for x := 0; x < screenW-12; x++ {
+		depth += (float64(paperHash(x, 31, s)&7) - 3.5) * 0.28
+		depth = math.Max(0, math.Min(3.4, depth))
+		d := int(depth)
+		for y := 0; y < d; y++ {
+			c.deskPx(x, y, s)
+		}
+		if d > 0 {
+			c.shade(x, d, 1, 1, 14) // torn fibre catching the light
+		}
+	}
+	rips := []struct{ x, w, d int }{{90, 16, 9}, {330, 22, 7}, {560, 12, 10}, {770, 19, 8}}
+	for i, r := range rips {
+		x0 := r.x + int((s>>uint(3*i))%90)
+		for k := 0; k < r.w; k++ {
+			// a lopsided wedge: steep on one side, long slope on the other
+			f := float64(k) / float64(r.w)
+			prof := f * 2
+			if f > 0.5 {
+				prof = (1 - f) * 0.9
+			}
+			d := int(float64(r.d)*math.Min(1, prof)) + int(paperHash(x0+k, 33, s)&1)
+			for y := 0; y < d; y++ {
+				c.deskPx(x0+k, y, s)
+			}
+			c.shade(x0+k, d, 1, 1, 18)
+			c.shade(x0+k, d+1, 1, 1, -12)
+		}
 	}
 }

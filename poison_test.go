@@ -104,8 +104,8 @@ func TestPoisonStagesInOrder(t *testing.T) {
 	if g.progress.Stats["poison"] != 1 || g.progress.Stats["kills"] != 1 || g.kills != 1 {
 		t.Errorf("the death must count: poison %d kills %d g.kills %d", g.progress.Stats["poison"], g.progress.Stats["kills"], g.kills)
 	}
-	if len(g.bodies) != 1 || !g.bodies[0].byPlayer {
-		t.Error("the body must be left, as the player's work")
+	if len(g.bodies) != 1 || g.bodies[0].byPlayer {
+		t.Error("the body must be left, but not marked as the player's work (nobody knows who poisoned it)")
 	}
 }
 

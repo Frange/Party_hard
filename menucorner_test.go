@@ -78,15 +78,12 @@ func TestMenuHasNoRemovedFootLines(t *testing.T) {
 
 // version and homage: two lines, both right aligned to the same margin, nothing over them
 func TestMenuVersionRightAligned(t *testing.T) {
-	if gameVersion != "1.0.1" {
-		t.Fatalf("version %q", gameVersion)
-	}
 	for _, lang := range []string{"es", "en"} {
 		texts := menuTexts(t, lang, false)
 		var ver, hom *textRect
 		for i := range texts {
 			switch {
-			case texts[i].s == "v.1.0.1 - Frange":
+			case texts[i].s == "v."+gameVersion+" - Frange":
 				ver = &texts[i]
 			case strings.HasPrefix(texts[i].s, "Homenaje a Party Hard"), strings.HasPrefix(texts[i].s, "Homage to Party Hard"):
 				hom = &texts[i]

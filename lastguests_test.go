@@ -81,7 +81,11 @@ func TestLastGuestsNotInStealthOrOtherModes(t *testing.T) {
 func TestLastGuestsVIPStaffDoesNotCount(t *testing.T) {
 	g := hudPlay(t, false)
 	leaveAlive(g, 1)
-	g.guards = append(g.guards, &Guard{vip: 1})
+	// the Guard below has no CharSet: it must not stay in the shared game, or the next test that draws the menu
+	// (TestMenuHasNoRemovedFootLines) crashes in drawActor
+	prevGuards := g.guards
+	t.Cleanup(func() { g.guards = prevGuards })
+	g.guards = append(append([]*Guard(nil), g.guards...), &Guard{vip: 1})
 	if n := len(g.lastTargets()); n != 1 {
 		t.Errorf("%d targets with 1 guest and a VIP guard", n)
 	}

@@ -11,8 +11,10 @@ Mac: abre PartyHardy.app o PartyHardyEditor.app (la carpeta assets va junto a la
 Dentro del juego, F2 abre el editor. En el editor, "Volver al juego (F2)" vuelve.
 El formato de los ficheros está en ASSETS.md.
 
-Versión v.1.0.1 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard). Las teclas fijas (R, M, F11,
-Enter/Esc) ya no se rotulan en el menú: están en la ventana de ayuda, el botón "?" (o F1).
+Versión v.1.0.0 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard; también en Créditos,
+en el título de la ventana y en VERSION.txt). Todo lo que trae cada versión está en CHANGELOG.md: cambio menor = x.y.Z,
+medio = x.Y.0, grande = X.0.0. Las teclas fijas (R, M, F11, Enter/Esc) ya no se rotulan en el menú: están en la ventana
+de ayuda, el botón "?" (o F1).
 
 NOVEDADES v6
 - Personajes sin contorno, mas de 300 disenos nuevos.
@@ -25,6 +27,17 @@ NOVEDADES v7
 - Los cuerpos solo se "detectan" cuando un testigo vivo avisa a la policia (llamada o en persona).
 - Las esposas sobre tu cabeza NO significan que te hayan detenido: significan que la policía ha sido AVISADA y te busca (estadística del periódico: "Policía avisada"). Salen cuando un testigo AVISA a un poli, no cuando te ve: mientras tanto sale una ALERTA (!) sobre tu cabeza; si matas al testigo antes de que avise, te libras (sin esposas ni alerta). Un poli que lo ve el mismo avisa al instante.
 - Policia mas listo: pocos cuerpos cada uno, ambulancias, refuerzos, SWAT o FBI (Mulder y Scully) muy de vez en cuando.
+- GRUPOS DE POLICIA: al principio solo hay policia local; con tus muertes totales se desbloquean FBI (500), militares (1000),
+  SWAT (1500) y Power Rangers (2000). En cada llamada llegan SIEMPRE primero 1 o 2 polis (segun los cuerpos encontrados);
+  despues la fiesta se reparte en tramos iguales entre los grupos que tengas (60 invitados y 2 grupos: muertes 1-30 polis,
+  31-60 FBI; 3 grupos: 20 cada uno...). Al bajar del coche un grupo superior, los anteriores se van sin preguntar; cada
+  grupo ve un poco mas lejos, anda un poco mas rapido y trae mas agentes. Depuracion: -unlocked N (no toca la partida).
+- CUALQUIER cadaver que vea un invitado o un guardia se denuncia (peleas, tiroteos, coches, explosiones, animales...),
+  no solo los tuyos: la policia viene a ver, cubre todos los cuerpos y se va. Solo tus muertes dan estrellas o te
+  hacen sospechoso. Los grupos de policia cuentan TODAS las muertes de la fiesta. Depuracion: -pevent pelea -peleadie.
+- ISLA NUBLAR: los muertos del T-Rex tambien se denuncian (sin estrellas para ti) y la policia se queda hasta cubrir
+  todos los cuerpos. Militares y SWAT le disparan y lo debilitan (nunca lo matan); los Power Rangers le pegan y a veces
+  (35 %) lo tumban, si no se come a alguno. Depuracion: -trexkill (los Rangers vienen a la primera y ganan).
 - El tanque revienta coches y vehiculos de emergencias. Los helicopteros sueltan a la gente en la puerta.
 - DJ en todos los niveles; si lo matas suena punk rock. Muchas canciones nuevas, una lista distinta por escenario.
 - Animales nuevos: gato, pollitos, toro, elefante, jirafa, canguro. Caballo y perro mas pequenos.
@@ -37,16 +50,25 @@ MÚSICA PROPIA (mp3)
   DJ/     canciones al azar cuando el DJ muere
 Las carpetas están junto a la carpeta assets. Lo que falte se rellena con la música sintetizada del juego.
 
-TIENDA
-------
-Los puntos de cada fiesta (ganes o pierdas) se guardan en tu cartera (progress.json).
-En el menú, TIENDA permite comprar: personajes principales, ropa (sombreros, gafas, trajes),
-objetos (zapatillas, pulmones, guantes), animales, asesinos nuevos y uniformes de policía.
-Los tipos de policía ya no se compran: al empezar solo hay policía local, y los demás se
-desbloquean con trofeos según las personas que hayas matado en total: FBI a las 500, ejército
-a las 1000, SWAT a las 1500 y Power Rangers a las 2000 (salen según las estrellas). La pestaña
-POLICÍAS de la tienda muestra tu progreso. Quien ya los había comprado los conserva.
-Los animales y asesinos no comprados no aparecen.
+OBJETIVOS, VESTUARIO Y TIENDA
+-----------------------------
+OBJETIVOS (antes Trofeos): pestañas TROFEOS | PERSONAJES | VIPS | ASESINOS | POLICÍAS | CARRERA (386 tarjetas:
+304 personajes, 50 VIPs, 27 asesinos y 5 cuerpos de policía; CARRERA son los totales de tu partida). Lo que ganas jugando
+está aquí: matas a un invitado de un tipo y desbloqueas su personaje; derrotas a un asesino y es tuyo; matas a un
+agente (o llegas a su hito: FBI a las 500 muertes, ejército a las 1000, SWAT a las 1500, Power Rangers a las
+2000) y se marca su tipo de policía. La policía local está desde el principio.
+UNIFORMES DE POLICÍA: ya no se compran. Se ganan ESCAPANDO: cada vez que te buscan (las esposas) y consigues
+que te dejen de buscar sin que te atrapen o mueras, cuenta un escape. Cada 3 escapes se abre un uniforme
+nuevo (los 24 primeros; los 12 últimos, cada 4; en total 36 conjuntos repartidos entre policía, FBI, ejército,
+SWAT y Rangers) y sale un aviso. La pestaña POLICÍAS muestra el contador.
+VESTUARIO (dentro del menú TIENDA): tres páginas, PERSONAJE | ASESINOS | POLICÍAS (RePág/AvPág o clic).
+PERSONAJE viste a cada jugador; ASESINOS elige a un asesino derrotado, el color de su ropa y el arma de todos;
+POLICÍAS elige el uniforme de cada cuerpo entre los que ya tienes. Solo sale lo desbloqueado o comprado, y las
+fiestas lo usan: el asesino sale con su color y los agentes de cada cuerpo con su uniforme.
+TIENDA: 141 artículos (unos 125.000 puntos en total): 41 prendas, 60 accesorios, 12 mejoras (zapatillas,
+pulmones, guantes, cartera), 8 animales y 20 armas. Los personajes y asesinos ya no se compran. COMPRAR TODO
+compra lo que alcance de la lista. Lo que ya habías comprado de lo que se retiró (prendas, accesorios, uniformes)
+sigue siendo tuyo y puedes ponértelo en el VESTUARIO. Los animales y asesinos no desbloqueados no aparecen.
 
 BANDAS
 ------
@@ -145,6 +167,10 @@ Dos opciones más, solo aquí (apagadas por defecto):
   -trapdemo: las dos trampas más cercanas a la salida, una cargándose (círculo) y otra armada (LED y radio); congela el progreso.
   -camkill (con -level N de un nivel con cámara, p. ej. 1): a los ~3 s mata a un invitado delante de la primera cámara
   para ver el LED/cono rojo, la policía y el BUSCADO.
+  -blamenow: a los ~2 s cae un invitado junto a otro y se avisa a la policía; el agente toma al que pasaba por allí por el
+  SOSPECHOSO EQUIVOCADO ("¡ALTO! ¿ES ESE EL SOSPECHOSO?" / "¡YO NO HE SIDO!"), lo esposa, lo lleva al coche y lo suelta.
+  En partida es raro (15 % por llamada, nunca en la primera llamada ni en dos seguidas, 3 min entre uno y otro, máx. 2 por
+  fiesta); mientras dura (~9 s) la policía se olvida de los jugadores. Escribe en la consola dónde está la escena.
   -blackout: fuerza el EVENTO APAGON a los ~3 s de la fiesta (10 s); congela el progreso. El apagon real es muy raro
   (1 fiesta de cada 16 aprox., nunca en sigilo): pantalla oscura 8-12 s con halo minimo alrededor del jugador, linternas de
   guardias y polis, moviles, ojos de gato y chispas del cuadro electrico; los invitados se alborotan; mientras dura, las
@@ -157,6 +183,18 @@ Dos opciones más, solo aquí (apagadas por defecto):
 
 NOVEDADES DE LA ÚLTIMA VERSIÓN
 ------------------------------
+- Nueva fiesta 20: ITALIA (ITALY), justo después de la AUTOPISTA. Una piazza a la hora azul (luz neutra, como las
+  demás fiestas al aire libre) con la torre inclinada sobre su césped (solo la base es sólida), un anfiteatro
+  romano en ruinas donde pincha el DJ (se entra por el gran arco o por el hueco derrumbado de la derecha) y un trozo de Venecia: canal con góndolas negras, palos de amarre, palacios de colores y
+  un embarcadero de madera (el agua no se pisa). Helados, horno de pizza, mesas con sombrilla, cipreses, fuente, vespas
+  aparcadas y la calle pequeña con coches abajo. Invitados vestidos de gondolero, pizzero o "dolce vita". Música: clásica.
+  La campaña tiene ahora 25 fiestas; las dos últimas siguen siendo la ESTACIÓN ESPACIAL y la secreta ISLA NUBLAR.
+- Tu partida NO pierde nada: al cargarla, las victorias de la estación de tren en adelante pasan a su nuevo número
+  (won_19..won_23 -> won_20..won_24, CampaignRev 2) y, si ya habías ganado la autopista, ITALIA aparece abierta (sin
+  ganar). Las correcciones del editor guardadas con el número antiguo (p. ej. c20_train) se siguen aplicando.
+- mp3 por fiesta ("music/N_..."): el número es el de la lista. Tus archivos del 1 al 19 no cambian de fiesta; ITALIA es
+  la 20 (sin archivo suena la música sintetizada clásica) y, si tenías mp3 numerados del 20 al 24, renómbralos +1
+  (21_estacion_de_tren..., 25_estacion_espacial...). Un mp3 de otro estilo se ignora con aviso (ver ESTILOS DE MÚSICA).
 - Los FBI, SWAT, militares y Power Rangers muertos dejan su propio cuerpo, con su ropa.
 - El supermercado se ha cambiado en la campaña por la AUTOPISTA: seis carriles, tráfico sin parar y gente
   bailando en el asfalto (los coches atropellan a quien esté en su carril; el supermercado sigue en el modo
@@ -229,7 +267,8 @@ CARRETERAS E IDIOMAS
 - Editor > Escenarios > Muros > CARRETERA (1 CARRIL): pinta una franja y elige hacia dónde van los coches (izquierda,
   derecha, arriba o abajo). El juego dibuja el asfalto con sus flechas y los coches pasan en esa dirección; atropellan a
   quien esté en la carretera.
-- AJUSTES > Idioma / Language: español o inglés. Cambia todos los textos, mensajes, frases y nombres graciosos.
+- AJUSTES > Idioma / Language (caja de arriba): español o inglés. Cambia todos los textos, mensajes, frases y nombres graciosos.
+  AJUSTES tiene dos pestañas, J1 y J2, con los controles y la entrada de cada jugador.
   El editor tiene su propio selector ES / EN arriba a la derecha.
 
 IMPORTAR IMÁGENES
@@ -247,7 +286,7 @@ MÚSICA DE LAS INTROS
 --------------------
 - Carpeta "intros" (junto a "assets"): pon ahí tus mp3 para las escenas de la historia y se usan en lugar de la música
   sintetizada. Se nombran con el número de la escena: 1_intro.mp3 (la primera intro), 2_interludio_A.mp3 (tras la fiesta 5),
-  3_interludio_B.mp3 (tras la 10), 4_final.mp3, 5_final_secreto.mp3, 6_invitacion.mp3 y 7_cohete.mp3 (el interludio del cohete, tras la fiesta 20). Si repites el número
+  3_interludio_B.mp3 (tras la 10), 4_final.mp3, 5_final_secreto.mp3, 6_invitacion.mp3 y 7_cohete.mp3 (el interludio del cohete, tras la fiesta 24, antes de la estación espacial). Si repites el número
   (2_interludio_A_2.mp3...) se elige una al azar.
 - Sin archivo suena la música sintetizada: la primera intro con el "pum pum" del bajo de la fiesta de al lado y una melodía pegadiza encima (los altavoces
   y la habitación se mueven al ritmo) y las demás con melodías alegres sin bombo: una marcha de dibujos animados en los
@@ -268,9 +307,10 @@ música sintetizada en ese estilo (al empezar sale un letrero pequeño con el g�
    6 Torre Eiffel: Clásica (vals)          17 Fiesta en la azotea: Hip-hop (lo-fi)
    7 Crucero nocturno: Disco               18 Casino: Jazz (swing)
    8 Parque de atracciones: Chiptune       19 Autopista: Rock
-   9 Estadio: Pop                          20 Estación de tren: Rap (boom bap)
-  10 Discoteca: Techno                     21 Estación espacial: Electrónica
-  11 Festival: Electrónica                 Isla Nublar (secreto): Orquestal épica
+   9 Estadio: Pop                          20 Italia: Clásica (ópera)
+  10 Discoteca: Techno                     21 Estación de tren: Rap (boom bap)
+  11 Festival: Electrónica                 22 Cumpleaños: Pop · 23 Hockey: Rock · 24 Disco setentera: Disco
+                                           25 Estación espacial: Electrónica · Isla Nublar (secreto): Orquestal épica
 En el modo aleatorio: pub = rock, plaza europea = pasodoble, centro comercial = pop. Si muere el DJ, entra el punk; una
 banda de otro estilo (Metallica = metal, The Beatles = pop, Elvis = country, Lost Prophets y Despistaos = rock) toca el
 suyo, y las bandas punk tocan el estilo de la fiesta. Si pones tus propios mp3 ("music/N_nombre.mp3"), mandan ellos:
@@ -280,7 +320,8 @@ nombre ("Botellón de salón · House") y en el letrero del principio. Tipos: 1 
 3 Rave de neón, 4 Hoguera con botas, 5 Fiesta de capotes, 6 Cena de gala con vals, 7 Fiesta del capitán, 8 Feria sin
 cinturón, 9 Final de copa, 10 Sesión de madrugada, 11 Festival de barro, 12 Jam en el bowl, 13 Velatorio con riffs,
 14 Sesión golfa, 15 Carrera sin freno, 16 Après-ski con chocolate, 17 Terraza con piscina, 18 Noche de corbata,
-19 Atasco con altavoces, 20 Fiesta sin billete, 21 Rave de gravedad cero, Isla Nublar: Última fiesta jurásica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
+19 Atasco con altavoces, 20 Pasta, amore y caos, 21 Fiesta sin billete, 22 Soplavelas sin control, 23 Prórroga sin
+árbitro, 24 Fiebre de pata de elefante, 25 Rave de gravedad cero, Isla Nublar: Última fiesta jurásica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
 NOMBRES DE LOS MP3: si la última palabra del nombre es un género ("13_cementerio_metal.mp3"), el juego lo compara con
 el de la fiesta: si coincide suena (y el letrero lo dice); si es de otro estilo (por ejemplo restos de un lote antiguo
 como "13_cine_electro.mp3") se IGNORA con un aviso en la consola y suena la música del juego. Un nombre sin género
@@ -294,7 +335,7 @@ CAMEO DE DJs (FINAL SECRETO) Y ESCENAS
   manos al aire), Martín Garbanzo (el chaval de la gorra), Avichi (el barbudo con cascos), Daft Pank (dos robots con casco,
   uno hace de plato) y Ratón Neón (cabeza de ratón de luces).
 - ESCENAS tiene ahora 9 entradas, en orden de historia: 1 Intro, 2 coche (tras la fiesta 5), 3 barco (10), 4 globo (15),
-  5 cohete (20), 6 ¿FINAL?, 7 Carta, 8 Llegada, 9 Final secreto. Cada una se repite con Enter.
+  5 cohete (24), 6 ¿FINAL?, 7 Carta, 8 Llegada, 9 Final secreto. Cada una se repite con Enter.
 
 INVITADOS POR FIESTA
 --------------------
@@ -322,6 +363,8 @@ UNO O DOS JUGADORES
   comunes. Los poderes de leyenda (I O K L) y el suceso (V) son de toda la fiesta: los puede usar cualquiera de los dos
   (con el teclado compartido es la misma tecla; con mando, el botón de cada jugador).
 - Al empezar una fiesta de dos jugadores salen unos segundos las teclas de cada uno (azul el J1, rojo el J2).
+- PAUSA: Esc (o B / Start del mando) durante una fiesta abre la pausa: CONTINUAR, AJUSTES (vuelve a la pausa) y SALIR
+  A ELEGIR FIESTA (no suma puntos ni cuenta como derrota). Mientras está abierta nada se mueve.
 - Cosas que cada jugador hace por su cuenta: esconderse, bailar (cada uno molesta a la gente con sus propios bailes),
   cortar teléfonos, coger objetos, meterse en la piscina. Las marcas de "usar" salen con la tecla de cada jugador y un
   cuadradito de su color. La trampa de gas y el fuego afectan a los dos por separado, y el disfraz sólo lo usa quien
@@ -352,13 +395,13 @@ ZONAS VIP, TRAJE DORADO, INVITACION Y RELEVO (vip.go):
 - TRAJE DORADO (objeto "vipsuit", se coge con E como el veneno): 8 s (suitDuration) en los que NADIE te ve: ni invitados, guardias, polis
   ni camaras (g.sees y la camara contestan que no), asi que no hay testigos, ni ALERTA ni BUSCADO. Brillo dorado y barra de tiempo; parpadea
   los ultimos 2 s y avisa al acabar. Un solo uso por traje; por jugador con 2P; compatible con el modo sigilo.
-- ZONA VIP (ocasional: 1 de cada 5 partidas, y seguro tras 8 sin ninguna, vipchance.go con rand propio; solo en niveles donde cabe, nunca en sigilo; el VIP sale entre los NO conseguidos del album, afinidad de tema en vipPlan, y con los 11 conseguidos al azar; levels.go intacto): alfombra roja con cordon, 2 guardias en la puerta y 1 dentro, un VIP y un traje
+- ZONA VIP (ocasional: 1 de cada 5 partidas, y seguro tras 8 sin ninguna, vipchance.go con rand propio; solo en niveles donde cabe, nunca en sigilo; el VIP sale entre los NO conseguidos del album, afinidad de tema en vipPlan, y con los 50 conseguidos al azar; levels.go intacto): alfombra roja con cordon, 2 guardias en la puerta y 1 dentro, un VIP y un traje
   dorado de botin. Niveles: PLAZA DE TOROS (S.M. EL REY), TORRE EIFFEL (SU SANTIDAD PIO XCIX), FESTIVAL (la superestrella del rock),
   PARQUE DE ATRACCIONES (EL PRESIDENTE), ESTACION DE ESQUI (el magnate petrolero), CRUCERO NOCTURNO (EL PADRINO NIPON); si un nivel no
   tiene hueco, no hay zona. Los guardias estan parados; entrar (o atacarlos) sin traje, pase ni invitacion los activa y te persiguen
   con la persecucion normal (se rinden si te pierden). El personal y el VIP NO cuentan para completar la fiesta.
 - VIP muerto: bonus de su ficha (1000-2000) con "VIP ELIMINADO", policia al instante (esposas salvo que lleves el traje) y refuerzos (2 estrellas).
-- REGISTRO (vipRegistry(): 11 VIP inventados con id estable; vipEliminated/vipSnapshot() en memoria para el futuro album, nada en disco).
+- REGISTRO (vipRegistry(): 50 VIP inventados con id estable; vipEliminated/vipSnapshot() en memoria para el futuro album, nada en disco).
   Comportamientos: huye (rock, cine, astronauta), llama a la poli (padrino, presidente), da propina +300 si lo ayudas con E (papa, magnate),
   resistente (chef 3 golpes, campeon 4), quieto (rey, sultan).
 - INVITACION: dos invitados llevan una tarjeta dorada al lado; matarlo te da la tarjeta (un solo uso por jugador). Al pisar la zona se gasta
@@ -378,7 +421,7 @@ AYUDA DE CONTROLES (botón "?")
 - EMOTES (emote.go): iconos de 9x9 sobre la cabeza de los invitados segun su estado ("?" esperando, gota de sudor huyendo o asustado, zzz durmiendo, corazon besando o bailando en pareja, nota bailando, calavera envenenado, enfado peleando, bocadillo charlando). Maximo 6 a la vez (3 de los tranquilos), duran ~1,3 s con un pequeno "pop", nunca tapan un bocadillo, un jugador ni otro icono. Apagar: -noemotes (variable emotesOn). Los testigos (alarma, telefono, avisar) NO llevan icono: las unicas senales de "te han visto" son el "!" sobre el jugador y las esposas.
 
 ALBUM DE CROMOS Y TROFEOS SECRETOS (album.go, lang_album.go):
-- Pantalla TROFEOS (y su ventana en partida): dos pestanas, TROFEOS y ALBUM (clic, Tab, o flecha derecha / izquierda en la primera columna). El album tiene una tarjeta por cada VIP (11) y por cada personaje especial (famosos de specialPool y starGroups, incluidos Sam-sam, Cesar y Diego): 120 tarjetas, rejilla de 5x3 con scroll (flechas, rueda, AvPag/RePag).
+- Pantalla OBJETIVOS (y su ventana en partida): pestanas TROFEOS, PERSONAJES, VIPS, ASESINOS, POLICIAS y CARRERA (clic, Tab, o flecha derecha / izquierda en la primera columna). 386 tarjetas: 304 personajes, 50 VIPs, 27 asesinos y 5 cuerpos de policia, en rejilla con scroll (flechas, rueda, AvPag/RePag).
 - Tarjeta desbloqueada: retrato sobre marco con degradado, nombre y cargo; sello VISTO / ELIMINADO / AMIGO. Bloqueada: silueta oscura y "???". VIP: se desbloquea al eliminarlo o ayudarle (los que dan propina); especiales: al verlos (a <=150 px de un jugador y en linea de vision sin pared; estar en pantalla no cuenta, la camara muestra todo el nivel) o al matarlos. El nombre de la carta es corto (cardES de vipDef / albumShortName) para no cortarse con '.'; el completo va en la linea de detalle. Contador x/y arriba.
 - Progress.Album (JSON "album", claves "vip:<id>" o slug, bits 1 visto / 2 eliminado / 4 ayudado). Un progress.json antiguo sin el campo carga bien. Se guarda con saveProgress (respeta progressFrozen).
 - 10 trofeos SECRETOS (se ven como "???  Trofeo secreto" hasta lograrlos; toast propio; no cuentan para el trofeo Leyenda): Baile de gala, Cazador de coronas, Amigo de los poderosos, Con invitacion por favor, Brillo dorado, Mina perfecta, Cadena x3, Tarjeta al rojo, Luces fuera manos quietas, Cromos y mas cromos (15 cromos DISTINTOS del progreso, calculados con albumCount). Los toasts de trofeo esperan en cola mientras sale el cartel de pista del nivel o la portada del periodico (toastHeld).

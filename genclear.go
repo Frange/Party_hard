@@ -89,9 +89,13 @@ func stageInter(a, b Rect) float64 {
 	return w * h
 }
 
-// hidesStage reports whether a prop of kind k anchored at p would be drawn over the DJ or a musician.
+// hidesStage reports whether a prop of kind k anchored at p would be drawn over the DJ or a musician
+// (or over Murray, the skull: nothing is placed on him either).
 func (l *Level) hidesStage(k *PropKind, p Vec) bool {
 	b := Rect{p.X - float64(k.W)/2, p.Y - float64(k.H), float64(k.W), float64(k.H)}
+	if murrayHidden(l.Def, b) {
+		return true
+	}
 	for _, in := range l.Def.Props {
 		if in.Kind != "dj" {
 			continue

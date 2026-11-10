@@ -9,7 +9,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Trophies: a few dozen goals (see trophyList). Each one unlocks something that cannot be bought in the
+// Trophies (the first tab of OBJETIVOS, see album.go): a few dozen goals (see trophyList). Each one unlocks something that cannot be bought in the
 // shop (it shows up there, locked, until the trophy is won).
 // ---------------------------------------------------------------------------
 
@@ -224,6 +224,9 @@ func (g *Game) checkTrophies() {
 		if t.id == legendTrophy {
 			reached = g.othersDone()
 		}
+		if t.id == "s_shopall" { // everything the shop sells is owned (trophies3.go)
+			reached = shopAllBought()
+		}
 		if t.id == "s_album15" { // DISTINCT cards kept in the progress, not a counter that may be stale
 			reached = g.albumCount() >= t.need
 		}
@@ -336,6 +339,9 @@ const trophyRows = 9
 
 func (g *Game) updateTrophies() {
 	g.time += 1.0 / 60
+	if g.updateGoalDetail() { // the detail window is open: it takes every input (goal_detail.go)
+		return
+	}
 	g.updateTrophyList()
 	if actBack.just() {
 		g.mode = ModeMenu
@@ -348,15 +354,21 @@ func (g *Game) updateTrophyList() {
 		return
 	}
 	n := len(trophyList)
+	// the mouse resting on the top or bottom strip of the list scrolls it (listscroll.go)
+	g.trophySel, g.trophyScroll = edgeListScroll("trophies", g.trophySel, g.trophyScroll, trophyRows, 1, n, [4]float64{244, 123, 356, trophyRows * 30}, 6)
 	click := g.mouseMenu(func(mx, my float64) int {
 		for i := 0; i < trophyRows; i++ {
-			if mx >= 244 && mx <= 600 && my >= 120+float64(i)*30 && my <= 120+float64(i)*30+28 {
+			if mx >= 244 && mx <= 600 && my >= 126+float64(i)*30 && my <= 126+float64(i)*30+28 {
 				return g.trophyScroll + i
 			}
 		}
 		return -1
 	}, &g.trophySel)
-	_ = click
+	defer func() { // the detail window of the trophy (goal_detail.go), once the cursor has moved
+		if click || goalDetailAsk() {
+			g.openGoalDetail()
+		}
+	}()
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.trophySel = clampI(g.trophySel-int(wy)*3, 0, n-1)
 	}
@@ -380,10 +392,26 @@ func (g *Game) updateTrophyList() {
 	}
 }
 
+// trophyView: the trophies in the order of the list: the ones still to win first, the won ones at the bottom
+// (catalogue order inside each group). trophySel / trophyScroll index this list.
+func (g *Game) trophyView() []Trophy {
+	out := make([]Trophy, 0, len(trophyList))
+	var done []Trophy
+	for _, t := range trophyList {
+		if g.trophyDone(t) {
+			done = append(done, t)
+		} else {
+			out = append(out, t)
+		}
+	}
+	return append(out, done...)
+}
+
 func (g *Game) drawTrophies(dst *ebiten.Image) {
 	g.drawBedroom(dst)
-	g.drawLogo(dst, 160, 30)
+	g.drawLogo(dst, logoSideCX, 30)
 	g.drawTrophyPanel(dst)
+	g.drawGoalDetail(dst)
 }
 
 // drawTrophyPanel is the list of trophies with the detail card (the screen and the in-game window).
@@ -392,18 +420,23 @@ func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 	fillRect(dst, 230, 56, 700, 1, rgba(0x6a4ab0, 160))
 	fillRect(dst, 230, 495, 700, 1, rgba(0x6a4ab0, 160))
 	g.drawTabs(dst)
-	if g.trophyTab == tabAlbum {
+	if g.trophyTab == tabCareer {
+		g.drawCareer(dst)
+		return
+	}
+	if g.trophyTab != tabTrophies {
 		g.drawAlbumPanel(dst)
 		return
 	}
 	g.drawText(dst, fmt.Sprintf("%d / %d", g.trophyCount(), len(trophyList)), 770, 66, rgb(0xf0e060), 1.6)
+	view := g.trophyView()
 	for i := 0; i < trophyRows; i++ {
 		idx := g.trophyScroll + i
-		if idx >= len(trophyList) {
+		if idx >= len(view) {
 			break
 		}
-		t := trophyList[idx]
-		y := 120 + float64(i)*30
+		t := view[idx]
+		y := 126 + float64(i)*30
 		col := rgb(0x3fb59a)
 		pre := "  "
 		if idx == g.trophySel {
@@ -427,38 +460,36 @@ func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 		}
 		g.drawText(dst, tag, 600-g.textW(tag, 1.1), y+2, tc, 1.1)
 	}
-	g.drawText(dst, fmt.Sprintf("%d/%d", g.trophySel+1, len(trophyList)), 244, 396, rgb(0x6a6680), 1)
-	t := trophyList[g.trophySel]
-	fillRect(dst, 640, 100, 270, 330, rgba(0x120c24, 220))
+	g.drawText(dst, fmt.Sprintf("%d/%d", g.trophySel+1, len(trophyList)), 244, 402, rgb(0x6a6680), 1)
+	t := view[clampI(g.trophySel, 0, len(view)-1)]
+	fillRect(dst, 640, 123, 270, 322, rgba(0x120c24, 220))
 	cup := rgb(0x5a5668)
 	if g.trophyDone(t) {
 		cup = rgb(0xe8c040)
 	}
 	// a little cup
-	filledEllipse(dst, 775, 150, 26, 22, cup)
-	fillRect(dst, 749, 126, 52, 24, cup)
-	fillRect(dst, 770, 168, 10, 16, cup)
-	fillRect(dst, 756, 184, 38, 8, cup)
-	fillRect(dst, 740, 132, 8, 14, cup)
-	fillRect(dst, 802, 132, 8, 14, cup)
+	filledEllipse(dst, 775, 173, 26, 22, cup)
+	fillRect(dst, 749, 149, 52, 24, cup)
+	fillRect(dst, 770, 191, 10, 16, cup)
+	fillRect(dst, 756, 207, 38, 8, cup)
+	fillRect(dst, 740, 155, 8, 14, cup)
+	fillRect(dst, 802, 155, 8, 14, cup)
 	if g.secretHidden(t) {
-		g.drawTextC(dst, "???", 775, 204, rgb(0xf4f0ff), 1.3)
-		g.drawWrapped(dst, "Trofeo secreto: se descubre jugando.", 650, 232, 250, rgb(0xb8b0d0))
-		g.drawWrapped(dst, "Premio: ???", 650, 300, 250, rgb(0xf0e060))
-		g.drawText(dst, "Los premios se usan desde la TIENDA, en su lista (marcados con TROFEO).", 244, 440, rgb(0x8a86a0), 1)
-		g.drawText(dst, "↑/↓ o rueda elegir   Tab: álbum   "+actionHint(actBack)+" volver", 244, 470, rgb(0x8a86a0), 1)
+		g.drawTextC(dst, "???", 775, 227, rgb(0xf4f0ff), 1.3)
+		g.drawWrapped(dst, "Trofeo secreto: se descubre jugando.", 650, 255, 250, rgb(0xb8b0d0))
+		g.drawWrapped(dst, "Premio: ???", 650, 323, 250, rgb(0xf0e060))
+		g.drawText(dst, "Los premios se usan desde la TIENDA, en su lista (marcados con TROFEO).", 244, 458, rgb(0x8a86a0), 1)
 		return
 	}
-	g.drawTextC(dst, t.name, 775, 204, rgb(0xf4f0ff), 1.3)
-	g.drawWrapped(dst, "Cómo conseguirlo: "+t.how, 650, 232, 250, rgb(0xb8b0d0))
+	g.drawTextC(dst, t.name, 775, 227, rgb(0xf4f0ff), 1.3)
+	g.drawWrapped(dst, "Cómo conseguirlo: "+t.how, 650, 255, 250, rgb(0xb8b0d0))
 	status := "Premio (aún bloqueado): "
 	scol := rgb(0xf0e060)
 	if g.trophyDone(t) {
 		status, scol = "Premio desbloqueado: ", rgb(0x70e090)
 	}
-	g.drawWrapped(dst, status+t.reward.name+". "+t.reward.desc, 650, 300, 250, scol)
-	g.drawText(dst, "Los premios se usan desde la TIENDA, en su lista (marcados con TROFEO).", 244, 440, rgb(0x8a86a0), 1)
-	g.drawText(dst, "↑/↓ o rueda elegir   Tab: álbum   "+actionHint(actBack)+" volver", 244, 470, rgb(0x8a86a0), 1)
+	g.drawWrapped(dst, status+t.reward.name+". "+t.reward.desc, 650, 323, 250, scol)
+	g.drawText(dst, "Los premios se usan desde la TIENDA, en su lista (marcados con TROFEO).", 244, 458, rgb(0x8a86a0), 1)
 }
 
 var _ = strings.ToLower

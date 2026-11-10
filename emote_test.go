@@ -17,7 +17,7 @@ func emoteRestore(t *testing.T) {
 // each state gives its icon
 func TestEmoteByState(t *testing.T) {
 	want := map[gState]emoteKind{
-		gAlarm: emNone, gToPhone: emNone, gCall: emNone, gReport: emNone, gFlee: emSweat, gScared: emSweat, gPunch: emAnger,
+		gAlarm: emNone, gToPhone: emNone, gCall: emNone, gReport: emNone, gFlee: emNone, gScared: emNone, gVomit: emNone, gPunch: emAnger,
 		gSleep: emZzz, gKiss: emHeart, gDanceWith: emHeart, gDance: emNote, gChat: emTalk, gWaitP: emQuestion, gIdle: emNone, gDrink: emNone,
 	}
 	for st, k := range want {
@@ -75,9 +75,9 @@ func TestEmoteCapAndRotation(t *testing.T) {
 	if len(seen) < 20 {
 		t.Errorf("only %d of 30 guests got an icon in 30 s: no rotation", len(seen))
 	}
-	// urgent ones come first: scared guests take the free places even with the calm ones full
+	// urgent ones come first: punching guests take the free places even with the calm ones full
 	for _, gu := range g.guests[:8] {
-		gu.state = gScared
+		gu.state = gPunch
 	}
 	for f := 0; f < 120; f++ {
 		g.time += 1.0 / 60
@@ -111,12 +111,12 @@ func TestEmoteDrawNoOverlap(t *testing.T) {
 			pl.pos = Vec{300, 300}
 			near := &Guest{pos: Vec{303, 330}, state: gAlarm}      // right under the player's column
 			free := &Guest{pos: Vec{600, 300}, state: gAlarm}      // free
-			close2 := &Guest{pos: Vec{604, 300}, state: gScared}   // on top of the free one's icon
+			close2 := &Guest{pos: Vec{604, 300}, state: gPunch}    // on top of the free one's icon
 			offscreen := &Guest{pos: Vec{-50, 300}, state: gAlarm} // out of the screen
 			g.guests = []*Guest{near, free, close2, offscreen}
 			g.emo.slots[0] = emoteSlot{gu: near, kind: emExcl, t: 0.5}
 			g.emo.slots[1] = emoteSlot{gu: free, kind: emExcl, t: 0.5}
-			g.emo.slots[2] = emoteSlot{gu: close2, kind: emSweat, t: 0.5}
+			g.emo.slots[2] = emoteSlot{gu: close2, kind: emAnger, t: 0.5}
 			g.drawEmotes(img, nil)
 			var drawn []*Guest
 			for i := 0; i < g.emo.nDrawn; i++ {

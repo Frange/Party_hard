@@ -65,7 +65,13 @@ func (g *Game) plainGuestCS() *CharSet {
 			return g.rigFor(people[g.rng.Intn(len(people))])
 		}
 	}
+	// no people folder: the built-in mix also draws famous presets (randomGuestSpec), and a famous face
+	// here would bring back the very duplicate uniqueFamous is swapping away (or one fillGuests adds
+	// unnamed): an ordinary guest is never famous.
 	spec := randomGuestSpec(g.rng)
+	if g.isFamous(spec.Name) {
+		spec = genericSpec(g.rng)
+	}
 	return newCharSet(&spec)
 }
 
@@ -119,6 +125,8 @@ func (g *Game) pickStartTarget() {
 		g.twoExtra = extraGuest + g.rng.Intn(11)
 		g.startTarget += g.twoExtra
 	}
+	g.crowdExtra = g.crowdExtraFit(g.crowdExtra) // the big-crowd parties (cap.go): +30, less with two players
+	g.startTarget += g.crowdExtra
 }
 
 // fillGuests tops the party up with ordinary guests until it has the target number.

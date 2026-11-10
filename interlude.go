@@ -11,7 +11,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// The two story interludes, between parties 5 and 6 (a car) and 10 and 11 (a boat).
+// The story interludes: between parties 5 and 6 (a car), 10 and 11 (a boat), 15 and 16 (a balloon) and, before the space station, the rocket.
 //
 // The hero walks down the street furious, muttering, steam coming out of his head,
 // while the places of the parties he has already finished pass by behind him as
@@ -69,7 +69,8 @@ func interludePlaces(kind int) []int {
 	case interBoat, interBalloon:
 		return nil // their own scenes: no memories
 	case interRocket:
-		return []int{15, 16, 17, 18, 19} // the last parties: the ski station, the roof, the casino, the motorway, the train station
+		s := len(campaignLevels) - 1 // the last five parties before the space station (ITALIA, train station, birthday, rink, 70s disco)
+		return []int{s - 5, s - 4, s - 3, s - 2, s - 1}
 	}
 	return []int{0, 1, 2, 3, 4}
 }
@@ -141,7 +142,7 @@ func (g *Game) interludeAfter(i int) (int, bool) {
 		return interBoat, true
 	case i == 14 && !g.seen("seen_interlude15"):
 		return interBalloon, true
-	case i == 19 && !g.seen("seen_interlude20"):
+	case i == len(campaignLevels)-2 && !g.seen("seen_interlude20"): // the party before the space station
 		return interRocket, true
 	}
 	return 0, false
@@ -169,7 +170,9 @@ func (g *Game) loadFlashback(in *interState) {
 func (g *Game) buildFlashback(def *LevelDef, seed int64) *ebiten.Image {
 	save := g.lvl
 	g.lvl = buildLevel(def)
+	seaSkyStill = true // a still picture: the sun's reflection and the ship baked in (seasky.go)
 	g.renderBG()
+	seaSkyStill = false
 	bg := g.lvl.bg
 	g.lvl = save
 	m := ebiten.NewImage(screenW, screenH)
@@ -761,7 +764,7 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 		hero()
 		return
 	}
-	body, dark, glass := rgb(0xd8742a), rgb(0x8a3c14), rgb(0x9ad0f0)
+	body, dark, glass := rgb(0xd8742a), rgb(0x8a3c14), vaGlassC
 	// a little engine shake while it idles
 	if t >= itStop && t < itDepart {
 		y += math.Round(math.Sin(t*38) * 1)
@@ -772,27 +775,43 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 	}
 	// the hero stands in front of the car, on the pavement: drawn before the near door
 	hero()
-	// wheels, body and cabin
+	// wheels, body and cabin, in the style of the vehicle art kit (vehart.go): dark contour,
+	// three-tone shading, turquoise glass with a shine and wheels with a light rim
 	body2 := func(dx, dy, w, h float64, col color.RGBA) { fillRect(c, x+dx, y+dy, w, h, col) }
+	ink := vaInk
+	body2(5, -65, 170, 46, ink) // the contour around body and cabin
+	body2(-3, -51, 186, 32, ink)
+	body2(27, -105, 106, 46, ink)
+	body2(-9, -39, 196, 18, ink)
 	body2(8, -62, 164, 40, body) // lower body
 	body2(0, -48, 180, 26, body)
+	body2(8, -62, 164, 4, shade(body, 1.25))
+	body2(0, -34, 180, 8, shade(body, 0.86))
 	body2(0, -26, 180, 4, dark)
 	body2(30, -102, 100, 42, body) // cabin
-	body2(40, -94, 36, 30, glass)  // windows
+	body2(30, -102, 100, 4, shade(body, 1.3))
+	body2(40, -94, 36, 30, glass) // windows
 	body2(84, -94, 38, 30, glass)
+	for k := 0.0; k < 3; k++ { // the shine
+		body2(48+k*4, -72-k*6, 6, 3, vaShineC)
+		body2(92+k*4, -72-k*6, 6, 3, vaShineC)
+	}
 	body2(76, -102, 4, 42, dark)
-	body2(170, -50, 10, 12, rgb(0xf8f0a0))
-	body2(-6, -36, 8, 12, rgb(0x9a9aa4)) // bumper
-	body2(176, -36, 8, 12, rgb(0x9a9aa4))
-	body2(2, -46, 6, 8, rgb(0xd02a2a))      // tail light
-	for _, wx := range []float64{38, 138} { // wheels
-		filledEllipse(c, x+wx, y-14, 19, 19, rgb(0x14141a))
-		filledEllipse(c, x+wx, y-14, 9, 9, rgb(0x9a9aa4))
+	body2(170, -50, 10, 12, vaHeadC)
+	body2(-6, -36, 8, 12, vaChromeC) // bumper
+	body2(176, -36, 8, 12, vaChromeC)
+	body2(2, -46, 6, 8, vaTailC)            // tail light
+	for _, wx := range []float64{38, 138} { // arches and wheels
+		filledEllipse(c, x+wx, y-16, 24, 22, rgb(0x101016))
+		filledEllipse(c, x+wx, y-14, 19, 19, vaTyre)
+		filledEllipse(c, x+wx, y-14, 15, 15, vaTyreSide)
+		filledEllipse(c, x+wx, y-14, 10, 10, vaRimC)
+		filledEllipse(c, x+wx, y-14, 4, 4, vaHub)
 		a := t*14 + wx
 		if t < itDepart {
 			a = 0
 		}
-		fillRect(c, x+wx+math.Cos(a)*7-1, y-14+math.Sin(a)*7-1, 2, 2, rgb(0x3a3a44))
+		fillRect(c, x+wx+math.Cos(a)*7-1, y-14+math.Sin(a)*7-1, 3, 3, rgb(0x3a3a44))
 	}
 	// the near door, which opens for him
 	o := 0.0

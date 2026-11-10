@@ -33,7 +33,7 @@ type PropKind struct {
 	hasFoot   bool
 	Ambient   float64
 	Category  string
-	Item      string // pickup: "poison" or "disguise"
+	Item      string     // pickup: "poison" or "disguise"
 	LightR    float64    // lamps: radius of the light (0 = default)
 	LightC    color.RGBA // lamps: colour and strength of the light (A == 0 = default)
 }
@@ -207,23 +207,7 @@ func init() {
 		b.ellipse(36, 17, 10, 8, c(0x4aa454))
 		b.ellipse(26, 30, 7, 5, c(0x3a8a44))
 	}}
-	pk["palm"] = &PropKind{W: 48, H: 72, FW: 8, FH: 6, Draw: func(b *pixBuf, v int) {
-		for y := 26; y < 72; y++ {
-			x := 22 + int(2.5*math.Sin(float64(y)/11))
-			b.rect(x, y, 4, 1, c(0x8a6a3c))
-			if y%4 == 0 {
-				b.rect(x, y, 4, 1, c(0x6a4e2a))
-			}
-		}
-		top := [2]int{24, 26}
-		fr := [][2]int{{4, 30}, {10, 14}, {24, 6}, {40, 14}, {46, 32}, {14, 36}, {36, 38}}
-		for _, f := range fr {
-			b.line(top[0], top[1], f[0], f[1], c(0x2e9a4a))
-			b.line(top[0], top[1]+1, f[0], f[1]+1, c(0x237a3a))
-			b.line(top[0], top[1]-1, f[0], f[1]-1, c(0x3eb45a))
-		}
-		b.ellipse(24, 27, 3, 3, c(0x6a4e2a))
-	}}
+	pk["palm"] = &PropKind{W: 48, H: 72, FW: 8, FH: 6, Vars: 4, Draw: drawPalm} // palmart.go
 	pk["bush"] = &PropKind{W: 34, H: 28, FW: 26, FH: 9, Hide: true, Draw: func(b *pixBuf, v int) {
 		b.ellipse(17, 18, 16, 9, c(0x1e5028))
 		b.ellipse(10, 14, 9, 8, c(0x2a6a34))
@@ -394,43 +378,6 @@ func init() {
 		b.rect(14, 14, 3, 10, c(0xc0c0cc))
 		b.rect(6, 26, 8, 4, c(0xb8b8c6))
 	}}
-}
-
-func genCar(b *pixBuf, v int) {
-	cols := []uint32{0xc03a3a, 0x3a6ac0, 0x3aa05a, 0xe0c040, 0xf2f2f6, 0xf6f6fa}
-	body := c(cols[v%len(cols)])
-	police := v == 4
-	b.ellipse(33, 31, 30, 4, color.RGBA{0, 0, 0, 90})
-	b.rect(2, 16, 62, 15, body)
-	b.rect(2, 16, 62, 1, shade(body, 1.25))
-	b.rect(2, 28, 62, 3, shade(body, 0.7))
-	b.rect(14, 5, 36, 13, shade(body, 0.9))
-	b.rect(14, 5, 36, 1, shade(body, 1.25))
-	b.rect(16, 7, 14, 9, c(0x7aa0c0))
-	b.rect(33, 7, 15, 9, c(0x7aa0c0))
-	b.rect(16, 7, 14, 2, c(0xa8c8e0))
-	b.rect(31, 5, 2, 12, shade(body, 0.7))
-	b.rect(2, 20, 3, 3, c(0xfff0b0))
-	b.rect(61, 20, 3, 3, c(0xe03030))
-	b.ellipse(15, 30, 6, 5, c(0x15151b))
-	b.ellipse(15, 30, 3, 2.6, c(0x9a9aa6))
-	b.ellipse(51, 30, 6, 5, c(0x15151b))
-	b.ellipse(51, 30, 3, 2.6, c(0x9a9aa6))
-	if v == 5 {
-		b.rect(2, 22, 62, 3, c(0xd02828))
-		b.rect(30, 16, 8, 6, c(0xd02828))
-		b.rect(32, 14, 4, 10, c(0xd02828))
-		b.rect(22, 2, 22, 3, c(0x2a2a34))
-		b.rect(22, 2, 11, 3, c(0xe03030))
-		b.rect(33, 2, 11, 3, c(0xf4f4f8))
-	}
-	if police {
-		b.rect(2, 22, 62, 4, c(0x2a4ab8))
-		b.rect(22, 2, 22, 3, c(0x2a2a34))
-		b.rect(22, 2, 11, 3, c(0xe03030))
-		b.rect(33, 2, 11, 3, c(0x3060ff))
-		b.rect(26, 24, 14, 1, c(0xffffff))
-	}
 }
 
 // PropImg is a prop sprite at the original game's scale with its anchor (bottom-centre).

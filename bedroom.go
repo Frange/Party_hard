@@ -45,6 +45,8 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	t := g.time
 	quiet := g.bedQuiet     // the ending: the neighbours are asleep too
 	gold := g.allTrophies() // everything won: a golden room, the party in the window is dead and he sleeps in peace
+	// the neighbours lie dead in their blood from the moment the story is finished (menutier.go: bronze, silver, gold)
+	dead := windowPartyDead(gold, g.menuTier(), quiet)
 	wall, floor := rgb(0x16202c), rgb(0x0d1420)
 	if gold {
 		wall, floor = rgb(0x3a2c10), rgb(0x241a08)
@@ -96,6 +98,9 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	if bedPumpOn {
 		ci = bedBeatN // the floor changes colour on every kick
 	}
+	if dead {
+		ci = 0 // nobody dances: the floor lights stand still
+	}
 	for cy := 0; cy < 3; cy++ { // flashing floor
 		for cx := 0; cx < 12; cx++ {
 			c := partyColors[(cx+cy*2+ci)%len(partyColors)]
@@ -105,19 +110,14 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 	bx := rx + rw/2 // disco ball
 	fr(bx, ry, 1, 12, rgb(0x8a8aa0))
 	fe(bx, ry+18, 7, 7, rgb(0xd8dcec))
-	for k := 0; k < 8; k++ {
+	for k := 0; k < 8 && !dead; k++ {
 		a := t*3 + float64(k)
 		fr(bx+math.Cos(a)*(11+float64(k%3)*6), ry+18+math.Sin(a)*(7+float64(k%2)*8), 2, 2, rgba(partyColors[(k+ci)%len(partyColors)], 220))
 	}
 	for i := 0; i < 6; i++ { // dancers
 		dx := rx + 24 + float64(i)*42
-		if gold { // the neighbours are all dead on the floor
-			shirt := shade(rgb(partyColors[(i*2+1)%len(partyColors)]), 0.6)
-			ly := ry + rh - 8
-			fr(dx-7, ly-3, 12, 6, shirt)
-			fr(dx-12, ly-2, 5, 4, rgb(0x14141c))
-			fe(dx+8, ly, 3.2, 3.2, rgb(0xc8a078))
-			fr(dx-3, ly-8, 6, 1, rgba(0xb01818, 200)) // a pool of blood
+		if dead { // the neighbours are all dead on the floor, in their blood (no movement)
+			bodyDead(fr, fe, dx, ry+rh-8, i, shade(rgb(partyColors[(i*2+1)%len(partyColors)]), 0.6))
 			continue
 		}
 		bob := math.Abs(math.Sin(t*6+float64(i)*1.7)) * 4
@@ -238,7 +238,7 @@ func (g *Game) drawBedroom(dst *ebiten.Image) {
 		fillRect(dst, bx0+2, by0, bx1-bx0, by1-by0, rgba(pc, 16)) // the party's lights on the sheets
 	}
 	dst.DrawImage(g.as.vignette, nil)
-	if !g.bedEmpty && !g.bedNoTalk && (!bedTwo || bedShiftX != 0) {
+	if !g.bedEmpty && !g.bedNoTalk && !hasBackButton(g.mode) && (!bedTwo || bedShiftX != 0) {
 		if bedTwo {
 			g.menuTwoOverlay(dst, t)
 			return
@@ -337,3 +337,32 @@ func (g *Game) speechBubble(dst *ebiten.Image, x, y float64, s string) {
 }
 
 var _ = color.RGBA{}
+
+// bodyDead draws one dead guest of the window party: lying down, a pool and splashes of blood (still, crisp pixels).
+func bodyDead(fr func(x, y, w, h float64, c color.RGBA), fe func(x, y, rx, ry float64, c color.RGBA), dx, ly float64, i int, shirt color.RGBA) {
+	dark, red := rgb(0x6a0a10), rgb(0xb01418)
+	fr(dx-13, ly-1, 28, 6, dark) // the pool
+	fr(dx-9, ly+3, 20, 2, red)
+	fr(dx-4, ly-5, 14, 3, red)
+	dir := 1.0
+	if i%2 == 1 {
+		dir = -1
+	}
+	fr(dx-7, ly-4, 12, 6, shirt) // torso
+	if dir > 0 {
+		fr(dx-14, ly-3, 7, 4, rgb(0x14141c)) // legs
+		fe(dx+9, ly-1, 3, 3, rgb(0xc8a078))  // head
+	} else {
+		fr(dx+5, ly-3, 7, 4, rgb(0x14141c))
+		fe(dx-9, ly-1, 3, 3, rgb(0xc8a078))
+	}
+	fr(dx-2, ly-3, 4, 2, red) // the wound
+	for k := 0; k < 3; k++ {  // splashes up the wall
+		fr(dx-10+float64((i*7+k*9)%20), ly-11-float64((k*5+i)%7), 2, 2, red)
+	}
+}
+
+// windowPartyDead: the party in the window lies dead once the story is finished (tier bronze or better) or all is won.
+func windowPartyDead(gold bool, tier int, quiet bool) bool {
+	return (gold || tier >= tierBronze) && !quiet
+}

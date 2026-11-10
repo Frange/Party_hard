@@ -118,6 +118,7 @@ func djCoverIssues(l *Level) []string {
 }
 
 func TestDJAndBandVisible(t *testing.T) {
+	snapshotPropKinds(t)
 	if st := loadAssetStore(); st != nil {
 		applyObjects(st.Objs)
 	}

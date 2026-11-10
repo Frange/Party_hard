@@ -32,27 +32,33 @@ const (
 )
 
 type JRex struct {
-	pos      Vec
-	face     float64 // -1 looks left, +1 right
-	state    int
-	timer    float64
-	path     []Vec
-	cur      rexPrey // what it is after (the nearest person it sees: nobody has priority)
-	pickT    float64
-	lostT    float64
-	roarIn   float64
-	roarT    float64
-	phase    float64
-	moving   bool
-	repath   float64
-	scaredAt map[*Guest]float64
-	eatCS    *CharSet
-	eatBody  *Body           // the victim lies here while the rex tears at it
-	skip     map[any]float64 // people it cannot reach: left alone until that time
-	biteT    float64         // timer of the warning effects
-	noPath   float64         // how long the chase has had no way to the prey
-	eatE     float64         // seconds into the meal
-	biteOn   bool
+	pos        Vec
+	face       float64 // -1 looks left, +1 right
+	state      int
+	timer      float64
+	path       []Vec
+	cur        rexPrey // what it is after (the nearest person it sees: nobody has priority)
+	pickT      float64
+	lostT      float64
+	roarIn     float64
+	roarT      float64
+	phase      float64
+	moving     bool
+	repath     float64
+	scaredAt   map[*Guest]float64
+	eatCS      *CharSet
+	eatBody    *Body           // the victim lies here while the rex tears at it
+	skip       map[any]float64 // people it cannot reach: left alone until that time
+	hp         float64         // life: only the Power Rangers can take it to 0 (rexfight.go)
+	rolled     bool            // the Power Rangers' fight has been decided
+	rangersWin bool
+	biteT      float64 // timer of the warning effects
+	noPath     float64 // how long the chase has had no way to the prey
+	eatE       float64 // seconds into the meal
+	biteOn     bool
+	seenPos    Vec     // where it was last drawn (to know which way it walks: side, towards us or away)
+	headX      float64 // smoothed screen heading while drawn
+	headY      float64
 }
 
 // jpDino is a dinosaur that only walks about its pen: drawn, nothing else.
@@ -119,7 +125,7 @@ func (g *Game) spawnJurassic() {
 	if fastEv {
 		first = 4
 	}
-	g.rex = &JRex{pos: Vec{790, 256}, face: -1, state: jrSleep, timer: first, roarIn: 9 + g.rng.Float64()*6, scaredAt: map[*Guest]float64{}, skip: map[any]float64{}}
+	g.rex = &JRex{pos: Vec{790, 256}, face: -1, state: jrSleep, timer: first, hp: rexMaxHP, roarIn: 9 + g.rng.Float64()*6, scaredAt: map[*Guest]float64{}, skip: map[any]float64{}}
 	rng := g.rng
 	mk := func(name string, v int, area Rect, sp float64) *jpDino {
 		d := &jpDino{name: name, v: v, area: area, speed: sp, face: -1, pause: rng.Float64() * 3, flipEvery: 0.7 + rng.Float64()*0.6}
@@ -338,7 +344,8 @@ func (g *Game) rexKillCop(c *Cop, cs *CharSet) {
 			}
 		}
 		if !left {
-			g.ambCalled, g.ambCount = false, 0
+			g.ambCalled, g.ambCount, g.ambTwin = false, 0, false
+			g.medicsDone()
 		}
 	}
 	g.spawnBody(c.pos, cs, c.dir)
@@ -479,6 +486,7 @@ func (g *Game) updateRex(dt float64) {
 		r.path = g.rexPath(r.pos, t)
 		r.repath = 8 + g.rng.Float64()*6
 	}
+	speed *= rexSlow(r.hp) // the military and the SWAT weaken it (rexfight.go)
 	// eat what is in reach (the player is only caught by touching it, above)
 	if r.state == jrChase && r.cur.at != nil && !r.cur.player && dist(r.biteSpot(), r.cur.at()) < 22 {
 		g.jrEats(r.cur)
@@ -486,7 +494,7 @@ func (g *Game) updateRex(dt float64) {
 	}
 	// make the guests nearby hesitate, a little
 	for _, gu := range g.guests {
-		if gu.out() || gu.state == gScared || gu.state == gSwim {
+		if gu.out() || gu.state == gScared || gu.state == gSwim || g.reporterActive(gu) { // the one calling keeps running to the phone
 			continue
 		}
 		if dist(r.pos, gu.pos) < 150 && g.time-r.scaredAt[gu] > 7 {
@@ -522,7 +530,7 @@ func (g *Game) updateRex(dt float64) {
 func (g *Game) scareAround(at Vec, rad float64) {
 	var near []*Guest
 	for _, gu := range g.guests {
-		if gu.out() || gu.state == gSwim || dist(at, gu.pos) > rad {
+		if gu.out() || gu.state == gSwim || dist(at, gu.pos) > rad || g.reporterActive(gu) {
 			continue
 		}
 		g.scare(gu)
@@ -563,6 +571,8 @@ func (g *Game) jrEats(pr rexPrey) {
 	r.eatBody = nil
 	if len(g.bodies) > nb {
 		r.eatBody = g.bodies[len(g.bodies)-1]
+		r.eatBody.byRex = !r.eatBody.byPlayer // witnesses report it (rexfight.go)
+		g.rexWitnesses(r.eatBody)
 		if dist(r.eatBody.pos, at) < 2 {
 			r.eatBody.pos = spot
 		}
@@ -591,13 +601,7 @@ func (g *Game) updateRexMeal(r *JRex, dt float64) {
 		}
 		r.biteOn = on
 	case e >= 2.4 && r.eatBody != nil:
-		// head up, the rest goes down the throat
-		for i, b := range g.bodies {
-			if b == r.eatBody {
-				g.bodies = append(g.bodies[:i], g.bodies[i+1:]...)
-				break
-			}
-		}
+		// head up: what is left stays on the ground for the police to cover (rexfight.go)
 		r.eatBody = nil
 		g.burst(Vec{spot.X, spot.Y - 20}, 16, 110, rgb(0xb01818), 0.8, 2, 240)
 		g.rexSplat(spot, r.eatCS)
@@ -885,8 +889,23 @@ func (g *Game) drawJRex(dst *ebiten.Image, r *JRex) {
 	if len(imgs) == 0 {
 		return
 	}
-	// the pose of the moment
-	v := 0
+	// the pose of the moment (rexart.go): walking alternates its feet, a meal ends chewing, and a walk that goes mostly
+	// up or down the screen shows the front or the back of the beast
+	if dx, dy := r.pos.X-r.seenPos.X, r.pos.Y-r.seenPos.Y; math.Abs(dx)+math.Abs(dy) < 40 {
+		r.headX, r.headY = r.headX*0.9+dx*0.1, r.headY*0.9+dy*0.1
+	}
+	r.seenPos = r.pos
+	step := int(r.phase*6.4/math.Pi) & 1
+	v := rexPoseWalkA + step*(rexPoseWalkB-rexPoseWalkA)
+	if r.moving && math.Abs(r.headY) > 1.4*math.Abs(r.headX) && math.Abs(r.headY) > 0.02 {
+		v = rexPoseFront + step
+		if r.headY < 0 {
+			v = rexPoseBack + step
+		}
+	}
+	if !r.moving {
+		v = rexPoseWalkA
+	}
 	switch r.state {
 	case jrRoar:
 		v = 4
@@ -901,7 +920,10 @@ func (g *Game) drawJRex(dst *ebiten.Image, r *JRex) {
 				v = 2
 			}
 		default:
-			v = 3
+			v = 3 // swallowing, then chewing
+			if int(e*5)%2 == 1 {
+				v = rexPoseChew
+			}
 		}
 	}
 	if v >= len(imgs) {
@@ -928,6 +950,8 @@ func (g *Game) drawJRex(dst *ebiten.Image, r *JRex) {
 		if r.moving {
 			bob = -math.Abs(math.Sin(r.phase*6.4)) * 2.4
 			lean = math.Sin(r.phase*6.4) * 0.025
+		} else {
+			bob = math.Round(math.Sin(r.phase*2.2) * 0.7) // idle: it breathes
 		}
 	}
 	op := &ebiten.DrawImageOptions{}

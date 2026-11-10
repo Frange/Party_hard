@@ -1,0 +1,10 @@
+{
+  "name": "military_b",
+  "display_name": "Military B",
+  "category": "police",
+  "role": "military",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

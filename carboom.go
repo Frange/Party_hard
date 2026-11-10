@@ -44,6 +44,7 @@ func (g *Game) f1Explode(e *Event) {
 	e.boom = &f1Boom{}
 	d := f1Drivers[e.n]
 	g.snd.Play("boom")
+	g.decals = append(g.decals, Decal{pos: Vec{e.x, e.y}, kind: 1, r: 15}) // the burnt spot stays (damage.go stamps it)
 	g.shake = 0.45
 	g.burst(Vec{e.x, e.y - 12}, 30, 130, rgb(0xff9030), 0.8, 3, 60)
 	g.burst(Vec{e.x, e.y - 10}, 20, 150, rgb(0xffd060), 0.5, 2, 140)

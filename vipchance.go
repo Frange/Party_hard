@@ -9,21 +9,21 @@ import (
 // HOW OFTEN A VIP ZONE APPEARS AND WHICH VIP COMES OUT (vip.go has the zone itself).
 //
 //   - Each party (a level that is played; never STEALTH, never the Jurassic party; interludes and endings do not
-//     load through loadLevel) rolls vipChance (1 in 5) with its OWN dice (vipRng): g.rng is not moved, like the
+//     load through loadLevel) rolls vipChance (1 in 3) with its OWN dice (vipRng): g.rng is not moved, like the
 //     blackout and the killers. Tests seed it with vipReseed.
 //   - Only levels where vipPlace finds room for the carpet can have it (the adaptive placement of vip.go; a level
 //     without room counts as "no zone"). Eligible levels: see TestVIPEligibleLevels / docs/NOVEDADES.md.
-//   - Pity: after vipPityAfter parties in a row without a zone, the next one gets it for sure (counter in memory, per
-//     session; nothing is written to progress.json).
+//   - Pity: after vipPityAfter (5) parties in a row without a zone, the next one gets it for sure (counter in memory, per
+//     session; nothing is written to progress.json). With 1 in 3 and that pity a zone comes every ~2.7 parties.
 //   - Which VIP: the ones the player has NOT got yet (no ELIMINADO and no AMIGO bit in Progress.Album, nor killed in
 //     this session). The one that suits the level's theme (vipPlan) is preferred half of the time when it is still
-//     missing. When all 11 are got, any of them at random (repeats allowed). Old saves without Album = none got.
+//     missing. When all 50 are got, any of them at random (repeats allowed). Old saves without Album = none got.
 //   - -vipdemo forces a zone in every level (no dice).
 // ---------------------------------------------------------------------------
 
 const (
-	vipChance    = 1.0 / 5 // chance per party that the level has a VIP zone
-	vipPityAfter = 8       // parties in a row without a zone before the next one is certain
+	vipChance    = 1.0 / 3 // chance per party that the level has a VIP zone (it was 1 in 5)
+	vipPityAfter = 5       // parties in a row without a zone before the next one is certain (it was 8 with 1 in 5)
 	vipAffinityP = 0.5     // chance to try the VIP that suits the theme first (when he is still missing)
 )
 
@@ -99,5 +99,10 @@ func vipDecide(r *rand.Rand, def *LevelDef, album map[string]int, misses *int, s
 
 // vipRoll: loadLevel asks it before building the level.
 func (g *Game) vipRoll(def *LevelDef) string {
+	if g.dc != nil && !g.stealth && !vipOff && def != nil && def.Title != "" { // RETO DE HOY: a VIP for sure (daily.go)
+		if d, _ := vipPlace(def, g.dc.vip); d != nil {
+			return g.dc.vip
+		}
+	}
 	return vipDecide(vipDice(), def, g.progress.Album, &vipMisses, g.stealth, dbgVIPDemo != "" || vipForce)
 }

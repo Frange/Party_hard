@@ -1,0 +1,11 @@
+{
+  "name": "marinero_maldito",
+  "display_name": "Marinero Maldito",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "flag",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

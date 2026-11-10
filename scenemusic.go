@@ -279,21 +279,45 @@ func echoLoop(x []float64, delay, fb, mixv float64) []float64 {
 
 // ---- built in the background, once ------------------------------------------------------------------
 
+// Every kind is built once, by whoever asks first; the others wait for that build (never for another kind's:
+// the menu's track of the tier must not queue behind the scene songs the warm-up thread is building).
+type ambEntry struct {
+	once sync.Once
+	b    []byte
+}
+
 var (
 	ambMu    sync.Mutex
-	ambCache = map[string][]byte{}
+	ambCache = map[string]*ambEntry{}
+	// ambBuildFn builds a kind (the tests make it slow to check that nothing waits for it)
+	ambBuildFn = buildAmbient
 )
 
 // ambientPCM returns the loop of a kind, building it the first time (the warm-up thread usually has it ready).
 func ambientPCM(kind string) []byte {
 	ambMu.Lock()
-	defer ambMu.Unlock()
-	if b, ok := ambCache[kind]; ok {
-		return b
+	e := ambCache[kind]
+	if e == nil {
+		e = &ambEntry{}
+		ambCache[kind] = e
 	}
-	b := buildAmbient(kind)
-	ambCache[kind] = b
-	return b
+	ambMu.Unlock()
+	e.once.Do(func() {
+		e.b = ambBuildFn(kind)
+		ambReady.Store(kind, e.b)
+	})
+	return e.b
+}
+
+// ambReady: the loops already built, readable without waiting for the build thread.
+var ambReady sync.Map
+
+// ambientReady returns the loop of a kind if it has been built already, nil otherwise (it never waits).
+func ambientReady(kind string) []byte {
+	if b, ok := ambReady.Load(kind); ok {
+		return b.([]byte)
+	}
+	return nil
 }
 
 var warmOnce sync.Once
@@ -302,11 +326,21 @@ var warmOnce sync.Once
 func warmAmbient() {
 	warmOnce.Do(func() {
 		go func() {
-			for _, k := range ambientKinds {
+			for _, k := range append([]string{ambAnthem}, append(ambientKinds, ambSleep)...) { // the anthem first: the title and the menu play it
 				ambientPCM(k)
 			}
 		}()
 	})
+}
+
+// ambientWarmOne builds one kind in a background thread (once), for the loops the warm-up does not build.
+var ambWarming sync.Map
+
+func ambientWarmOne(kind string) {
+	if _, busy := ambWarming.LoadOrStore(kind, true); busy {
+		return
+	}
+	go ambientPCM(kind)
 }
 
 // ambientBuilder is what StartScene needs for a kind.
@@ -330,4 +364,22 @@ func (g *Game) introMusicStart() bool {
 	resetThumpBeat()
 	g.snd.StartThump()
 	return false
+}
+
+// ---- how loud the synthesised party of the first intro is -------------------------------------------------
+
+// The party next door (the synthesised loop, buildThump) used to be heard only faintly. Its level is
+// introThumpVol (the story: it swells, drops when the cloud pops, the door...) times a ramp that grows
+// over the scene from introRampFrom to introRampTo, and never above introMusicCap; the player then
+// applies thumpGain (audio.go). A song of the intros/ folder keeps its old level (introThumpVol * sceneGain).
+const (
+	introRampFrom = 1.15 // the ramp at the start of the scene (already louder than before: it was 1.0)
+	introRampTo   = 1.35 // and when the cloud pops (inBurst): the party is clearly there
+	introMusicCap = 0.9  // the ceiling of the level: present, never on top of the other sounds
+)
+
+// introMusicVol: how loud the synthesised party of the first intro is at scene time t (0..introMusicCap).
+func introMusicVol(t float64) float64 {
+	ramp := introRampFrom + (introRampTo-introRampFrom)*smooth01(t/inBurst)
+	return math.Min(introMusicCap, introThumpVol(t)*ramp)
 }

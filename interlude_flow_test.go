@@ -7,11 +7,11 @@ import (
 
 // flowGame: a game with real sound and frozen progress; the level that is "just finished" is idx.
 func flowGame(idx int, two bool) *Game {
-	if len(levelDefs) < 22 { // the whole campaign (and the random pool) as in the real game
+	if len(levelDefs) <= len(campaignLevels) { // the whole campaign (and the random pool) as in the real game
 		levelDefs = builtinLevels()
 	}
-	if campaignN != 21 {
-		panic("the campaign must have 21 parties")
+	if campaignN != len(campaignLevels) {
+		panic("every party of the campaign must build")
 	}
 	g := firstRunGame()
 	g.rng = rand.New(rand.NewSource(7))
@@ -36,7 +36,7 @@ func TestInterludeFlowCampaign(t *testing.T) {
 		for idx := 0; idx < campaignN-1; idx++ {
 			g := flowGame(idx, two)
 			leaveLevel(g)
-			wantInter := map[int]int{4: interCar, 9: interBoat, 14: interBalloon, 19: interRocket}
+			wantInter := map[int]int{4: interCar, 9: interBoat, 14: interBalloon, campaignN - 2: interRocket}
 			kind, isInter := wantInter[idx]
 			if isInter {
 				if g.mode != ModeInterlude || g.inter == nil || g.inter.kind != kind || g.inter.next != idx+1 || g.inter.two != two {
@@ -57,26 +57,26 @@ func TestInterludeFlowCampaign(t *testing.T) {
 	}
 }
 
-// the rocket goes between party 20 (train station) and party 21 (space station), only once
+// the rocket goes between the 70s disco and the space station (the last two of the list), only once
 func TestRocketBeforeSpaceStationOnce(t *testing.T) {
 	defer flowReset()
 	for _, two := range []bool{false, true} {
-		g := flowGame(19, two)
+		g := flowGame(campaignN-2, two)
 		leaveLevel(g)
-		if g.mode != ModeInterlude || g.inter.kind != interRocket || g.inter.next != 20 {
-			t.Fatal("beating party 20 must show the rocket, then party 21")
+		if g.mode != ModeInterlude || g.inter.kind != interRocket || g.inter.next != campaignN-1 {
+			t.Fatal("beating party 23 must show the rocket, then party 24")
 		}
-		if levelDefs[19].Title != "ESTACIÓN DE TREN" || levelDefs[20].Title != "ESTACIÓN ESPACIAL" {
-			t.Fatalf("level order changed: %q -> %q", levelDefs[19].Title, levelDefs[20].Title)
+		if levelDefs[campaignN-2].Title != "DISCO SETENTERA" || levelDefs[campaignN-1].Title != "ESTACIÓN ESPACIAL" {
+			t.Fatalf("level order changed: %q -> %q", levelDefs[campaignN-2].Title, levelDefs[campaignN-1].Title)
 		}
 		if !g.seen("seen_interlude20") {
 			t.Error("marked only at the end: a retry after dying would repeat it")
 		}
-		// dying in party 21 and retrying, or beating 20 again: no rocket
+		// dying in party 24 and retrying, or beating 23 again: no rocket
 		g.finishInterlude()
-		g.mode, g.levelIdx = ModeLevelDone, 19
+		g.mode, g.levelIdx = ModeLevelDone, campaignN-2
 		leaveLevel(g)
-		if g.mode != ModePlay || g.levelIdx != 20 {
+		if g.mode != ModePlay || g.levelIdx != campaignN-1 {
 			t.Fatalf("2P=%v: the rocket repeated (mode %v)", two, g.mode)
 		}
 		g.startLevel(g.levelIdx) // retry after losing
@@ -90,17 +90,17 @@ func TestRocketBeforeSpaceStationOnce(t *testing.T) {
 func TestRocketNeverElsewhere(t *testing.T) {
 	defer flowReset()
 	g := flowGame(0, false)
-	for _, i := range []int{20, 21, 22, 1000} {
+	for _, i := range []int{18, 19, 20, 21, 22, campaignN - 1, 1000} {
 		if _, ok := g.interludeAfter(i); ok {
 			t.Errorf("level index %d must not trigger an interlude", i)
 		}
 	}
 	// the list (and random mode) call startLevel directly: never an interlude
-	g.startLevel(20)
+	g.startLevel(campaignN - 1)
 	if g.mode != ModePlay || g.inter != nil {
-		t.Fatal("picking party 21 in the list must not play the rocket")
+		t.Fatal("picking party 24 in the list must not play the rocket")
 	}
-	if campaignN < 21 {
+	if campaignN < 24 {
 		return
 	}
 	// random-mode parties (beyond the campaign) never trigger anything, even index 19 mod something
@@ -113,10 +113,10 @@ func TestRocketNeverElsewhere(t *testing.T) {
 		}
 	}
 	// already seen: not again (all three)
-	g = flowGame(19, false)
+	g = flowGame(campaignN-2, false)
 	g.progress.Stats["seen_interlude20"] = 1
 	leaveLevel(g)
-	if g.mode != ModePlay || g.levelIdx != 20 {
+	if g.mode != ModePlay || g.levelIdx != campaignN-1 {
 		t.Fatal("a seen rocket must not play again")
 	}
 }

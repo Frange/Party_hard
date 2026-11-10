@@ -1,7 +1,9 @@
 package main
 
+import "fmt"
+
 // ---------------------------------------------------------------------------
-// The 20 fixed campaign scenarios, always in this order, unlocked one at a
+// The 25 fixed campaign scenarios, always in this order, unlocked one at a
 // time by finishing the previous one (see progress.go). Everything else
 // (extraLevels below, plus a second roll of every campaign kind with a
 // different seed) only feeds the free "random" mode and never gates
@@ -36,8 +38,36 @@ var campaignLevels = []campaignEntry{
 	{level: level2, icon: "roof"},
 	{kind: "casino", seed: 397, title: "CASINO", icon: "casino"},
 	{kind: "highway", seed: 131, title: "AUTOPISTA", icon: "highway"},
+	// ITALIA goes right after the highway (italy.go); saves of the 24-party layout are moved by progress_migrate.go
+	{kind: "italy", seed: 509, title: "ITALIA", icon: "italy"},
 	{kind: "trainstation", seed: 71, title: "ESTACIÓN DE TREN", icon: "train"},
+	{kind: "birthday", seed: 331, title: "FIESTA DE CUMPLEAÑOS", icon: "cake"},
+	{kind: "hockey", seed: 173, title: "PISTA DE HOCKEY", icon: "hockey"},
+	{kind: "disco70", seed: 257, title: "DISCO SETENTERA", icon: "disco70"},
+	// RULE: the last two parties are ALWAYS the space station and then the secret island (jurassic.go, not listed here).
 	{kind: "station", seed: 239, title: "ESTACIÓN ESPACIAL", icon: "station"},
+}
+
+// legacyStationKey: the editor override name of the space station in the 21-party campaign.
+const legacyStationKey = "c21_station"
+
+// campaignIdx: the position (0 based) of the campaign party with that icon, -1 if there is none.
+func campaignIdx(icon string) int {
+	for i, e := range campaignLevels {
+		if e.icon == icon {
+			return i
+		}
+	}
+	return -1
+}
+
+// campaignKeyRev1: the editor key that party i had in the 24-party layout (before ITALIA was inserted at
+// italyIdx), "" for ITALIA itself and for the parties that did not move.
+func campaignKeyRev1(i int) string {
+	if i <= italyIdx || i >= len(campaignLevels) {
+		return ""
+	}
+	return fmt.Sprintf("c%02d_%s", i, campaignLevels[i].icon)
 }
 
 // campaignN: how many campaign levels built successfully. Filled in by
@@ -62,8 +92,18 @@ func builtinLevels() []*LevelDef {
 	for i, e := range campaignLevels {
 		if d := resolveCampaign(e); d != nil {
 			d.Icon = e.icon
-			if la := levelOverrides[campaignKey(i)]; la != nil {
+			la := levelOverrides[campaignKey(i)]
+			if la == nil { // an editor correction saved before ITALIA was inserted keeps the old number in its key
+				if k := campaignKeyRev1(i); k != "" {
+					la = levelOverrides[k]
+				}
+			}
+			if la == nil && e.icon == "station" { // before the 3 new parties the station was the 21st (c21_station)
+				la = levelOverrides[legacyStationKey]
+			}
+			if la != nil {
 				applyLevelOverride(d, la)
+				addMurray(d) // an edited level may have moved things next to him: re-check his spot
 			}
 			out = append(out, d)
 		}

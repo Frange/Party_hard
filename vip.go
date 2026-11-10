@@ -35,7 +35,7 @@ import (
 //   leave their posts for the rest of the window (vipShiftWindow in all): nobody guards the gate and the inner guard
 //   ignores the player. The clock is paused while the staff is alarmed.
 //
-// VIP REGISTRY (30): vipRegistry() lists 11 invented VIPs (id, names, rank, behaviour, bonus, look). The plan gives a
+// VIP REGISTRY (50): vipRegistry() lists 50 invented VIPs (11 here, 39 in vipmore.go) (id, names, rank, behaviour, bonus, look). The plan gives a
 //   different one to each level. vipEliminated is the in-memory "killed" mark for the future card album
 //   (vipSnapshot); nothing is saved to disk here.
 // ---------------------------------------------------------------------------
@@ -121,8 +121,9 @@ var vipDefs = []vipDef{
 		spec: func() CharSpec {
 			s := vipBase()
 			s.Skin = hx(0xf0d0b8)
-			s.Hair2, s.Glasses, s.Hat, s.HatCol = HairBald, GlassRound, HatWizard, hx(0xf4f0e0)
-			s.Top, s.Shirt, s.Shirt2, s.Accent, s.Pants = TopRobe, hx(0xf4f2ea), hx(0xe8c040), hx(0xe8c040), hx(0xf4f2ea)
+			s.Hair, s.Hair2, s.Glasses, s.Hat = hx(0xc4c4c8), HairBald, GlassNone, HatNone // mitre and grey hair: ptf_art.go
+			s.Top, s.Shirt, s.Shirt2, s.Accent, s.Pants = TopRobe, hx(0xf6f4ee), hx(0xe8c040), hx(0xe8c040), hx(0xf6f4ee)
+			s.Shoes, s.Pattern = hx(0x18181c), ptfPopeMark // long cassock with a golden stole (ptf_art.go)
 			s.Carry, s.CarryCol = HoldSaber, hx(0xf0c030)
 			return s
 		}},
@@ -448,10 +449,13 @@ func buildLevel(def *LevelDef) *Level {
 			l := buildLevelRaw(nd)
 			zc := *z
 			l.vip = &zc
+			l.addTables() // cloth tables and chairs of a few indoor parties (pe_tables.go)
 			return l
 		}
 	}
-	return buildLevelRaw(def)
+	l := buildLevelRaw(def)
+	l.addTables()
+	return l
 }
 
 // vipRemovable: decoration that may be cleared from under the carpet.
@@ -981,6 +985,12 @@ func (g *Game) vipTough(gd *Guard) bool {
 	return true
 }
 
+// vipInZone: is this spot inside the VIP area (the zone where the staff works) of the current party?
+func (g *Game) vipInZone(pos Vec) bool {
+	z := g.lvl.vip
+	return z != nil && z.trig.Has(pos.X, pos.Y)
+}
+
 // vipOnKill: a staff member just died by the player's hand.
 func (g *Game) vipOnKill(gd *Guard) {
 	if gd.vip == 0 {
@@ -998,8 +1008,11 @@ func (g *Game) vipOnKill(gd *Guard) {
 	if d == nil {
 		return
 	}
-	vipEliminated[d.id] = true
-	g.albumMark("vip:"+d.id, albumKilled)
+	// the card (and the "eliminated" mark) only count when he dies inside the VIP area of the party
+	if g.vipInZone(gd.pos) {
+		vipEliminated[d.id] = true
+		g.albumMark("vip:"+d.id, albumKilled)
+	}
 	pay := d.bonus
 	if pay <= 0 {
 		pay = vipDefaultPay
@@ -1034,7 +1047,9 @@ func (g *Game) vipInteract(p *Player) bool {
 			continue
 		}
 		gd.vipUsed = true
-		g.albumMark("vip:"+d.id, albumHelped)
+		if g.vipInZone(gd.pos) {
+			g.albumMark("vip:"+d.id, albumHelped)
+		}
 		g.stat("vipfriend", 1)
 		gd.icon, gd.iconT = "¡Gracias, amigo!", 2.5
 		g.snd.Play("spark")

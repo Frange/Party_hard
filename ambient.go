@@ -128,11 +128,11 @@ func bgFor(def *LevelDef) *bgLevel {
 	seaBand := def.Sky == "sea" && def.Shape == nil
 	if b.fx&bgCrests != 0 {
 		if seaBand {
-			for i := 0; i < 26; i++ {
+			for i := 0; i < 44; i++ {
 				b.crests = append(b.crests, bgCrest{rng.Float64() * 940, b.seaTop + rng.Float64()*(b.shoreY-b.seaTop-16), 8 + rng.Float64()*10, rng.Float64() * 6.28})
 			}
 		} else if def.Shape != nil {
-			for try := 0; try < 900 && len(b.crests) < 70; try++ {
+			for try := 0; try < 900 && len(b.crests) < 110; try++ {
 				x, y, w := 6+rng.Float64()*930, 46+rng.Float64()*480, 8+rng.Float64()*10
 				if def.Shape(x, y, 18) || def.Shape(x+w, y, 18) || def.Shape(x+w/2, y, 18) {
 					continue
@@ -273,6 +273,7 @@ func (g *Game) drawBackAnim(dst *ebiten.Image) {
 	if !ambientOn || g.lvl == nil || g.lvl.Def == nil || px == nil {
 		return
 	}
+	g.drawSeaSky(dst, g.time) // the sun's reflection rocking on the swell, the ship on the horizon (seasky.go)
 	b := bgFor(g.lvl.Def)
 	if b.fx == 0 {
 		return
@@ -282,9 +283,12 @@ func (g *Game) drawBackAnim(dst *ebiten.Image) {
 	fx := b.fx
 	if fx&bgCrests != 0 {
 		for _, c := range b.crests {
-			a := 22 + 30*math.Max(0, math.Sin(t*1.1+c.ph))
-			x := c.x + math.Round(3*math.Sin(t*0.45+c.ph))
-			bgRect(dst, x+ox, c.y+oy, c.w, 1, bgCol(0xb0, 0xd0, 0xff, a))
+			// a slow swell: the crest drifts a few pixels and fades in and out smoothly (no flicker);
+			// a darker line right under it gives the wave its shape
+			k := 0.5 + 0.5*math.Sin(t*0.6+c.ph)
+			x := c.x + math.Round(4*math.Sin(t*0.3+c.ph))
+			bgRect(dst, x+ox, c.y+oy, c.w, 1, bgCol(0xb8, 0xd8, 0xff, 14+44*k))
+			bgRect(dst, x+2+ox, c.y+2+oy, c.w-3, 1, bgCol(0x10, 0x30, 0x78, 10+30*k))
 		}
 	}
 	if fx&bgGlitter != 0 && b.def.Sky == "sea" {
@@ -329,14 +333,33 @@ func (g *Game) drawBackAnim(dst *ebiten.Image) {
 	}
 	if fx&bgPool != 0 {
 		for pi, p := range g.lvl.Pools {
-			for i := 0; i < 6; i++ {
+			n := int(p.W*p.H/500) + 2 // slow ripples: a light line with a darker one under it, drifting inside the pool
+			if n > 10 {
+				n = 10
+			}
+			for i := 0; i < n; i++ {
+				ph := bgH(pi*16+i, 7) * 6.28
+				w := 6 + math.Floor(bgH(pi*16+i, 10)*6)
+				if w > p.W-6 {
+					w = p.W - 6
+				}
+				if w < 2 {
+					continue
+				}
+				x := p.X + 3 + (p.W-6-w)*(0.5+0.5*math.Sin(t*0.25+ph))
+				y := p.Y + 3 + bgH(pi*16+i, 9)*(p.H-7)
+				k := 0.5 + 0.5*math.Sin(t*0.7+ph)
+				bgRect(dst, math.Round(x)+ox, math.Round(y)+oy, w, 1, bgWhite(30+90*k))
+				bgRect(dst, math.Round(x)+1+ox, math.Round(y)+1+oy, w-1, 1, bgCol(0x10, 0x40, 0x90, 14+26*k))
+			}
+			for i := 0; i < 4; i++ { // the old sparkles
 				s := math.Sin(t*1.8 + bgH(pi*8+i, 7)*6.28)
 				if s <= 0.3 {
 					continue
 				}
 				x := p.X + 3 + bgH(pi*8+i, 8)*(p.W-8) + math.Round(2*math.Sin(t*0.7+float64(i)))
 				y := p.Y + 3 + bgH(pi*8+i, 9)*(p.H-6)
-				bgRect(dst, math.Round(x)+ox, math.Round(y)+oy, 2, 1, bgWhite(190*s*s))
+				bgRect(dst, math.Round(x)+ox, math.Round(y)+oy, 2, 1, bgWhite(150*s*s))
 			}
 		}
 	}

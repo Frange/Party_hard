@@ -40,17 +40,22 @@ type paperLayout struct {
 	blocks []prect
 	banner prect
 	briefs []string // the small news of the page, in order
+	heads  []string // their section heads, in the same order (never repeated on a page)
 }
 
 type pcv struct {
-	im  *image.RGBA
-	lay *paperLayout
+	im   *image.RGBA
+	lay  *paperLayout
+	clip image.Rectangle // when not empty, put draws only inside it (the photo never leaves its frame)
 }
 
 func paperTextW(s string) int { return font.MeasureString(bitmapfont.Face, s).Ceil() }
 
 func (c *pcv) put(x, y int, col color.RGBA) {
 	if x < 0 || y < 0 || x >= c.im.Rect.Dx() || y >= c.im.Rect.Dy() {
+		return
+	}
+	if !c.clip.Empty() && !(image.Point{x, y}).In(c.clip) {
 		return
 	}
 	i := c.im.PixOffset(x, y)

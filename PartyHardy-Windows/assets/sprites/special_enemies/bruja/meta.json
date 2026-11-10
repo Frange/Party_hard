@@ -1,0 +1,11 @@
+{
+  "name": "bruja",
+  "display_name": "Bruja",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "f",
+  "carry": "claw",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

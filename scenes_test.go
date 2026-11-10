@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func testGame() *Game {
 	progressFrozen = true // nothing in these tests may touch the real progress.json
@@ -227,7 +230,7 @@ func TestScenesListFormat(t *testing.T) {
 	if got := g.sceneRowName(sceneIntro); got != "1.- INTRO: NADIE TE DEJÓ DORMIR" || g.sceneRowCount(sceneIntro) != "" {
 		t.Errorf("intro row: %q %q", got, g.sceneRowCount(sceneIntro))
 	}
-	if got := g.sceneRowName(sceneInter1); got != "2.- INTERLUDIO: OTRA FIESTA MÁS" || g.sceneRowCount(sceneInter1) != "(5/21)" {
+	if got := g.sceneRowName(sceneInter1); got != "2.- INTERLUDIO: OTRA FIESTA MÁS" || g.sceneRowCount(sceneInter1) != fmt.Sprintf("(5/%d)", len(campaignLevels)) {
 		t.Errorf("seen row: %q %q", got, g.sceneRowCount(sceneInter1))
 	}
 	if got := g.sceneRowName(sceneInter2); got != "3.- ¿?" || g.sceneRowCount(sceneInter2) != "" {
@@ -248,7 +251,7 @@ func TestScenesListFormat(t *testing.T) {
 	}
 }
 
-// the balloon is scene 4 of the list: key, counter (15/21) and name, locked until seen
+// the balloon is scene 4 of the list: key, counter (15/N) and name, locked until seen
 func TestSceneBalloonRow(t *testing.T) {
 	old := debugSnap
 	debugSnap = nil
@@ -259,7 +262,7 @@ func TestSceneBalloonRow(t *testing.T) {
 		t.Errorf("locked balloon row: %q %q", got, g.sceneRowCount(sceneInter15))
 	}
 	g.progress.Stats["seen_interlude15"] = 1
-	if got := g.sceneRowName(sceneInter15); got != "4.- INTERLUDIO: GLOBO A LA DERIVA" || g.sceneRowCount(sceneInter15) != "(15/21)" {
+	if got := g.sceneRowName(sceneInter15); got != "4.- INTERLUDIO: GLOBO A LA DERIVA" || g.sceneRowCount(sceneInter15) != fmt.Sprintf("(15/%d)", len(campaignLevels)) {
 		t.Errorf("seen balloon row: %q %q", got, g.sceneRowCount(sceneInter15))
 	}
 }
@@ -270,7 +273,7 @@ func TestScenePlaysRightInterlude(t *testing.T) {
 	debugSnap = nil
 	t.Cleanup(func() { debugSnap = old })
 	for _, c := range []struct{ scene, kind, next int }{
-		{sceneInter1, interCar, 5}, {sceneInter2, interBoat, 10}, {sceneInter15, interBalloon, 15}, {sceneInter3, interRocket, 20},
+		{sceneInter1, interCar, 5}, {sceneInter2, interBoat, 10}, {sceneInter15, interBalloon, 15}, {sceneInter3, interRocket, len(campaignLevels) - 1},
 	} {
 		g := testGame()
 		g.snd, g.as = newSounds(true), &Assets{}

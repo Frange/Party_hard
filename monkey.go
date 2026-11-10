@@ -9,10 +9,10 @@ package main
 // ---------------------------------------------------------------------------
 
 var castMonkey = []presetEntry{
-	def("guybrush", hairc(0xe8d060, HairPony), tops(TopSuit, 0x2a4a9a, 0xf4f4f0), pantsc(0x3a2a1a), shoesc(0x2a1a10), skinc(0xf2c8a0), carryc(HoldMachete)),
+	def("guybrush", hairc(0xf4d82c, HairPony), tops(TopLong, 0xf4f2ea, 0x7a4a22), pantsc(0x6e4624), shoesc(0x18141a), skinc(0xf2c8a0)), // own layers: monkeyart.go
 	def("stan_barcos", hairc(0x2a1a10, HairComb), tops(TopLong, 0x8a5a2a, 0xe8d8a0), patn(3), pantsc(0x5a3a1a), shoesc(0x2a1a10), accentc(0xd02828), bodyc(BodyBig), stat(-1)),
 	def("elaine_marley", fem(), hairc(0xc8501e, HairLong), tops(TopDress, 0x2a8a4a, 0x2a8a4a), shoesc(0x5a3a1a), bodyc(BodySlim), stat(1)),
-	def("lechuck", skinc(0xa8c8b8), hairc(0xe0581a, HairShort), beardc(BeardFull), hatc(HatPirate, 0x3a1a1a), tops(TopSuit, 0x7a1a1a, 0x2a2a30), pantsc(0x1a1a22), shoesc(0x14141a), capec(0x4a1a1a), bodyc(BodyBig), stat(-2)),
+	def("lechuck", skinc(0x78c46a), hairc(0x141418, HairShort), beardc(BeardFull), tops(TopLong, 0xb42022, 0xf0c838), pantsc(0x5a1a28), shoesc(0x2a0c16), bodyc(BodyBig), stat(-2)), // own layers: monkeyart.go
 	def("voodoo_lady", fem(), skinc(0x8a5a3a), hatc(HatTurban, 0x6a2a8a), tops(TopRobe, 0x7a2a8a, 0xe8c040), accentc(0xe8c040), bodyc(BodyBig), stat(-1)),
 	def("meathook", hairc(0x3a2a1a, HairMessy), beardc(BeardFull), tops(TopTank, 0xe8e0c8, 0x2a3a6a), patn(2), pantsc(0x5a2a2a), shoesc(0x2a1a10), carryc(HoldClaw), bodyc(BodyBig)),
 	def("pirata_importante", hairc(0x1a1210, HairMessy), beardc(BeardFull), hatc(HatPirate, 0x2a1a2a), tops(TopLong, 0x8a2a2a, 0xe8e0c8), patn(2), pantsc(0x3a2a1a), shoesc(0x14141a), weaponc(HoldKnife), bodyc(BodyBig)),

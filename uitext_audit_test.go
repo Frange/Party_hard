@@ -13,6 +13,7 @@ package main
 // Read docs/QA/MEMORIA.md before adding an exception.
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"math"
@@ -36,11 +37,14 @@ var auditAllow = []auditExc{
 // texts that may leave the screen or a panel on purpose (scrolling credits, shake, etc.)
 var auditOutside = []auditExc{
 	{"wardrobe players=2", "Con quién sales", "", "the big bed of the 2P bedroom scenery counts as a panel: the text is on the right of the real list"},
-	{"wardrobe players=2", "has comprado en", "", "same"},
+	{"wardrobe players=2", "has conseguido en", "", "same"},
 	{"wardrobe players=2", "Who you go to", "", "same"},
-	{"wardrobe players=2", "you bought under", "", "same"},
+	{"wardrobe players=2", "you won in GOALS", "", "same"},
 	{"wardrobe players=2", "Color de pelo", "", "same"},
 }
+
+// auditSpanishHints: Spanish pieces of the skip / quit hints that must never reach an English screen.
+var auditSpanishHints = []string{": saltar", ": salir", "volver al menú", "Otra vez para saltar", "PULSA PARA"}
 
 var auditSpanishOK = []auditExc{
 	{"", "César", "", "a tester's name in the credits"},
@@ -70,11 +74,27 @@ func auditGame(t *testing.T) *Game {
 	prev := noAssets
 	noAssets = true
 	t.Cleanup(func() { noAssets = prev })
+	// auditPlay(g, two) switches the 1P/2P globals and many tests that call it never put them back: whoever asks for
+	// the shared game gets them restored when it ends (the next test would otherwise start in 2 players, e.g.
+	// TestOneKillerSlotWithOnePlayer under -shuffle)
+	prevTwo, prevDbg := twoPlayerMode, dbgTwoPlayers
+	t.Cleanup(func() { twoPlayerMode, dbgTwoPlayers = prevTwo, prevDbg })
+	prevKind, prevKiller, prevRow := wardKind, wardKiller, wardRow // the wardrobe pages (wardrobe_kinds.go)
+	t.Cleanup(func() { wardKind, wardKiller, wardRow = prevKind, prevKiller, prevRow })
+	t.Cleanup(func() { goalDet = goalDetailState{} }) // the OBJETIVOS detail window (goal_detail.go)
 	auditOnce.Do(func() {
 		progressFrozen = true // nothing here may touch the real progress.json
 		loadLanguages()
 		auditG = newGame(true)
 	})
+	// the shared game keeps its progress between tests: give it back as it was (a deep copy through JSON)
+	if snap, err := json.Marshal(auditG.progress); err == nil {
+		g := auditG
+		t.Cleanup(func() {
+			g.progress = Progress{}
+			_ = json.Unmarshal(snap, &g.progress)
+		})
+	}
 	return auditG
 }
 
@@ -181,6 +201,16 @@ func auditCheck(screen string, rec *textRecorder, panels bool, exc []auditExc, o
 		if panels && strings.HasSuffix(screen, "[en]") && strings.ContainsAny(t.s, "áéíóúñ¿¡Ñ") && !allowed(auditSpanishOK, t.s, "") {
 			add("Spanish text in the English version: %s", desc(t))
 		}
+		// (d2) the skip / quit hints of every screen, cinematics too: a key label glued to a Spanish piece
+		// ("Enter: saltar") is not a key of lang_data.go and stayed in Spanish
+		if strings.HasSuffix(screen, "[en]") {
+			for _, w := range auditSpanishHints {
+				if strings.Contains(t.s, w) {
+					add("Spanish hint in the English version: %s", desc(t))
+					break
+				}
+			}
+		}
 		// (a), (e)
 		for j := i + 1; j < len(ts); j++ {
 			u := ts[j]
@@ -228,8 +258,12 @@ func firstFrames(b []byte) string {
 
 func auditReset(g *Game) {
 	g.challenge = false
+	g.shopBuyOpen, g.shopBuyFocus = false, false
+	g.dc, g.dcArm = nil, nil
 	g.end, g.intro, g.title = nil, nil, nil
 	g.showCredits, g.trophyOv, g.debugMenu, g.helpOv = false, false, false, false
+	goalDet = goalDetailState{} // the OBJETIVOS detail window (goal_detail.go)
+	g.pause = pauseState{}
 	g.msgs = nil
 	helpCursorFn = ebiten.CursorPosition
 	g.menuMsgT = 0
@@ -242,6 +276,8 @@ func auditReset(g *Game) {
 	g.progress.Stats["played"] = 1
 	twoPlayerMode = false
 	dbgTwoPlayers = false
+	wardKind, wardKiller, wardRow = 0, "", 0
+	g.progress.Escapes = 0
 	bubbleReqs = nil
 	g.lvl.graded = true // gradeBG reads pixels, which cannot be done without a window
 }
@@ -301,7 +337,7 @@ func auditShots() []auditShot {
 		g.startTitle()
 		g.title.t = 4
 	})
-	for _, sel := range []int{0, 7, 14, 20, 21, 22} {
+	for _, sel := range []int{0, 8, 17, 23, 24, 25} {
 		sel := sel
 		add(fmt.Sprintf("level select (Isla Nublar unlocked) sel=%d", sel), true, func(g *Game) {
 			auditReset(g)
@@ -309,6 +345,21 @@ func auditShots() []auditShot {
 			g.menuSel = sel
 		})
 	}
+	for _, sel := range []int{26} { // the RETO DE HOY button selected (24 parties + ALEATORIO + Isla: index = rows)
+		sel := sel
+		add(fmt.Sprintf("level select RETO DE HOY button sel=%d", sel), true, func(g *Game) {
+			auditReset(g)
+			g.mode = ModeLevelSelect
+			g.menuSel = sel
+		})
+	}
+	add("HUD with RETO DE HOY (time + icons) players=1", false, func(g *Game) {
+		auditPlay(g, false)
+		g.dc = &dailyChallenge{mods: []dailyMod{dmTime, dmSight}}
+		g.challenge = true
+		g.p.item = "poison"
+		g.p.suitT = suitDuration
+	})
 	for r := 0; r < setRows; r++ {
 		r := r
 		add(fmt.Sprintf("settings row=%d", r), true, func(g *Game) {
@@ -338,6 +389,90 @@ func auditShots() []auditShot {
 			})
 		}
 	}
+	add("shop buy-all focused", true, func(g *Game) {
+		auditReset(g)
+		g.mode = ModeShop
+		g.progress.Wallet = 99999
+		g.shopGo(1)
+		g.shopBuyFocus = true
+	})
+	add("shop buy-all popup", true, func(g *Game) {
+		auditReset(g)
+		g.mode = ModeShop
+		g.progress.Wallet = 99999
+		g.shopGo(1)
+		g.shopBuyAllAsk()
+	})
+	add("trophies vips tab", true, func(g *Game) {
+		auditReset(g)
+		g.mode = ModeTrophies
+		g.progress.Album = nil
+		g.albumDemo(1)
+		g.trophyTab = tabVIPs
+		g.albumSel, g.albumScroll = 2, 0
+		g.albumClamp()
+	})
+	for _, demo := range []int{0, 1} { // the killers tab (ASESINOS): all locked, and a few unlocked
+		demo := demo
+		add(fmt.Sprintf("trophies killers tab demo=%d", demo), true, func(g *Game) {
+			auditReset(g)
+			g.mode = ModeTrophies
+			g.progress.Album = nil
+			if demo > 0 {
+				g.albumDemo(demo)
+			}
+			g.trophyTab = tabKillers
+			g.albumSel, g.albumScroll = 6*demo, 0
+			g.albumClamp()
+		})
+	}
+	for _, demo := range []int{0, 1} { // the police page (POLICÍAS): all locked / a few unlocked, with and without escapes
+		demo := demo
+		add(fmt.Sprintf("trophies cops tab demo=%d", demo), true, func(g *Game) {
+			auditReset(g)
+			g.mode = ModeTrophies
+			g.progress.Album = nil
+			g.progress.Escapes = 7 * demo
+			if demo > 0 {
+				g.albumDemo(demo)
+			}
+			g.trophyTab = tabCops
+			g.albumSel, g.albumScroll = 2*demo, 0
+			g.albumClamp()
+		})
+	}
+	add("trophies career tab", true, func(g *Game) { // the totals of the whole career (goalstats.go)
+		auditReset(g)
+		g.mode = ModeTrophies
+		for k, v := range map[string]int{"played": 123, "kills": 4567, "wins": 88, "earned": 1234567, "best": 98765, "chain": 14, "secs": 90061} {
+			g.progress.Stats[k] = v
+		}
+		g.progress.Escapes = 12
+		g.trophyTab = tabCareer
+		g.albumClamp()
+	})
+	for _, kind := range []int{wardKindKiller, wardKindCop} { // the other two pages of the wardrobe
+		for _, row := range []int{0, 2} {
+			kind, row := kind, row
+			add(fmt.Sprintf("wardrobe page=%d row=%d", kind, row), true, func(g *Game) {
+				auditReset(g)
+				g.mode = ModeShop
+				g.shopTab = shopWardrobe
+				g.progress.Album = map[string]int{"killer:michael": albumKilled, "killer:jason": albumKilled}
+				g.progress.Escapes = 6
+				g.syncShop()
+				wardKind, wardRow, wardKiller = kind, row, "jason"
+			})
+		}
+	}
+	add("trophies chars tab seen-only card", true, func(g *Game) { // a character seen but not killed shows VISTO
+		auditReset(g)
+		g.mode = ModeTrophies
+		g.progress.Album = map[string]int{albumCards()[len(vipRegistry())].key: albumSeen}
+		g.trophyTab = tabChars
+		g.albumSel, g.albumScroll = 0, 0
+		g.albumClamp()
+	})
 	for _, two := range []bool{false, true} {
 		two := two
 		add(fmt.Sprintf("wardrobe players=%d", map[bool]int{false: 1, true: 2}[two]), true, func(g *Game) {
@@ -354,6 +489,7 @@ func auditShots() []auditShot {
 			auditReset(g)
 			g.mode = ModeTrophies
 			g.trophySel = minI(sel, len(trophyList)-1)
+			g.trophyScroll = maxI(0, g.trophySel-trophyRows+1) // the list follows the cursor (the update does this; the audit only draws)
 		})
 	}
 	for _, demo := range []int{0, 1, 2} { // the card album (album.go): empty, a few cards, every card
@@ -365,11 +501,27 @@ func auditShots() []auditShot {
 			if demo > 0 {
 				g.albumDemo(demo)
 			}
-			g.trophyTab = tabAlbum
+			g.trophyTab = tabChars
 			g.albumSel, g.albumScroll = 7*demo, 0
 			g.albumClamp()
 		})
 	}
+	for _, sh := range []string{"0:0", "0:-1", "1:0", "1:-1", "1:20", "2:-1", "3:-1", "4:-1"} { // the detail window (goal_detail.go)
+		sh := sh
+		add("goal detail "+sh, true, func(g *Game) {
+			auditReset(g)
+			g.progress.Album = nil
+			g.albumDemo(1)
+			g.goalDetailDebug(sh)
+		})
+	}
+	add("goal detail in game", false, func(g *Game) {
+		auditPlay(g, false)
+		g.trophyOv = true
+		g.trophyTab = tabKillers
+		g.albumSel = 0
+		g.openGoalDetail()
+	})
 	add("trophies secret selected", true, func(g *Game) {
 		auditReset(g)
 		g.mode = ModeTrophies
@@ -377,6 +529,7 @@ func auditShots() []auditShot {
 		for i, t := range trophyList {
 			if t.id == "s_mine" {
 				g.trophySel = i
+				g.trophyScroll = maxI(0, i-trophyRows+1)
 			}
 		}
 	})
@@ -397,6 +550,15 @@ func auditShots() []auditShot {
 			auditPlay(g, two)
 			helpCursorFn = func() (int, int) { return int(helpBtnX) + 3, int(helpBtnY) + 3 } // auditReset puts it back
 		})
+	}
+	for _, two := range []bool{false, true} { // the PAUSE window of Esc (pause.go), first and longest row selected
+		for _, sel := range []int{pauseRowContinue, pauseRowQuit} {
+			two, sel := two, sel
+			add(fmt.Sprintf("pause window players=%d sel=%d", map[bool]int{false: 1, true: 2}[two], sel), true, func(g *Game) {
+				auditPlay(g, two)
+				g.pause = pauseState{open: true, sel: sel}
+			})
+		}
 	}
 	add("trophies window in game + toast", false, func(g *Game) {
 		auditPlay(g, false)
@@ -484,6 +646,9 @@ func auditShots() []auditShot {
 		{"prelude island", func(g *Game) { g.startEndingPre(true) }, endPrelude, []float64{4, 8.9, 11.5, 14}},
 		{"party", func(g *Game) { g.startEndingPre(true) }, endParty, []float64{2, 5.5, 14, 25, 29.5, 34}},
 		{"party stinger", func(g *Game) { g.startEndingPre(true) }, endStinger, []float64{5.5, 7}},
+		{"final newspaper", func(g *Game) { g.startEndingPre(true) }, endPaper, []float64{1, 3}},
+		{"FIN card with Murray", func(g *Game) { g.startEndingPre(true) }, endFinal, []float64{3, 11, 19, 21, 27, 35, 43}},
+		{"normal FINAL card with Murray", func(g *Game) { g.startEndingPre(false) }, endFinal, []float64{3, 7, 9, 11, 19, 27, 35}},
 		{"epilogue walk", func(g *Game) { g.startEndingPre(false) }, endWalk, []float64{2, 5}},
 	} {
 		for _, at := range c.times {
@@ -495,17 +660,14 @@ func auditShots() []auditShot {
 			})
 		}
 	}
-	for _, at := range []float64{1.0, 5.0, arrBoom + 2.0} {
+	for _, at := range []float64{1.0, arrEarthT + 1.6, arrEarthT + 2.6, arrTravel + 1.0, arrTravel + 5.0, arrBurn + 2.0} {
 		at := at
 		add(fmt.Sprintf("helicopter arrival t=%.1f", at), false, func(g *Game) {
 			auditReset(g)
 			g.startArrival()
 			g.end.x.arr.t = at
 			g.end.x.arr.touched = at >= arrTouch
-			if at >= arrBoom {
-				g.end.x.arr.boomed = true
-				g.end.x.arr.spawnParts()
-			}
+			g.end.x.arr.burning = at >= arrBurn
 		})
 	}
 	return s
@@ -516,7 +678,7 @@ func auditShots() []auditShot {
 func TestUITextAudit(t *testing.T) {
 	g := auditGame(t)
 	defer func(a, b bool) { levelHintOn, minimapOn = a, b }(levelHintOn, minimapOn)
-	defer func(a, b string) { gameLang, editorLang = a, b }(gameLang, editorLang)
+	defer func(a, b, c string) { gameLang, editorLang, uiLang = a, b, c }(gameLang, editorLang, uiLang) // Draw copies gameLang into uiLang
 	langs := []string{"es", "en"}
 	if testing.Short() {
 		langs = []string{"en"} // fast mode: English is the longer one
@@ -659,7 +821,29 @@ func auditWithoutBackdrop(g *Game, rec *textRecorder) *textRecorder {
 
 // auditOcclude drops the texts that an opaque rectangle drawn later covers completely (the credits panel over the settings).
 func auditOcclude(rec *textRecorder) *textRecorder {
-	out := &textRecorder{panels: rec.panels, fills: rec.fills}
+	out := &textRecorder{}
+	covers := func(f, p panelRect) bool { // f, opaque, hides the whole of p
+		return f.opaque && p.x >= f.x && p.y >= f.y && p.x+p.w <= f.x+f.w && p.y+p.h <= f.y+f.h
+	}
+	// a panel or a big fill hidden under a later opaque fill (a window drawn over a page) is no border any more
+	for i, p := range rec.fills {
+		hidden := false
+		for _, f := range rec.fills[i+1:] {
+			hidden = hidden || covers(f, p)
+		}
+		if !hidden {
+			out.fills = append(out.fills, p)
+		}
+	}
+	for _, p := range rec.panels {
+		hidden := false
+		for _, f := range rec.fills {
+			hidden = hidden || (f.seq > p.seq && covers(f, p))
+		}
+		if !hidden {
+			out.panels = append(out.panels, p)
+		}
+	}
 	for k, t := range rec.texts {
 		hidden := false
 		for _, f := range rec.fills {
@@ -692,4 +876,37 @@ func auditLevelDoneData(g *Game) {
 	g.points, g.endTime, g.time = 12345, 187, 187
 	g.finishScore()
 	g.mode = ModeLevelDone
+}
+
+// the menu screens carry no lines of key help ("Esc volver", "Tab: otra pestaña", "↑↓ fila"...): the visible
+// ← ATRÁS button stays, the rest is learnt by using them (the user asked for it). Cinematics and the level keep
+// their own hints. Both languages, every menu screen of the back button table, the main menu and the credits.
+func TestMenusHaveNoKeyHelpLines(t *testing.T) {
+	pg, pe, pu := gameLang, editorLang, uiLang
+	t.Cleanup(func() { gameLang, editorLang, uiLang = pg, pe, pu })
+	bad := []string{"volver", " back", "Esc:", "Tab:", "Tab o", "/Tab", "rueda", "wheel", "↑↓", "↑/↓", "←→", "←/→", "Supr", "RePág", "PgUp", "Atajos fijos", "Fixed shortcuts", "Mando: D-pad", "Gamepad: D-pad", ": empezar", ": start", "Mover:", "Move:", "Flechas mover", "Arrows move", "Los guardias también", "Guards are targets"}
+	cases := backCases()
+	cases = append(cases, backCase{"main menu", ModeMenu, func(g *Game) { g.mainSel = 0 }},
+		backCase{"credits", ModeSettings, func(g *Game) { g.showCredits = true }},
+		backCase{"settings J2", ModeSettings, func(g *Game) { g.setSel = setRowP2 }},
+		backCase{"settings device", ModeSettings, func(g *Game) { g.setSel = setRowDev1 }})
+	for _, lang := range []string{"es", "en"} {
+		gameLang, editorLang, uiLang = lang, lang, lang
+		for _, c := range cases {
+			g := backGame(t, c)
+			textRec = &textRecorder{}
+			img := ebiten.NewImage(screenW, screenH)
+			g.Draw(img)
+			img.Deallocate()
+			texts := textRec.texts
+			textRec = nil
+			for _, r := range texts {
+				for _, b := range bad {
+					if strings.Contains(r.s, b) {
+						t.Errorf("[%s] %s: key help %q drawn", lang, c.name, r.s)
+					}
+				}
+			}
+		}
+	}
 }

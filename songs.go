@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // ---------------------------------------------------------------------------
@@ -247,9 +248,14 @@ var instruments = map[string]instrument{
 }
 
 // percussion: one-shot clean sounds, no kick
-var percCache = map[byte][]float64{}
+var (
+	percCache = map[byte][]float64{}
+	percMu    sync.Mutex // the menu's track and the scene songs are built at the same time (scenemusic.go)
+)
 
 func percSample(k byte) []float64 {
+	percMu.Lock()
+	defer percMu.Unlock()
 	if p, ok := percCache[k]; ok {
 		return p
 	}
@@ -589,6 +595,16 @@ var songs = map[string]songDef{
 var ambientKinds = []string{ambTitle, ambInterA, ambMemA, ambEnd, ambInterB, ambMemB, ambEndCalm, ambSecret, ambInvite}
 
 func buildAmbient(kind string) []byte {
+	switch kind { // the music of the first screen and the menu (menumusic.go)
+	case ambAnthem:
+		return buildAnthem()
+	case ambSleep:
+		return buildSleep()
+	case ambCalm:
+		return finishSong(renderAnthemMix(anthemCalm), anthemCalm.peak)
+	case ambCalmer:
+		return finishSong(renderAnthemMix(anthemCalmer), anthemCalmer.peak)
+	}
 	sd, ok := songs[kind]
 	if !ok {
 		return nil

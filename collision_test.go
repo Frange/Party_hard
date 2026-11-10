@@ -10,7 +10,9 @@ import (
 // player's collision box did not fit (he ended up inside a prop or a wall), and
 // solid footprints that reached below the drawing of their prop.
 
-func testLevels() []*LevelDef {
+func testLevels(t *testing.T) []*LevelDef {
+	t.Helper()
+	snapshotPropKinds(t)
 	if st := loadAssetStore(); st != nil {
 		applyObjects(st.Objs)
 	}
@@ -28,7 +30,7 @@ func testLevels() []*LevelDef {
 
 func TestNearestFreeIsWalkable(t *testing.T) {
 	rng := rand.New(rand.NewSource(5))
-	for _, def := range testLevels() {
+	for _, def := range testLevels(t) {
 		l := buildLevel(def)
 		bad := 0
 		for i := 0; i < 20000; i++ {
@@ -44,7 +46,7 @@ func TestNearestFreeIsWalkable(t *testing.T) {
 }
 
 func TestFootInsideOpaqueBox(t *testing.T) {
-	testLevels()
+	testLevels(t)
 	for name, k := range propKinds {
 		if k.NoSolid || k.Ambient > 0 || k.FW <= 0 {
 			continue
@@ -76,7 +78,7 @@ func TestFootInsideOpaqueBox(t *testing.T) {
 }
 
 func TestStartIsWalkable(t *testing.T) {
-	for _, def := range testLevels() {
+	for _, def := range testLevels(t) {
 		l := buildLevel(def)
 		if l.SolidP(def.Start.X, def.Start.Y) {
 			t.Errorf("%s: the player starts inside something solid at %.0f,%.0f", def.Title, def.Start.X, def.Start.Y)
@@ -86,7 +88,7 @@ func TestStartIsWalkable(t *testing.T) {
 
 // nothing that can be picked up may leave a solid behind
 func TestPickupItemsAreNotSolid(t *testing.T) {
-	for _, def := range testLevels() {
+	for _, def := range testLevels(t) {
 		l := buildLevel(def)
 		for _, p := range l.Props {
 			if p.K.Item == "" {

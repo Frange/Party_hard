@@ -71,7 +71,7 @@ func TestHUDLayoutNoOverlap(t *testing.T) {
 					"help button":   {helpBtnX, helpBtnY, helpBtnW, helpBtnH},
 					"trophy":        {trophyHudX, trophyHudY, trophyHudW, trophyHudH},
 					"stealth panel": {650, 34, 290, 54},
-					"stars":         {screenW/2 - 40, 4, 80, 10},
+					"stars":         {screenW/2 - 40, 16, 80, 10},
 					"phone":         {screenW - 90, 40, 80, 80},
 				}
 				for name, r := range others {
@@ -91,7 +91,7 @@ func TestHUDPlainHeight(t *testing.T) {
 	if want := hudY + hudBaseH + 3; g.hud.bottom != want {
 		t.Errorf("bottom %.0f, want %.0f", g.hud.bottom, want)
 	}
-	if g.hud.bottom > 88+12 {
+	if g.hud.bottom > 88+12+12 { // 12 more: the panel stands 16 px from the edges
 		t.Errorf("the panel reaches %.0f: it grew more than 12 px over the old 88", g.hud.bottom)
 	}
 }

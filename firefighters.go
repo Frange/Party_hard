@@ -13,34 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func init() {
-	propKinds["firetruck"] = &PropKind{W: 96, H: 46, FW: 90, FH: 12, NoSolid: true, Vars: 1, Category: "vehicle", Draw: func(b *pixBuf, v int) {
-		red := c(0xd02a2a)
-		vehShadow(b, 96)
-		b.rect(2, 12, 90, 19, red)
-		b.rect(2, 12, 90, 2, c(0xf06060))
-		b.rect(2, 26, 90, 5, shade(red, 0.7))
-		b.rect(2, 21, 90, 2, c(0xf4f4f4)) // white stripe
-		b.rect(70, 8, 20, 12, red)        // cab
-		b.rect(78, 11, 11, 8, c(0x9ac8e8))
-		// ladder on the roof
-		b.rect(6, 7, 60, 2, c(0xc8c8d0))
-		b.rect(6, 11, 60, 2, c(0xc8c8d0))
-		for x := 8; x < 64; x += 6 {
-			b.rect(x, 7, 1, 6, c(0x9a9aa4))
-		}
-		// hose reel and lockers
-		b.ellipse(22, 20, 6, 5, c(0x8a8a94))
-		b.ellipse(22, 20, 3, 2.4, c(0x4a4a54))
-		for x := 34; x < 66; x += 10 {
-			b.rect(x, 15, 8, 8, shade(red, 0.82))
-		}
-		// siren bar
-		b.rect(76, 5, 10, 3, c(0x2a2a34))
-		b.rect(77, 3, 3, 2, c(0xff3030))
-		b.rect(83, 3, 3, 2, c(0x3070ff))
-		b.rect(90, 22, 3, 3, c(0xfff0b0))
-		vehWheels(b, 16, 46, 80)
-	}}
+	propKinds["firetruck"] = &PropKind{W: 96, H: 46, FW: 90, FH: 12, NoSolid: true, Vars: 1, Category: "vehicle", Draw: func(b *pixBuf, v int) { vaFireTruckSide(b) }}
 }
 
 type Fireman struct {

@@ -27,15 +27,17 @@ var shopGroups = []struct {
 	tabs []int
 }{
 	{"JUGADOR", []int{shopOutfits, shopAccess, shopPerks}},
-	{"VESTUARIO", []int{shopWardrobe}},
-	{"PERSONAJES", []int{shopChars}},
 	{"ANIMALES", []int{shopAnimals}},
-	{"ASESINOS", []int{shopKillers, shopWeapons}},
-	{"POLICÍAS", []int{shopPolice, shopUniforms}},
+	{"ASESINOS", []int{shopWeapons}},   // the killers themselves are not sold: they are goals (goalkillers.go)
+	{"VESTUARIO", []int{shopWardrobe}}, // ALWAYS the last group: drawn apart, further right and in its own colour (shop.go)
+	// the police is not in the shop any more: its types are goals (goalcops.go) and its uniforms are won by escaping (copsets.go)
 }
 
 // shopFlat is every list in screen order (left/right walks through it).
-var shopFlat = []int{shopOutfits, shopAccess, shopPerks, shopWardrobe, shopChars, shopAnimals, shopKillers, shopWeapons, shopPolice, shopUniforms}
+// The characters (shopChars), the killers (shopKillers), the police types (shopPolice) and the uniforms (shopUniforms) are
+// no longer sold: their lists only keep the rewards of the trophies and the data of the wardrobe, and are not shown as
+// a shop list. They are goals now (OBJETIVOS, album.go).
+var shopFlat = []int{shopOutfits, shopAccess, shopPerks, shopAnimals, shopWeapons, shopWardrobe}
 
 func shopGroupOf(tab int) int {
 	for gi, gr := range shopGroups {
@@ -75,7 +77,12 @@ var wearSlots = []string{"outfit", "skincol", "hair", "haircol", "beard", "mask"
 func addWear(tab int, id, name, slot string, price int, fx func(*CharSpec)) {
 	wearFx[id] = fx
 	desc := "Se lleva puesto en la fiesta. Enter: ponértelo / quitártelo."
-	shopCatalog[tab] = append(shopCatalog[tab], shopItem{id: id, name: name, desc: desc, price: price, slot: slot})
+	it := shopItem{id: id, name: name, desc: desc, price: price, slot: slot}
+	if !shopKeepWear[id] { // left the catalogue (shopkeep.go): not for sale, but whoever owns it keeps wearing it
+		shopRetired = append(shopRetired, it)
+		return
+	}
+	shopCatalog[tab] = append(shopCatalog[tab], it)
 }
 
 // buildShopCatalog fills every tab (called once the presets are registered).
@@ -83,57 +90,10 @@ func buildShopCatalog() {
 	for i := range shopCatalog {
 		shopCatalog[i] = nil
 	}
+	shopRetired = nil
 	c := &shopCatalog
 
-	// ---- main characters ---------------------------------------------------
-	skins := []struct {
-		slug  string
-		price int
-	}{
-		{"don_quijote", 1500}, {"sancho_panza", 1200}, {"leeloo", 1400}, {"korben", 1500}, {"conan", 2200}, {"he_man", 2400}, {"marty_mcfly", 1800}, {"doc_brown", 1800}, {"la_mascara", 2600}, {"taz", 2000}, {"burro_shrek", 1200},
-		{"michael_jackson", 3200}, {"tortuga_leonardo", 1600}, {"tortuga_donatello", 1600}, {"tortuga_raphael", 1600}, {"tortuga_michelangelo", 1600}, {"alf", 1700}, {"johnny5", 2200},
-		{"inspector_gadget", 1400}, {"capitan_planeta", 1800}, {"picard", 2000}, {"johnny_bravo", 1800}, {"pedro_picapiedra", 1000}, {"wilma", 1000}, {"pablo_marmol", 1000}, {"betty", 1000},
-		{"sam_sam", 900}, {"cesar", 900}, {"diego", 900}, {"pitufo", 800}, {"papa_pitufo", 900}, {"pitufina", 900}, {"lagarto_juancho", 1000}, {"bob_esponja", 1300}, {"beavis", 1300}, {"butthead", 1300}, {"doraemon", 1500}, {"nobita", 1200}, {"guybrush", 1800}, {"stan_barcos", 1400}, {"elaine_marley", 1500}, {"lechuck", 2200}, {"voodoo_lady", 1500}, {"meathook", 1200}, {"pirata_importante", 900}, {"jack_rey_calabaza", 2000}, {"la_calaca", 1700}, {"capitan_calavera", 1600}, {"esqueleto_rockero", 1400}, {"esqueleto_bailarin", 1400}, {"esqueleto_ejecutivo", 1200},
-		{"hippie", 300}, {"skater", 300}, {"emo", 300}, {"punk_cresta", 350}, {"gotico", 350}, {"rapero_cadena", 400}, {"turista_rinonera", 300}, {"surfista", 350},
-		{"monitor_zumba", 400}, {"payaso_hosco", 450}, {"yoga", 400}, {"hipster", 350}, {"metalero", 400}, {"rockabilly", 450}, {"fan_eurovision", 450}, {"karaoke_star", 500},
-		{"samurai", 500}, {"ninja", 500}, {"pirata", 500}, {"vikingo_casco", 500}, {"mariachi", 500}, {"flamenco", 500}, {"gaitero", 500}, {"cavernicola", 500}, {"romano", 500},
-		{"faraon", 550}, {"monje", 450}, {"escoces", 500}, {"sumo", 600}, {"tanguero", 500}, {"gaucho", 500}, {"carnaval_brasil", 600}, {"astronauta", 900}, {"alien_turista", 700},
-		{"cocinero_furioso", 450}, {"bombero", 500}, {"medico", 500}, {"taxista", 400}, {"fontanero", 450}, {"jardinero", 400}, {"cura", 500}, {"mago_cumple", 500}, {"cientifico_loco", 700},
-		{"wally", 600}, {"mortadelo", 650}, {"filemon", 650}, {"zipi", 600}, {"zape", 600}, {"mafalda", 700}, {"tintin", 700}, {"capitan_haddock", 700}, {"popeye", 700}, {"carpanta", 600},
-		{"asterix", 800}, {"obelix", 800}, {"panoramix", 800}, {"super_lopez", 900}, {"espinete", 700}, {"don_pimpon", 700}, {"pantera_rosa", 1000},
-		{"homer", 800}, {"bart", 800}, {"marge", 800}, {"lisa", 800}, {"burns", 900}, {"flanders", 800}, {"cartman", 850}, {"kenny", 850}, {"kyle", 850}, {"stan", 850},
-		{"fry", 900}, {"leela", 900}, {"bender", 1000}, {"farnsworth", 900}, {"zoidberg", 900}, {"peter", 900}, {"stewie", 900}, {"rick", 1200}, {"morty", 1100},
-		{"sonic", 900}, {"tails", 900}, {"knuckles", 900}, {"crash", 900}, {"mario", 1000}, {"luigi", 1000}, {"wario", 1100}, {"waluigi", 1100}, {"donkey_kong", 1100}, {"bowser", 1300},
-		{"kirby", 1000}, {"pikachu", 1100}, {"link", 1200}, {"steve_cubos", 1000}, {"creeper", 1000}, {"lara_croft", 1500}, {"nathan_drake", 1500},
-		{"luffy", 1100}, {"zoro", 1100}, {"nami", 1100}, {"usopp", 1000}, {"sanji", 1100}, {"chopper", 1000}, {"nico_robin", 1100}, {"franky", 1100}, {"brook", 1100}, {"ace_fuego", 1300},
-		{"goku", 1400}, {"vegeta", 1400}, {"krilin", 1000}, {"piccolo", 1200}, {"bulma", 1000}, {"gohan", 1000}, {"naruto", 1300}, {"sailor_moon", 1200}, {"ash_pokemon", 1100},
-		{"elvis", 1200}, {"freddie", 1500}, {"marilyn", 1200}, {"charlie_chaplin", 1200}, {"einstein", 1200}, {"napoleon", 1200}, {"cleopatra", 1300}, {"julio_cesar", 1200}, {"dali", 1200},
-		{"van_gogh", 1200}, {"frida_kahlo", 1200}, {"mozart", 1100}, {"beethoven", 1100}, {"shakespeare", 1100}, {"colon_almirante", 1100}, {"isabel_la_catolica", 1200}, {"gandhi", 1200},
-		{"che", 1200}, {"juana_de_arco", 1300}, {"bruce_lee", 1800}, {"sherlock", 1300}, {"poirot", 1200}, {"zorro", 1500}, {"robin_hood", 1300}, {"peter_pan", 1200}, {"capitan_garfio", 1300}, {"tarzan", 1300},
-		{"sp_cantante", 1300}, {"sp_guitarra", 1300}, {"sp_bajo", 1300}, {"sp_bateria", 1300}, {"off_cantante", 1300}, {"off_guitarra", 1300}, {"off_bajo", 1300}, {"off_bateria", 1300}, {"met_cantante", 1500}, {"met_guitarra", 1500}, {"met_bajo", 1500}, {"met_bateria", 1500}, {"ps_cantante", 1200}, {"ps_guitarra", 1200}, {"ps_bajo", 1200}, {"ps_bateria", 1200}, {"bt_cantante", 1300}, {"bt_guitarra", 1300}, {"bt_bajo", 1300}, {"bt_bateria", 1300}, {"lp_cantante", 1300}, {"lp_guitarra", 1300}, {"lp_bajo", 1300}, {"lp_bateria", 1300}, {"des_cantante", 1200}, {"des_guitarra", 1200}, {"des_bajo", 1200}, {"des_bateria", 1200}, {"frank_zummo", 1300}, {"dave_baksh", 1300}, {"jason_mc", 1300}, {"tom_delonge", 1300}, {"lennon", 1300}, {"mccartney", 1300}, {"harrison", 1300}, {"ringo", 1300}, {"deryck", 1300}, {"mark_hoppus", 1300}, {"tom_delonge", 1300}, {"travis_barker", 1400},
-		{"woody", 1200}, {"buzz", 1200}, {"shrek", 1500}, {"minion", 1300}, {"gru", 1300}, {"elsa", 1300}, {"blancanieves", 1200}, {"caperucita_roja", 1200}, {"el_nota", 1400}, {"borat", 1500}, {"austin", 1500},
-		{"zoolander", 1400}, {"ace_ventura", 1400}, {"mr_bean", 1500}, {"wonka", 1500}, {"beetlejuice", 1600}, {"jack_sparrow", 1800}, {"harry_potter", 1800}, {"hermione", 1700}, {"dumbledore", 1700},
-		{"gandalf", 1800}, {"frodo", 1600}, {"legolas", 1800}, {"aragorn", 1800}, {"yoda", 1800}, {"chewbacca", 1800}, {"han_solo", 2000}, {"luke", 1900}, {"leia", 1900}, {"boba_fett", 2200}, {"mandaloriano", 2600},
-		{"vader", 2600}, {"trooper", 2000}, {"jedi", 2200}, {"kirk", 1500}, {"spock", 1600}, {"redshirt", 1000}, {"indy", 2000}, {"bond", 2200}, {"dracula", 1500}, {"santa", 1300},
-		{"homelander", 2500}, {"michael_scott", 1800}, {"dwight", 1700}, {"sheldon", 1700}, {"barney", 1700}, {"dr_house", 1800}, {"dexter", 2000}, {"heisenberg", 2600}, {"saul", 2000},
-		{"jon_nieve", 2200}, {"negan", 2400}, {"miercoles", 2000}, {"once", 1800}, {"jugador_456", 2400}, {"guardia_rosa", 2200},
-		{"batman", 3000}, {"superman", 3000}, {"spiderman", 2800}, {"ironman", 3200}, {"thor", 3000}, {"hulk", 3200}, {"capitan_america", 2800}, {"wonder_woman", 2800}, {"flash", 2600}, {"aquaman", 2400},
-		{"catwoman", 2600}, {"viuda_negra", 2600}, {"deadpool", 3200}, {"lobezno", 3200}, {"joker", 3000}, {"arlequina", 2800}, {"thanos", 3600}, {"doctor_extrano", 3000}, {"bane", 2800}, {"blade", 2800},
-		{"terminator", 3400}, {"robocop", 3400}, {"neo", 3400}, {"john_wick", 3600}, {"rambo", 3000}, {"rocky", 2600}, {"kratos", 3800}, {"jefe_maestro", 3800}, {"solid_snake", 3600}, {"doom_slayer", 4200},
-		{"agente_47", 3600}, {"leon_k", 3000}, {"duke", 3000}, {"tony_s", 3200}, {"tommy_s", 3200}, {"atracador_rojo", 2600}, {"motorista_fantasma", 4500}, {"power_ranger", 3800}, {"muerte_vacaciones", 4000},
-		{"freddy", 3500}, {"jason", 3500}, {"michael", 3500}, {"ghostface", 3200}, {"pennywise", 4000}, {"demonio", 4500}, {"hombre_cubo", 2500}, {"unicornio_resaca", 3000}, {"dinosaurio_hinchable", 3000},
-		{"tiburon_mascota", 2800}, {"pollo_gigante", 2800}, {"hombre_platano", 2600}, {"bebe_gigante", 3200}, {"traje_latas", 2600}, {"cabeza_tele", 3000}, {"hombre_semaforo", 2600}, {"calabaza", 2400},
-		{"fantasma_sabana", 2400}, {"esqueleto_fiesta", 2400}, {"zombi_fiesta", 2600}, {"vampiro_vegano", 2600}, {"conejo_siniestro", 3200}, {"pizza_infierno", 3000},
-	}
-	seen := map[string]bool{}
-	for _, sk := range skins {
-		if seen[sk.slug] || presetByName(sk.slug) == nil {
-			continue
-		}
-		seen[sk.slug] = true
-		n := autoDisplayName(sk.slug)
-		c[shopChars] = append(c[shopChars], shopItem{id: "skin:" + sk.slug, name: n, desc: n + " aparecerá en tus fiestas, y mucho más a menudo que el resto de la gente.", price: sk.price, arg: sk.slug})
-	}
+	// ---- main characters: NOT sold any more (goalchars.go: they are unlocked by killing a guest of that kind) ----
 
 	// ---- hats --------------------------------------------------------------
 	type hatDef struct {
@@ -364,30 +324,24 @@ func buildShopCatalog() {
 	an("giraffe", "Jirafas", 800)
 	an("kangaroo", "Canguros", 1000)
 	an("elephant", "Elefantes", 1500)
+	// wild ones (animals6.go): they come now and then where the level has the right ground; the big cats very rarely
+	an("boar", "Jabalíes", 700)
+	an("croc", "Cocodrilos", 1800)
+	an("cheetah", "Guepardos", 2500)
+	an("lion", "Leones", 3000)
 
-	// ---- killers -----------------------------------------------------------
-	for _, k := range []struct {
-		slug, name string
-		price      int
-	}{
-		{"mimo", "El Mimo", 700}, {"caballo", "El Caballo", 600}, {"freddy", "Freddy", 800}, {"impermeable", "Impermeable amarillo", 900},
-		{"pinhead", "Cabeza de Alfileres", 1000}, {"chucky", "Muñeco diabólico", 1000}, {"leatherface", "Motosierra", 1200},
-		{"pennywise", "Payaso bailarín", 1500}, {"demonio", "El Demonio", 2000},
-		{"carnicero", "El Carnicero", 900}, {"doctor_loco", "Doctor loco", 1100}, {"enfermera", "Enfermera asesina", 1300}, {"calabaza", "Cabeza de calabaza", 1000},
-		{"espantapajaros", "Espantapájaros", 1200}, {"santa_psicopata", "Santa psicópata", 1600}, {"ninja_asesino", "Ninja asesino", 1800}, {"esqueleto", "Esqueleto", 1400},
-		{"muneca", "Muñeca poseída", 1700}, {"vampiro", "Vampiro", 2200}, {"bebe_gigante", "Bebé gigante", 2600},
-		{"lenador", "Leñador psicópata", 1100}, {"cirujano", "Cirujano", 1300}, {"bruja", "Bruja", 1500}, {"momia", "Momia", 1500}, {"hombre_lobo", "Hombre lobo", 2400},
-		{"cocinero_asesino", "Cocinero asesino", 1000}, {"payaso_triste", "Payaso triste", 1200}, {"cazador", "Cazador", 1400}, {"buzo", "Buzo siniestro", 1800},
-		{"astronauta_asesino", "Astronauta asesino", 2800}, {"gladiador", "Gladiador", 2000}, {"pirata_fantasma", "Pirata fantasma", 2200}, {"oso_fiesta", "Oso de fiesta", 2500},
-		{"novia_cadaver", "Novia cadáver", 2400}, {"chef_frances", "Chef francés", 900}, {"payaso_circo", "Payaso de circo", 1000}, {"vaquero_fantasma", "Vaquero fantasma", 1500}, {"bailarin_ballet", "Bailarina de ballet", 1700}, {"taxista_loco", "Taxista loco", 800}, {"oficinista_zombi", "Oficinista zombi", 1100}, {"arbitro_asesino", "Árbitro asesino", 1200}, {"torero_maldito", "Torero maldito", 2000}, {"jardinero_loco", "Jardinero loco", 1000}, {"karateka", "Karateka siniestro", 1900}, {"domador", "Domador de leones", 1600}, {"dentista", "Dentista", 1200}, {"pescador", "Pescador", 900}, {"brujo", "Brujo oscuro", 2600}, {"caballero_negro", "Caballero negro", 3400}, {"samurai_oscuro", "Samurái oscuro", 3000}, {"marinero_maldito", "Marinero maldito", 1800}, {"disco_vampiro", "Vampiro de discoteca", 2500}, {"hombre_saco", "Hombre del saco", 1400}, {"fantasma_opera", "Fantasma de la ópera", 3300}, {"conejo_asesino", "Conejo asesino", 3000}, {"muerte", "La Muerte", 4000}, {"dj_maldito", "DJ maldito", 3200}, {"robot_asesino", "Robot asesino", 3600},
-	} {
-		c[shopKillers] = append(c[shopKillers], shopItem{id: "killer:" + k.slug, name: k.name, desc: "Puede aparecer en las fiestas como asesino.", price: k.price, arg: k.slug})
-	}
+	// ---- killers: NOT sold any more (goalkillers.go: they are unlocked by killing the killer) ----
+
 	for _, w := range []struct {
 		id, name string
 		price    int
 		hold     int
-	}{{"knife", "Cuchillo de cocina", 300, HoldKnife}, {"baguette", "Baguette dura", 350, HoldBaguette}, {"broom", "Escoba", 400, HoldBroom}, {"plant", "Planta de interior", 420, HoldPlant}, {"beer", "Botella rota", 450, HoldBeer}, {"pizza", "Pizza gigante", 500, HoldPizza}, {"sign", "Pancarta", 550, HoldSign}, {"flag", "Bandera", 600, HoldFlag}, {"vacuum", "Aspiradora", 700, HoldVacuum}, {"megaphone", "Megáfono", 750, HoldMegaphone}, {"selfie", "Palo selfie", 800, HoldSelfie}, {"briefcase", "Maletín", 900, HoldBriefcase}, {"trophy", "Trofeo", 1000, HoldTrophy}, {"saber", "Sable láser", 2500, HoldSaber}, {"guitar", "Guitarra eléctrica", 1500, HoldGuitar}, {"sax", "Saxofón", 1300, HoldSax}, {"machete", "Machete", 500, HoldMachete}, {"torch", "Antorcha", 600, HoldTorch}, {"claw", "Garras", 700, HoldClaw}, {"chainsaw", "Motosierra", 1200, HoldChainsaw}} {
+	}{{"knife", "Cuchillo de cocina", 300, HoldKnife}, {"baguette", "Baguette dura", 350, HoldBaguette}, {"broom", "Escoba", 400, HoldBroom}, {"plant", "Planta de interior", 420, HoldPlant}, {"beer", "Botella rota", 450, HoldBeer}, {"pizza", "Pizza gigante", 500, HoldPizza}, {"sign", "Pancarta", 550, HoldSign}, {"flag", "Bandera", 600, HoldFlag}, {"vacuum", "Aspiradora", 700, HoldVacuum}, {"megaphone", "Megáfono", 750, HoldMegaphone}, {"selfie", "Palo selfie", 800, HoldSelfie}, {"briefcase", "Maletín", 900, HoldBriefcase}, {"trophy", "Trofeo", 1000, HoldTrophy}, {"saber", "Sable láser", 2500, HoldSaber}, {"guitar", "Guitarra eléctrica", 1500, HoldGuitar}, {"sax", "Saxofón", 1300, HoldSax}, {"machete", "Machete", 500, HoldMachete}, {"torch", "Antorcha", 600, HoldTorch}, {"claw", "Garras", 700, HoldClaw}, {"chainsaw", "Motosierra", 1200, HoldChainsaw},
+		// more weapons for the killers (2026-11-09): things the guests already carry, so the art is the same one
+		{"cup", "Taza de café hirviendo", 650, HoldCup}, {"mic", "Micrófono de karaoke", 900, HoldMic}, {"phone", "Móvil sin batería", 950, HoldPhone},
+		{"tray", "Bandeja de canapés", 1000, HoldTray}, {"camera", "Cámara con flash", 1100, HoldCamera}, {"bigcup", "Copa de litro", 1200, HoldBigCup},
+		{"pompom", "Pompones de animadora", 1400, HoldPompom}, {"float", "Flotador salvavidas", 1500, HoldFloat}, {"stick", "Palo de hockey", 1600, HoldStick},
+		{"balloons", "Ramo de globos", 1800, HoldBalloons}, {"board", "Tabla de socorrista", 2000, HoldBoard}, {"ext", "Extintor", 2200, HoldExt}} {
 		weaponHold["kw:"+w.id] = w.hold
 		c[shopWeapons] = append(c[shopWeapons], shopItem{id: "kw:" + w.id, name: w.name, desc: "Todos los asesinos llevan esta arma. Enter: usar / quitar.", price: w.price, slot: "kweapon"})
 	}
@@ -401,10 +355,16 @@ func buildShopCatalog() {
 		{id: "police:3", name: "SWAT", desc: "Operadores con 4 estrellas.", price: 1<<20 + 703, arg: "3", trophy: "t_cop3"},
 		{id: "police:4", name: "Power Rangers", desc: "Llegan con 5 estrellas.", price: 1<<20 + 704, arg: "4", trophy: "t_cop4"},
 	}
+	// the uniforms are not sold (copsets.go): the 36 kept sets open with escapes, the other 72 are only worn by whoever
+	// bought them before. Every one is a locked entry of shopUniforms (never buyable); the price argument is the old list price.
 	uni := func(slot, id, name string, price int, fx func(*CharSpec)) {
 		wearFx[id] = fx
 		who := map[string]string{"cop": "la policía local", "fbi": "el FBI", "army": "el ejército", "swat": "el SWAT", "rangers": "los Power Rangers"}[slot]
-		c[shopUniforms] = append(c[shopUniforms], shopItem{id: id, name: name, desc: "Cambia el uniforme de " + who + ". Enter: activar / quitar.", price: price, slot: slot})
+		lock := "retired"
+		if copSetRank(id) > 0 {
+			lock = "escapes"
+		}
+		c[shopUniforms] = append(c[shopUniforms], shopItem{id: id, name: name, desc: "Uniforme de " + who + ". Se elige en VESTUARIO.", price: 1<<20 + 900 + len(c[shopUniforms]), slot: slot, trophy: lock})
 	}
 	cop := func(id, name string, price int, fx func(*CharSpec)) { uni("cop", "cop:"+id, name, price, fx) }
 	cop("guardia", "Local · guardia civil", 400, func(s *CharSpec) { s.Shirt, s.Pants, s.HatCol = hx(0x3a6a3a), hx(0x2a3a22), hx(0x2a3a22) })
@@ -548,6 +508,7 @@ func buildShopCatalog() {
 
 	addBaseOutfits() // the two free base outfits (blue for player 1, red for player 2)
 	registerTrophyRewards()
+	shopRescalePrices() // the single point that sets the real prices (shopprice.go)
 	for t := range c {
 		for i := range c[t] {
 			c[t][i].desc = shopDescribe(t, c[t][i])

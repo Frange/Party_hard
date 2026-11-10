@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var gaitKinds = []int{AnimMoon, AnimRobot, AnimRobotDance, AnimSwagger, AnimHips, AnimMarch, AnimHop, AnimLumber, AnimStagger, AnimWobble, AnimSneak, AnimGlide, AnimFilm}
+var gaitKinds = []int{AnimMoon, AnimRobot, AnimRobotDance, AnimSwagger, AnimHips, AnimMarch, AnimHop, AnimLumber, AnimStagger, AnimWobble, AnimSneak, AnimGlide, AnimFilm, AnimHeavy}
 
 func gaitFrame(kind, f int) Pose { return poseFor(kind, f) }
 

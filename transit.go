@@ -53,69 +53,6 @@ func transitStyle(v *Vehicle) (body, trim color.RGBA, long bool, label string, l
 	return
 }
 
-// genBoat paints a motor launch facing right, 90 px wide (112 for the long one).
-func genBoat(body, trim color.RGBA, long bool) *pixBuf {
-	w := 90
-	if long {
-		w = 112
-	}
-	b := newPix(w, 42)
-	b.ellipse(float64(w)/2, 35, float64(w)/2-3, 4, color.RGBA{10, 30, 60, 90})
-	b.rect(4, 26, w-14, 9, body)
-	for i := 0; i < 9; i++ { // the bow
-		b.rect(w-10, 26+i, 10-i, 1, body)
-	}
-	b.rect(4, 29, w-14, 2, trim)
-	b.rect(4, 34, w-14, 1, shade(body, 0.55))
-	b.rect(4, 26, w-14, 1, shade(body, 1.3))
-	cab := 34
-	if long {
-		cab = 56
-	}
-	b.rect(22, 14, cab, 12, shade(body, 1.12))
-	for x := 25; x < 22+cab-4; x += 14 {
-		b.rect(x, 17, 11, 6, c(0x9ad0ea))
-	}
-	b.rect(20, 12, cab+4, 3, trim)
-	b.rect(0, 26, 5, 10, c(0x2a2a30)) // outboard motor
-	b.rect(24, 6, 3, 6, c(0x6a6a74))  // beacon
-	b.rect(23, 4, 5, 2, c(0xff4040))
-	for x := 6; x < w-8; x += 5 { // foam along the waterline
-		b.set(x, 35, c(0xe8f4ff))
-	}
-	return b
-}
-
-// genShip paints a little shuttle facing right.
-func genShip(body, trim color.RGBA, long bool) *pixBuf {
-	w := 96
-	if long {
-		w = 116
-	}
-	b := newPix(w, 42)
-	fw := float64(w)
-	b.ellipse(fw/2, 38, fw/2-6, 3, color.RGBA{0, 0, 10, 90})
-	b.ellipse(fw/2, 24, fw/2-4, 11, shade(body, 0.7))
-	b.ellipse(fw/2, 22, fw/2-4, 10, body)
-	b.ellipse(fw/2, 20, fw/2-9, 6, shade(body, 1.2))
-	b.ellipse(fw/2, 27, fw/2-12, 1.6, trim)
-	b.ellipse(fw-30, 17, 12, 7, c(0x7ad0f0)) // canopy
-	b.ellipse(fw-33, 15, 5, 3, c(0xc8f4ff))
-	for i := 0; i < 11; i++ { // tail fin
-		b.rect(10+i, 5+i, 4, 1, trim)
-	}
-	b.rect(10, 16, 4, 6, trim)
-	b.rect(26, 30, 34, 3, shade(body, 0.6)) // wing
-	b.ellipse(4, 24, 4, 6, c(0xff9a30))     // engine glow
-	b.ellipse(3, 24, 2, 3.5, c(0xfff0a0))
-	b.rect(32, 33, 2, 5, c(0x3a3a46)) // landing legs
-	b.rect(62, 33, 2, 5, c(0x3a3a46))
-	for x := 30; x < w-44; x += 9 { // portholes
-		b.rect(x, 21, 3, 3, c(0xfff0b0))
-	}
-	return b
-}
-
 var transitImgs = map[string]*ebiten.Image{}
 
 func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
@@ -126,14 +63,19 @@ func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
 		g.drawTransitView(dst, v, sea, body, trim, long, label, labCol)
 		return
 	}
-	key := fmt.Sprintf("%v%x%x%x%x%v", sea, body.R, body.G, body.B, trim.R+trim.G+trim.B, long)
+	style := transitCraft(v)
+	frame := int(g.time*3) % 2 // the pennant waves
+	if !sea {
+		frame = 0
+	}
+	key := fmt.Sprintf("%v%x%x%x%x%v%d%d", sea, body.R, body.G, body.B, trim.R+trim.G+trim.B, long, style, frame)
 	im := transitImgs[key]
 	if im == nil {
 		var pb *pixBuf
 		if sea {
-			pb = genBoat(body, trim, long)
+			pb = genBoat(body, trim, long, style, frame) // vessels.go
 		} else {
-			pb = genShip(body, trim, long)
+			pb = genShip(body, trim, long, style)
 		}
 		im = pb.outlinedSel(0.42).img()
 		transitImgs[key] = im
@@ -151,12 +93,21 @@ func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
 	}
 	op.GeoM.Translate(math.Round(left), math.Round(g.wy(v.y)-h+8+bob))
 	dst.DrawImage(im, op)
-	if !sea { // exhaust glow
-		dx := -w/2 + 4
+	if !sea { // the cyan glow of the engine
+		dx := -w/2 + 3
 		if v.state != 2 {
-			dx = w/2 - 4
+			dx = w/2 - 3
 		}
-		g.glowAt(dst, Vec{g.wx(v.x) + dx - g.camI.X, g.wy(v.y) - 14 + bob - g.camI.Y}, 14, color.RGBA{255, 150, 40, 110})
+		g.glowAt(dst, Vec{g.wx(v.x) + dx - g.camI.X, g.wy(v.y) - h + 30 + bob - g.camI.Y}, 14, color.RGBA{60, 210, 255, 110})
+	} else if v.state != 1 { // the wake behind the stern while it sails
+		sx, dir := g.wx(v.x)+w/2, 1.0
+		if v.state == 2 {
+			sx, dir = g.wx(v.x)-w/2, -1.0
+		}
+		for i := 0; i < 4; i++ {
+			age := math.Mod(g.time*2+float64(i)/4, 1)
+			filledEllipse(dst, math.Round(sx+dir*(4+age*26)), math.Round(g.wy(v.y)-6+bob), math.Round(6+age*6), 2, rgba(0xe8f4ff, uint8(150*(1-age))))
+		}
 	}
 	if label != "" {
 		g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y))-h+2+bob, labCol, 1)

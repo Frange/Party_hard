@@ -150,7 +150,7 @@ func (g *Game) setupCast() {
 	if g.store == nil {
 		return
 	}
-	if l := g.store.Chars["main_character"]; len(l) > 0 && l[0].Meta.Edited {
+	if l := g.store.Chars["main_character"]; len(l) > 0 && g.editedMainCharacter() { // not while he wears a character of the wardrobe
 		as.playerCS = g.rigFor(l[0])
 	}
 	var cops, medics, fbis, militars, swats, rangers []*CharAsset
@@ -398,7 +398,9 @@ func (g *Game) rebuildLevels() {
 func renderDefBG(g *Game, def *LevelDef) []byte {
 	save := g.lvl
 	g.lvl = buildLevel(def)
+	seaSkyStill = true // a still picture: the sun's reflection and the ship baked in (seasky.go)
 	g.renderBG()
+	seaSkyStill = false
 	bgImg := g.lvl.bg
 	g.lvl = save
 	pix := make([]byte, 4*screenW*screenH)

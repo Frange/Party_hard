@@ -1,0 +1,11 @@
+{
+  "name": "tr_k_rey_calavera",
+  "display_name": "El Rey Calavera",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "machete",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

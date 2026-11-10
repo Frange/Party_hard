@@ -8,6 +8,7 @@ import (
 // Cheap quality sweep over many seeds of every generated kind (no window): overlaps, start spot,
 // reachability of every point of interest, guest cap, a DJ where the party needs one.
 func TestGenQualitySweep(t *testing.T) {
+	snapshotPropKinds(t)
 	if st := loadAssetStore(); st != nil {
 		applyObjects(st.Objs)
 	}

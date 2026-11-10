@@ -37,25 +37,7 @@ func init() {
 		b.rect(7, 30, 2, 3, c(0x2a2a34))
 		b.rect(1, 40, 22, 5, dark) // base
 	}}
-	propKinds["techvan"] = &PropKind{W: 86, H: 40, FW: 80, FH: 12, NoSolid: true, Vars: 1, Category: "vehicle", Draw: func(b *pixBuf, v int) {
-		yel := c(0xf0c828)
-		vehShadow(b, 86)
-		b.rect(2, 8, 82, 23, yel)
-		b.rect(2, 8, 82, 1, c(0xfce888))
-		b.rect(2, 28, 82, 3, shade(yel, 0.7))
-		b.rect(64, 11, 17, 11, c(0x9ac8e8)) // cab window
-		b.rect(10, 12, 44, 8, c(0xfce070))  // side panel
-		b.rect(12, 14, 6, 4, c(0x2a4ab8))   // logo: a handset
-		b.rect(19, 15, 24, 2, c(0x2a4ab8))
-		b.rect(3, 22, 3, 3, c(0xe03030)) // tail light
-		b.rect(82, 22, 3, 3, c(0xfff0b0))
-		b.rect(8, 4, 52, 2, c(0xc8c8d0)) // roof rack with a cable reel
-		b.rect(8, 5, 2, 3, c(0x8a8a94))
-		b.rect(56, 5, 2, 3, c(0x8a8a94))
-		b.ellipse(34, 3, 5, 2.4, c(0x4a4a54))
-		b.rect(46, 4, 3, 3, c(0xff9a20)) // beacon
-		vehWheels(b, 16, 68)
-	}}
+	propKinds["techvan"] = &PropKind{W: 86, H: 40, FW: 80, FH: 12, NoSolid: true, Vars: 1, Category: "vehicle", Draw: func(b *pixBuf, v int) { vaTechVanSide(b) }}
 }
 
 type Tech struct {

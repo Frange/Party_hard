@@ -21,6 +21,9 @@ type debugState struct {
 	bonus                    int // points added to the wallet (temporary)
 	speed, noPolice, fastEv  bool
 	guestMin, guestMax       int  // fewest / most guests (0 = what is saved)
+	album                    int  // 0 as saved, 1 all seen, 2 all eliminated, 3 all won, 4 none (debugApply)
+	dailyFree                bool // RETO DE HOY always open (daily.go dailyState); nothing is saved
+	tier                     int  // menu colour state shown: 0 as the save says, 1..4 = normal, bronze, silver, gold (menutier.go)
 	copMemory                bool // police with memory: a scared witness tells on you when he meets an officer (copmemory.go)
 }
 
@@ -29,11 +32,15 @@ var debugSnap *Progress
 // debugPrevFrozen: progressFrozen as it was when the DEBUG menu mode began (restored by debugEnd).
 var debugPrevFrozen bool
 
+// debugPrevGroups: dbgPoliceGroups (the -unlocked flag) as it was when the session began (restored by debugEnd).
+var debugPrevGroups int
+
 func (g *Game) debugBegin() {
 	if debugSnap == nil {
 		c := cloneProgress(g.progress)
 		debugSnap = &c
 		debugPrevFrozen = progressFrozen
+		debugPrevGroups = dbgPoliceGroups
 		progressFrozen = true
 	}
 }
@@ -89,6 +96,7 @@ func (g *Game) debugApply() {
 		}
 		p.Owned = keep
 	}
+	debugAlbum(&p, d.album)
 	p.Wallet += d.bonus
 	if d.guestMin > 0 {
 		p.GuestMin = d.guestMin
@@ -102,6 +110,43 @@ func (g *Game) debugApply() {
 	fastEv = d.fastEv
 }
 
+// debugAlbumNames: the states of the row "Álbum" (OBJETIVOS: PERSONAJES, VIPS, ASESINOS, POLICÍAS).
+var debugAlbumNames = []string{"como está", "todo visto", "todo eliminado", "todo conseguido", "nada"}
+
+// debugAlbum rewrites the cards of a COPY of the progress (never the real one): 1 seen, 2 eliminated once,
+// 3 won (characters at charKillsNeed kills, VIPs killed, killers and cops beaten), 4 nothing.
+func debugAlbum(p *Progress, mode int) {
+	if mode == 0 {
+		return
+	}
+	p.Album = map[string]int{}
+	p.CharKills = map[string]int{}
+	if mode == 4 {
+		return
+	}
+	for _, c := range albumCards() {
+		switch mode {
+		case 1:
+			p.Album[c.key] = albumSeen
+		case 2:
+			p.Album[c.key] = albumSeen | albumElim
+			if c.kind() == cardChar {
+				p.CharKills[c.key] = 1
+			} else {
+				p.Album[c.key] = albumSeen // only the characters have an ELIMINADO step
+			}
+		case 3:
+			p.Album[c.key] = albumSeen | albumElim | albumKilled
+			if c.kind() == cardVIP {
+				p.Album[c.key] |= albumHelped
+			}
+			if c.kind() == cardChar {
+				p.CharKills[c.key] = charKillsNeed
+			}
+		}
+	}
+}
+
 // debugEnd puts the real progress back and closes the session.
 func (g *Game) debugEnd() {
 	if debugSnap != nil {
@@ -110,6 +155,8 @@ func (g *Game) debugEnd() {
 	}
 	progressFrozen = debugPrevFrozen
 	debugPrevFrozen = false
+	dbgPoliceGroups = debugPrevGroups
+	debugSceneSel = 0
 	g.dbg = debugState{}
 	g.debugMenu = false
 	g.powerImmune = false
@@ -149,7 +196,7 @@ func (g *Game) konamiStep() {
 // ---- the main menu rows, with the hidden one on top when it is unlocked ----------
 
 func (g *Game) menuList() []int {
-	l := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuQuit}
+	l := []int{menuContinue, menuNewGame, menuPlayers, menuShop, menuTrophies, menuScenes, menuSettings, menuCredits, menuQuit}
 	if !g.hasSave() {
 		l = l[1:] // the first time: there is nothing to continue
 	}
@@ -172,18 +219,20 @@ func menuLabel(id int) string {
 	case menuShop:
 		return "TIENDA"
 	case menuTrophies:
-		return "TROFEOS"
+		return "OBJETIVOS"
 	case menuScenes:
 		return "ESCENAS"
 	case menuSettings:
 		return "AJUSTES"
+	case menuCredits:
+		return "CRÉDITOS"
 	}
 	return "SALIR"
 }
 
 func menuRowY(i, n int) float64 {
 	if n > 9 { // DEBUG with the save: ten rows, the last one must stay above the footer texts (y=474)
-		return 140 + float64(i)*33
+		return 150 + float64(i)*31
 	}
 	if n > 7 {
 		return 146 + float64(i)*36
@@ -198,6 +247,42 @@ type debugRow struct {
 	val   func() string
 	act   func()
 }
+
+// debugSteps: rows with ◄ ► values (label -> step), filled by debugRows. Left / right change the value of these rows;
+// Enter and click run act.
+var debugSteps = map[string]func(dir int){}
+
+func stepRow(label string, val func() string, act func(), step func(int)) debugRow {
+	debugSteps[label] = step
+	return debugRow{label, val, act}
+}
+
+// debugScene: one cinematic the DEBUG menu can play. ADD ONE LINE HERE for a new scene (scenes.go has the constants;
+// TestDebugScenesCoverAll fails if a scene constant is missing).
+type debugScene struct {
+	label string
+	scene int
+}
+
+var debugScenes = []debugScene{
+	{"Intro", sceneIntro},
+	{"Interludio: coche", sceneInter1},
+	{"Interludio: barco", sceneInter2},
+	{"Interludio: globo", sceneInter15},
+	{"Interludio: cohete", sceneInter3},
+	{"Final", sceneEnd1},
+	{"Invitación a la isla", sceneInvite},
+	{"Llegada a la isla", sceneArrival},
+	{"Final secreto", sceneEnd2},
+}
+
+var debugSceneSel int // the scene the row "Ver escena" points at
+
+func debugSceneStep(dir int) {
+	debugSceneSel = (debugSceneSel + dir + len(debugScenes)) % len(debugScenes)
+}
+
+var debugTierNames = []string{"como está", "normal", "bronce", "plata", "oro"}
 
 func onOff(b bool) string {
 	if b {
@@ -223,24 +308,36 @@ func (g *Game) debugRows() []debugRow {
 		{"Toda la tienda desbloqueada", func() string { return onOff(d.shop) }, flip(&d.shop)},
 		{"Trofeos", func() string { return []string{"como están", "TODOS ganados", "NINGUNO"}[d.trophyMode] }, func() { d.trophyMode = (d.trophyMode + 1) % 3; g.debugApply() }},
 		{"Dar 10.000 puntos a la cartera", func() string { return fmt.Sprintf("+%d", d.bonus) }, func() { d.bonus += 10000; g.debugApply() }},
+		{"Dar 100.000 puntos a la cartera", func() string { return "" }, func() { d.bonus += 100000; g.debugApply() }},
 		{"Velocidad x2", func() string { return onOff(d.speed) }, flip(&d.speed)},
 		{"Nadie llama a la policía", func() string { return onOff(d.noPolice) }, flip(&d.noPolice)},
 		{"Invitados mínimo", func() string { return fmt.Sprintf("◄ %d ►", g.maxStart()) }, func() { guestStep(false)(1) }},
 		{"Invitados máximo", func() string { return fmt.Sprintf("◄ %d ►", g.guestMax()) }, func() { guestStep(true)(1) }},
 		{"Sucesos y llegadas muy rápidos", func() string { return onOff(d.fastEv) }, flip(&d.fastEv)},
 		{"Policía con memoria (el testigo asustado delata)", func() string { return onOff(d.copMemory) }, flip(&d.copMemory)},
+		stepRow("Grupos de policía desbloqueados", func() string {
+			if dbgPoliceGroups == 0 {
+				return "◄ " + tr("como están") + " ►"
+			}
+			return fmt.Sprintf("◄ %d ►", dbgPoliceGroups)
+		}, func() {}, func(dir int) { // the same variable as the flag -unlocked N (police_groups.go); never the real save
+			g.debugBegin()
+			dbgPoliceGroups = clampI(dbgPoliceGroups+dir, 0, len(groupStat))
+		}),
+		{"Reto de hoy siempre libre (no gasta el intento)", func() string { return onOff(d.dailyFree) }, flip(&d.dailyFree)},
+		stepRow("Álbum de OBJETIVOS (personajes, VIPs, asesinos, policías)", func() string { return "◄ " + tr(debugAlbumNames[d.album]) + " ►" }, func() {}, func(dir int) {
+			d.album = (d.album + dir + len(debugAlbumNames)) % len(debugAlbumNames)
+			g.debugApply()
+		}),
+		stepRow("Estado del menú (colores y títulos)", func() string { return "◄ " + tr(debugTierNames[d.tier]) + " ►" }, func() {}, func(dir int) {
+			d.tier = (d.tier + dir + len(debugTierNames)) % len(debugTierNames)
+		}),
 		{stealthMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth(0) }},
 		{stealth2pMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth2P(0) }},
 		{"Ir a la última fiesta: Isla Nublar (Jurassic Park)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
-		{"1. Ver la intro", func() string { return "" }, func() { g.playScene(sceneIntro, ModeDebug) }},
-		{"2. Ver el interludio 1 (coche, tras la plaza de toros)", func() string { return "" }, func() { g.playScene(sceneInter1, ModeDebug) }},
-		{"3. Ver el interludio 2 (barco, tras la discoteca)", func() string { return "" }, func() { g.playScene(sceneInter2, ModeDebug) }},
-		{"4. Ver el interludio del globo (tras la fiesta 15)", func() string { return "" }, func() { g.playScene(sceneInter15, ModeDebug) }},
-		{"5. Ver el interludio 3 (cohete, tras la estación de tren)", func() string { return "" }, func() { g.playScene(sceneInter3, ModeDebug) }},
-		{"6. Ver el final (sin todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd1, ModeDebug) }},
-		{"7. Ver la invitación a la isla", func() string { return "" }, func() { g.playScene(sceneInvite, ModeDebug) }},
-		{"8. Ver la llegada en helicóptero a la isla", func() string { return "" }, func() { g.playScene(sceneArrival, ModeDebug) }},
-		{"9. Ver el final secreto (con todos los trofeos)", func() string { return "" }, func() { g.playScene(sceneEnd2, ModeDebug) }},
+		stepRow("Ver escena", func() string {
+			return fmt.Sprintf("◄ %d/%d %s ►", debugSceneSel+1, len(debugScenes), tr(debugScenes[debugSceneSel].label))
+		}, func() { g.playScene(debugScenes[debugSceneSel].scene, ModeDebug) }, debugSceneStep),
 		{"Salir del DEBUG (recupera tu partida real)", func() string { return "" }, func() { g.debugEnd(); g.mode = ModeMenu }},
 		{"Volver al menú", func() string { return "" }, func() { g.mode = ModeMenu }},
 	}
@@ -263,8 +360,8 @@ func (g *Game) guestStep(max bool) func(int) {
 }
 
 const (
-	debugRowH = 15.0 // 27 rows: they must end above the status line (y=498)
-	debugRow0 = 86.0
+	debugRowH = 16.0  // the rows end >= 12 px above the status line (y=498)
+	debugRow0 = 100.0 // >= 12 px under the subtitle (y=70)
 )
 
 func (g *Game) updateDebug() {
@@ -284,7 +381,21 @@ func (g *Game) updateDebug() {
 	if actUp.just() {
 		g.dbgSel = (g.dbgSel + n - 1) % n
 	}
-	if lb := rows[g.dbgSel].label; lb == "Invitados mínimo" || lb == "Invitados máximo" {
+	if st := debugSteps[rows[g.dbgSel].label]; st != nil {
+		dir := 0
+		switch {
+		case actLeft.just():
+			dir = -1
+		case actRight.just():
+			dir = 1
+		}
+		if dir != 0 {
+			st(dir)
+		}
+		if actConfirm.just() || click {
+			rows[g.dbgSel].act()
+		}
+	} else if lb := rows[g.dbgSel].label; lb == "Invitados mínimo" || lb == "Invitados máximo" {
 		// numbers: left and right go down and up, Enter and click go up
 		dir := 0
 		switch {
@@ -307,9 +418,9 @@ func (g *Game) updateDebug() {
 func (g *Game) drawDebug(dst *ebiten.Image) {
 	g.drawBedroom(dst)
 	fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, 190))
-	fillRect(dst, 130, 28, 700, 504, rgb(0x0a0c14))
-	fillRect(dst, 130, 28, 700, 2, rgb(0xffa030))
-	fillRect(dst, 130, 530, 700, 2, rgb(0xffa030))
+	fillRect(dst, 132, 28, 696, 504, rgb(0x0a0c14)) // 12 px from the ATRÁS button
+	fillRect(dst, 132, 28, 696, 2, rgb(0xffa030))
+	fillRect(dst, 132, 530, 696, 2, rgb(0xffa030))
 	g.drawTextC(dst, "MODO DEBUG", 480, 36, rgb(0xffa030), 2.2)
 	g.drawTextC(dst, "Todo es temporal: no se guarda nada y tu partida real no cambia.", 480, 70, rgb(0xb8b0d0), 1.1)
 	for i, r := range g.debugRows() {
@@ -333,5 +444,4 @@ func (g *Game) drawDebug(dst *ebiten.Image) {
 	if debugSnap != nil {
 		g.drawTextC(dst, "SESIÓN DEBUG ACTIVA · nada se guarda hasta que salgas", 480, 498, color.RGBA{255, 160, 48, 255}, 1.1)
 	}
-	g.drawTextC(dst, "↑↓ elegir   Enter / ←→ / clic: cambiar   Esc: volver", 480, 514, rgb(0xf0e060), 1.1)
 }

@@ -17,9 +17,9 @@ import (
 
 const (
 	trophyHudW, trophyHudH = 92.0, 24.0
-	trophyHudX, trophyHudY = float64(960) - trophyHudW - 8, 6.0
-	trophyCloseX           = 900.0 // the close button of the window
-	trophyCloseY           = 62.0
+	trophyHudX, trophyHudY = float64(960) - trophyHudW - 16, 16.0 // 16 px from the screen edges
+	trophyCloseX           = 900.0                                // the close button of the window
+	trophyCloseY           = 66.0
 )
 
 // trophyHudShown: menu and levels, and only until every trophy is won.
@@ -37,6 +37,9 @@ func (g *Game) updateTrophyHud() bool {
 		if !g.trophyHudShown() && g.mode != ModeMenu && g.mode != ModePlay {
 			g.trophyOv = false
 			return false
+		}
+		if g.updateGoalDetail() { // the detail window over the list (goal_detail.go)
+			return true
 		}
 		g.updateTrophyList()
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -109,5 +112,6 @@ func (g *Game) drawTrophyHud(dst *ebiten.Image) {
 		fillRect(dst, trophyCloseX, trophyCloseY-4, 22, 22, rgba(0x6a1a2a, 230))
 		g.drawTextC(dst, "X", trophyCloseX+11, trophyCloseY, rgb(0xffd0d8), 1.3)
 		_ = math.Pi
+		g.drawGoalDetail(dst)
 	}
 }

@@ -9,18 +9,20 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-func TestRocketInterludeAfterParty20(t *testing.T) {
+func TestRocketInterludeAfterParty23(t *testing.T) {
 	g := testGame()
-	if k, ok := g.interludeAfter(19); !ok || k != interRocket {
-		t.Fatal("after the train station (party 20) there must be the rocket interlude")
+	builtinLevels()
+	disco := campaignIdx("disco70")
+	if k, ok := g.interludeAfter(disco); !ok || k != interRocket || disco != len(campaignLevels)-2 {
+		t.Fatal("after the 70s disco (party 23, the last before the space station) there must be the rocket interlude")
 	}
-	for _, i := range []int{18, 20, 21} {
+	for _, i := range []int{18, 19, 20, 21, 22, disco + 1} {
 		if _, ok := g.interludeAfter(i); ok {
 			t.Errorf("level %d should not have an interlude", i)
 		}
 	}
 	g.markSeen("seen_interlude20")
-	if _, ok := g.interludeAfter(19); ok {
+	if _, ok := g.interludeAfter(disco); ok {
 		t.Error("the rocket interlude shows again after being seen")
 	}
 	// the other two are not affected
@@ -47,7 +49,7 @@ func TestRocketInterludeIsListed(t *testing.T) {
 	}
 	// the memories are the last five parties of the campaign, all of them beaten before the interlude
 	pl := interludePlaces(interRocket)
-	if len(pl) != 5 || pl[0] != 15 || pl[4] != 19 {
+	if len(pl) != 5 || pl[0] != campaignIdx("italy") || pl[4] != campaignIdx("disco70") {
 		t.Errorf("memories: %v", pl)
 	}
 }

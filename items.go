@@ -422,8 +422,8 @@ func (g *Game) trapKill(gu *Guest) {
 
 func (g *Game) trapCops(centre Vec, r float64) {
 	for _, c := range append([]*Cop(nil), g.cops...) {
-		if !c.medic && dist(c.pos, centre) < r {
-			g.stabCop(c)
+		if dist(c.pos, centre) < r { // medics and soldiers too: traps do not choose
+			g.trapCop(c)
 		}
 	}
 }
@@ -500,6 +500,7 @@ func (g *Game) updateTraps2(dt float64) {
 			}
 		}
 		g.trapCopsGas(c)
+		g.trapGasOthers(c, dt)
 		if c.t > 0 {
 			out = append(out, c)
 		}
@@ -527,10 +528,11 @@ func (g *Game) updateTraps2(dt float64) {
 			g.credit = false
 			for _, gd := range g.guards {
 				if !gd.dead && dist(gd.pos, at) < 30 {
-					g.killGuard(gd)
+					g.trapGuard(gd)
 				}
 			}
 			g.trapCops(at, 30)
+			g.trapHitOthers(func(v Vec) bool { return dist(v, at) < 30 })
 			g.eachPlayer(func(p *Player) {
 				if !p.dead && dist(p.pos, at) < 20 {
 					g.die("Un cohete de tu trampa te ha dado")
@@ -562,10 +564,11 @@ func (g *Game) updateTraps2(dt float64) {
 			g.credit = false
 			for _, gd := range g.guards {
 				if !gd.dead && math.Abs(gd.pos.X-d.pos.X) < 32 && math.Abs(gd.pos.Y-d.pos.Y) < 22 {
-					g.killGuard(gd)
+					g.trapGuard(gd)
 				}
 			}
 			g.trapCops(d.pos, 34)
+			g.trapHitOthers(func(v Vec) bool { return math.Abs(v.X-d.pos.X) < 32 && math.Abs(v.Y-d.pos.Y) < 22 })
 			g.eachPlayer(func(p *Player) {
 				if !p.dead && math.Abs(p.pos.X-d.pos.X) < 30 && math.Abs(p.pos.Y-d.pos.Y) < 20 {
 					g.die("Te ha caído un piano encima")
@@ -582,8 +585,8 @@ func (g *Game) updateTraps2(dt float64) {
 
 func (g *Game) trapCopsGas(c gasCloud) {
 	for _, o := range append([]*Cop(nil), g.cops...) {
-		if !o.medic && dist(o.pos, c.pos) < 40 && g.rng.Float64() < 0.01 {
-			g.stabCop(o)
+		if dist(o.pos, c.pos) < 40 && g.rng.Float64() < 0.01 {
+			g.trapCop(o)
 		}
 	}
 }

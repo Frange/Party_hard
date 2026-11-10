@@ -142,7 +142,7 @@ func (g *Game) updateTrains(dt float64) {
 	case trStopped:
 		if !tr.boarded && tr.t > 1 {
 			tr.boarded = true
-			n := 3 + g.rng.Intn(5)
+			n := minI(3+g.rng.Intn(5), g.guestRoom()) // never past the kill target (cap.go)
 			py := tr.trackY - 26
 			if tr.trackY > g.lvl.Def.Tracks[0] {
 				py = tr.trackY + 26
@@ -151,7 +151,9 @@ func (g *Game) updateTrains(dt float64) {
 				x := stopX - tr.length()/2 + 60 + g.rng.Float64()*(tr.length()-120)
 				g.addGuestAt(Vec{x, py})
 			}
-			g.say("El tren trae " + itoa(n) + " pasajeros a la fiesta")
+			if n > 0 {
+				g.say("El tren trae " + itoa(n) + " pasajeros a la fiesta")
+			}
 		}
 		if tr.t > 8 {
 			tr.state, tr.t = trLeave, 0

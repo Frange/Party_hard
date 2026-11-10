@@ -91,8 +91,8 @@ func TestPreludePlaysBeforeEachEnding(t *testing.T) {
 		if g.end.stage != endPrelude || g.end.x.pre.kind != preIsland || g.progress.Stats["seen_end2"] != 1 {
 			t.Fatalf("2P=%v: the secret ending must start with its prelude", two)
 		}
-		order, secs = runStages(g, 200, endFinal)
-		if !sameStages(order, []int{endPrelude, endParty, endCredits, endStinger, endFinal}) {
+		order, secs = runStages(g, 260, endFinal)
+		if !sameStages(order, []int{endPrelude, endParty, endCredits, endStinger, endPaper, endHome, endFinal}) {
 			t.Fatalf("2P=%v secret ending: stages %v", two, order)
 		}
 		if f := secs[endParty] + secs[endCredits]; f < 35 {
@@ -228,7 +228,7 @@ func TestPreludeTextsFit(t *testing.T) {
 		}
 	}
 	uiLang = "en"
-	done := map[string]bool{"Diego, César y Samuel": true, "Frange": true, "2026": true, "Guybrush Threepwood": true, "Director": true, "Testers": true, "Fiesta Nocturna": true, "PARTY HARDY": true} // names and numbers
+	done := map[string]bool{"Diego, César y Samuel": true, "Frange": true, "2026": true, "Guybrush Threepwood": true, "Diego": true, "César": true, "Samuel": true, "Director": true, "Testers": true, "Fiesta Nocturna": true, "PARTY HARDY": true} // names and numbers
 	for _, s := range all {
 		if s == "" || done[s] {
 			continue

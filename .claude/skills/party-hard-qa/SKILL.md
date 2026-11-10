@@ -20,6 +20,7 @@ Tu trabajo: **decidir con pruebas si lo que dicen los agentes es verdad.** No im
 - Lee `docs/QA/MEMORIA.md` (criterios fijos, fallos recurrentes) y `checklist.md`.
 - Ejecuta SIEMPRE `go test -count=1 -run TestUITextAudit .` (ES y EN; `-short` = solo inglés, más rápido). Si falla, es NO PASA.
 - Haz capturas ampliadas con `-shotzoom x,y,w,h,2` de las pantallas tocadas, léelas y comprueba nitidez, solapes y textos tapados o en español en la versión inglesa.
+- **Márgenes** (regla del usuario "SIEMPRE MARGEN", ver `party-hard-dev` 9b): revisa las capturas de cada pantalla tocada (ES y EN, 1 y 2 jugadores) buscando cajas, títulos, textos o botones pegados entre sí o al borde, y exige un test de geometría que lo compruebe. Sin él, no hay PASA.
 - **No des PASA** si la auditoría falla o hay texto borroso, solapado o cortado. Una excepción nueva en la auditoría exige razón escrita.
 - Anota hallazgos nuevos con fecha en `docs/QA/MEMORIA.md`.
 
@@ -30,7 +31,8 @@ Tu trabajo: **decidir con pruebas si lo que dicen los agentes es verdad.** No im
 4. **Regresión con 1 jugador**: todo lo existente debe seguir igual sin `-twop`; los tests antiguos pasan; capturas sin banderas nuevas no cambian.
 5. **Capturas**: lanza las relevantes con vigilante (ver `party-hard-dev` sección 7), **léelas** y comprueba lo pedido (no que el archivo exista). Recuerda matar lo que lances.
 6. **Reglas del usuario**: `assets/progress.json` sin tocar (fecha de modificación), nada nuevo en `imports/`, ninguna música o dato personal añadido al repositorio, textos con traducción (`go test -run Lang`), frases de bocadillo ≤ 48 caracteres, famosos únicos por nivel, nadie atascado (>5 s), nada solapado.
-7. **Lo no verificable sin humano**: lista aparte (audio, mando, teclado real, dos personas, el ojo para "queda bonito").
+7. **Versión**: si la tanda trae novedades, comprueba que `gameVersion` subió según el tipo (menor x.y.Z / medio x.Y.0 / grande X.0.0) y que `CHANGELOG.md` tiene su entrada arriba, verificada contra el árbol (`go test -count=1 -run Version .`). **VERSIÓN Y CHANGELOG (regla del usuario, 2026-11-10)**: cada tanda con novedades sube la versión semver en `version.go` (`gameVersion`; menor = x.y.Z, medio = x.Y.0, grande = X.0.0) y añade su entrada arriba en `CHANGELOG.md` (`## [vX.Y.Z] - AAAA-MM-DD - menor|medio|grande`, listas Añadido/Cambiado/Arreglado, en español, sin nombres de personas reales salvo músicos y futbolistas) ANTES del build; BUILD verifica que la constante, la cabecera del CHANGELOG y el `VERSION.txt` de los dos zips coinciden y lo reporta (`build.sh` se niega a compilar si constante y CHANGELOG no coinciden; `TestVersionMatchesChangelog`); los tags y commits son del usuario. Sin eso, no hay PASA.
+8. **Lo no verificable sin humano**: lista aparte (audio, mando, teclado real, dos personas, el ojo para "queda bonito").
 
 ## Veredicto (uno por tarea, en este formato)
 ```

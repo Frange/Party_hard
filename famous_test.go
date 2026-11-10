@@ -137,7 +137,7 @@ func TestStartGuestsRange(t *testing.T) {
 	if lo < 45 || hi > 60 || hi-lo < 10 {
 		t.Fatalf("start target range %d..%d, want inside 45..60 and varied", lo, hi)
 	}
-	for _, def := range testLevels() {
+	for _, def := range testLevels(t) {
 		g.lvl = buildLevel(def)
 		g.guests = nil
 		g.pickStartTarget()

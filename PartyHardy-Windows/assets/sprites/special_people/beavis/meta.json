@@ -1,0 +1,9 @@
+{
+  "name": "beavis",
+  "display_name": "Beavis",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

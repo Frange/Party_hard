@@ -207,6 +207,7 @@ func (g *Game) syncRealMusic() bool {
 		return false
 	}
 	if g.snd.FileEnded() || g.skipSong {
+		g.lifeSongChanged() // some guests go dancing (partylife.go)
 		var ok bool
 		more := moreFn()
 		if want == "dj" || want == "band" {

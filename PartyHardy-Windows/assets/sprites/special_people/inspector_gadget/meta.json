@@ -1,0 +1,9 @@
+{
+  "name": "inspector_gadget",
+  "display_name": "Inspector Gadget",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

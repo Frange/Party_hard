@@ -1,0 +1,9 @@
+{
+  "name": "tintin",
+  "display_name": "Tintín",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

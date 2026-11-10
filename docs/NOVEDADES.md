@@ -80,6 +80,10 @@ Nota: "A la cámara" NO está hecho.
 | 45 | Tope de animales de 2 a 8, con 1 toro. | ver LEEME.txt | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 25 | Álbum de tarjetas de VIP y especiales (incluye Diego, César y Sam-sam), dentro del menú Trofeos. | Menú Trofeos | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 47 | Trofeos secretos. | Menú Trofeos | En curso | ☐ Sí ☐ No ☐ Cambiar |
+| — | Objetivos con pestaña POLICÍAS (patrulla, FBI, ejército, SWAT, Rangers): se marcan al matar un agente de cada tipo o al llegar a su hito. | Menú Objetivos > POLICÍAS | En curso | ☐ Sí ☐ No ☐ Cambiar |
+| — | Uniformes de policía por ESCAPES: cada 3 esposas evitadas se abre un conjunto nuevo (36 en total, los 12 últimos cada 4), con aviso. Ya no se compran; los comprados antes se conservan. | Escapar de la policía; contador en Objetivos > POLICÍAS | En curso | ☐ Sí ☐ No ☐ Cambiar |
+| — | Vestuario con 3 páginas: PERSONAJE, ASESINOS (color de ropa y arma) y POLICÍAS (uniforme de cada cuerpo); se aplica en la fiesta. | Tienda > VESTUARIO | En curso | ☐ Sí ☐ No ☐ Cambiar |
+| — | Tienda reducida: 41 prendas, 60 accesorios, 12 mejoras, 8 animales y 20 armas (141 artículos, ~125.000 puntos). Lo retirado que ya tenías sigue siendo tuyo. | Menú Tienda | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 51 | HUD superior derecho rediseñado, con barra de progreso. | Pantalla de juego | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 52 | Flecha que señala a los últimos invitados (3 o menos). | Pantalla de juego | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 54 | Cámara lenta en la última baja. | Matar al último invitado | En curso | ☐ Sí ☐ No ☐ Cambiar |

@@ -1,8 +1,9 @@
 {
   "name": "jason_mc",
-  "display_name": "Jason (Sum 41)",
+  "display_name": "Jason McCaslin",
   "category": "special_people",
   "gender": "m",
+  "carry": "beer",
   "width": 24,
   "height": 44,
   "shop_only": true

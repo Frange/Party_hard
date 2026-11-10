@@ -29,48 +29,9 @@ func init() {
 		}
 		b.ellipse(50, 9, 3, 2, stoneL)
 	}}
-	pk["eiffel"] = &PropKind{W: 130, H: 200, FW: 84, FH: 14, Draw: func(b *pixBuf, v int) {
-		iron, ironD, ironL := c(0x6a4a38), c(0x3e2a20), c(0x8a6a52)
-		cx := 65.0
-		half := func(y float64) float64 { // half width of the tower at row y (top 8 .. bottom 198)
-			t := (y - 8) / 190
-			return 2 + 56*math.Pow(t, 1.9)
-		}
-		for y := 8; y < 198; y++ {
-			h := half(float64(y))
-			l, r := int(cx-h), int(cx+h)
-			b.rect(l, y, 3, 1, iron)
-			b.rect(r-2, y, 3, 1, ironD)
-			if y%6 == 0 && h > 4 {
-				b.rect(l+2, y, int(2*h)-3, 1, ironL)
-			}
-		}
-		// inner lattice (zigzag)
-		for y := 20; y < 188; y += 12 {
-			h1, h2 := half(float64(y)), half(float64(y+12))
-			b.line(int(cx-h1)+2, y, int(cx+h2)-2, y+12, ironD)
-			b.line(int(cx+h1)-2, y, int(cx-h2)+2, y+12, ironD)
-		}
-		// platforms
-		for _, py := range []int{70, 124} {
-			h := half(float64(py))
-			b.rect(int(cx-h)-3, py, int(2*h)+7, 4, ironL)
-			b.rect(int(cx-h)-3, py+3, int(2*h)+7, 1, ironD)
-		}
-		// base arch: hollow centre between the legs
-		for y := 150; y < 198; y++ {
-			h := half(float64(y))
-			a := math.Sqrt(math.Max(0, 1-math.Pow((float64(y)-198)/48, 2)))
-			w := int((h - 8) * a)
-			for x := int(cx) - w; x <= int(cx)+w; x++ {
-				b.set(x, y, c(0x000000))
-				b.p[(y*b.w+x)*4+3] = 0
-			}
-		}
-		b.rect(int(cx)-1, 0, 2, 10, ironD)
-		b.set(int(cx), 0, c(0xff4040))
-		b.rect(int(cx-half(198))-2, 196, int(2*half(198))+5, 3, ironD)
-	}}
+	pk["eiffel"] = &PropKind{W: eifW, H: eifH, FW: 84, FH: 14, NoSolid: true,
+		Solids: []Rect{{-58, -14, 17, 14}, {41, -14, 17, 14}}, // only the four legs (two seen from the front): the arch is walkable
+		Draw:   drawEiffel}
 	pk["carousel"] = &PropKind{W: 92, H: 84, FW: 72, FH: 26, Draw: func(b *pixBuf, v int) {
 		b.ellipse(46, 72, 44, 11, c(0x6a2a34))
 		b.ellipse(46, 70, 44, 11, c(0xd8b050))

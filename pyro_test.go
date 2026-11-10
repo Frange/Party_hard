@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func fireGame(idx int, seed int64) (*Game, *LevelDef) {
-	defs := testLevels()
+func fireGame(t *testing.T, idx int, seed int64) (*Game, *LevelDef) {
+	defs := testLevels(t)
 	def := defs[idx]
 	g := capGame(def, seed)
 	g.as = &Assets{}
@@ -30,7 +30,7 @@ func firstFlammable(g *Game) *Prop {
 // the fire spreads a little and never beyond its budget, its reach or the cap on flames
 func TestFireSpreadBounded(t *testing.T) {
 	for _, idx := range []int{0, 3, 16} {
-		g, _ := fireGame(idx, int64(idx)+5)
+		g, _ := fireGame(t, idx, int64(idx)+5)
 		start := firstFlammable(g)
 		if start == nil {
 			t.Fatalf("level %d has nothing that burns", idx)
@@ -76,7 +76,7 @@ func TestFireSpreadBounded(t *testing.T) {
 
 // metal, stone and water do not burn; what stands in a pool does not either
 func TestNothingMetalBurns(t *testing.T) {
-	g, _ := fireGame(0, 1)
+	g, _ := fireGame(t, 0, 1)
 	for _, name := range []string{"fridge", "car", "dumpster", "statue", "toilet", "tv", "jukebox", "fountain", "fusebox"} {
 		k := propKinds[name]
 		if k == nil {
@@ -86,7 +86,7 @@ func TestNothingMetalBurns(t *testing.T) {
 			t.Errorf("%s should not burn", name)
 		}
 	}
-	g2, def := fireGame(16, 2) // the rooftop has a pool
+	g2, def := fireGame(t, 16, 2) // the rooftop has a pool
 	if len(g2.lvl.Pools) == 0 {
 		t.Skip("no pool in this level")
 	}
@@ -100,7 +100,7 @@ func TestNothingMetalBurns(t *testing.T) {
 // the firefighters arrive and put it out
 func TestFirefightersPutItOut(t *testing.T) {
 	for _, idx := range []int{0, 16} {
-		g, _ := fireGame(idx, int64(idx)+9)
+		g, _ := fireGame(t, idx, int64(idx)+9)
 		pr := firstFlammable(g)
 		f := g.igniteProp(pr, nil)
 		f.life = 600 // it would burn for ever: only the hose ends it
@@ -121,7 +121,7 @@ func TestFirefightersPutItOut(t *testing.T) {
 
 // people who stay in the flames die, but nobody gets credit and the guest count goes down
 func TestFireKillsWithoutStars(t *testing.T) {
-	g, _ := fireGame(0, 4)
+	g, _ := fireGame(t, 0, 4)
 	pr := firstFlammable(g)
 	f := g.igniteProp(pr, nil)
 	f.life = 600
@@ -154,7 +154,7 @@ func TestFireKillsWithoutStars(t *testing.T) {
 
 // the arsonist: does not count for the cap, nor for ending the party; he can be killed
 func TestPyroIsNotAGuest(t *testing.T) {
-	g, _ := fireGame(3, 7)
+	g, _ := fireGame(t, 3, 7)
 	live := g.guestLive()
 	alive := g.aliveCount()
 	g.spawnPyro()
@@ -182,7 +182,7 @@ func TestPyroIsNotAGuest(t *testing.T) {
 
 // he lights things on his own, stops after three and leaves
 func TestPyroLightsAndLeaves(t *testing.T) {
-	g, _ := fireGame(3, 11)
+	g, _ := fireGame(t, 3, 11)
 	g.spawnPyro()
 	var py *Guest
 	for _, gu := range g.guests {
@@ -210,7 +210,7 @@ func TestPyroLightsAndLeaves(t *testing.T) {
 
 // the chance of an arsonist: about a third of the parties, never the first one, forced by -pyronow
 func TestPyroChance(t *testing.T) {
-	defs := testLevels()
+	defs := testLevels(t)
 	count := 0
 	const n = 600
 	for i := 0; i < n; i++ {
@@ -241,7 +241,7 @@ func TestPyroChance(t *testing.T) {
 
 // nothing stays stuck for more than five seconds
 func TestPyroUnstick(t *testing.T) {
-	g, _ := fireGame(3, 3)
+	g, _ := fireGame(t, 3, 3)
 	g.spawnPyro()
 	var py *Guest
 	for _, gu := range g.guests {

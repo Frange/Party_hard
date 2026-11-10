@@ -1,0 +1,11 @@
+{
+  "name": "tecnico",
+  "display_name": "Técnico",
+  "category": "police",
+  "role": "technician",
+  "gender": "m",
+  "carry": "briefcase",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

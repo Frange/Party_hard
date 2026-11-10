@@ -1,0 +1,11 @@
+{
+  "name": "el_exterminador",
+  "display_name": "El Exterminador",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "rifle",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

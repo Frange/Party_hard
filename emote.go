@@ -11,11 +11,11 @@ import (
 // GUEST EMOTES (idea 60). A small pixel-art icon (9x9) over the head of a guest tells what he is up to, read from
 // the states the game already has (no new AI):
 //
-//	?  waiting for somebody to talk to        (witnesses: none, see suspect.go)      drop of sweat  fleeing, scared, sick
+//	?  waiting for somebody to talk to        (witnesses: none, see suspect.go)
 //	zzz sleeping   heart kissing or dancing in pairs   note dancing   skull poisoned or bitten   anger punching   bubble chatting
 //
 //   - At most emoteMax (6) at the same time, and at most emoteAmbientMax (3) of the calm ones (note, zzz, bubble...): the urgent
-//     ones (! drop skull anger) come first. Every guest rests emoteRest seconds after showing one, so they rotate.
+//     ones (! skull anger) come first. Every guest rests emoteRest seconds after showing one, so they rotate.
 //   - An icon lives emoteLife seconds, pops in (2x for the first 0.1 s, then 1x: whole steps) and blinks out in the last 0.25 s.
 //   - It is not drawn over a speech bubble, over another emote or over a player (his J1 / J2 tag, his "!" alert and his halo), and
 //     not for guests that are off screen, inside a toilet, abducted or already out.
@@ -40,7 +40,6 @@ const (
 	emNone emoteKind = iota
 	emQuestion
 	emExcl
-	emSweat
 	emZzz
 	emHeart
 	emNote
@@ -53,7 +52,7 @@ const (
 // urgent kinds are the ones that matter for the player; the others are decoration.
 func (k emoteKind) urgent() bool {
 	switch k {
-	case emExcl, emSweat, emSkull, emAnger:
+	case emExcl, emSkull, emAnger:
 		return true
 	}
 	return false
@@ -71,7 +70,7 @@ func emoteOf(gu *Guest) emoteKind {
 	case gAlarm, gToPhone, gCall, gReport:
 		return emNone // a witness wears NO icon: the player's "!" and the cuffs are the only "they saw you" signals (suspect.go)
 	case gFlee, gScared, gVomit:
-		return emSweat
+		return emNone // no drop of sweat over the head of the ones who flee, are scared or sick
 	case gPunch:
 		return emAnger
 	case gSleep:
@@ -210,7 +209,6 @@ func (g *Game) updateEmotes(dt float64) {
 var emoteArt = [emCount][7]string{
 	emQuestion: {".XXXXX.", "XX...XX", "XX...XX", "....XX.", "...XX..", ".......", "...XX.."},
 	emExcl:     {"..XXX..", "..XXX..", "..XXX..", "..XXX..", "...X...", ".......", "..XXX.."},
-	emSweat:    {"...X...", "...X...", "..XXX..", ".XwXXX.", ".XXXXX.", ".XXXXX.", "..XXX.."},
 	emZzz:      {"XXXXXXX", ".....XX", "....XX.", "...XX..", "..XX...", ".XX....", "XXXXXXX"},
 	emHeart:    {".XX.XX.", "XwXXXXX", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."},
 	emNote:     {"..XXXX.", "..XXXXX", "..XX.XX", "..XX...", ".XXX...", "XXXX...", ".XX...."},
@@ -222,7 +220,6 @@ var emoteArt = [emCount][7]string{
 var emoteColor = [emCount][3]color.RGBA{ // main, light, dark
 	emQuestion: {rgb(0xffe060), rgb(0xffffff), rgb(0x806010)},
 	emExcl:     {rgb(0xfff0a0), rgb(0xffffff), rgb(0x806010)},
-	emSweat:    {rgb(0x60c8ff), rgb(0xe0f8ff), rgb(0x1a5a90)},
 	emZzz:      {rgb(0xb8c8ff), rgb(0xffffff), rgb(0x4a5a90)},
 	emHeart:    {rgb(0xff4a78), rgb(0xffc0d0), rgb(0x801030)},
 	emNote:     {rgb(0xc890ff), rgb(0xffffff), rgb(0x502890)},

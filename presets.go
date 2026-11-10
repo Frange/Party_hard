@@ -196,8 +196,8 @@ func presetFlanders(r *rand.Rand) CharSpec {
 func presetFry(r *rand.Rand) CharSpec {
 	s := mk(r, "fry")
 	s.Head = HeadBig
-	s.Skin, s.Hair = hx(0xf0c8a4), hx(0xf08a20)
-	s.Top, s.Shirt, s.Shirt2, s.Pants, s.Shoes = TopLong, hx(0xc82a2a), hx(0xf4f4f8), hx(0x3a5a9a), hx(0xe8e8f0)
+	s.Skin, s.Hair = hx(0xf2b878), hx(0xe8581c)
+	s.Top, s.Shirt, s.Shirt2, s.Pants, s.Shoes = TopHoodie, hx(0x2f8e86), hx(0x9ad8a0), hx(0x2c4a40), hx(0x2a2024)
 	s.Hair2 = HairFry
 	return s
 }
@@ -216,6 +216,7 @@ func presetBender(r *rand.Rand) CharSpec {
 	s.Body, s.Hat = BodyRobot, HatAntenna
 	s.Hair2 = HairBald
 	s.Shoes = hx(0x5a6270)
+	s.Carry = HoldBeer // the beer in the right hand (bender_art.go adds the cigar in the left)
 	return s
 }
 
@@ -232,7 +233,7 @@ func presetZoidberg(r *rand.Rand) CharSpec {
 	s := mk(r, "zoidberg")
 	s.Skin, s.Hair = hx(0xe05a40), hx(0xe05a40)
 	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0xf4f4f8), hx(0x3a3a50), hx(0x2a2a2a)
-	s.Head, s.Hair2, s.Beard = HeadBig, HairBald, BeardFull
+	s.Head, s.Hair2, s.Beard = HeadBig, HairBald, BeardNone // face tentacles instead (charimp_q.go)
 	s.Hair = hx(0xc03a28)
 	return s
 }
@@ -292,7 +293,7 @@ func presetKyle(r *rand.Rand) CharSpec {
 func presetStan(r *rand.Rand) CharSpec {
 	s := mk(r, "stan")
 	s.Skin = hx(0xf0d0a8)
-	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0x7a4a2a), hx(0x3a4a8a), hx(0x3a2a1a)
+	s.Top, s.Shirt, s.Pants, s.Shoes = TopLong, hx(0x8a5430), hx(0x3a4a8a), hx(0x3a2a1a)
 	s.Hat, s.HatCol = HatBeanie, hx(0x2a4ab8)
 	s.Body, s.Head, s.Stature = BodyBig, HeadHuge, 8
 	return s
@@ -300,7 +301,7 @@ func presetStan(r *rand.Rand) CharSpec {
 
 func presetVader(r *rand.Rand) CharSpec {
 	s := mk(r, "vader")
-	s.Top, s.Shirt, s.Pants, s.Shoes = TopArmor, hx(0x1a1a20), hx(0x14141a), hx(0x0a0a0e)
+	s.Top, s.Shirt, s.Pants, s.Shoes = TopArmor, hx(0x23262e), hx(0x1e2027), hx(0x0c0c10)
 	s.Hat, s.HatCol, s.Cape = HatVader, hx(0x16161c), hx(0x0e0e12)
 	s.Body, s.Stature = BodyBig, -2
 	s.Carry, s.CarryCol = HoldSaber, hx(0xff3030)

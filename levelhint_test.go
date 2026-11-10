@@ -83,6 +83,8 @@ func TestHintChosenPerLevel(t *testing.T) {
 		t.Error("no level with a VIP zone nor cameras: the data tips were never exercised")
 	}
 	// a level without an entry takes the generic text
+	def, oldIcon, oldTitle := g.lvl.Def, g.lvl.Def.Icon, g.lvl.Def.Title // the Def is shared with levelDefs: put it back
+	t.Cleanup(func() { def.Icon, def.Title = oldIcon, oldTitle })
 	g.lvl.Def.Icon, g.lvl.Def.Title = "", "NIVEL RARO"
 	if l := g.levelHintLines(); l[0] != hintGeneric.goal {
 		t.Errorf("unknown level: %v", l)

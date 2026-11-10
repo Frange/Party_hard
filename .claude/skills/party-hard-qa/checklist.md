@@ -7,9 +7,11 @@ Lee también `docs/QA/MEMORIA.md` (criterios fijos y fallos recurrentes).
 - [ ] Tests nuevos y antiguos en verde; sin SKIPPED injustificados; ningún test debilitado
 - [ ] Si cambió algo visual, de textos o de traducciones: `go test -count=1 -run TestUITextAudit .` en verde (sin `-short` para el veredicto)
 - [ ] Capturas ampliadas con `-shotzoom` de cada pantalla tocada, leídas: nítidas, sin solapes, nada tapado, nada cortado, nada en español en inglés
+- [ ] Márgenes: capturas de cada pantalla tocada revisadas (nada pegado a otra caja ni al borde) y test de geometría presente
 - [ ] `go test -count=1 -run 'Text|Lang' .` en verde
 - [ ] Modo de 1 jugador sin cambios; 2 jugadores comprobado si se tocó
 - [ ] `assets/progress.json`, `music/`, `imports/`, `intros/` sin tocar; sin datos personales
+- [ ] Versión subida (menor x.y.Z / medio x.Y.0 / grande X.0.0) y entrada nueva arriba en `CHANGELOG.md` que coincide con `gameVersion` (`go test -count=1 -run Version .`); tags/commits son del usuario
 - [ ] Procesos de prueba muertos y temporales borrados
 - [ ] Hallazgos nuevos anotados (fecha) en `docs/QA/MEMORIA.md`
 - [ ] NO PASA si la auditoría falla o hay texto borroso/solapado

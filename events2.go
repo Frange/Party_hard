@@ -161,42 +161,17 @@ func (g *Game) stepRex(e *Event, dt float64) bool {
 }
 
 func genRexFrame(f int) *pixBuf {
-	b := newPix(152, 100)
-	green, belly, dark := hx(0x3a8a4a), hx(0xc4d890), hx(0x246a34)
-	for i := 0.0; i < 1; i += 0.06 { // tail
-		b.ellipse(40-i*38, 50+i*14, 15-i*11, 12-i*9, green)
-	}
-	b.ellipse(64, 50, 38, 26, green)
-	b.ellipse(70, 60, 28, 14, belly)
-	b.ellipse(100, 34, 16, 20, green) // neck
-	b.ellipse(120, 24, 24, 14, green) // head
-	b.rect(104, 32, 40, 8, dark)      // jaw
-	for x := 108; x < 142; x += 5 {
-		b.rect(x, 31, 2, 4, hx(0xf4f4f0))
-		b.rect(x+2, 39, 2, 3, hx(0xf4f4f0))
-	}
-	b.ellipse(128, 17, 3, 3, hx(0xf0d020))
-	b.set(129, 17, hx(0x14141a))
-	b.rect(142, 20, 3, 2, dark)
-	b.line(94, 54, 102, 62, dark)
-	b.line(95, 52, 103, 60, dark)
-	for x := 30; x < 90; x += 12 { // spines
-		b.rect(x, 24+abs((x-60)/6), 5, 4, dark)
-	}
-	off := []int{-7, 7}[f%2]
-	for i, lx := range []int{60, 82} {
-		o := off
-		if i == 1 {
-			o = -off
-		}
-		b.ellipse(float64(lx+o/2), 66, 11, 16, shade(green, 0.9))
-		b.rect(lx+o-3, 78, 9, 14, dark)
-		b.rect(lx+o-6, 90, 17, 6, dark)
-		for c := 0; c < 3; c++ {
-			b.rect(lx+o-6+c*6, 95, 3, 3, hx(0xf4f4f0))
+	// the same T-Rex as the island's (rexart.go), walking, looking RIGHT (the art looks left)
+	b := newPix(160, 99)
+	b.ox, b.oy = 22, 13
+	drawRexArt(b, []int{rexPoseWalkA, rexPoseWalkB}[f%2])
+	o := newPix(b.w, b.h)
+	for y := 0; y < b.h; y++ {
+		for x := 0; x < b.w; x++ {
+			copy(o.p[(y*o.w+x)*4:(y*o.w+x)*4+4], b.p[(y*b.w+(b.w-1-x))*4:(y*b.w+(b.w-1-x))*4+4])
 		}
 	}
-	return b
+	return o
 }
 
 func (g *Game) rexSprite(f int) *ebiten.Image {

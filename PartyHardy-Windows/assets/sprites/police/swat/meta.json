@@ -1,0 +1,10 @@
+{
+  "name": "swat",
+  "display_name": "Swat",
+  "category": "police",
+  "role": "swat",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

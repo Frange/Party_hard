@@ -76,7 +76,7 @@ var floorTone = map[string]float64{
 	"grass": 0.8, "dirt": 0.75, "pave": 0.78, "asphalt": 0.8, "sand": 0.72, "cobble": 0.78, "pitch": 0.72, "chalk": 1.0,
 	"arena": 0.8, "boardwalk": 0.82, "rooftop": 0.85, "rooftop2": 0.9,
 	"wood": 0.9, "parquet": 0.85, "deck": 0.85, "tile": 0.82, "white": 0.62, "marble": 0.72, "mall": 0.75,
-	"carpet": 0.8, "concrete": 0.85, "snow": 0.66,
+	"carpet": 0.8, "concrete": 0.85, "snow": 0.66, "ice": 0.97,
 }
 
 func stylizeFloor(kind string, b *pixBuf) *pixBuf {
@@ -395,6 +395,24 @@ func genFloor(kind string, variant int) *pixBuf {
 				b.rect(x, y, 16, 16, c)
 				b.rect(x, y, 16, 1, rgb(0x5a3a20))
 				b.rect(x, y, 1, 16, rgb(0x5a3a20))
+			}
+		}
+	case "ice":
+		// smooth ice: a pale blue sheet with the long scratches of the skates and a few frosted flecks
+		fill(rgb(0xcfe6f6))
+		noise(90, rgb(0xd2e8f6))
+		noise(60, rgb(0xb0cce2))
+		noise(10, rgb(0xeaf6ff))
+		for i := 0; i < 4; i++ {
+			x0, y0 := rng.Intn(32), rng.Intn(32)
+			ln := 6 + rng.Intn(14)
+			dy := rng.Intn(3) - 1
+			for s := 0; s < ln; s++ {
+				col := rgb(0xe6f4ff)
+				if i%2 == 1 {
+					col = rgb(0xa4c0d8)
+				}
+				b.set((x0+s)%32, (y0+s*dy/2+32)%32, col)
 			}
 		}
 	case "snow":

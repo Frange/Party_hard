@@ -1,0 +1,9 @@
+{
+  "name": "wonder_woman",
+  "display_name": "Mujer Maravilla",
+  "category": "special_people",
+  "gender": "f",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

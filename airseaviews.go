@@ -10,7 +10,7 @@ import (
 
 // ---------------------------------------------------------------------------
 // Front and rear views of the flying and sailing vehicles. The side sprites
-// (props2.go genHeliPal, transit.go genBoat / genShip) are only right while a
+// (props2.go genHeliPal, vessels.go genBoat / genShip) are only right while a
 // vehicle moves left or right; when it comes down or goes up the screen the
 // bow (or the nose) points at the camera or away from it, so it is painted
 // from the front (it comes down) or from behind (it goes up).
@@ -145,101 +145,21 @@ func sameSprite(a, b *pixBuf) bool {
 
 // ---- boats and shuttles ---------------------------------------------------------------
 
-// genBoatView: the motor launch seen from the bow (front) or the stern.
-func genBoatView(body, trim color.RGBA, long, front bool) *pixBuf {
-	w := 48
-	if long {
-		w = 58
-	}
-	b := newPix(w, 44)
-	fw := float64(w)
-	b.ellipse(fw/2, 38, fw/2-2, 3, color.RGBA{10, 30, 60, 90})
-	hw := w - 8
-	if front {
-		for i := 0; i < 10; i++ { // the hull narrows towards the water line: the bow comes at us
-			n := hw - i*2
-			b.rect((w-n)/2, 26+i, n, 1, shade(body, 1-float64(i)*0.03))
-		}
-		b.rect((w-hw)/2, 29, hw, 2, trim)
-		b.rect(w/2-1, 26, 2, 10, shade(body, 1.25)) // stem
-	} else {
-		b.rect((w-hw)/2, 26, hw, 10, body)
-		b.rect((w-hw)/2, 29, hw, 2, trim)
-		b.rect((w-hw)/2, 35, hw, 1, shade(body, 0.55))
-		b.rect(w/2-4, 28, 8, 10, c(0x2a2a30)) // outboard motor
-		b.rect(w/2-3, 37, 6, 2, c(0x6a6a74))
-		b.rect(w/2-8, 31, 5, 3, c(0xe8f4ff)) // wash
-		b.rect(w/2+3, 31, 5, 3, c(0xe8f4ff))
-	}
-	cw := 26
-	if long {
-		cw = 34
-	}
-	b.rect((w-cw)/2, 13, cw, 13, shade(body, 1.12))
-	b.rect((w-cw)/2-1, 11, cw+2, 3, trim)
-	if front {
-		b.rect((w-cw)/2+2, 16, cw-4, 7, c(0x9ad0ea)) // wind-screen
-		b.rect(w/2-1, 16, 2, 7, trim)
-	} else {
-		b.rect((w-cw)/2+3, 16, 6, 6, c(0x9ad0ea))
-		b.rect(w-(w-cw)/2-9, 16, 6, 6, c(0x9ad0ea))
-	}
-	b.rect(w/2-1, 5, 3, 6, c(0x6a6a74)) // beacon
-	b.rect(w/2-2, 3, 5, 2, c(0xff4040))
-	for x := 6; x < w-6; x += 5 {
-		b.set(x, 36, c(0xe8f4ff))
-	}
-	return b
-}
-
-// genShipView: the shuttle seen from the nose (front) or from the exhaust (rear).
-func genShipView(body, trim color.RGBA, long, front bool) *pixBuf {
-	w := 70
-	if long {
-		w = 86
-	}
-	b := newPix(w, 46)
-	fw := float64(w)
-	b.ellipse(fw/2, 41, fw/2-8, 3, color.RGBA{0, 0, 10, 90})
-	b.rect(8, 31, w-16, 3, shade(body, 0.6)) // wings
-	b.ellipse(fw/2, 26, fw/2-9, 11, shade(body, 0.7))
-	b.ellipse(fw/2, 24, fw/2-9, 10, body)
-	b.ellipse(fw/2, 22, fw/2-16, 6, shade(body, 1.2))
-	b.ellipse(fw/2, 30, fw/2-14, 1.6, trim)
-	b.rect(w/2-26, 34, 2, 6, c(0x3a3a46)) // landing legs
-	b.rect(w/2+24, 34, 2, 6, c(0x3a3a46))
-	if front {
-		b.ellipse(fw/2, 19, 13, 8, c(0x7ad0f0)) // canopy
-		b.ellipse(fw/2-3, 16, 5, 3, c(0xc8f4ff))
-		b.rect(10, 26, 4, 3, c(0xf0e070)) // lights
-		b.rect(w-14, 26, 4, 3, c(0xf0e070))
-		for x := 20; x < w-18; x += 9 {
-			b.rect(x, 28, 3, 2, c(0xfff0b0))
-		}
-	} else {
-		b.rect(w/2-2, 4, 4, 16, trim) // fin
-		b.rect(w/2-10, 15, 20, 2, trim)
-		b.ellipse(fw/2, 25, 8, 6, c(0xff9a30)) // engine glow
-		b.ellipse(fw/2, 25, 4, 3, c(0xfff0a0))
-		b.rect(12, 27, 5, 3, c(0xff9a30))
-		b.rect(w-17, 27, 5, 3, c(0xff9a30))
-	}
-	return b
-}
+// genBoatView and genShipView (the bow / nose and stern / engine views) live in vessels.go.
 
 var transitViewImgs = map[string]*ebiten.Image{}
 
 // transitView: the cached front or rear view of a boat or shuttle.
-func transitView(sea bool, body, trim color.RGBA, long, front bool) *ebiten.Image {
-	key := fmt.Sprintf("v%v%x%x%x%x%v%v", sea, body.R, body.G, body.B, int(trim.R)+int(trim.G)+int(trim.B), long, front)
+func transitView(sea bool, body, trim color.RGBA, long, front bool, style int) *ebiten.Image {
+	key := fmt.Sprintf("v%v%x%x%x%x%v%v%d", sea, body.R, body.G, body.B, int(trim.R)+int(trim.G)+int(trim.B), long, front, style)
 	if im := transitViewImgs[key]; im != nil {
 		return im
 	}
 	var pb *pixBuf
 	if sea {
-		pb = genBoatView(body, trim, long, front)
+		pb = genBoatView(body, trim, long, front, style)
 	} else {
-		pb = genShipView(body, trim, long, front)
+		pb = genShipView(body, trim, long, front, style)
 	}
 	im := pb.outlinedSel(0.42).img()
 	transitViewImgs[key] = im
@@ -249,7 +169,7 @@ func transitView(sea bool, body, trim color.RGBA, long, front bool) *ebiten.Imag
 // drawTransitView paints a boat or shuttle that moves up or down the screen.
 func (g *Game) drawTransitView(dst *ebiten.Image, v *Vehicle, sea bool, body, trim color.RGBA, long bool, label string, labCol color.RGBA) {
 	front := v.vdir > 0 != (v.state == 2) // coming down: bow to us; leaving (going back up): stern
-	im := transitView(sea, body, trim, long, front)
+	im := transitView(sea, body, trim, long, front, transitCraft(v))
 	w, h := float64(im.Bounds().Dx()), float64(im.Bounds().Dy())
 	bob := math.Sin(g.time*2+v.y*0.05) * 1.3
 	if !sea {
@@ -259,7 +179,7 @@ func (g *Game) drawTransitView(dst *ebiten.Image, v *Vehicle, sea bool, body, tr
 	op.GeoM.Translate(math.Round(g.wx(v.x)-w/2), math.Round(g.wy(v.y)-h+8+bob))
 	dst.DrawImage(im, op)
 	if !sea && !front {
-		g.glowAt(dst, Vec{g.wx(v.x) - g.camI.X, g.wy(v.y) - 16 + bob - g.camI.Y}, 14, color.RGBA{255, 150, 40, 110})
+		g.glowAt(dst, Vec{g.wx(v.x) - g.camI.X, g.wy(v.y) - h + 30 + bob - g.camI.Y}, 14, color.RGBA{60, 210, 255, 110})
 	}
 	if label != "" {
 		g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y))-h+2+bob, labCol, 1)

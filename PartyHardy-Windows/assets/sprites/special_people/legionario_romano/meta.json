@@ -1,0 +1,9 @@
+{
+  "name": "legionario_romano",
+  "display_name": "Legionario romano",
+  "category": "special_people",
+  "gender": "m",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

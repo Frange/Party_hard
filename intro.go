@@ -149,7 +149,7 @@ func (g *Game) updateIntro() {
 	if in.song {
 		g.snd.SetSceneVolume("base", introThumpVol(in.t))
 	} else {
-		g.snd.SetThumpVolume(introThumpVol(in.t))
+		g.snd.SetThumpVolume(introMusicVol(in.t)) // the synthesised party: louder, with a ramp (scenemusic.go)
 	}
 	for k := 0; k < 4; k++ {
 		once("sheep"+string(rune('0'+k)), inSheepStart+1.5+float64(k)*2+0.9, "spark")

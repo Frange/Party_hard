@@ -146,22 +146,26 @@ func horseView(b *pixBuf, v int, front bool, withRider bool) {
 		// chest and neck
 		b.ellipse(15, 38, 10.5, 9, body)
 		b.ellipse(15, 41, 8, 5, shade(body, 0.9))
-		b.rect(9, 20, 12, 16, body)
-		b.rect(8, 20, 1, 15, mane)
-		b.rect(21, 20, 1, 15, mane)
-		// head seen head on, hanging in front of the neck
-		b.ellipse(15, 30, 4.6, 8, body)
+		// neck tapering from a narrow poll to the broad chest
+		for y := 20; y < 36; y++ {
+			hw := 3 + (y-20)*3/15 // half width 3 -> 6
+			b.rect(15-hw, y, 2*hw, 1, body)
+			b.rect(15-hw-1, y, 1, 1, mane)
+			b.rect(15+hw, y, 1, 1, mane)
+		}
+		// head seen head on: long and narrow, hanging in front of the neck
+		b.ellipse(15, 30, 3.3, 8, body)
 		b.rect(14, 24, 2, 13, light) // the blaze
-		b.ellipse(15, 37, 3.6, 3, shade(light, 0.95))
+		b.ellipse(15, 37, 2.6, 3, shade(light, 0.95))
 		b.set(14, 37, dark)
 		b.set(16, 37, dark)
 		b.set(12, 28, c(0x14100c))
 		b.set(18, 28, c(0x14100c))
-		b.rect(11, 21, 2, 4, body) // ears
-		b.rect(17, 21, 2, 4, body)
-		b.rect(11, 21, 1, 2, dark)
-		b.rect(18, 21, 1, 2, dark)
-		b.rect(12, 22, 6, 2, mane) // forelock
+		b.rect(12, 21, 2, 3, body) // small ears, close together
+		b.rect(16, 21, 2, 3, body)
+		b.rect(12, 21, 1, 2, dark)
+		b.rect(17, 21, 1, 2, dark)
+		b.rect(13, 22, 4, 2, mane) // forelock
 		return
 	}
 	// seen from behind: rump, tail and hind legs
@@ -169,10 +173,11 @@ func horseView(b *pixBuf, v int, front bool, withRider bool) {
 		b.rect(x, 40, 3, 13, shade(body, 0.85))
 		hoof(x, 52)
 	}
-	b.ellipse(15, 34, 11.5, 11, body)
-	b.ellipse(15, 31, 9, 6, light)
-	b.ellipse(15, 40, 9, 4, shade(body, 0.85))
-	b.rect(14, 26, 2, 12, shade(body, 0.7)) // the dip between the haunches
+	// rump kept no wider than the chest seen head on (10.5) so it matches the side view
+	b.ellipse(15, 36, 9.5, 9, body)
+	b.ellipse(15, 33, 7.5, 5, light)
+	b.ellipse(15, 41, 7.5, 3.5, shade(body, 0.85))
+	b.rect(14, 29, 2, 10, shade(body, 0.7)) // the dip between the haunches
 	rider()
 	if withRider {
 		b.rect(5, 22, 4, 11, c(0x3a4a7a)) // the rider's legs

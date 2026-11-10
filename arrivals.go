@@ -42,7 +42,8 @@ func (g *Game) updateArrivals(dt float64) {
 				cnt++
 			}
 		}
-		g.veh = append(g.veh, &Vehicle{kind: 6, x: def.CarFrom.X + 60, y: def.CarFrom.Y, tx: def.CarTo.X - 40 - float64(cnt)*110, ty: def.CarFrom.Y, alt: n})
+		// pad (unused on ground vehicles) = the paint: the second limousine of the night is silver (limo.go)
+		g.veh = append(g.veh, &Vehicle{kind: 6, x: def.CarFrom.X + 60, y: def.CarFrom.Y, tx: def.CarTo.X - 40 - float64(cnt)*110, ty: def.CarFrom.Y, alt: n, pad: (g.arrivals + 1) % 2})
 		g.say("Una limusina llega a la fiesta")
 		g.snd.Play("ring")
 	}
@@ -115,17 +116,19 @@ func (g *Game) addGuestAt(pos Vec) {
 	}
 	pos = g.lvl.NearestFree(pos)
 	cs, name := g.newGuestCS()
+	if vc := g.venueGuestCS(g.lvl.Def); vc != nil { // dressed for the party (venuecrowd.go)
+		cs, name = vc, ""
+	}
 	gu := &Guest{pos: pos, dir: DirDown, cs: cs, name: name, style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: 0.5, role: g.rng.Intn(2)}
 	g.guests = append(g.guests, gu)
 	g.total++
 }
 
-// limoArrives: the car has parked and the guests step out.
+// limoArrives: the car has parked and the guests step out of its side doors (limo.go).
 func (g *Game) limoArrives(v *Vehicle) {
 	n := v.alt
-	base := Vec{v.x - 12, v.y - 24}
 	for k := 0; k < n; k++ {
-		g.addGuestAt(Vec{base.X + float64(k)*13 - 20, base.Y + float64(k%2)*8})
+		g.addGuestAt(Vec{v.x + limoDoorWorld(k) + float64(k/len(limoDoorX))*6, v.y - 24 + float64(k%2)*8})
 	}
 	g.say("Llegan más invitados: +" + itoa(n))
 	g.snd.Play("alert")
@@ -141,21 +144,6 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return s
-}
-
-func (g *Game) drawLimo(dst *ebiten.Image, pi PropImg, v *Vehicle) {
-	for k, off := range []float64{0, 58} {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(math.Round(g.wx(v.x+off)-pi.ox), math.Round(g.wy(v.y)-pi.oy))
-		op.ColorScale.Scale(0.14, 0.14, 0.2, 1)
-		if k == 1 {
-			op.ColorScale.Scale(0.9, 0.9, 1, 1)
-		}
-		dst.DrawImage(pi.img, op)
-	}
-	cx, cy := math.Round(g.wx(v.x)), math.Round(g.wy(v.y))
-	fillRect(dst, cx-16, cy-26, 90, 2, color.RGBA{190, 190, 210, 255})
-	fillRect(dst, cx-16, cy-24, 90, 1, color.RGBA{50, 50, 70, 255})
 }
 
 func (g *Game) drawElevator(dst *ebiten.Image, e *Elevator) {

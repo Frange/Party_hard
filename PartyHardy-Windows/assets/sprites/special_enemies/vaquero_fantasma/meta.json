@@ -1,0 +1,11 @@
+{
+  "name": "vaquero_fantasma",
+  "display_name": "Vaquero Fantasma",
+  "category": "special_enemies",
+  "role": "killer",
+  "gender": "m",
+  "carry": "machete",
+  "width": 24,
+  "height": 44,
+  "shop_only": true
+}

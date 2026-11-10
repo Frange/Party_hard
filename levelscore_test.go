@@ -9,7 +9,7 @@ func scoreGame(t *testing.T) *Game {
 	t.Helper()
 	oldF := progressFrozen
 	t.Cleanup(func() { progressFrozen = oldF })
-	g, _ := fireGame(3, 7)
+	g, _ := fireGame(t, 3, 7)
 	g.perkMoney = 1
 	g.mode = ModePlay
 	g.progress = Progress{Unlocked: 1}

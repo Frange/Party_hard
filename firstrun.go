@@ -35,13 +35,13 @@ func (g *Game) leaveBootIntro() {
 			g.mainSel = i
 		}
 	}
-	g.snd.StartMusic()
+	g.snd.StartMenuMusicNow(g.menuTier()) // the menu's music from its first bar, fading in (no other song before it)
 }
 
 // wipeProgress erases everything (the "BORRA TODO" popup), the cinematics seen too, and starts over
 // with the intro, as on the very first run.
 func (g *Game) wipeProgress() {
-	g.progress = Progress{Unlocked: 1, GuestMin: g.progress.GuestMin, GuestMax: g.progress.GuestMax}
+	g.progress = Progress{Unlocked: 1, GuestMin: g.progress.GuestMin, GuestMax: g.progress.GuestMax, Started: progressNow()}
 	saveProgress(g.progress)
 	g.syncShop()
 	g.shopCache, g.tierBase = nil, nil
