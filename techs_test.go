@@ -40,12 +40,12 @@ func TestPhoneBooths(t *testing.T) {
 	}
 }
 
-func TestCampaignHasTwentyFive(t *testing.T) {
+func TestCampaignHasTwentySix(t *testing.T) {
 	builtinLevels()
-	if campaignN != 25 || len(campaignLevels) != 25 {
+	if campaignN != 26 || len(campaignLevels) != 26 {
 		t.Fatalf("campaign has %d levels built of %d", campaignN, len(campaignLevels))
 	}
-	if campaignLevels[24].kind != "station" {
+	if campaignLevels[25].kind != "station" {
 		t.Fatal("the space station must be the last party")
 	}
 }

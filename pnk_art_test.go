@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// pnkSlugs: the members of Sum 41, Blink-182 and The Offspring redrawn in pnk_art.go.
+// pnkSlugs: the members of Sum 42, Blink-183 and The Offsprung redrawn in pnk_art.go.
 var pnkSlugs = []string{
 	"deryck", "dave_baksh", "jason_mc", "frank_zummo",
 	"mark_hoppus", "tom_delonge", "travis_barker",
@@ -211,7 +211,7 @@ func TestPnkKeyColours(t *testing.T) {
 			}
 		}
 	}
-	// drumsticks in the hands of both drummers, beer cans for Sum 41
+	// drumsticks in the hands of both drummers, beer cans for Sum 42
 	// (the tan sticks against the same body without them: renderChar tones the edge pixels)
 	stick := func(c color.RGBA) bool { return c.R > 0xa8 && c.G > 0x90 && c.B > 0x58 && c.B < 0xc8 }
 	for _, s := range []string{"travis_barker", "off_bateria"} {
@@ -274,7 +274,7 @@ func TestPnkKeyColours(t *testing.T) {
 			t.Errorf("%s: no studs on the belt", s)
 		}
 	}
-	// the blond of the Offspring singer and the white cap of the Sum 41 singer
+	// the blond of the Offspring singer and the white cap of the Sum 42 singer
 	if sp := charimpASpec(t, "off_cantante"); sp.Hair.R < 0xd0 || sp.Hair.B > 0xa0 || sp.Top != TopTee {
 		t.Errorf("off_cantante: %+v", sp)
 	}
@@ -310,7 +310,7 @@ func TestPnkFixedExportedAndNamed(t *testing.T) {
 			t.Errorf("%s: not in charimpRenewed", s)
 		}
 		name := displayNameOverrides[s]
-		band := map[byte]string{'d': "Sum 41", 'j': "Sum 41", 'f': "Sum 41", 'm': "Blink-182", 't': "Blink-182", 'o': "The Offspring"}[s[0]]
+		band := map[byte]string{'d': "Sum 42", 'j': "Sum 42", 'f': "Sum 42", 'm': "Blink-183", 't': "Blink-183", 'o': "The Offsprung"}[s[0]]
 		if m, named := bandRealNames[s]; named { // a musician shown by his real name (bands_names_test.go)
 			if name != m.name || bandOfMember(s) != band {
 				t.Errorf("%s: display name %q band %q, want %q of %q", s, name, bandOfMember(s), m.name, band)

@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-// Bug (2026-11-09, Isla Nublar): "the paramedics come by boat, get off, VANISH at once and another
+// Bug (2026-11-09, Isla Nublada): "the paramedics come by boat, get off, VANISH at once and another
 // ambulance comes". The T-Rex ate the officers, the call ended (police_groups watchdog) and the
 // bodies went back to "not found": the paramedics arriving found nothing to pick up, got back on
 // board at once and the next witness called again. Now the bodies stay found while an ambulance
@@ -26,7 +26,16 @@ func TestAmbulanceCrewStaysAfterThePoliceAreGone(t *testing.T) {
 		}
 		g.p.pos = g.lvl.Def.Start
 		g.raisePolice(g.bodies[0].pos, false)
-		if !runPlay(g, 40, func() bool { return g.ambCalled && len(g.cops) > 0 }) {
+		// the officers must be out first: on the island the medical helicopter (2026-11-11) can land
+		// before the police boat has tied up, and the point here is the police being gone
+		if !runPlay(g, 40, func() bool {
+			for _, c := range g.cops {
+				if !c.medic {
+					return g.ambCalled
+				}
+			}
+			return false
+		}) {
 			t.Fatalf("level %d: no police and ambulance call", lv)
 		}
 		// every officer is killed before the ambulance gets there: the call ends

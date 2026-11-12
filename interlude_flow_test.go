@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 )
@@ -11,7 +12,7 @@ func flowGame(idx int, two bool) *Game {
 		levelDefs = builtinLevels()
 	}
 	if campaignN != len(campaignLevels) {
-		panic("every party of the campaign must build")
+		panic(fmt.Sprintf("every party of the campaign must build (campaignN %d of %d, levelDefs %d)", campaignN, len(campaignLevels), len(levelDefs)))
 	}
 	g := firstRunGame()
 	g.rng = rand.New(rand.NewSource(7))
@@ -57,22 +58,22 @@ func TestInterludeFlowCampaign(t *testing.T) {
 	}
 }
 
-// the rocket goes between the 70s disco and the space station (the last two of the list), only once
+// the rocket goes between the pirate ship and the space station (the last two of the list), only once
 func TestRocketBeforeSpaceStationOnce(t *testing.T) {
 	defer flowReset()
 	for _, two := range []bool{false, true} {
 		g := flowGame(campaignN-2, two)
 		leaveLevel(g)
 		if g.mode != ModeInterlude || g.inter.kind != interRocket || g.inter.next != campaignN-1 {
-			t.Fatal("beating party 23 must show the rocket, then party 24")
+			t.Fatal("beating party 25 must show the rocket, then party 26")
 		}
-		if levelDefs[campaignN-2].Title != "DISCO SETENTERA" || levelDefs[campaignN-1].Title != "ESTACIÓN ESPACIAL" {
+		if levelDefs[campaignN-2].Title != "BARCO PIRATA" || levelDefs[campaignN-1].Title != "ESTACIÓN ESPACIAL" {
 			t.Fatalf("level order changed: %q -> %q", levelDefs[campaignN-2].Title, levelDefs[campaignN-1].Title)
 		}
 		if !g.seen("seen_interlude20") {
 			t.Error("marked only at the end: a retry after dying would repeat it")
 		}
-		// dying in party 24 and retrying, or beating 23 again: no rocket
+		// dying in party 26 and retrying, or beating 25 again: no rocket
 		g.finishInterlude()
 		g.mode, g.levelIdx = ModeLevelDone, campaignN-2
 		leaveLevel(g)
@@ -90,7 +91,7 @@ func TestRocketBeforeSpaceStationOnce(t *testing.T) {
 func TestRocketNeverElsewhere(t *testing.T) {
 	defer flowReset()
 	g := flowGame(0, false)
-	for _, i := range []int{18, 19, 20, 21, 22, campaignN - 1, 1000} {
+	for _, i := range []int{18, 19, 20, 21, 22, 23, campaignN - 1, 1000} {
 		if _, ok := g.interludeAfter(i); ok {
 			t.Errorf("level index %d must not trigger an interlude", i)
 		}
@@ -98,7 +99,7 @@ func TestRocketNeverElsewhere(t *testing.T) {
 	// the list (and random mode) call startLevel directly: never an interlude
 	g.startLevel(campaignN - 1)
 	if g.mode != ModePlay || g.inter != nil {
-		t.Fatal("picking party 24 in the list must not play the rocket")
+		t.Fatal("picking party 26 in the list must not play the rocket")
 	}
 	if campaignN < 24 {
 		return

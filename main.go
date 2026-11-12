@@ -31,7 +31,7 @@ var iconPNG []byte
 func main() {
 	selftest := flag.Int("selftest", 0, "run N frames of automated play and exit (debug)")
 	mute := flag.Bool("mute", false, "start without sound")
-	level := flag.Int("level", 0, "start level N (1-based, 1..number of levels) directly, debug")
+	level := flag.Int("level", 0, "start level N (1-based, 1..number of levels) directly, debug; the campaign is 1..26 (25 BARCO PIRATA, 26 ESTACIÓN ESPACIAL), then the random-mode pool")
 	findF := flag.String("edfind", "", "search text preset in the editor lists (debug)")
 	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
 	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
@@ -40,6 +40,7 @@ func main() {
 	benchF := flag.Int("edbench", 0, "editor: run this many frames, print ms per frame and quit (debug)")
 	trophyOvF := flag.Bool("trophyov", false, "open the trophies window at once (debug)")
 	helpOvF := flag.Bool("helpov", false, "open the controls help window at once (debug)")
+	padHintsF := flag.Bool("padhints", false, "the written hints name the gamepad buttons, as if a pad were in use (debug)")
 	profF := flag.String("cpuprofile", "", "write a CPU profile to this file (debug)")
 	jurF := flag.Bool("jurassic", false, "start the island of the last party directly (debug)")
 	debugEd := flag.Int("edorig", 0, "editor: debug mode on, open the n-th (1..21) original scenario (debug)")
@@ -69,7 +70,7 @@ func main() {
 	edtab := flag.Int("edtab", 0, "editor tab to open (debug)")
 	pevF := flag.String("pevent", "", "force the party event with this id (see -pevents), debug")
 	pevsF := flag.Bool("pevents", false, "list the party events (id, chance, window) and exit")
-	eventF := flag.Int("event", 0, "start special event N (1 plane,2 ufo,3 superman,4 satan,5 god,6 zombie), debug")
+	eventF := flag.Int("event", 0, "start special event N (1 plane,2 ufo,3 souperman,4 satan,5 god,6 zombie), debug")
 	settingsF := flag.Bool("settings", false, "open the settings screen (debug)")
 	menuDbgF := flag.Bool("menudebug", false, "main menu with the DEBUG row unlocked (debug, with -shot)")
 	mainSelF := flag.Int("mainsel", -1, "main menu: start with this row selected (debug, with -shot)")
@@ -83,15 +84,16 @@ func main() {
 	ringF := flag.Int("ring", 0, "1 red / 2 yellow: a guest rings a phone at second 2 (debug)")
 	pyroF := flag.Bool("pyronow", false, "the arsonist walks into the party a moment after the start (debug)")
 	zapF := flag.Bool("zapnow", false, "electrocute a few guests next to the player a moment after the start (debug)")
+	hideDemoF := flag.String("hidedemo", "", "x,y,in|out|busy: the player stands at x,y, goes into the nearest hiding place at second 1 and (out, busy: the partner on the spot) comes out at second 2 (debug)")
 	pauseF := flag.Bool("pausenow", false, "open the PAUSE window (Esc) a moment after the party starts (debug)")
 	cheerF := flag.Bool("cheernow", false, "the cheerleaders show up at once (debug)")
 	vipDemoF := flag.String("vipdemo", "", "VIP zone demo: gate | inside | suit | relief | invite | stun (debug)")
 	poisonF := flag.Bool("poisonnow", false, "poison in the pocket and four poisoned guests next to the player (debug)")
 	trapDemoF := flag.Bool("trapdemo", false, "the two traps nearest to the start: one half loaded (circle), one armed (LED and radius), held still (debug)")
 	snakeF := flag.Bool("snakenow", false, "a snake right next to the start (debug)")
-	flag.StringVar(&dbgWild, "wildnow", "", "a wild animal next to the start: frog, squirrel, boar, croc, cheetah, lion, cobaya (debug)")
+	flag.StringVar(&dbgWild, "wildnow", "", "a wild animal next to the start: frog, squirrel, boar, croc, cheetah, lion, cobaya, capibara (debug)")
 	withF := flag.String("with", "", "comma-separated character slugs that replace the first guests (debug)")
-	twoDeadF := flag.Int("twodead", 0, "with two players: player 1 or 2 starts dead and the other calls the ambulance (debug)")
+	twoDeadF := flag.Int("twodead", 0, "with two players: player 1 or 2 starts dead and the other calls the ambulance; 3|4 nobody calls, 5|6 the living one waits by a phone (debug)")
 	twoCuffF := flag.Bool("twocuff", false, "two players: the police are called at 3 s and both are suspects (debug)")
 	twoJailF := flag.Int("twojail", 0, "two players: player 1 is caught at 3 s (1) or has 5 s left of the minute in custody (2) (debug)")
 	lastGuestsF := flag.Int("lastguests", -1, "half a second in, only N people stay alive: 1-3 shows the last-guests marker, 0 ends the party to see the slow motion of the last kill (debug, progress frozen)")
@@ -100,7 +102,10 @@ func main() {
 	noEmoteF := flag.Bool("noemotes", false, "no emote icons over the guests (debug)")
 	killerF := flag.Bool("killer", false, "force a special killer at ~6 s in every party (debug, progress frozen)")
 	killerAsF := flag.String("killeras", "", "with -killer: which killer comes, by slug, e.g. el_exterminador (debug)")
+	grenadeF := flag.Int("grenade", 0, "SMOKE GRENADE: 1 two grenades in every party (one next to the start), 2 also one in the hand thrown at the biggest group at ~2 s (smoke.go, debug, progress frozen)")
 	blackoutF := flag.Bool("blackout", false, "force the BLACKOUT event at ~3 s of the party, 10 s long (debug, progress frozen)")
+	stormF := flag.Int("storm", 0, "STORM of the open-air parties: 1 rain (snow at the ski resort) from ~3 s with a flash at ~9 s, 2 also a bolt on a guest at ~12 s (weather.go, debug, progress frozen)")
+	dawnF := flag.Int("dawn", -1, "DAWN in a night party: 0 slowly along the party, 1-100 fixed at that percent (weather.go, debug, progress frozen)")
 	blameF := flag.Bool("blamenow", false, "at ~2 s a guest is killed next to another one and the police are called: the officer takes the passer-by for the suspect (wrongsuspect.go, debug)")
 	camKillF := flag.Bool("camkill", false, "in a level with a camera (3, 5-ish: house party, disco, cinema, casino, station): at ~3 s a guest is killed in front of the camera, to see the red LED/cone and WANTED (debug)")
 	stealthBoxF := flag.Bool("stealthbox", false, "with -stealth: start with the cardboard box already on (debug)")
@@ -119,8 +124,8 @@ func main() {
 	langF := flag.String("lang", "", "game language for this run: es | en (debug)")
 	copsF := flag.Bool("copsnow", false, "call the police a few seconds after the start (debug)")
 	peleaDieF := flag.Bool("peleadie", false, "with -pevent pelea: the fight always ends with a death (debug, progress frozen)")
-	trexKillF := flag.Bool("trexkill", false, "Isla Nublar: the Power Rangers are sent at the first call and always bring the T-Rex down (debug, progress frozen)")
-	unlockedF := flag.Int("unlocked", 0, "play as if the first N police groups were unlocked: 1 police, 2 +FBI, 3 +military, 4 +SWAT, 5 +Power Rangers (debug, progress frozen, nothing saved)")
+	trexKillF := flag.Bool("trexkill", false, "Isla Nublada: the Pawer Rangers are sent at the first call and always bring the T-Rex down (debug, progress frozen)")
+	unlockedF := flag.Int("unlocked", 0, "play as if the first N police groups were unlocked: 1 police, 2 +FBI, 3 +military, 4 +SWAT, 5 +Pawer Rangers (debug, progress frozen, nothing saved)")
 	credF := flag.Bool("credits", false, "open the credits (debug)")
 	allTrF := flag.Bool("alltrophies", false, "pretend every trophy is won, without saving (debug)")
 	dbgF := flag.Bool("debugscreen", false, "open the DEBUG screen (debug)")
@@ -128,7 +133,7 @@ func main() {
 	albumDemoF := flag.Int("albumdemo", 0, "open the OBJETIVOS screen on the PERSONAJES page with example cards: 1 a few unlocked, 2 all (debug, progress frozen, nothing saved)")
 	goalSelF := flag.Int("goalsel", 0, "with -albumdemo: the card selected in the OBJETIVOS tab (the page scrolls to it) (debug)")
 	goalDetailF := flag.String("goaldetail", "", "open the detail window of OBJETIVOS on tab:index (negative index = from the end; with -albumdemo for example cards) (debug)")
-	goalTabF := flag.Int("goaltab", 0, "with -albumdemo: the OBJETIVOS tab to show: 0 trophies, 1 characters, 2 VIPs, 3 killers, 4 police (debug)")
+	goalTabF := flag.Int("goaltab", 0, "the OBJETIVOS tab to show: 0 trophies, 1 characters, 2 VIPs, 3 killers, 4 police; with -albumdemo example cards, alone the save as it is (debug, nothing saved)")
 	trophyF := flag.Bool("trophyscreen", false, "open the trophies screen (debug)")
 	shopF := flag.Bool("shopscreen", false, "open the shop screen (debug)")
 	wardPageF := flag.Int("wardpage", 0, "with -wardrobe: the page of the wardrobe, 0 character, 1 killers, 2 police (lends some killers and 24 escapes) (debug)")
@@ -138,6 +143,9 @@ func main() {
 	wardPickSelF := flag.Int("wardpicksel", 0, "with -wardpick: the cell selected in the character picker (debug)")
 	wearCharF := flag.String("wearchar", "", "player 1 (and 2) wear these characters: slug[,slug2], in memory only (debug, progress frozen)")
 	levelSel := flag.Bool("levelselect", false, "open the level select screen (debug)")
+	medalDemoF := flag.Bool("medaldemo", false, "every party unlocked with sample medals (bronze, silver, gold in turn), nothing saved (debug)")
+	medalToastF := flag.Int("medaltoast", 0, "in the party (-level N): the points jump to bronze (1), silver (2) or gold (3) to show the medal toasts, nothing saved (debug)")
+	streakDemoF := flag.Int("streakdemo", 0, "in the party: each player starts a RACHA of N clean kills (streak.go), nothing saved (debug)")
 	edload := flag.String("edload", "", "character/object/background to load in the editor, name (debug)")
 	edcarry := flag.String("edcarry", "", "held object to give the character in the editor (debug)")
 	edmode := flag.Int("edmode", 0, "level editor mode (debug)")
@@ -158,7 +166,7 @@ func main() {
 	if debugFlagsActive(flag.CommandLine) {
 		progressFrozen = true // any debug/capture/benchmark flag: freeze the progress BEFORE any level or save
 	}
-	if *pevsF || (*pevF != "" && partyByID(*pevF) == nil) {
+	if *pevsF || (*pevF != "" && partyByID(*pevF) == nil && !rwPeventID(*pevF)) { // obras[:stage]: roadworks.go
 		fmt.Print(partyList())
 		os.Exit(0)
 	}
@@ -290,6 +298,7 @@ func main() {
 	}
 	fastEv = *fastEvents
 	dbgPartyEvent = *pevF
+	g.forceBand = *bandF // before the party starts: planBand reads it in loadLevel (it was set after, -band did nothing)
 	*level = demoLevel(*level, *levelDoneDemoF, *stealthF || *stealth2F)
 	if *level > 0 && !*stealthF && !*stealth2F {
 		g.startLevel(*level - 1)
@@ -317,6 +326,14 @@ func main() {
 	if *blackoutF {
 		dbgBlackout = true
 		g.blackoutLevelReset()
+	}
+	if *grenadeF > 0 {
+		dbgGrenade = *grenadeF
+		g.smokeLevelReset()
+	}
+	if *stormF > 0 || *dawnF >= 0 {
+		dbgStorm, dbgDawn = *stormF, float64(*dawnF)
+		g.weatherLevelReset()
 	}
 	if *stealthF || *stealth2F {
 		progressFrozen = true
@@ -434,6 +451,7 @@ func main() {
 	dbgPeleaDie = *peleaDieF     // pe_pelea.go
 	g.dbgCheer = *cheerF
 	debugZap = *zapF
+	hideDemo = *hideDemoF // hideexit.go
 	pauseNow = *pauseF
 	pyroNow = *pyroF
 	g.dbgRoad = *roadF
@@ -476,6 +494,12 @@ func main() {
 		if *goalTabF > 0 {
 			g.goTab(*goalTabF)
 		}
+		g.albumSel = *goalSelF
+		g.albumClamp()
+	} else if *goalTabF > 0 { // the OBJETIVOS tab with the save as it is (progress frozen by debugFlagsActive)
+		progressFrozen = true
+		g.mode = ModeTrophies
+		g.goTab(*goalTabF)
 		g.albumSel = *goalSelF
 		g.albumClamp()
 	}
@@ -525,6 +549,12 @@ func main() {
 	if *levelSel {
 		g.mode = ModeLevelSelect
 	}
+	// medals.go / streak.go (progress frozen by debugFlagsActive)
+	medalToastDemo, streakDemo = *medalToastF, *streakDemoF
+	if *medalDemoF { // medals.go: the party list with medals (progress frozen by debugFlagsActive)
+		progressFrozen = true
+		g.medalDemo()
+	}
 	if *camx >= 0 {
 		g.camFixed = true
 		g.cam = Vec{*camx, *camy}
@@ -532,6 +562,7 @@ func main() {
 	g.shot, g.shotTick = *shot, *shotTick
 	g.trophyOv = *trophyOvF
 	g.helpOv = *helpOvF
+	dbgPadHints = *padHintsF
 	if *shot != "" || *benchF > 0 || *gbenchF > 0 {
 		progressFrozen = true // screenshots and benchmarks never touch the real progress
 	}

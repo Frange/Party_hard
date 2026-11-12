@@ -257,8 +257,9 @@ func tqUpdate(g *Game, a *partyAct, dt float64) bool {
 			s.cutter.keep()
 		}
 	}
-	// the door is free: the cutter first (if he is there), else the head of the line
-	if !s.occupied() && g.time >= s.next {
+	// the door is free: the cutter first (if he is there), else the head of the line. Free means nobody at all
+	// inside (toilets.go pottyBusy): an ordinary visitor or the hidden player may have gone in on their own
+	if !s.occupied() && !g.pottyBusy(s.prop) && g.time >= s.next {
 		switch {
 		case s.cutter != nil && s.cutter.gu.state == gIdle && s.cutter.gu.timer > 1000 && dist(s.cutter.gu.pos, s.door) < 22:
 			gu := s.cutter.gu

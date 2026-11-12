@@ -228,7 +228,7 @@ func TestPreludeTextsFit(t *testing.T) {
 		}
 	}
 	uiLang = "en"
-	done := map[string]bool{"Diego, César y Samuel": true, "Frange": true, "2026": true, "Guybrush Threepwood": true, "Diego": true, "César": true, "Samuel": true, "Director": true, "Testers": true, "Fiesta Nocturna": true, "PARTY HARDY": true} // names and numbers
+	done := map[string]bool{"Frange": true, "2026": true, "Guybrush Treepwood": true, "Diego": true, "César": true, "Samuel": true, "Director": true, "Testers": true, "Fiesta Nocturna": true, "PARTY HARDY": true} // names and numbers
 	for _, s := range all {
 		if s == "" || done[s] {
 			continue

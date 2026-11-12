@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// bsbSlugs: the members of Billy Talent, Lost Prophets (six), Despistaos and Punk Sailor drawn in
+// bsbSlugs: the members of Billy Tallent, Lost Profets (six), Despistaus and Punk Sailor drawn in
 // bandsb_art.go.
 var bsbSlugs = []string{
 	"bt_cantante", "bt_guitarra", "bt_bajo", "bt_bateria",
@@ -139,8 +139,8 @@ func TestBsbDrawsInsideAndWalks(t *testing.T) {
 }
 
 // bsbPlainView: views where a member has nothing of bandsb_art.go (his look comes from the spec alone):
-// Despistaos' singer has his dark beard on the face, the bassist his print on the chest; the guitarist of
-// Despistaos and the drummer of Punk Sailor are drawn by their spec only.
+// Despistaus' singer has his dark beard on the face, the bassist his print on the chest; the guitarist of
+// Despistaus and the drummer of Punk Sailor are drawn by their spec only.
 var bsbPlainView = map[string][3]bool{
 	"des_cantante": {vBack: true}, "des_bajo": {vBack: true, vSide: true},
 	"des_guitarra": {true, true, true}, "ps_bateria": {true, true, true},
@@ -207,7 +207,7 @@ func TestBsbKeyLooks(t *testing.T) {
 	}
 	for _, s := range bsbSlugs {
 		if s != "des_cantante" && bsbCount(front(s), 0, charH-1, pink) > 0 {
-			t.Errorf("%s: pink pixels, only the singer of Despistaos has pink hair", s)
+			t.Errorf("%s: pink pixels, only the singer of Despistaus has pink hair", s)
 		}
 	}
 	// vertical stripes: on the chest of ps_guitarra, columns alternate black and white in most rows
@@ -280,14 +280,14 @@ func TestBsbKeyLooks(t *testing.T) {
 	if pt-ct < 4 {
 		t.Errorf("bt_guitarra: the crest rises only %d rows", pt-ct)
 	}
-	// the fringe of the Billy Talent singer covers one eye: fewer skin pixels on one half of the face
+	// the fringe of the Billy Tallent singer covers one eye: fewer skin pixels on one half of the face
 	f, pf := front("bt_cantante"), plain("bt_cantante")
 	skin := sp["bt_cantante"].Skin
 	isSkin := func(c color.RGBA) bool { return c == skin }
 	if bsbCount(f, 0, 14, isSkin) >= bsbCount(pf, 0, 14, isSkin) {
 		t.Errorf("bt_cantante: the fringe hides nothing")
 	}
-	// Lost Prophets: worn orange-brown jeans for all six
+	// Lost Profets: worn orange-brown jeans for all six
 	for _, s := range bsbSlugs[4:10] {
 		p := sp[s].Pants
 		if !(p.R > p.G+20 && p.G > p.B+10 && p.R > 0x70) {
@@ -297,7 +297,7 @@ func TestBsbKeyLooks(t *testing.T) {
 			t.Errorf("%s: not a black tee (%v)", s, sp[s].Shirt)
 		}
 	}
-	// Billy Talent: all in black except the drummer's white tee
+	// Billy Tallent: all in black except the drummer's white tee
 	for _, s := range []string{"bt_cantante", "bt_guitarra", "bt_bajo"} {
 		if sp[s].Shirt.R > 60 {
 			t.Errorf("%s: shirt %v is not black", s, sp[s].Shirt)
@@ -345,10 +345,10 @@ func TestBsbDistinctFixedAndListed(t *testing.T) {
 	}
 }
 
-// Names, bands, cards and texts: the real name of the known musicians, else '<band> · <role>'; six Lost Prophets on the
+// Names, bands, cards and texts: the real name of the known musicians, else '<band> · <role>'; six Lost Profets on the
 // stage, one card each in OBJETIVOS (5 kills to win it), own descriptions in both languages.
 func TestBsbBandsNamesAndTexts(t *testing.T) {
-	want := map[string]string{"bt": "Billy Talent", "lp": "Lost Prophets", "des": "Despistaos", "ps": "Punk Sailor"}
+	want := map[string]string{"bt": "Billy Tallent", "lp": "Lost Profets", "des": "Despistaus", "ps": "Punk Sailor"}
 	for _, s := range bsbSlugs {
 		pre := s[:strings.Index(s, "_")]
 		name := displayNameOverrides[s]
@@ -379,12 +379,12 @@ func TestBsbBandsNamesAndTexts(t *testing.T) {
 			continue
 		}
 		if len(b.members) != 6 {
-			t.Fatalf("Lost Prophets: %d members on stage", len(b.members))
+			t.Fatalf("Lost Profets: %d members on stage", len(b.members))
 		}
 		pos := map[[2]float64]bool{}
 		for _, m := range b.members {
 			if presetByName(m.slug) == nil || !strings.HasPrefix(m.slug, "lp_") {
-				t.Errorf("Lost Prophets member %q", m.slug)
+				t.Errorf("Lost Profets member %q", m.slug)
 			}
 			if pos[[2]float64{m.dx, m.dy}] || m.dx < -60 || m.dx > 60 {
 				t.Errorf("%s: spot %v,%v", m.slug, m.dx, m.dy)

@@ -196,7 +196,7 @@ var charDescs = map[string][2]string{
 	"hermione":             {"Bruja que se lo sabe todo", "Witch who knows every answer"},
 	"dumbledore":           {"Director de barba infinita", "Headmaster with an endless beard"},
 	"gandalf":              {"Mago gris que no deja pasar", "Grey wizard who lets no one pass"},
-	"frodo":                {"Hobbit que lleva un anillo pesado", "Hobbit carrying a heavy ring"},
+	"frodo":                {"Hobit que lleva un anillo pesado", "Hobit carrying a heavy ring"},
 	"legolas":              {"Elfo arquero de pelo perfecto", "Elf archer with perfect hair"},
 	"aragorn":              {"Montaraz que acaba siendo rey", "Ranger who ends up king"},
 	"yoda":                 {"Maestro que habla al revés", "Master who talks backwards"},

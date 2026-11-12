@@ -48,6 +48,7 @@ type paperData struct {
 	caption                              string
 	stats                                []paperStatBox
 	scoreHead, scoreTag                  string
+	medal                                int // medals.go: the medal of the party (drawn left of scoreTag), 0 = none
 	score                                [][2]string
 	totalK, total, walletK, wallet       string
 	briefs                               []paperBrief
@@ -225,6 +226,9 @@ func (r *prender) scoreBox() pbox {
 		c.bold(d.scoreHead, x+w/2-paperTextW(d.scoreHead)/2, y+8, paperInk)
 		if d.scoreTag != "" {
 			c.textR(d.scoreTag, x+w-8, y+8, 1, paperRed)
+			if d.medal != medalNone { // the little medal, 6 px left of its line (medals.go)
+				c.medal(x+w-8-paperTextW(d.scoreTag)-6-9, y+8, d.medal)
+			}
 		}
 		c.fill(x+4, y+22, w-8, 1, paperInk)
 		half := (len(d.score) + 1) / 2
@@ -446,7 +450,7 @@ func (g *Game) paperFrozen() *paperData {
 // paperDataKey: every visible word of a page (the textures of both blink states must come from the same page).
 func paperDataKey(d *paperData) string {
 	return fmt.Sprint(d.seed, d.title, d.head, d.dek, d.story, d.quote, d.photoVar, d.caption, d.stats, d.score, d.total,
-		d.wallet, d.briefs, d.hint, d.two)
+		d.wallet, d.briefs, d.hint, d.two, d.scoreTag, d.medal)
 }
 
 func (g *Game) drawPaper(dst *ebiten.Image) {

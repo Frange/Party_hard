@@ -199,6 +199,7 @@ func TestMenuMarginsMainMenu(t *testing.T) {
 // The panel screens (party list, shop, scenes, trophies, settings): the logo keeps >= 12 px from the panel and from
 // the language box / back button, and the back button sits 16 px from the edges.
 func TestMenuMarginsLogoAndBack(t *testing.T) {
+	snapshotLang(t)
 	g := auditGame(t)
 	pt := g.time
 	t.Cleanup(func() { g.time = pt; auditReset(g) })

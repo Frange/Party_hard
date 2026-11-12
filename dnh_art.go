@@ -855,7 +855,7 @@ func presetRon(r *rand.Rand) CharSpec {
 
 func init() {
 	famousPresets = append(famousPresets, presetRon)
-	displayNameOverrides["ron"] = "Ron"
+	displayNameOverrides["ron"] = "Rom"
 	starGroups = append(starGroups, []string{"harry_potter", "hermione", "ron"})
 	charDescs["ron"] = [2]string{"Pelirrojo con varita rota y miedo a las arañas", "Redhead with a broken wand, scared of spiders"}
 	if _, ok := catchphrases["ron"]; !ok {

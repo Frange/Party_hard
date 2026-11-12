@@ -28,7 +28,7 @@ func transitStyle(v *Vehicle) (body, trim color.RGBA, long bool, label string, l
 		case unitSWAT:
 			body, trim, label, labCol = hx(0x3a3c44), hx(0xffca26), "SWAT", color.RGBA{255, 202, 38, 255}
 		case unitRangers:
-			body, trim, label, labCol = hx(0xc02030), hx(0xf4f4f8), "POWER RANGERS", color.RGBA{255, 60, 60, 255}
+			body, trim, label, labCol = hx(0xc02030), hx(0xf4f4f8), "PAWER RANGERS", color.RGBA{255, 60, 60, 255}
 		}
 	case 1:
 		body, trim = hx(0xf4f4f8), hx(0xd02a2a)
@@ -87,12 +87,16 @@ func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
 	}
 	op := &ebiten.DrawImageOptions{}
 	left := g.wx(v.x) - w/2
-	if v.state != 2 { // sailing in from the right: bow to the left
+	// sailing in from the right: bow to the left (the pirate rescue launch comes in from the left: ambulance.go)
+	bowLeft := (v.state != 2) != v.ladder
+	if bowLeft {
 		op.GeoM.Scale(-1, 1)
 		op.GeoM.Translate(w, 0)
 	}
+	g.drawRopeLadder(dst, v) // under the launch: it hangs from the rail into its aft deck
 	op.GeoM.Translate(math.Round(left), math.Round(g.wy(v.y)-h+8+bob))
 	dst.DrawImage(im, op)
+	g.drawMedicBeacon(dst, v, v.y-h+12+bob)
 	if !sea { // the cyan glow of the engine
 		dx := -w/2 + 3
 		if v.state != 2 {
@@ -101,7 +105,7 @@ func (g *Game) drawTransit(dst *ebiten.Image, v *Vehicle) {
 		g.glowAt(dst, Vec{g.wx(v.x) + dx - g.camI.X, g.wy(v.y) - h + 30 + bob - g.camI.Y}, 14, color.RGBA{60, 210, 255, 110})
 	} else if v.state != 1 { // the wake behind the stern while it sails
 		sx, dir := g.wx(v.x)+w/2, 1.0
-		if v.state == 2 {
+		if !bowLeft {
 			sx, dir = g.wx(v.x)-w/2, -1.0
 		}
 		for i := 0; i < 4; i++ {

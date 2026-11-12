@@ -12,15 +12,20 @@ import (
 // the one in front. Passing guests join (up to 10); when the route ends the line breaks up and everybody goes back
 // to his business.
 //
-// WHEN: only in the parties with a dance floor that are made for it (congaIcons: about 9 of the 24); 22 % of those, between 70 and 240 s,
-// up to twice (cooldown 150 s). Group "dance" and Big: it never runs together with the dance contest, the musical
+// WHEN: every party with a dance floor and room to walk (congaIcons: 25 of the 26 of the campaign, all but the space
+// station; 2026-11-11, owner: "nunca la he visto"); 35 % of those, between 70 and 240 s, up to twice (cooldown 150 s).
+// Where the 520 px route does not fit (a small or crowded floor) a SHORT conga of 4 to 6 dancers on a route of at least
+// congaShortRoute px runs instead of nothing. Group "dance" and Big: it never runs together with the dance contest, the musical
 // chairs or the hen/stag party.
 // ---------------------------------------------------------------------------
 
-// congaIcons: the parties where a conga fits (home, club, disco, beach, birthday, festival, cruise); not in a stadium,
-// a bullring, a cemetery or a space station.
+// congaIcons: the parties where a conga fits. Since 2026-11-11 every campaign party whose dance floor and roaming area
+// hold the route (measured: a forced conga starts in all of them, TestPevCongaEveryVenue), except the space station
+// (zero gravity and corridors). The pirate ship adds itself (pirate_text.go), ITALIA too (italy_text.go).
 var congaIcons = map[string]bool{"house": true, "neon": true, "disco": true, "disco70": true, "club": true, "beach": true,
-	"cake": true, "festival": true, "boat": true}
+	"cake": true, "festival": true, "boat": true, "ranch": true, "bull": true, "eiffel": true, "funfair": true,
+	"stadium": true, "skate": true, "grave": true, "cinema": true, "circuit": true, "snow": true, "roof": true,
+	"casino": true, "highway": true, "train": true, "hockey": true}
 
 const (
 	congaMax   = 10
@@ -29,6 +34,10 @@ const (
 	congaJoinR = 26.0 // a guest this close to the line may join
 	congaPull  = 46.0 // speed of the one who hurries to his place
 	congaRoute = 520.0
+	// the short conga: where the long route does not fit, a route of at least this length and 4-6 dancers
+	congaShortRoute = 200.0
+	congaShortMax   = 6
+	congaSmallArea  = 60000.0 // px² of roaming area: under this, the short conga (no campaign party is that small today)
 )
 
 var congaLines = pevTexts("¡UNO, DOS, TRES... CONGA!", "¡Conga, conga, conga!", "¡Que no pare la conga!", "¡Me apunto!", "¡Hacedme sitio!", "¡Conga!",
@@ -40,6 +49,7 @@ type congaState struct {
 	route []Vec
 	end   float64 // game time when it breaks up (0 = the route is not over)
 	go_   float64 // the leader waits until then for the first dancers to come
+	max   int     // dancers at most: congaMax, or congaShortMax on a short route
 	nextJ float64
 	said  float64
 }
@@ -48,10 +58,19 @@ func (c *congaState) pevHas(gu *Guest) bool { return pevHasIn(c.line, gu) }
 
 func init() {
 	registerPartyEvent(&partyEvent{ID: "conga", Name: "Conga", Group: "dance", Big: true,
-		Prob: 0.22, AtMin: 70, AtMax: 240, Dur: 28, Cooldown: 150, MaxRuns: 2, Prio: 1,
+		Prob: 0.35, AtMin: 70, AtMax: 240, Dur: 28, Cooldown: 150, MaxRuns: 2, Prio: 1,
 		Eligible: func(g *Game, t partyTraits) bool { return t.dance && congaIcons[t.icon] && t.roam && t.guests >= 24 },
 		Start:    congaStart, Items: congaItems,
 		Update: pevGuard(congaUpdate, func(g *Game, a *partyAct) { pevReleaseAll(a.D.(*congaState).line, partyDice()) })})
+}
+
+// congaSmall: the roaming area of the party is too small for the long route (congaSmallArea px² in all).
+func congaSmall(d *LevelDef) bool {
+	a := 0.0
+	for _, r := range d.Roam {
+		a += r.W * r.H
+	}
+	return a < congaSmallArea
 }
 
 func congaFloor(d *LevelDef) Vec {
@@ -93,7 +112,11 @@ func congaStart(g *Game, a *partyAct) bool {
 	// the route: a few points of the roaming area, far enough from each other, until it is long enough
 	var route []Vec
 	at, total := lead.pos, 0.0
-	for k := 0; k < 8 && total < congaRoute; k++ {
+	want, lim := congaRoute, congaMax
+	if congaSmall(g.lvl.Def) { // a small roaming area: the short conga from the start
+		want, lim = congaShortRoute*1.5, congaShortMax
+	}
+	for k := 0; k < 8 && total < want; k++ {
 		best := Vec{}
 		bd := 0.0
 		for i := 0; i < 6; i++ {
@@ -115,10 +138,13 @@ func congaStart(g *Game, a *partyAct) bool {
 		}
 		route = append(route, leg...)
 	}
-	if total < congaRoute*0.6 {
-		return false
+	if total < want*0.6 { // no room for the long one: the short conga, or nothing
+		if total < congaShortRoute || len(route) == 0 {
+			return false
+		}
+		lim = congaShortMax
 	}
-	st := &congaState{route: route, nextJ: g.time + 1.5, go_: g.time + 2.5}
+	st := &congaState{route: route, nextJ: g.time + 1.5, go_: g.time + 2.5, max: lim}
 	lm := &pevMem{gu: lead}
 	lm.hold(gDance)
 	st.line = []*pevMem{lm}
@@ -218,10 +244,10 @@ func congaUpdate(g *Game, a *partyAct, dt float64) bool {
 		gu.pos = slot
 	}
 	// more guests join as the line passes
-	if g.time >= st.nextJ && len(st.line) < congaMax && st.trail.length() > float64(len(st.line)+1)*congaGap {
+	if g.time >= st.nextJ && len(st.line) < st.max && st.trail.length() > float64(len(st.line)+1)*congaGap {
 		st.nextJ = g.time + 0.7
 		for _, gu := range g.guests {
-			if len(st.line) >= congaMax {
+			if len(st.line) >= st.max {
 				break
 			}
 			if !congaCanJoin(g, gu) || pevHasIn(st.line, gu) {

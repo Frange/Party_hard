@@ -8,11 +8,11 @@ var jokeLines = DialogueBank{
 		"dance_join":     {"¡Que no pare la música!", "Esta me la sé", "¡Hoy no trabajo mañana!", "¡A mover el esqueleto!", "¡Dejadme sitio, que vengo fuerte!", "Bailo fatal, pero con ganas"},
 		"dance_leave":    {"Me duelen hasta las pestañas", "Voy a por otra copa", "Tengo que mirar el móvil", "Se me ha dormido el pie", "Voy a hidratarme (con ron)"},
 		"dance_annoyed":  {"¿Tú de qué vas?", "¡Mis zapatos nuevos!", "¡Que esto es un baile, no un rodeo!", "¡Respeta mi espacio vital!", "¡Pisotón de campeonato!"},
-		"greet":          {"¡Cuánto tiempo!", "¿Nos conocemos?", "¡Tú eres el del grupo de WhatsApp!", "¡Qué pintas!", "¡Hombre, tú por aquí!", "Hola, soy el primo de alguien"},
-		"scared":         {"¡MAMÁÁÁ!", "¡Yo no he sido!", "¡Dejadme, que soy muy joven!", "¡Que viene, que viene!", "¡Corre, Forrest, corre!", "¡Ay, mi madre!", "¡Esto no estaba en el cartel!"},
+		"greet":          {"¡Cuánto tiempo!", "¿Nos conocemos?", "¡Tú eres el del grupo de WatsApp!", "¡Qué pintas!", "¡Hombre, tú por aquí!", "Hola, soy el primo de alguien"},
+		"scared":         {"¡MAMÁÁÁ!", "¡Yo no he sido!", "¡Dejadme, que soy muy joven!", "¡Que viene, que viene!", "¡Corre, Forest, corre!", "¡Ay, mi madre!", "¡Esto no estaba en el cartel!"},
 		"saw_body":       {"¿Eso es kétchup? ...No.", "Ese ya no se levanta", "¡Se ha pasado con la fiesta!", "¡Hay uno tirado y no es de la borrachera!", "¿Alguien ha pedido una ambulancia?", "Ok, eso no es normal"},
 		"drink":          {"¡Por los que no están!", "Que me lo apunten", "Esto no es agua, ¿verdad?", "Sólo una... (la décima)", "Cheers, chin-chin, kanpai", "Sabe a gloria y a gasolina"},
-		"dance_with":     {"¡Eres el rey de la pista!", "¡Pegamos bien!", "Baila como si nadie mirase", "¡Qué arte, qué arte!", "Ni Shakira, oye"},
+		"dance_with":     {"¡Eres el rey de la pista!", "¡Pegamos bien!", "Baila como si nadie mirase", "¡Qué arte, qué arte!", "Ni Shakiro, oye"},
 		"calling_police": {"¿Policía? Hay un loco suelto", "¡Alo, alo, emergencias!", "¡Que manden a todos!", "Sí, vengan, hay un problema... gordo", "¡Diga que traigan café!"},
 		"accused":        {"¡Era ese, lo juro!", "¡Lo he visto con el cuchillo!", "¡Mira qué cara de asesino tiene!", "¡Ese tiene pinta rara!", "¡Detengan al sospechoso... del abrigo!"},
 		"chatter": {
@@ -60,14 +60,14 @@ var jokeLines = DialogueBank{
 	},
 	"fbi": {
 		"understood": {"LA VERDAD ESTÁ AHÍ FUERA", "CONFIRMADO. NO LO CONFIRMEN", "EL EXPEDIENTE ESTÁ ABIERTO"},
-		"halt":       {"¡FBI! ¡SOLTÉ LA COPA!", "¡TENGO UNA PLACA Y UNA ACTITUD!", "¡QUIETO O LLAMO A MULDER!"},
+		"halt":       {"¡FBI! ¡SOLTÉ LA COPA!", "¡TENGO UNA PLACA Y UNA ACTITUD!", "¡QUIETO O LLAMO A MOLDER!"},
 		"arrest":     {"SOSPECHOSO EN EL SACO", "LE LEO SUS DERECHOS... TODOS", "CASO CERRADO. OTRO MÁS"},
-		"tired":      {"¿ALGUIEN HA VISTO A SCULLY?", "NECESITO CAFÉ DE LABORATORIO", "ESTO ES UN X-FILE"},
+		"tired":      {"¿ALGUIEN HA VISTO A SKULLY?", "NECESITO CAFÉ DE LABORATORIO", "ESTO ES UN X-FILE"},
 	},
 	"power_rangers": {
-		"understood": {"¡AL ZORD, EQUIPO!", "¡TRANSFORMACIÓN LISTA!", "¡CONTACTO!"},
+		"understood": {"¡AL ZURD, EQUIPO!", "¡TRANSFORMACIÓN LISTA!", "¡CONTACTO!"},
 		"halt":       {"¡ES HORA DE MORFAR... Y DE MORDERTE!", "¡FIESTA TERMINADA!", "¡NO ES UN JUEGO! ...BUENO, UN POCO!"},
-		"arrest":     {"¡VICTORIA PARA LOS RANGERS!", "¡UN VILLANO MENOS EN LA CIUDAD!", "¡A LA CELDA DEL ZORD!"},
+		"arrest":     {"¡VICTORIA PARA LOS RANGERS!", "¡UN VILLANO MENOS EN LA CIUDAD!", "¡A LA CELDA DEL ZURD!"},
 		"tired":      {"¡NECESITO RECARGAR EL MORFIN!", "¡NO ERA TAN FÁCIL EN LA TELE!"},
 	},
 	"killers": {

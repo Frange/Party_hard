@@ -37,7 +37,7 @@ func (g *Game) copMemoryAuthority(pos Vec) (*Cop, *Guard) {
 	var bg *Guard
 	best := copMemoryRange
 	for _, c := range g.cops {
-		if c.medic || c.state == cLeave {
+		if c.medic || c.state == cLeave || c.state == cCordon { // sealing off a closed case: off duty (ambulance.go)
 			continue
 		}
 		if d := dist(c.pos, pos); d < best {

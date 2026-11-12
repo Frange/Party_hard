@@ -9,11 +9,11 @@ import (
 // Every boat and spaceship of the game is painted here, in one pixel-art style:
 // a dark ink outline, flat shaded bands, blue windows, a cyan canopy and neon
 // lights on the ships. The same few drawers are shared by all their uses:
-//   - genBoat / genBoatView: the launches of the cruise and of Isla Nublar
+//   - genBoat / genBoatView: the launches of the cruise and of Isla Nublada
 //     (police, military with its machine gun, ambulance, fireboat, yacht...);
 //   - genShip / genShipView: the little spaceships of the space station and the
-//     shuttle of the arrival at Isla Nublar (arrival_travel.go arrShip);
-//   - genFerry: the ferry moored at the pier of Isla Nublar (jp_boat);
+//     shuttle of the arrival at Isla Nublada (arrival_travel.go arrShip);
+//   - genFerry: the ferry moored at the pier of Isla Nublada (jp_boat);
 //   - genPirateShip / genHorizonShip: the ships at sea of the beach levels (seasky.go);
 //   - genRocket: the rocket that now and then crosses the sky (events.go).
 // The sizes are the ones the old sprites had, so anchors, lanes and hitboxes stay.
@@ -668,7 +668,7 @@ func genShipView(body, trim color.RGBA, long, front bool, style int) *pixBuf {
 	return b.outlined(vInk)
 }
 
-// ---- the ferry of Isla Nublar -----------------------------------------------------------
+// ---- the ferry of Isla Nublada -----------------------------------------------------------
 
 // genFerry paints the ferry moored at the pier (jp_boat, 124x66): a hull in red and orange bands, a white
 // two-storey cabin with blue windows and a door, rails, the funnel and a mast with its flag.

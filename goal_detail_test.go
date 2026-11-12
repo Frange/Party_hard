@@ -86,6 +86,7 @@ func TestGoalDetailNavigationStaysInItsPage(t *testing.T) {
 
 // a card never met says nothing of who he is: no name, no role, no description, a silhouette that does not move.
 func TestGoalDetailLockedDoesNotLeakName(t *testing.T) {
+	snapshotLang(t)
 	g := goalDetailGame(t)
 	for _, lang := range []string{"es", "en"} {
 		uiLang = lang
@@ -183,6 +184,7 @@ func TestGoalDetailHitTest(t *testing.T) {
 // all trophies won and not, both languages: the longest description included) stays in its column and above the
 // bottom, at whole pixels and scales.
 func TestGoalDetailGeometryAndTextsFit(t *testing.T) {
+	snapshotLang(t)
 	g := goalDetailGame(t)
 	type box struct {
 		name       string

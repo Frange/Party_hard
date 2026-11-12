@@ -92,6 +92,7 @@ type bubReq struct {
 	red      bool
 	up       float64
 	shift    float64 // moved up to avoid overlaps (output)
+	loud     bool    // shouted through a megaphone: yellow box, bold text (pe_megaphone.go)
 }
 
 type bubSt struct {
@@ -306,6 +307,10 @@ func (g *Game) bubble(key any, pri int, pos Vec, txt string, red bool, up float6
 	}
 	w += 8
 	h := bubBoxBase + bubLineH*float64(len(lines)-1)
+	loud := g.bubLoud(key)
+	if loud { // a frame and bold letters: a little more room
+		w, h = w+6, h+4
+	}
 	bk := 1.0
 	if g.charSc > 0 {
 		bk = math.Max(0.6, g.charSc)
@@ -321,7 +326,7 @@ func (g *Game) bubble(key any, pri int, pos Vec, txt string, red bool, up float6
 	}
 	bubbleReqs = append(bubbleReqs, bubReq{
 		key: key, pri: pri, score: float64(pri)*10000 - d,
-		cx: g.wx(pos.X), y: g.wy(pos.Y) - 52*bk - up - (h - bubBoxBase), w: w, h: h, lines: lines, red: red, up: up,
+		cx: g.wx(pos.X), y: g.wy(pos.Y) - 52*bk - up - (h - bubBoxBase), w: w, h: h, lines: lines, red: red, up: up, loud: loud,
 	})
 }
 
@@ -348,6 +353,11 @@ func (g *Game) flushBubbles(dst *ebiten.Image) {
 		} else {
 			bubbleMgr.extra = append(bubbleMgr.extra, r)
 		}
+	}
+	// the use prompts ("[E] ...") and the HUD go first: a bubble moves up off them or waits (hudclear.go)
+	bubbleMgr.extra = append(bubbleMgr.extra, g.usePromptRects()...)
+	if hr, ok := g.hudBlockRect(); ok {
+		bubbleMgr.extra = append(bubbleMgr.extra, bubRect{hr.X - 4, hr.Y - 4, hr.X + hr.W + 4, hr.Y + hr.H + 4})
 	}
 	pos := bubbleMgr.pick(reqs, now, avoid, screenW)
 	g.drawEmotes(dst, pos) // icons over the guests' heads, never over a bubble (emote.go)

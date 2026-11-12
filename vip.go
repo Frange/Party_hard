@@ -449,12 +449,20 @@ func buildLevel(def *LevelDef) *Level {
 			l := buildLevelRaw(nd)
 			zc := *z
 			l.vip = &zc
-			l.addTables() // cloth tables and chairs of a few indoor parties (pe_tables.go)
+			l.addTables()      // cloth tables and chairs of a few indoor parties (pe_tables.go)
+			l.addSeats()       // café tables, benches, deckchairs... where the guests sit down (seats.go)
+			l.addDivingBoard() // a diving board at the pool (poolboard.go)
+			l.addBullRide()    // the mechanical bull of some parties (events_toro.go, only when loadLevel rolled it)
+			l.addRoadworks()   // roadworks on the kerb of some parties (roadworks.go, only when loadLevel rolled them)
 			return l
 		}
 	}
 	l := buildLevelRaw(def)
 	l.addTables()
+	l.addSeats()
+	l.addDivingBoard()
+	l.addBullRide()
+	l.addRoadworks()
 	return l
 }
 

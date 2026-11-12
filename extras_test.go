@@ -517,7 +517,8 @@ func TestCareerRowsAndOldSaves(t *testing.T) {
 	for _, r := range append(left, right...) {
 		got[r[0]] = r[1]
 	}
-	for k, v := range map[string]string{"Partidas jugadas": "12", "Bajas totales": "45", "Esposas evitadas": "3", "Fiestas ganadas": "7",
+	// "Bajas totales" = careerKills = kills (the poison is already in them; 2026-11-11, it was 45 = 40+3+2)
+	for k, v := range map[string]string{"Partidas jugadas": "12", "Bajas totales": "40", "Esposas evitadas": "3", "Fiestas ganadas": "7",
 		"Tiempo jugado": "0 min 00 s", "Puntos ganados": "9000", "Mejor cadena": "6", "Veces que has caído": "4"} {
 		if got[k] != v {
 			t.Errorf("%s = %q, want %q", k, got[k], v)

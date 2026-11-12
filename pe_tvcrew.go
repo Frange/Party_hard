@@ -16,12 +16,12 @@ import (
 // Like the pizza boy they can be stabbed (pevStab: a body, a kill, the other one runs off).
 // Hook for the newspaper: g.stat("tv_crew") and the id "tvcrew" in pevState.ran ("according to the local television").
 //
-// WHEN: 14 of the 24 parties (tvIcons), 16 % per party, between 90 and 300 s,
+// WHEN: 14 of the campaign parties (tvIcons), 16 % per party, between 90 and 300 s,
 // once. It also waits for the mess: before 150 s it only comes if there are 4+ bodies, police or a siren about; later
 // it comes anyway ("by chance"). Group "tv".
 // ---------------------------------------------------------------------------
 
-// tvIcons: the parties a TV crew would go to (14 of the 24: lively places and landmarks, not the bullring, the stadium,
+// tvIcons: the parties a TV crew would go to (14 of the campaign: lively places and landmarks, not the bullring, the stadium,
 // the cemetery, the cinema, the stations, the ranch, the circuit or the snow).
 var tvIcons = map[string]bool{"house": true, "beach": true, "neon": true, "eiffel": true, "funfair": true, "disco": true, "festival": true,
 	"skate": true, "roof": true, "casino": true, "highway": true, "cake": true, "hockey": true, "disco70": true}

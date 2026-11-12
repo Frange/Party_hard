@@ -15,7 +15,7 @@ import (
 type streakIn struct {
 	k, knife, poison, traps, blast int
 	chain, clean, seen, cuff, secs int
-	hits, floor                    int
+	hits, floor, best              int
 	f                              paperFacts
 	two                            bool
 }
@@ -37,6 +37,7 @@ var streakRules = []streakRule{
 	{5, func(s *streakIn) bool { return s.k >= 4 && s.clean >= s.k }, "Todas tus bajas, limpias: ni una mancha", "Every kill clean: not a single stain", nil},
 	{5, func(s *streakIn) bool { return s.k >= 3 && s.knife == 0 }, "Ni un solo cuchillo: todo con estilo", "Not a single knife: all style", nil},
 	{5, func(s *streakIn) bool { return s.k >= 6 && s.poison == s.k }, "Todo veneno: cocinero con mala fe", "All poison: a chef with bad intentions", nil},
+	{4, func(s *streakIn) bool { return s.best >= 8 }, "Racha de %d bajas limpias: nadie sospechó", "A streak of %d clean kills: nobody suspected", sN(func(s *streakIn) int { return s.best })},
 	{4, func(s *streakIn) bool { return s.chain >= 8 }, "Cadena de %d: parecía un baile de bajas", "A chain of %d: it looked like a dance of kills", sN(func(s *streakIn) int { return s.chain })},
 	{4, func(s *streakIn) bool { return s.k >= 3 && s.traps*2 >= s.k }, "Las trampas hicieron el trabajo, tú mirabas", "The traps did the work, you just watched", nil},
 	{4, func(s *streakIn) bool { return s.blast >= 4 }, "%d explosiones: ¿vecinos? ¿qué vecinos?", "%d explosions: neighbours? what neighbours?", sN(func(s *streakIn) int { return s.blast })},
@@ -46,6 +47,7 @@ var streakRules = []streakRule{
 	{4, func(s *streakIn) bool { return s.k >= 1 && s.seen == 0 }, "Nadie te vio: ni tu sombra te delató", "Nobody saw you: not even your shadow told", nil},
 	{4, func(s *streakIn) bool { return s.f.animalsDead >= 3 }, "%d animales menos: el zoo pide explicaciones", "%d animals fewer: the zoo wants answers", func(s *streakIn) []any { return []any{s.f.animalsDead} }},
 	{4, func(s *streakIn) bool { return s.two && s.hits >= 5 }, "%d golpes a tu compañero: amor con mano dura", "%d blows to your partner: tough love", sN(func(s *streakIn) int { return s.hits })},
+	{3, func(s *streakIn) bool { return s.best >= 5 }, "Racha de %d sin testigos: el sigilo da puntos", "A streak of %d unseen: stealth pays", sN(func(s *streakIn) int { return s.best })},
 	{3, func(s *streakIn) bool { return s.chain >= 5 }, "Cadena de %d bajas seguidas: ¡qué ritmo!", "A chain of %d kills in a row: what a rhythm!", sN(func(s *streakIn) int { return s.chain })},
 	{3, func(s *streakIn) bool { return s.clean >= 5 }, "%d bajas limpias: la lejía te adora", "%d clean kills: bleach adores you", sN(func(s *streakIn) int { return s.clean })},
 	{3, func(s *streakIn) bool { return s.seen >= 10 }, "Te vieron %d veces: discreción, esa desconocida", "Seen %d times: discretion, that stranger", sN(func(s *streakIn) int { return s.seen })},
@@ -69,7 +71,7 @@ var streakRules = []streakRule{
 // streakFor picks the line for one player (index i) of a party. Deterministic for the same seed.
 func streakFor(f paperFacts, p paperPlayer, i int, secs float64) string {
 	s := &streakIn{k: 0, knife: p.kills[kcKnife] + p.kills[kcNone], poison: p.kills[kcPoison], traps: p.kills[kcTrap], blast: p.kills[kcBlast],
-		chain: p.chainMax, clean: p.clean, seen: p.seen, cuff: p.cuff, secs: int(secs), hits: p.coop.hits, floor: int(p.coop.floorT + 0.5), f: f, two: f.two}
+		chain: p.chainMax, clean: p.clean, seen: p.seen, cuff: p.cuff, secs: int(secs), hits: p.coop.hits, floor: int(p.coop.floorT + 0.5), best: p.streakBest, f: f, two: f.two}
 	s.k = s.knife + s.poison + s.traps + s.blast
 	best := -1
 	var cand []*streakRule

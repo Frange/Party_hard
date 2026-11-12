@@ -69,7 +69,7 @@ func interludePlaces(kind int) []int {
 	case interBoat, interBalloon:
 		return nil // their own scenes: no memories
 	case interRocket:
-		s := len(campaignLevels) - 1 // the last five parties before the space station (ITALIA, train station, birthday, rink, 70s disco)
+		s := len(campaignLevels) - 1 // the last five parties before the space station (train station, birthday, rink, 70s disco, pirate ship)
 		return []int{s - 5, s - 4, s - 3, s - 2, s - 1}
 	}
 	return []int{0, 1, 2, 3, 4}
@@ -247,13 +247,12 @@ func (g *Game) buildFlashback(def *LevelDef, seed int64) *ebiten.Image {
 	for i := 0; i+1 < len(spots) && i < 6; i += 2 {
 		tape(spots[i], spots[i+1])
 	}
-	if imgs := g.as.props["car"]; len(imgs) > 4 && len(spots) > 0 {
-		pi := imgs[4]
+	if len(spots) > 0 { // the police car of the game (vehart.go), its light bar still on (blue frame)
+		pi := emergencyImg(0, unitPolice, 2)
 		p := spots[len(spots)-1]
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(math.Round(p.X-pi.ox), math.Round(p.Y-pi.oy))
 		m.DrawImage(pi.img, op)
-		fillRect(m, p.X-3, p.Y-pi.oy-2, 6, 3, rgb(0x3a6aff)) // the light still turning
 	}
 	// the grade of a memory: washed out, cold, darker
 	pix := make([]byte, 4*screenW*screenH)
@@ -455,7 +454,7 @@ func (g *Game) drawInterlude(dst *ebiten.Image) {
 
 // interSkipHint: the little line at the bottom that says how to skip (twice, with the usual keys).
 func (g *Game) interSkipHint(dst *ebiten.Image, in *interState) {
-	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
+	hint := skipTwiceHint()
 	col := rgba(0x8a86a0, 170)
 	if in.skipArm > 0 {
 		hint, col = "Otra vez para saltar", rgb(0xffe060)
@@ -764,7 +763,6 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 		hero()
 		return
 	}
-	body, dark, glass := rgb(0xd8742a), rgb(0x8a3c14), vaGlassC
 	// a little engine shake while it idles
 	if t >= itStop && t < itDepart {
 		y += math.Round(math.Sin(t*38) * 1)
@@ -775,75 +773,31 @@ func (g *Game) interCar(c *ebiten.Image, in *interState, x float64, hero func())
 	}
 	// the hero stands in front of the car, on the pavement: drawn before the near door
 	hero()
-	// wheels, body and cabin, in the style of the vehicle art kit (vehart.go): dark contour,
-	// three-tone shading, turquoise glass with a shine and wheels with a light rim
-	body2 := func(dx, dy, w, h float64, col color.RGBA) { fillRect(c, x+dx, y+dy, w, h, col) }
-	ink := vaInk
-	body2(5, -65, 170, 46, ink) // the contour around body and cabin
-	body2(-3, -51, 186, 32, ink)
-	body2(27, -105, 106, 46, ink)
-	body2(-9, -39, 196, 18, ink)
-	body2(8, -62, 164, 40, body) // lower body
-	body2(0, -48, 180, 26, body)
-	body2(8, -62, 164, 4, shade(body, 1.25))
-	body2(0, -34, 180, 8, shade(body, 0.86))
-	body2(0, -26, 180, 4, dark)
-	body2(30, -102, 100, 42, body) // cabin
-	body2(30, -102, 100, 4, shade(body, 1.3))
-	body2(40, -94, 36, 30, glass) // windows
-	body2(84, -94, 38, 30, glass)
-	for k := 0.0; k < 3; k++ { // the shine
-		body2(48+k*4, -72-k*6, 6, 3, vaShineC)
-		body2(92+k*4, -72-k*6, 6, 3, vaShineC)
-	}
-	body2(76, -102, 4, 42, dark)
-	body2(170, -50, 10, 12, vaHeadC)
-	body2(-6, -36, 8, 12, vaChromeC) // bumper
-	body2(176, -36, 8, 12, vaChromeC)
-	body2(2, -46, 6, 8, vaTailC)            // tail light
-	for _, wx := range []float64{38, 138} { // arches and wheels
-		filledEllipse(c, x+wx, y-16, 24, 22, rgb(0x101016))
-		filledEllipse(c, x+wx, y-14, 19, 19, vaTyre)
-		filledEllipse(c, x+wx, y-14, 15, 15, vaTyreSide)
-		filledEllipse(c, x+wx, y-14, 10, 10, vaRimC)
-		filledEllipse(c, x+wx, y-14, 4, 4, vaHub)
-		a := t*14 + wx
-		if t < itDepart {
-			a = 0
-		}
-		fillRect(c, x+wx+math.Cos(a)*7-1, y-14+math.Sin(a)*7-1, 3, 3, rgb(0x3a3a44))
-	}
-	// the near door, which opens for him
-	o := 0.0
+	// the car is the game's own car model (vehart.go), with its driver's door and turning wheels (scenecar.go)
+	o := 0.0 // the near door, which opens for him
 	if t > itOpen {
 		o = introEase((t - itOpen) / 0.6)
 	}
 	if t > itIn+0.6 {
 		o = 1 - introEase((t-itIn-0.6)/0.5)
 	}
-	dw := 56.0
-	dx := 84.0
-	fillRect(c, x+dx, y-80, dw, 52, rgb(0x241a14)) // the dark inside
-	if o > 0.05 {
-		fillRect(c, x+dx+6, y-72, dw-12, 24, rgb(0x6a4a3a))
+	spin := -1
+	if t >= itDepart {
+		spin = int(t*14/(2*math.Pi)*sceneCarSpinFr) % sceneCarSpinFr
 	}
-	leaf := dw * (1 - 0.85*o)
-	fillRect(c, x+dx+dw-leaf, y-80, leaf, 52, body)
-	fillRect(c, x+dx+dw-leaf, y-80, leaf, 3, dark)
-	fillRect(c, x+dx+dw-leaf+2, y-76, leaf-8, 22, glass)
-	fillRect(c, x+dx+dw-leaf+4, y-52, 8, 3, dark) // the handle
-	// after the door closes, you can see his head in the window
+	drawSceneCar(c, x, y, o, spin)
+	// after the door closes, you can see his head in the driver's window
 	if t > itIn+1 && in.two {
 		g.interTwoCarHeads(c, in, x, y)
 	} else if t > itIn+1 {
-		filledEllipse(c, x+105, y-84, 8, 9, rgb(0xe0b088))
-		fillRect(c, x+98, y-94, 14, 5, rgb(0x2a1a14))
+		filledEllipse(c, x+110, y-65, 7, 8, rgb(0xe0b088))
+		fillRect(c, x+104, y-74, 13, 4, rgb(0x2a1a14))
 	}
 	// exhaust
 	if t >= itStop {
 		for i := 0; i < 7; i++ {
 			age := math.Mod(t*1.6+float64(i)/7, 1)
-			filledEllipse(c, x-12-age*60, y-18-age*18, 4+age*8, 4+age*7, rgba(0xc8c8d4, uint8(160*(1-age))))
+			filledEllipse(c, x-4-age*60, y-12-age*18, 4+age*8, 4+age*7, rgba(0xc8c8d4, uint8(160*(1-age))))
 		}
 	}
 }

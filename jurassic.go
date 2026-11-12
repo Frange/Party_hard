@@ -723,7 +723,7 @@ func jurassicBG() *ebiten.Image {
 func jurassicLevel() *LevelDef {
 	doorLog = nil
 	d := &LevelDef{
-		Title: "ISLA NUBLAR", Intro: "La última fiesta: una isla, un parque temático y unos invitados con muchos dientes. Hay vallas eléctricas. Estaban.",
+		Title: "ISLA NUBLADA", Intro: "La última fiesta: una isla, un parque temático y unos invitados con muchos dientes. Hay vallas eléctricas. Estaban.",
 		W: 960, H: 540, Sky: "none", Police: "car", Transit: "sea", Day: true, Tint: color.RGBA{70, 36, 8, 34}, CharScale: 0.70, PropScale: 0.65,
 		Start:   Vec{560, 324},
 		CarFrom: Vec{1040, 520}, CarTo: Vec{478, 520}, ParkX0: 270, ParkX1: 478,
@@ -769,9 +769,61 @@ func jurassicLevel() *LevelDef {
 	d.Slow = jurassicSlow()
 	d.Shape = jurassicShape
 	d.Walls = append(d.Walls, voidWalls(jurassicShape, d.W, d.H)...)
+	d.Walls = append(d.Walls, jpDeckEdges()...)
 	resolveOverlaps(d)
 	jpPrune(d)
 	return d
+}
+
+// jpDeckEdges: the solid cells of the sea follow the outline in 8 px steps, which left a strip of water along the
+// sides of the pier and the dock where the feet could stand off the planks. A thin invisible edge on every side
+// that faces the sea keeps the feet on the deck (the side that touches the beach stays open).
+func jpDeckEdges() []Wall {
+	const t, step = 6.0, 2.0
+	var out []Wall
+	run := func(rs []Rect) { // merge the consecutive pieces of one side
+		for i := 0; i < len(rs); {
+			r := rs[i]
+			j := i + 1
+			for ; j < len(rs); j++ {
+				n := rs[j]
+				if r.H == n.H && n.Y == r.Y && n.X == r.X+r.W {
+					r.W += n.W
+				} else if r.W == n.W && n.X == r.X && n.Y == r.Y+r.H {
+					r.H += n.H
+				} else {
+					break
+				}
+			}
+			out = append(out, Wall{r, WallVoid})
+			i = j
+		}
+	}
+	sea := func(x, y float64) bool { return islandSD(x, y) > 0 }
+	for _, r := range []Rect{jpPier, jpDock} {
+		var top, bot, left, right []Rect
+		for x := r.X; x < r.X+r.W; x += step {
+			if sea(x+1, r.Y-4) {
+				top = append(top, Rect{x, r.Y - t, step, t + 1})
+			}
+			if sea(x+1, r.Y+r.H+4) {
+				bot = append(bot, Rect{x, r.Y + r.H - 1, step, t + 1})
+			}
+		}
+		for y := r.Y; y < r.Y+r.H; y += step {
+			if sea(r.X-4, y+1) {
+				left = append(left, Rect{r.X - t, y, t + 1, step})
+			}
+			if sea(r.X+r.W+4, y+1) {
+				right = append(right, Rect{r.X + r.W - 1, y, t + 1, step})
+			}
+		}
+		run(top)
+		run(bot)
+		run(left)
+		run(right)
+	}
+	return out
 }
 
 // jpPrune drops small scenery that would cut a path (the big landmarks stay).

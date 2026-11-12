@@ -11,14 +11,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// the campaign: 25 parties (ITALIA after the highway), the three new ones before the space station, the station last
-// (then the secret island, which is not in the list: jurassic.go)
+// the campaign: 26 parties (ITALIA after the highway), the three new ones and the pirate ship before the space
+// station, the station last (then the secret island, which is not in the list: jurassic.go)
 func TestCampaignHasTheThreeNewParties(t *testing.T) {
-	if len(campaignLevels) != 25 {
-		t.Fatalf("the campaign has %d parties, want 25", len(campaignLevels))
+	if len(campaignLevels) != 26 {
+		t.Fatalf("the campaign has %d parties, want 26", len(campaignLevels))
 	}
 	want := map[int][2]string{18: {"highway", "highway"}, 19: {"italy", "italy"}, 20: {"trainstation", "train"},
-		21: {"birthday", "cake"}, 22: {"hockey", "hockey"}, 23: {"disco70", "disco70"}, 24: {"station", "station"}}
+		21: {"birthday", "cake"}, 22: {"hockey", "hockey"}, 23: {"disco70", "disco70"}, 24: {"pirate", "pirate"},
+		25: {"station", "station"}}
 	for i, w := range want {
 		e := campaignLevels[i]
 		if e.kind != w[0] || e.icon != w[1] {
@@ -29,10 +30,11 @@ func TestCampaignHasTheThreeNewParties(t *testing.T) {
 		t.Fatalf("RULE: the space station must be the last listed party, and the island the one after it (got %q)", last.icon)
 	}
 	defs := builtinLevels()
-	if campaignN != 25 {
-		t.Fatalf("campaignN = %d, want 25 (some party did not build)", campaignN)
+	if campaignN != 26 {
+		t.Fatalf("campaignN = %d, want 26 (some party did not build)", campaignN)
 	}
-	for i, w := range map[int]string{19: "ITALIA", 21: "FIESTA DE CUMPLEAÑOS", 22: "PISTA DE HOCKEY", 23: "DISCO SETENTERA", 24: "ESTACIÓN ESPACIAL"} {
+	for i, w := range map[int]string{19: "ITALIA", 21: "FIESTA DE CUMPLEAÑOS", 22: "PISTA DE HOCKEY", 23: "DISCO SETENTERA",
+		24: "BARCO PIRATA", 25: "ESTACIÓN ESPACIAL"} {
 		if defs[i].Title != w {
 			t.Errorf("party %d is %q, want %q", i+1, defs[i].Title, w)
 		}
@@ -92,12 +94,13 @@ func oldSave(unlocked int, wonUpTo int) Progress {
 	return q
 }
 
-// (a 21-party save goes through both steps: the three new parties and then ITALIA after the highway)
+// (a 21-party save goes through every step: the three new parties, ITALIA after the highway and the pirate ship
+// before the station)
 func TestMigrationStationOpenAndWon(t *testing.T) {
 	p := oldSave(21, 20) // had finished the whole old campaign, station included
 	migrateProgress(&p)
-	if p.Unlocked != 25 || p.CampaignRev != campaignRev {
-		t.Fatalf("unlocked %d rev %d, want 25 and %d: the station and the new parties stay open", p.Unlocked, p.CampaignRev, campaignRev)
+	if p.Unlocked != 26 || p.CampaignRev != campaignRev {
+		t.Fatalf("unlocked %d rev %d, want 26 and %d: the station and the new parties stay open", p.Unlocked, p.CampaignRev, campaignRev)
 	}
 	for i := 0; i <= 18; i++ {
 		if p.Stats[fmt.Sprintf("won_%d", i)] != 1 {
@@ -110,13 +113,13 @@ func TestMigrationStationOpenAndWon(t *testing.T) {
 	if p.Stats["won_20"] != 1 {
 		t.Error("the old win of the train station (won_19) did not move to won_20")
 	}
-	for _, i := range []int{21, 22, 23} {
+	for _, i := range []int{21, 22, 23, 24} {
 		if p.Stats[fmt.Sprintf("won_%d", i)] != 0 {
 			t.Errorf("won_%d was invented", i)
 		}
 	}
-	if p.Stats["won_24"] != 1 {
-		t.Error("the old win of the space station did not move to won_24")
+	if p.Stats["won_25"] != 1 {
+		t.Error("the old win of the space station did not move to won_25")
 	}
 	if p.Stats["distinct"] != 21 || p.Stats["played"] != 40 {
 		t.Errorf("the counters changed: distinct %d played %d", p.Stats["distinct"], p.Stats["played"])
@@ -126,12 +129,12 @@ func TestMigrationStationOpenAndWon(t *testing.T) {
 func TestMigrationStationOpenButNotWon(t *testing.T) {
 	p := oldSave(21, 19)
 	migrateProgress(&p)
-	if p.Unlocked != 25 {
-		t.Errorf("unlocked %d, want 25", p.Unlocked)
+	if p.Unlocked != 26 {
+		t.Errorf("unlocked %d, want 26", p.Unlocked)
 	}
-	if p.Stats["won_24"] != 0 || p.Stats["won_19"] != 0 || p.Stats["won_20"] != 1 {
-		t.Errorf("a station that was not won must not count as won, the train station keeps its win (won_19=%d won_20=%d won_24=%d)",
-			p.Stats["won_19"], p.Stats["won_20"], p.Stats["won_24"])
+	if p.Stats["won_25"] != 0 || p.Stats["won_24"] != 0 || p.Stats["won_19"] != 0 || p.Stats["won_20"] != 1 {
+		t.Errorf("a station that was not won must not count as won, the train station keeps its win (won_19=%d won_20=%d won_24=%d won_25=%d)",
+			p.Stats["won_19"], p.Stats["won_20"], p.Stats["won_24"], p.Stats["won_25"])
 	}
 	if p.Stats["distinct"] != 20 {
 		t.Errorf("distinct %d, want 20", p.Stats["distinct"])
@@ -165,13 +168,13 @@ func TestMigrationOnlyOnce(t *testing.T) {
 	p.Unlocked = 24
 	p.Stats["won_21"], p.Stats["won_22"] = 1, 1
 	migrateProgress(&p)
-	if p.Unlocked != 24 || p.Stats["won_21"] != 1 || p.Stats["won_22"] != 1 || p.Stats["won_24"] != 1 {
+	if p.Unlocked != 24 || p.Stats["won_21"] != 1 || p.Stats["won_22"] != 1 || p.Stats["won_25"] != 1 {
 		t.Errorf("a save in the new layout was migrated again: %+v", p)
 	}
 	var fresh Progress
 	json.Unmarshal([]byte(`{"unlocked":22,"stats":{"won_20":1}}`), &fresh)
 	migrateProgress(&fresh) // rev 0 and 22: it IS old (the frontier was past party 21? no: 22 > 21)
-	if fresh.Unlocked != 25 || fresh.Stats["won_24"] != 1 {
+	if fresh.Unlocked != 26 || fresh.Stats["won_25"] != 1 {
 		t.Errorf("an old save cannot have more than 21 unlocked; whatever it says it keeps the station open: %d %v", fresh.Unlocked, fresh.Stats)
 	}
 }
@@ -197,10 +200,11 @@ func TestSavedProgressCarriesTheRevision(t *testing.T) {
 	}
 }
 
-// the old editor corrections of the station (c21_station) still apply to it
+// the old editor corrections of the station (c21_station, c24_station, c25_station) still apply to it
 func TestStationKeepsItsOldOverride(t *testing.T) {
-	if campaignKey(24) != "c25_station" || campaignKeyRev1(24) != "c24_station" || legacyStationKey != "c21_station" {
-		t.Fatalf("keys: %s / %s / %s", campaignKey(24), campaignKeyRev1(24), legacyStationKey)
+	if campaignKey(25) != "c26_station" || campaignKeyRev2(25) != "c25_station" || campaignKeyRev1(25) != "c24_station" ||
+		legacyStationKey != "c21_station" {
+		t.Fatalf("keys: %s / %s / %s / %s", campaignKey(25), campaignKeyRev2(25), campaignKeyRev1(25), legacyStationKey)
 	}
 }
 
@@ -216,9 +220,14 @@ func TestUnlockWalksThroughTheNewParties(t *testing.T) {
 			t.Fatalf("after party %d the frontier is %d, want %d", idx+1, g.progress.Unlocked, idx+2)
 		}
 	}
-	g.levelIdx = 24
+	g.levelIdx = 24 // the pirate ship opens the station
 	g.unlockNext()
-	if g.progress.Unlocked != 25 {
+	if g.progress.Unlocked != 26 {
+		t.Errorf("after the pirate ship the frontier is %d, want 26 (the station)", g.progress.Unlocked)
+	}
+	g.levelIdx = 25
+	g.unlockNext()
+	if g.progress.Unlocked != 26 {
 		t.Errorf("the station is the last: frontier %d", g.progress.Unlocked)
 	}
 }
@@ -229,7 +238,7 @@ func TestUnlockWalksThroughTheNewParties(t *testing.T) {
 
 func TestPartyListHasRoomForEverything(t *testing.T) {
 	rows := len(campaignLevels) + 2 // + ALEATORIO + ISLA
-	if rows > len(levelColX)*levelRowsPerCol || levelRowsPerCol != 9 {
+	if rows > len(levelColX)*levelRowsPerCol || levelRowsPerCol != 10 {
 		t.Fatalf("%d rows do not fit in %d columns of %d", rows, len(levelColX), levelRowsPerCol)
 	}
 	const textH = 8.0

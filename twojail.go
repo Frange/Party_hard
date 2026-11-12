@@ -221,6 +221,7 @@ func (g *Game) jailPlayer(c *Cop, p *Player) {
 		p.carrying.pos = p.pos
 		p.carrying = nil
 	}
+	jailHold = true // before copNext: with the custody flag still off he went straight back to his car (copMayLeave)
 	if c != nil {
 		g.releaseCop(c)
 		g.copNext(c)
@@ -229,7 +230,7 @@ func (g *Game) jailPlayer(c *Cop, p *Player) {
 	g.snd.Play("thud")
 	g.snd.Play("alert")
 	g.shake = math.Max(g.shake, 0.15)
-	g.say(g.playerName(p) + " detenido: ¡que " + g.playerName(g.otherPlayer(p)) + " lo saque (E)!") // template "{a} detenido: ¡que {b} lo saque (E)!"
+	g.say(g.playerName(p) + " detenido: ¡que " + g.playerName(g.otherPlayer(p)) + " lo saque (" + actionHintFor(actInteract, g.playerIndex(g.otherPlayer(p))) + ")!") // template "{a} detenido: ¡que {b} lo saque ({k})!"
 	g.sayNews("jail_held", map[string]string{"victim": g.playerName(p)})
 	jailHold = true
 }
@@ -420,7 +421,7 @@ func (g *Game) drawPrisoner(dst *ebiten.Image, p *Player) {
 		for a := 0.0; a < 2*math.Pi; a += 0.25 {
 			fillRect(dst, math.Round(x+math.Cos(a)*12), math.Round(y-1+math.Sin(a)*5), 1, 1, color.RGBA{230, 60, 60, 230})
 		}
-		g.drawActor(dst, p.cs, AnimIdle, g.time*2, p.jail.pos, DirDown, 0, false)
+		g.hudPlayerDraw(func() { g.drawActor(dst, p.cs, AnimIdle, g.time*2, p.jail.pos, DirDown, 0, false) })
 		g.drawCuffs(dst, p.jail.pos)
 		for _, bx := range []float64{-9, 9} {
 			fillRect(dst, x+bx, y-26, 1, 24, color.RGBA{150, 156, 170, 230})

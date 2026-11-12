@@ -127,11 +127,11 @@ func init() {
 		famousPresets = append(famousPresets, func(r *rand.Rand) CharSpec { return planetSpec(r, slug) })
 	}
 	for slug, v := range map[string][3]string{
-		"planetario_tierra":  {"Planetario de la Tierra", "Earth Planeteer", "Tierra"},
-		"planetario_fuego":   {"Planetario del Fuego", "Fire Planeteer", "Fuego"},
-		"planetario_viento":  {"Planetario del Viento", "Wind Planeteer", "Viento"},
-		"planetario_agua":    {"Planetario del Agua", "Water Planeteer", "Agua"},
-		"planetario_corazon": {"Planetaria del Corazón", "Heart Planeteer", "Corazón"},
+		"planetario_tierra":  {"Planetario de la Tierra", "Earth Planetteer", "Tierra"},
+		"planetario_fuego":   {"Planetario del Fuego", "Fire Planetteer", "Fuego"},
+		"planetario_viento":  {"Planetario del Viento", "Wind Planetteer", "Viento"},
+		"planetario_agua":    {"Planetario del Agua", "Water Planetteer", "Agua"},
+		"planetario_corazon": {"Planetaria del Corazón", "Heart Planetteer", "Corazón"},
 	} {
 		displayNameOverrides[slug] = v[0]
 		albumShortName[slug] = v[2]

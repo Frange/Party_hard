@@ -174,23 +174,24 @@ func (g *Game) interDrawHero2(c *ebiten.Image, in *interState, alpha float64) {
 // the two heads in the windows of the car: the red one at the wheel, the blue one with the map
 func (g *Game) interTwoCarHeads(c *ebiten.Image, in *interState, x, y float64) {
 	t := in.t
-	// the blue one, in the back seat window, behind an open map held upside down
-	filledEllipse(c, x+92, y-84, 8, 9, rgb(0xe0b088))
-	fillRect(c, x+85, y-94, 14, 5, rgb(0x14141a))
-	fillRect(c, x+70, y-80, 26, 20, rgb(0xf0ead0)) // the map
-	fillRect(c, x+70, y-80, 26, 2, rgb(0xc8c0a0))
-	fillRect(c, x+78, y-72, 2, 8, rgb(0xd02a2a)) // a red cross and a road
-	fillRect(c, x+76, y-70, 6, 2, rgb(0xd02a2a))
-	fillRect(c, x+84, y-76, 8, 1, rgb(0x6a6a74))
-	g.drawText(c, "N", x+86, y-66, rgb(0x2a2a3a), 0.8) // north, at the bottom: upside down
-	// the red one at the wheel, shaking
+	// the blue one, in the back seat window (x+44..x+86, y-78..y-57 on the car of scenecar.go),
+	// behind an open map held upside down
+	filledEllipse(c, x+70, y-66, 7, 8, rgb(0xe0b088))
+	fillRect(c, x+64, y-75, 13, 4, rgb(0x14141a))
+	fillRect(c, x+50, y-68, 26, 11, rgb(0xf0ead0)) // the map
+	fillRect(c, x+50, y-68, 26, 2, rgb(0xc8c0a0))
+	fillRect(c, x+58, y-65, 2, 7, rgb(0xd02a2a)) // a red cross and a road
+	fillRect(c, x+56, y-63, 6, 2, rgb(0xd02a2a))
+	fillRect(c, x+64, y-64, 8, 1, rgb(0x6a6a74))
+	g.drawText(c, "N", x+66, y-68, rgb(0x2a2a3a), 0.8) // north, at the bottom: upside down
+	// the red one at the wheel, in the driver's window (x+95..x+125), shaking
 	jx := math.Round(math.Sin(t*31) * 2)
-	filledEllipse(c, x+128+jx, y-84, 8, 9, rgb(0xe0b088))
-	fillRect(c, x+121+jx, y-94, 14, 5, rgb(0x14141a))
-	fillRect(c, x+120+jx, y-66, 18, 4, rgb(0xc42a2a)) // his red shoulder
-	fillRect(c, x+138, y-74, 2, 12, rgb(0x14141a))    // the wheel
+	filledEllipse(c, x+108+jx, y-66, 7, 8, rgb(0xe0b088))
+	fillRect(c, x+102+jx, y-75, 13, 4, rgb(0x14141a))
+	fillRect(c, x+100+jx, y-60, 16, 3, rgb(0xc42a2a)) // his red shoulder
+	fillRect(c, x+119, y-68, 2, 10, rgb(0x14141a))    // the wheel
 	if t < itDepart {
-		g.sceneStars(c, x+128, y-100, t, 0.9)
+		g.sceneStars(c, x+108, y-88, t, 0.9)
 	}
 }
 

@@ -163,6 +163,7 @@ func TestHintLifecycle(t *testing.T) {
 // The plate does not touch the HUD panel, the "?" button, the trophy counter, the minimap, the controls strips or the
 // level title, and its texts do not overlap (the audit's rules), in Spanish and English.
 func TestHintLayoutNoOverlap(t *testing.T) {
+	snapshotLang(t)
 	for _, two := range []bool{false, true} {
 		for _, lang := range []string{"es", "en"} {
 			t.Run(fmt.Sprintf("two=%v/%s", two, lang), func(t *testing.T) {

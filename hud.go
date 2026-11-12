@@ -43,6 +43,10 @@ type hudState struct {
 	people int     // last people count (to pop the number when it drops)
 	pop    float64 // seconds left of the pop flash
 	bottom float64 // y of the first free line under the panel (set when drawn)
+	hit    bool    // a character was drawn over the panel in the last frame (hudhide.go)
+	hold   float64 // seconds left before the panel may come back
+	hide   float64 // 0 = fully shown, 1 = hidden (zero value: shown)
+	armed  bool    // a player is being drawn: hudTouch counts (hudhide.go)
 }
 
 func (h *hudState) reset(g *Game) {
@@ -115,6 +119,7 @@ func (g *Game) updateHUD(dt float64) {
 	if h.pop > 0 {
 		h.pop -= dt
 	}
+	h.stepHide(dt)
 }
 
 // hudLerp mixes two colours.
@@ -140,14 +145,22 @@ func drawPersonIcon(dst *ebiten.Image, x, y float64, c color.RGBA) {
 // drawHUDPanel paints the panel and returns nothing; the y under it is left in g.hud.bottom.
 func (g *Game) drawHUDPanel(dst *ebiten.Image) {
 	cnt := g.hudCounts()
-	h := &g.hud
-	// ---- how tall (the forces take one or two lines)
 	lines := g.hudForceLines(cnt.forces)
-	ph := hudBaseH
-	if len(lines) > 0 {
-		ph += 11 * float64(len(lines))
+	g.hud.bottom = hudY + hudPanelH(len(lines)) + 3 // the column under the panel keeps its place while the panel is hidden
+	g.withHudFade(dst, func(d *ebiten.Image) { g.paintHUDPanel(d, cnt, lines) })
+}
+
+// hudPanelH: the height of the panel with n lines of forces.
+func hudPanelH(n int) float64 {
+	if n > 0 {
+		return hudBaseH + 11*float64(n)
 	}
-	h.bottom = hudY + ph + 3
+	return hudBaseH
+}
+
+func (g *Game) paintHUDPanel(dst *ebiten.Image, cnt hudCounts, lines []string) {
+	h := &g.hud
+	ph := hudPanelH(len(lines))
 	px, py := hudX, hudY
 	fillRect(dst, px, py, hudW, ph, rgba(0x08060f, 175))
 	edge := rgba(0x6a5a9a, 190)
@@ -341,7 +354,7 @@ const hudSideGap = 12.0
 // hudSide: the y of each note stacked in the column under the HUD panel (OBJETO, stamina bar(s), ambulance, jail),
 // one under the other and never touching: a block only takes room when it is on screen. x is always hudX.
 func (g *Game) hudSide() (obj, stam, rev, jail float64) {
-	y := g.hud.bottom - 3 + hudSideGap
+	y := g.hud.bottom - 3 + hudSideGap + g.cdLineH() // the countdown line goes first (countdown.go)
 	lines := 1
 	if g.is2P() {
 		lines = 2
@@ -363,7 +376,7 @@ func (g *Game) hudSide() (obj, stam, rev, jail float64) {
 	}
 	rev = y
 	if g.is2P() {
-		y += 14
+		y += g.reviveHudH() // one line, or the box "Tu compañero ha muerto..." (revive.go)
 	}
 	jail = y
 	return

@@ -21,7 +21,7 @@ assets/
     special_people.json        frases de personajes famosos/temáticos (opcional)
     police.json                frases de policía/militares/SWAT (opcional)
     fbi.json                   frases del FBI (opcional)
-    power_rangers.json         frases de los Power Rangers (opcional)
+    power_rangers.json         frases de los Pawer Rangers (opcional)
     killers.json               frases del asesino especial (opcional)
 ```
 
@@ -31,7 +31,7 @@ Si una categoría está vacía el juego usa el generador interno para esa catego
 
 | fichero | contenido |
 |---|---|
-| `meta.json` | `name`, `category`, `role` (`cop`, `medic`, `guard`), `carry` (objeto en la mano: knife, cup, mic, phone, baguette, tray, camera, bigcup, saber, beer, flag, pizza, sign), `display_name` (opcional: cómo se llama en los mensajes de pantalla, p.ej. `"Sonic"`; si se omite se usa el nombre de la carpeta con mayúsculas, p.ej. `special_people/nathan_drake` → "Nathan Drake"). Solo los personajes de `special_people` salen con nombre propio; los de `people` siempre son "un invitado"/"una invitada" |
+| `meta.json` | `name`, `category`, `role` (`cop`, `medic`, `guard`), `carry` (objeto en la mano: knife, cup, mic, phone, baguette, tray, camera, bigcup, saber, beer, flag, pizza, sign), `display_name` (opcional: cómo se llama en los mensajes de pantalla, p.ej. `"Zonic"`; si se omite se usa el nombre de la carpeta con mayúsculas, p.ej. `special_people/tio_paco` → "Tio Paco"). Solo los personajes de `special_people` salen con nombre propio; los de `people` siempre son "un invitado"/"una invitada" |
 | `front.png`, `side.png`, `back.png` | el muñeco de pie, de frente, de perfil mirando a la **derecha**, y de espaldas (24x44 por defecto, cualquier tamaño). Proporciones base del juego: figura de unos 10 px de ancho y 33-35 de alto, cabeza de 5-6 px, tronco de 9-10 px (3-6 de ancho), brazos de 1-2 px de ancho y largos como hasta la cintura, y unos 15 px de cintura a los pies |
 | `front_parts.png`, `side_parts.png`, `back_parts.png` | mapa de partes: gris = id × 32. 1 cabeza, 2 torso, 3 brazo izquierdo (el de la izquierda de la imagen), 4 brazo derecho, 5 pierna izquierda, 6 pierna derecha, 0 nada |
 | `anim/<animación>_<vista>_<n>.png` | opcional: fotograma pintado a mano que sustituye al generado. Ejemplo: `walk_side_2.png` |

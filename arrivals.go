@@ -120,6 +120,7 @@ func (g *Game) addGuestAt(pos Vec) {
 		cs, name = vc, ""
 	}
 	gu := &Guest{pos: pos, dir: DirDown, cs: cs, name: name, style: g.rng.Intn(4), off: g.rng.Float64() * 6, state: gIdle, timer: 0.5, role: g.rng.Intn(2)}
+	g.costumeArrival(gu) // themed costume, own dice (costume.go)
 	g.guests = append(g.guests, gu)
 	g.total++
 }

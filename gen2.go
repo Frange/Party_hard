@@ -846,6 +846,8 @@ func genByKind0(rng *rand.Rand, kind string) *LevelDef {
 		return genDisco70(rng)
 	case "italy":
 		return genItaly(rng) // italy.go
+	case "pirate":
+		return genPirate(rng) // pirate.go
 	}
 	return genBeach(rng)
 }

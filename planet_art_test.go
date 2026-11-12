@@ -154,7 +154,7 @@ func TestPlanetCast(t *testing.T) {
 		}
 	}
 	cp := planetSpecT(t, "capitan_planeta")
-	if nameFromSpec(&cp) != "Capitán Planeta" || cp.Body != BodyBig || cp.Stature != -1 {
+	if nameFromSpec(&cp) != "Capitán Planetta" || cp.Body != BodyBig || cp.Stature != -1 {
 		t.Errorf("Capitán Planeta changed: %q body %d stature %d", nameFromSpec(&cp), cp.Body, cp.Stature)
 	}
 	found := false

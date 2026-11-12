@@ -33,34 +33,34 @@ func ds(who int, line string, anim int, fx ...uint32) duetStep {
 }
 
 var duetDefs = []duetDef{
-	{"homer", "flanders", []duetStep{ds(1, "¡Hola, vecinerino!", AnimWave), ds(0, "¡D'oh! Otra vez tú...", AnimPanic), ds(1, "¡Qué diddly bien está la fiesta!", AnimLaugh), ds(0, "¿Me prestas tu cerveza?", AnimTalk)}},
-	{"homer", "burns", []duetStep{ds(1, "Excelente... ¿y usted quién es?", AnimTalk), ds(0, "¡Soy Homer, su empleado!", AnimWave), ds(1, "Smithers, suelte a los perros.", AnimPoint), ds(0, "¡D'oh!", AnimPanic)}},
-	{"bart", "lisa", []duetStep{ds(0, "¡Cómete mis pantalones!", AnimLaugh), ds(1, "Eres imposible, Bart.", AnimTalk), ds(0, "¡Ay, caramba!", AnimDance3)}},
-	{"fry", "bender", []duetStep{ds(0, "Bender, ¿me das una cerveza?", AnimTalk), ds(1, "¡Muerde mi brillante culo metálico!", AnimLaugh), ds(0, "¡Cállate y toma mi dinero!", AnimWave)}},
-	{"rick", "morty", []duetStep{ds(0, "*burp* Morty, nos vamos.", AnimTalk), ds(1, "¡Oh, cielos, Rick!", AnimPanic), ds(0, "Wubba lubba dub dub.", AnimDance4, 0x40ff80)}},
-	{"mario", "luigi", []duetStep{ds(0, "¡It's-a me, Mario!", AnimWave), ds(1, "¡Mamma mia, Mario!", AnimPanic), ds(0, "¡Let's-a go!", AnimDance3, 0xffd040)}},
-	{"mario", "wario", []duetStep{ds(1, "¡Wahaha! ¡Esa moneda es mía!", AnimLaugh, 0xffd040), ds(0, "¡No, Wario, no!", AnimPanic)}},
-	{"sonic", "tails", []duetStep{ds(0, "¡Demasiado lento!", AnimPoint), ds(1, "¡Espérame, Sonic!", AnimPanic), ds(0, "Vale, te espero... diez segundos.", AnimTalk)}},
-	{"goku", "vegeta", []duetStep{ds(0, "¡Vegeta! ¡Pelea conmigo!", AnimWave), ds(1, "¡Soy el príncipe de los Saiyans!", AnimPoint), ds(0, "¡Kame hame ha!", AnimPunch, 0x40c0ff), ds(1, "¡Big Bang Attack!", AnimPunch, 0xffe040), ds(0, "Uf... ¡qué hambre me ha dado!", AnimTalk)}},
-	{"batman", "superman", []duetStep{ds(0, "Soy Batman.", AnimTalk), ds(1, "Lo sé, Bruce.", AnimTalk), ds(0, "No me llames Bruce aquí...", AnimPanic)}},
-	{"thor", "hulk", []duetStep{ds(0, "¿Otra ronda, colega?", AnimTalk), ds(1, "¡HULK APLASTA!", AnimPunch), ds(0, "¡Por Odín! ¡Es una fiesta!", AnimPanic, 0xffee70)}},
-	{"vader", "luke", []duetStep{ds(0, "Yo soy tu padre.", AnimPoint), ds(1, "¡¡NOOOOOO!!", AnimPanic), ds(0, "Anda, ven a bailar.", AnimDance3)}},
+	{"homer", "flanders", []duetStep{ds(1, "¡Hola, vecinerino!", AnimWave), ds(0, "¡D'ohh! Otra vez tú...", AnimPanic), ds(1, "¡Qué diddly bien está la fiesta!", AnimLaugh), ds(0, "¿Me prestas tu cerveza?", AnimTalk)}},
+	{"homer", "burns", []duetStep{ds(1, "Exselente... ¿y usted quién es?", AnimTalk), ds(0, "¡Soy Jomer, su empleado!", AnimWave), ds(1, "Smitters, suelte a los perros.", AnimPoint), ds(0, "¡D'ohh!", AnimPanic)}},
+	{"bart", "lisa", []duetStep{ds(0, "¡Cómete mis pantalones!", AnimLaugh), ds(1, "Eres imposible, Bort.", AnimTalk), ds(0, "¡Ay, caramba!", AnimDance3)}},
+	{"fry", "bender", []duetStep{ds(0, "Blender, ¿me das una cerveza?", AnimTalk), ds(1, "¡Muerde mi brillante culo metálico!", AnimLaugh), ds(0, "¡Cállate y toma mi dinero!", AnimWave)}},
+	{"rick", "morty", []duetStep{ds(0, "*burp* Morti, nos vamos.", AnimTalk), ds(1, "¡Oh, cielos, Rik!", AnimPanic), ds(0, "Wubba lubba dub dab.", AnimDance4, 0x40ff80)}},
+	{"mario", "luigi", []duetStep{ds(0, "¡It's-a mee, Marrio!", AnimWave), ds(1, "¡Mama mia, Marrio!", AnimPanic), ds(0, "¡Let's-a goo!", AnimDance3, 0xffd040)}},
+	{"mario", "wario", []duetStep{ds(1, "¡Wahaha! ¡Esa moneda es mía!", AnimLaugh, 0xffd040), ds(0, "¡No, Vario, no!", AnimPanic)}},
+	{"sonic", "tails", []duetStep{ds(0, "¡Demasiado lento!", AnimPoint), ds(1, "¡Espérame, Zonic!", AnimPanic), ds(0, "Vale, te espero... diez segundos.", AnimTalk)}},
+	{"goku", "vegeta", []duetStep{ds(0, "¡Vejeta! ¡Pelea conmigo!", AnimWave), ds(1, "¡Soy el príncipe de los Sayans!", AnimPoint), ds(0, "¡Kame jame ja!", AnimPunch, 0x40c0ff), ds(1, "¡Big Bang Attack!", AnimPunch, 0xffe040), ds(0, "Uf... ¡qué hambre me ha dado!", AnimTalk)}},
+	{"batman", "superman", []duetStep{ds(0, "Soy Buttman.", AnimTalk), ds(1, "Lo sé, Bruse.", AnimTalk), ds(0, "No me llames Bruse aquí...", AnimPanic)}},
+	{"thor", "hulk", []duetStep{ds(0, "¿Otra ronda, colega?", AnimTalk), ds(1, "¡BULK APLASTA!", AnimPunch), ds(0, "¡Por Odín! ¡Es una fiesta!", AnimPanic, 0xffee70)}},
+	{"vader", "luke", []duetStep{ds(0, "Yo soy tu padrre.", AnimPoint), ds(1, "¡¡NOOOOOO!!", AnimPanic), ds(0, "Anda, ven a bailar.", AnimDance3)}},
 	{"han_solo", "chewbacca", []duetStep{ds(0, "Tengo un mal presentimiento.", AnimTalk), ds(1, "¡Uuurrr!", AnimWave), ds(0, "Yo también te quiero, amigo.", AnimLove)}},
-	{"kirk", "spock", []duetStep{ds(0, "Spock, ¿qué opinas?", AnimTalk), ds(1, "Fascinante. Es ilógico.", AnimTalk), ds(0, "Siempre tan alegre...", AnimLaugh)}},
-	{"asterix", "obelix", []duetStep{ds(1, "¡Están locos estos romanos!", AnimLaugh), ds(0, "¡Por Tutatis, Obélix!", AnimPanic), ds(1, "¿Hay jabalí?", AnimTalk)}},
+	{"kirk", "spock", []duetStep{ds(0, "Spook, ¿qué opinas?", AnimTalk), ds(1, "Fascinante. Es ilógico.", AnimTalk), ds(0, "Siempre tan alegre...", AnimLaugh)}},
+	{"asterix", "obelix", []duetStep{ds(1, "¡Están locos estos romanos!", AnimLaugh), ds(0, "¡Por Tutattis, Obélik!", AnimPanic), ds(1, "¿Hay jabalí?", AnimTalk)}},
 	{"gandalf", "frodo", []duetStep{ds(1, "No quiero este anillo.", AnimTalk), ds(0, "Un mago nunca llega tarde.", AnimPoint), ds(1, "¿Y la cerveza?", AnimWave)}},
-	{"harry_potter", "hermione", []duetStep{ds(0, "¿Has visto mi varita?", AnimTalk), ds(1, "Es 'Leviosa', no 'leviosá'.", AnimPoint), ds(0, "¡Expecto patronum!", AnimWave, 0x70e0ff)}},
-	{"woody", "buzz", []duetStep{ds(0, "¡Hay una serpiente en mi bota!", AnimPanic), ds(1, "¡Hasta el infinito y más allá!", AnimPoint), ds(0, "Buzz, eso no es volar...", AnimTalk)}},
+	{"harry_potter", "hermione", []duetStep{ds(0, "¿Has visto mi varita?", AnimTalk), ds(1, "Es 'Levioza', no 'leviozá'.", AnimPoint), ds(0, "¡Expecto petronum!", AnimWave, 0x70e0ff)}},
+	{"woody", "buzz", []duetStep{ds(0, "¡Hay una serpiente en mi bota!", AnimPanic), ds(1, "¡Hasta el infinito y más ayá!", AnimPoint), ds(0, "Buz, eso no es volar...", AnimTalk)}},
 	{"shrek", "burro_shrek", []duetStep{ds(1, "¿Quieres waffles?", AnimTalk), ds(0, "¡Fuera de mi pantano!", AnimPanic), ds(1, "¡No me abandones!", AnimWave)}},
-	{"mortadelo", "filemon", []duetStep{ds(1, "¡Mortadeloooo!", AnimPanic), ds(0, "Jefe, soy un armario.", AnimTalk), ds(1, "¡Te voy a dar una...!", AnimPunch)}},
-	{"beavis", "butthead", []duetStep{ds(0, "Huh huh, mola.", AnimLaugh), ds(1, "¡Heh heh! ¡Soy Cornholio!", AnimDance6), ds(0, "Eres idiota, Beavis.", AnimTalk)}},
+	{"mortadelo", "filemon", []duetStep{ds(1, "¡Mortadelaaaa!", AnimPanic), ds(0, "Jefe, soy un armario.", AnimTalk), ds(1, "¡Te voy a dar una...!", AnimPunch)}},
+	{"beavis", "butthead", []duetStep{ds(0, "Huh huh, mola.", AnimLaugh), ds(1, "¡Heh heh! ¡Soy Cornolio!", AnimDance6), ds(0, "Eres idiota, Beabis.", AnimTalk)}},
 	{"lennon", "mccartney", []duetStep{ds(0, "¿Tocamos Imagine?", AnimTalk), ds(1, "Mejor Yesterday...", AnimGuitar, 0xf0e0ff), ds(0, "All you need is love.", AnimSing, 0xf0e0ff)}},
 	{"doc_brown", "marty_mcfly", []duetStep{ds(1, "¡Esto es pesado, Doc!", AnimPanic), ds(0, "¡Gran Scott! ¡1,21 gigavatios!", AnimWave), ds(1, "¿A dónde vamos?", AnimTalk)}},
-	{"cartman", "kyle", []duetStep{ds(0, "¡Respeta mi autoridad!", AnimPoint), ds(1, "¡Eso no es justo!", AnimPanic), ds(0, "¡Me largo a casa!", AnimTalk)}},
-	{"peter", "stewie", []duetStep{ds(1, "¡Mundo cruel! Victoria será mía.", AnimPoint), ds(0, "Jejeje. Stewie, qué cosas dices.", AnimLaugh)}},
-	{"terminator", "robocop", []duetStep{ds(0, "Volveré.", AnimTalk), ds(1, "Tienes 20 segundos para cumplir.", AnimPoint), ds(0, "Hasta la vista, baby.", AnimPoint)}},
-	{"pedro_picapiedra", "pitufo", []duetStep{ds(0, "¡Yabba dabba doo!", AnimWave), ds(1, "¡La la la la la la!", AnimDance3), ds(0, "Qué gente más rara hay aquí.", AnimTalk)}},
-	{"espinete", "don_pimpon", []duetStep{ds(0, "¡Hola, Don Pimpón!", AnimWave), ds(1, "¡Hola, Espinete!", AnimWave), ds(0, "¿Jugamos a algo?", AnimTalk)}},
+	{"cartman", "kyle", []duetStep{ds(0, "¡Respeta mi autoritad!", AnimPoint), ds(1, "¡Eso no es justo!", AnimPanic), ds(0, "¡Me largo a casa!", AnimTalk)}},
+	{"peter", "stewie", []duetStep{ds(1, "¡Mundo cruel! Victoria será mía.", AnimPoint), ds(0, "Jejeje. Stewy, qué cosas dices.", AnimLaugh)}},
+	{"terminator", "robocop", []duetStep{ds(0, "Volveré.", AnimTalk), ds(1, "Tienes 20 segundos para cumplir.", AnimPoint), ds(0, "Hasta la vista, babi.", AnimPoint)}},
+	{"pedro_picapiedra", "pitufo", []duetStep{ds(0, "¡Yabba dabba duu!", AnimWave), ds(1, "¡La la la la la la!", AnimDance3), ds(0, "Qué gente más rara hay aquí.", AnimTalk)}},
+	{"espinete", "don_pimpon", []duetStep{ds(0, "¡Hola, Don Pinpón!", AnimWave), ds(1, "¡Hola, Espinote!", AnimWave), ds(0, "¿Jugamos a algo?", AnimTalk)}},
 }
 
 var duetGeneric = [][]duetStep{
@@ -272,7 +272,7 @@ func (g *Game) updateStar(gu *Guest, dt float64) {
 	switch sl {
 	case "goku":
 		gu.starAct, gu.dAnim = 2.6, AnimPoint
-		gu.icon, gu.iconT = "¡KA... ME... HA... ME...!", 2.4
+		gu.icon, gu.iconT = "¡KA... ME... JA... ME...!", 2.4
 	case "freddie":
 		gu.starAct, gu.dAnim = 6, AnimSing
 		gu.icon, gu.iconT = "¡AY-OH!", 2
@@ -297,10 +297,10 @@ func (g *Game) updateStar(gu *Guest, dt float64) {
 		gu.icon, gu.iconT = g.freshPhrase("deadpool", deadpoolLines, g.rng.Intn), 3
 	case "hulk":
 		gu.starAct, gu.dAnim = 2.2, AnimPanic
-		gu.icon, gu.iconT = "¡HULK... APLASTA!", 2.2
+		gu.icon, gu.iconT = "¡BULK... APLASTA!", 2.2
 	case "michael_jackson":
 		gu.starAct, gu.dAnim = 6, AnimDance10
-		gu.icon, gu.iconT = "¡SHAMONE!", 2
+		gu.icon, gu.iconT = "¡CHAMONE!", 2
 	}
 	if gu.starAct == 0 {
 		gu.starT = g.time + 60
@@ -344,7 +344,7 @@ func (g *Game) starAct(gu *Guest, sl string, dt float64) {
 			for _, o := range g.guests {
 				if o != gu && !o.out() && math.Abs(o.pos.Y-(gu.pos.Y)) < 16 && (o.pos.X-gu.pos.X)*dir > 0 && math.Abs(o.pos.X-gu.pos.X) < 260 {
 					g.killGuest(o, false)
-					g.sayNews("kill", map[string]string{"actor": "Goku con su Kamehameha", "victim": guestLabel(o)})
+					g.sayNews("kill", map[string]string{"actor": "Goko con su Kamejameja", "victim": guestLabel(o)})
 				}
 			}
 			g.checkDone()
@@ -389,7 +389,7 @@ func (g *Game) starAct(gu *Guest, sl string, dt float64) {
 				g.flash = 0.18
 				g.burst(Vec{v.pos.X, v.pos.Y - 14}, 16, 100, rgb(0xfff0a0), 0.4, 2, 0)
 				g.killGuestElec(v, false)
-				g.sayNews("kill", map[string]string{"actor": "El rayo de Thor", "victim": guestLabel(v)})
+				g.sayNews("kill", map[string]string{"actor": "El rayo de Thorr", "victim": guestLabel(v)})
 				g.checkDone()
 			}
 		}
@@ -420,7 +420,7 @@ func (g *Game) starAct(gu *Guest, sl string, dt float64) {
 			for _, o := range g.guests {
 				if o != gu && !o.out() && n < 2 && dist(o.pos, gu.pos) < 34 {
 					g.killGuest(o, false)
-					g.sayNews("kill", map[string]string{"actor": "Hulk", "victim": guestLabel(o)})
+					g.sayNews("kill", map[string]string{"actor": "Bulk", "victim": guestLabel(o)})
 					n++
 				}
 			}

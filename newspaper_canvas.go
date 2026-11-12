@@ -41,6 +41,7 @@ type paperLayout struct {
 	banner prect
 	briefs []string // the small news of the page, in order
 	heads  []string // their section heads, in the same order (never repeated on a page)
+	medals []prect  // the little medal of the points table (medals.go)
 }
 
 type pcv struct {

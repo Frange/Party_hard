@@ -65,6 +65,7 @@ type partyTraits struct {
 	indoor, outdoor                     bool // outdoor = known outdoor venue; both false = unknown (random mode)
 	dance, bar, toilet, stage, dj, pool bool
 	bbq, roam                           bool
+	cook                                bool // a stove, a barbecue or a pizza oven (pe_cookfire.go)
 	guests                              int
 }
 
@@ -94,7 +95,9 @@ func partyTraitsOf(d *LevelDef, idx int) partyTraits {
 		case "dj", "booth":
 			t.dj = true
 		case "bbq":
-			t.bbq = true
+			t.bbq, t.cook = true, true
+		case "stove", "pizzaoven":
+			t.cook = true
 		}
 	}
 	return t
@@ -139,6 +142,7 @@ func partyEvents() []*partyEvent {
 }
 
 func partyByID(id string) *partyEvent {
+	id, _, _ = strings.Cut(id, ":") // -pevent id:stage (a capture stage, pe_treats.go pevDemo)
 	for _, e := range partyRegistry {
 		if e.ID == id {
 			return e

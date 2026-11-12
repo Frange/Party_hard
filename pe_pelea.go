@@ -38,7 +38,7 @@ const (
 	peleaKOP      = 0.30 // one of them falls and gets up
 	peleaGap      = 14.0 // distance between the two while they fight
 	peleaMaxRuns  = 3
-	peleaCooldown = 115.0
+	peleaCooldown = 200.0 // v1.2.0: 115 -> 140; 2026-11-11: 140 -> 165 to make room for the conga in 25 parties, 165 -> 172 for the pogo, the couples and the wave (pe_freq_test, mean <= 4.5); v1.3.0: 172 -> 200, margin under the 4.5 (4.47 -> 4.35)
 )
 
 const (

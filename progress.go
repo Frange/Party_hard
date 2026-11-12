@@ -36,6 +36,16 @@ type Progress struct {
 	// Started: when this game was begun (unix seconds). New games stamp it; old saves get the age of their file
 	// (progress_store.go). Shown at the bottom of CARRERA.
 	Started int64 `json:"started,omitempty"`
+	// Medals (medals.go): the best medal of each campaign party, by its ICON (campaign.go; stable when a party is
+	// inserted), 1 bronze 2 silver 3 gold. Old saves have none: no medals, nothing else changes.
+	Medals map[string]int `json:"medals,omitempty"`
+	// MenuTier (menutier.go): the best menu tier ever reached; the menu never goes back below it. MedalRev = 1 once the
+	// save has been through the medals (a v1.0.0 save gets its tier computed once without the new trophy).
+	MenuTier int `json:"menuTier,omitempty"`
+	MedalRev int `json:"medalRev,omitempty"`
+	// CopRev (progress_migrate.go): 1 once the POLICÍAS cards were reconciled with the career kills (a card marked for
+	// a police type the kills had not brought yet is cleared, goalcops.go reconcileCopCards). Old saves have 0.
+	CopRev int `json:"copRev,omitempty"`
 }
 
 // progressNow: the stamp of a game begun right now.
@@ -146,6 +156,13 @@ func cloneProgress(p Progress) Progress {
 		c.CharKills = map[string]int{}
 		for k, v := range p.CharKills {
 			c.CharKills[k] = v
+		}
+	}
+	c.Medals = nil
+	if p.Medals != nil {
+		c.Medals = map[string]int{}
+		for k, v := range p.Medals {
+			c.Medals[k] = v
 		}
 	}
 	c.EquipP2 = nil

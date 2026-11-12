@@ -343,12 +343,15 @@ func bullFreeBuf(front bool, step int) *pixBuf {
 }
 
 // animalHasFreeView: animals that show their back or chest when they walk up or down the screen.
-func animalHasFreeView(k int) bool { return k == animHorse || k == animBull }
+func animalHasFreeView(k int) bool { return k == animHorse || k == animBull || k == animCapibara }
 
 // animalFreeView: that front / back picture for the animal (a.vert > 0 walking down = chest).
 func animalFreeView(a *Animal) PropImg {
 	if a.kind == animBull {
 		return bullFreeView(a.vert > 0, int(a.anim*5))
+	}
+	if a.kind == animCapibara {
+		return capibaraFreeView(a) // animals8.go
 	}
 	return horseFreeView(a.coat, a.vert > 0)
 }

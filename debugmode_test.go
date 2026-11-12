@@ -22,6 +22,7 @@ func TestDebugScenesCoverAll(t *testing.T) {
 }
 
 func TestDebugRowsFit(t *testing.T) {
+	snapshotLang(t)
 	g := layerGame(t, false)
 	rows := g.debugRows()
 	if last := debugRow0 + float64(len(rows))*debugRowH; last > 498-12 {

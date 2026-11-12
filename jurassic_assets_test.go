@@ -40,7 +40,7 @@ func withAssetProps(t *testing.T) {
 }
 
 // Regression: an exported jp_boat (assets/sprites/objetos/jp_boat) made paintJurassic call a nil
-// Draw and the game crashed on reaching Isla Nublar. Every registered prop must also render.
+// Draw and the game crashed on reaching Isla Nublada. Every registered prop must also render.
 func TestJurassicPaintsWithExportedProps(t *testing.T) {
 	withAssetProps(t)
 	b := paintJurassic()

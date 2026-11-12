@@ -48,7 +48,7 @@ Every party has its own genre. When there is no mp3 for a party the game plays i
 | 23 | Hockey rink | Overtime without a referee | Rock |
 | 24 | 70s disco | Bell-bottom fever | Disco |
 | 25 | Space station | Zero-gravity rave | Electronic |
-| – | Isla Nublar (secret) | Last Jurassic party | Epic orchestral (wonder and danger) |
+| – | Isla Nublada (secret) | Last Cretaceous party | Epic orchestral (wonder and danger) |
 
 Italy (20) was added right after the Motorway: files numbered 1 to 19 keep their party; files you had numbered 20 to 24
 belong one number later now (rename them +1). A file of another style is ignored anyway (see below).
@@ -67,12 +67,16 @@ a trailing version number is ignored) the game checks it against the genre of th
 - no genre in the name (`5_fiesta.mp3`): it always plays, and the card says nothing about the style.
 
 Genre words: house, electro/electronica, techno, disco, reggaeton, punk, pop, metal, rap, hiphop/hip-hop/lofi,
-clasica/classical, jazz, country, flamenco/pasodoble, rock, synthwave, orquestal/orchestral, epico/epic, chiptune.
+clasica/classical, jazz, country, flamenco/pasodoble, rock, synthwave, orquestal/orchestral, epico/epica/epic (the pirate ship), isla (the secret island), chiptune.
 
 `more/*.mp3` (the songs that follow the main one) are filtered the same way: only the files of the style of the party
-play; if none fits, the synthesised music of the party's genre does. The files in `DJ/` and `bands/` are not filtered.
+play; if none fits, the synthesised music of the party's genre does. The files in `DJ/` and `bands/` are not filtered,
+except the old `DJ/punk_1.mp3 ... punk_6.mp3` of earlier versions: they are no longer used or shipped (an update
+patch lists them in REMOVIDOS.txt) and, if a copy is still there, it is skipped.
 `./PartyHardy -exportmusic music -musicbatch 3` writes files already named with their style.
 
-The random-mode venues use Rock (pub), Pasodoble (European square) and Pop (mall). When the DJ dies the punk takes over;
-a band of its own style (Metallica = metal, The Beatles = pop, Elvis = country, Lost Prophets and Despistaos = rock) plays
+The random-mode venues use Rock (pub), Pasodoble (European square) and Pop (mall). When the DJ dies one of six songs written
+for it takes over (lounge, funk, ballad, soft disco, ambient, bossa: `songs_afterdj.go`, about 70-100 s each, with
+sections, a tune and drums that change; never the same song twice in a row; an mp3 of yours in `DJ/` wins);
+a band of its own style (Metalica = metal, The Beetles = pop, Elviz = country, Lost Profets and Despistaus = rock) plays
 its genre, and the punk bands play the style of the party.

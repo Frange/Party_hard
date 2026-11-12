@@ -9,7 +9,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// The T-Rex of the cinematics IS the T-Rex of the Jurassic Park level: the "jp_trex" sprite (rexart.go,
+// The T-Rex of the cinematics IS the T-Rex of the island level: the "jp_trex" sprite (rexart.go,
 // props8.go) with its poses (walk, head down with open jaws, bite, swallow, roar, chew). Nothing in a scene
 // paints its own T-Rex any more: the cake after the credits, the head in the neighbour's window and the
 // sheep that is a T-Rex all come from drawRexArt. rexscene_test.go keeps it that way.

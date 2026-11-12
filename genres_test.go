@@ -73,7 +73,13 @@ func TestEveryLevelHasAGenre(t *testing.T) {
 // the notes of every tune belong to the key of the song (after moving it), the bars add up and the tempo is right
 func TestGenreSongsAreWellWritten(t *testing.T) {
 	for id, gs := range genreSongs {
-		gi := genreTable[id]
+		gi, ok := genreTable[id]
+		if !ok {
+			gi, ok = afterDJTable[id] // the songs after the DJ (songs_afterdj.go)
+		}
+		if !ok {
+			t.Errorf("%s: a song with no genre", id)
+		}
 		if gs.bpm < gi.lo || gs.bpm > gi.hi {
 			t.Errorf("%s: tempo %v out of %v-%v", id, gs.bpm, gi.lo, gi.hi)
 		}

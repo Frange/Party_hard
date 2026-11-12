@@ -109,12 +109,36 @@ func snakeFrame(a *Animal) int {
 	return fStand
 }
 
-// scatterSnake: one snake, now and then, somewhere outdoors.
+// startSafeDist: a snake is never born closer than this to the start (its bite reach, 34 px, plus 10 s of its
+// 20 px/s walk): the player standing still on Start cannot be bitten in his first ~10 s (QA 2026-11-11, BARCO
+// PIRATA: bitten at 4 s). Its wander area (90 px around where it was born) keeps it away afterwards too.
+const startSafeDist = 34 + 20*10
+
+// nearStart: too close to where a player starts.
+func (g *Game) nearStart(p Vec) bool {
+	if dist(p, g.lvl.Def.Start) < startSafeDist {
+		return true
+	}
+	for _, pl := range g.players() {
+		if pl != nil && dist(p, pl.pos) < startSafeDist {
+			return true
+		}
+	}
+	return false
+}
+
+// scatterSnake: one snake, now and then, somewhere outdoors (never next to the start).
 func (g *Game) scatterSnake() {
 	if !g.dbgSnake && !snakeDecide(snakeDice(), &snakeMisses) { // snakechance.go: own dice
 		return
 	}
 	pos, ok := g.outdoorSpot()
+	for i := 0; ok && i < 30 && g.nearStart(pos); i++ {
+		pos, ok = g.outdoorSpot()
+	}
+	if ok && g.nearStart(pos) { // a party with no outdoor spot far enough: no snake this time
+		ok = false
+	}
 	if g.dbgSnake {
 		pos, ok = Vec{g.lvl.Def.Start.X + 40, g.lvl.Def.Start.Y - 30}, true
 	}

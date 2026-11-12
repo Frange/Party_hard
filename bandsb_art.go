@@ -12,13 +12,13 @@ import (
 // archetypes: haircuts, colours, clothes and generic tattoos; nobody's face or name. Visual only:
 // hitbox, speed and stats do not change. The base specs live in bands.go (every random colour is
 // fixed there, so each member always draws the same and the exported pictures can follow the code).
-//   - Billy Talent: all in black. Singer with long black hair and a fringe over one eye; guitarist
+//   - Billy Tallent: all in black. Singer with long black hair and a fringe over one eye; guitarist
 //     with a tall stiff black crest and white wristbands; bassist with a shaved head, black tee and
 //     tattooed arms; drummer with short hair, white tee and black braces.
-//   - Lost Prophets (six): emo-rock fringes, black tees with a printed emblem, worn orange-brown
+//   - Lost Profets (six): emo-rock fringes, black tees with a printed emblem, worn orange-brown
 //     jeans with a belt, tattoos and wristbands; the drummer has a beard. Two new members here:
 //     "lp_ritmo" (rhythm guitar) and "lp_corista" (backing vocals).
-//   - Despistaos: casual indie-pop; the singer now wears SHOCKING PINK hair over a dark beard and a
+//   - Despistaus: casual indie-pop; the singer now wears SHOCKING PINK hair over a dark beard and a
 //     dark green shirt; one with shades and a grey tee, one bearded with a printed white tee, one
 //     curly with glasses, a printed white tee and a tattoo.
 //   - Punk Sailor (an archetype, "sailor punk"): the captain (dark captain's cap with a golden
@@ -77,7 +77,7 @@ var (
 	bsbPrintR  = hx(0xc83a3a)
 )
 
-// the presets of the two new Lost Prophets members. A fixed random source of their own, so the
+// the presets of the two new Lost Profets members. A fixed random source of their own, so the
 // shared random stream of builtinChars (export.go) is not moved for the characters after them.
 func presetLpRitmo(*rand.Rand) CharSpec {
 	return def("lp_ritmo", skinc(0xf0d0b4), hairc(0xa07a48, HairSide), hatc(HatNone, 0), tops(TopTee, 0x18181c, 0xf0f0f0),
@@ -95,8 +95,8 @@ var bsbNewSlugs = []string{"lp_ritmo", "lp_corista"}
 func init() {
 	famousPresets = append(famousPresets, presetLpRitmo, presetLpCorista)
 	specialPool = append(specialPool, bsbNewSlugs...) // so they have their card in OBJETIVOS / PERSONAJES
-	displayNameOverrides["lp_ritmo"] = bandMemberName("lp_ritmo", "Lost Prophets", "rítmica")
-	displayNameOverrides["lp_corista"] = bandMemberName("lp_corista", "Lost Prophets", "corista")
+	displayNameOverrides["lp_ritmo"] = bandMemberName("lp_ritmo", "Lost Profets", "rítmica")
+	displayNameOverrides["lp_corista"] = bandMemberName("lp_corista", "Lost Profets", "corista")
 	for i := range bandList {
 		if bandList[i].slug == "lostprophets" { // six on the stage: the two new ones beside the drummer
 			bandList[i].members = append(row("lp_cantante", "lp_guitarra", "lp_bajo", "lp_bateria"),

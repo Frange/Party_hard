@@ -5,6 +5,7 @@ package main
 var langWildEN = map[string]string{
 	// animals: hover names, "Has matado a ..." and the newspaper actors
 	"Rana": "Frog", "Ardilla": "Squirrel", "Jabalí": "Wild boar", "Cocodrilo": "Crocodile", "Guepardo": "Cheetah", "León": "Lion", "Serpiente": "Snake", "Cobaya": "Guinea pig", "una cobaya": "a guinea pig", "¡WHEEK!": "WHEEK!",
+	"Capibara": "Capybara", "una capibara": "a capybara", "Cría de capibara": "Baby capybara", "¡FIU, FIU!": "WHEET, WHEET!",
 	"una rana": "a frog", "una ardilla": "a squirrel", "un jabalí": "a wild boar", "un cocodrilo": "a crocodile", "un guepardo": "a cheetah", "un león": "a lion",
 	"Un cocodrilo": "A crocodile", "Un guepardo": "A cheetah", "Un león": "A lion",
 	"Jabalíes": "Wild boars", "Cocodrilos": "Crocodiles", "Guepardos": "Cheetahs", "Leones": "Lions",

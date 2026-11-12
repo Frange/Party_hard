@@ -86,7 +86,7 @@ func init() {
 	registerPartyEvent(&partyEvent{ID: "tablehide", Name: "Escondidos bajo la mesa", Group: "danger", Reactive: true,
 		Prob: 0.10, AtMin: 0, AtMax: 1, Dur: 45, MaxRuns: 1,
 		Eligible: func(g *Game, t partyTraits) bool {
-			if tablesIcons[t.icon] == 0 || g.lvl == nil {
+			if tablesIcons[t.icon] == 0 && !seatHideIcon(t.icon) || g.lvl == nil { // cloth tables, or the long tables of seats.go
 				return false
 			}
 			if !hideDanger(g) {
@@ -143,7 +143,7 @@ func tableHideStart(g *Game, a *partyAct) bool {
 	}
 	var places []place
 	for _, pr := range g.lvl.Props {
-		if pr.Name != "clothtable" || pr.gone {
+		if !seatHideKinds[pr.Name] || pr.gone {
 			continue
 		}
 		for _, s := range tableSlots(g.lvl, Vec{pr.X, pr.Y}) {

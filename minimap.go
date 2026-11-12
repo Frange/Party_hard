@@ -15,7 +15,7 @@ import (
 //	player 1 blue (blinks), player 2 red, guests light grey, guards green, police dark blue / red flashing,
 //	VIP gold, security cameras yellow (with a faint cone), armed traps orange, special killers purple.
 //
-// OFF by default (so the base look does not change); TAB or the Start button of a gamepad switch it for the rest of the
+// OFF by default (so the base look does not change); TAB or the □ button of a gamepad switch it for the rest of the
 // session (a variable in memory: nothing is written to progress.json). The flag -minimap starts it on (debug, the
 // progress stays frozen like with every flag). The help window ("?") lists the key.
 //
@@ -30,21 +30,30 @@ const (
 	mmMargin = 6.0
 )
 
-// minimapOn: the session preference (TAB / Start). The flag -minimap sets it.
+// minimapOn: the session preference (TAB / □). The flag -minimap sets it.
 var minimapOn = false
 
 // hardware access for the tests
 var (
 	mmKeyFn = inpututil.IsKeyJustPressed
 	mmPadFn = func() bool {
+		if !minimapPadFree() {
+			return false
+		}
 		for _, id := range padList() {
-			if padJustFn(id, ebiten.StandardGamepadButtonCenterRight) {
+			if padJustFn(id, minimapPadButton) {
 				return true
 			}
 		}
 		return false
 	}
 )
+
+// minimapPadButton: □ switches the minimap on a pad (START is the pause since 2026-11-11, and with START the
+// pause window opened first anyway). It only works while no action of either player is bound to it.
+const minimapPadButton = ebiten.StandardGamepadButtonRightLeft
+
+func minimapPadFree() bool { return !padButtonUsed(minimapPadButton) }
 
 // Colours of the dots (RGBA premultiplied, ready to copy to the buffer).
 var (
@@ -252,7 +261,7 @@ func (g *Game) minimapShown() bool {
 	return minimapOn && g.mode == ModePlay && g.lvl != nil && !g.helpOv && !g.dc.has(dmNoMap)
 }
 
-// updateMinimapInput: TAB or Start switch the minimap (session only).
+// updateMinimapInput: TAB or □ switch the minimap (session only).
 func (g *Game) updateMinimapInput() {
 	if mmKeyFn(ebiten.KeyTab) || mmPadFn() {
 		minimapOn = !minimapOn

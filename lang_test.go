@@ -4,6 +4,7 @@ import "testing"
 
 // the formatted hint line (with something added at the end) must still translate
 func TestTrTemplate(t *testing.T) {
+	snapshotLang(t)
 	uiLang = "en"
 	s := "W/A/S/D mover · Espacio apuñalar · E interactuar · F bailar · Shift izq. correr · V suceso"
 	if got := tr(s); got == s {

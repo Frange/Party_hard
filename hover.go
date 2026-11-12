@@ -187,7 +187,7 @@ func animalLabel(k int) string {
 		return "Animal"
 	}
 	if n, ok := map[string]string{"horse": "Caballo", "hen": "Gallina", "dog": "Perro", "cat": "Gato", "bull": "Toro", "elephant": "Elefante", "giraffe": "Jirafa", "kangaroo": "Canguro", "chick": "Pollito", "rabbit": "Conejo", "pig": "Cerdo", "duck": "Pato", "budgie": "Periquito", "deer": "Ciervo", "quijote": "Don Quijote y Rocinante", "sancho": "Sancho Panza y su rucio",
-		"snake": "Serpiente", "frog": "Rana", "squirrel": "Ardilla", "boar": "Jabalí", "croc": "Cocodrilo", "cheetah": "Guepardo", "lion": "León", "cobaya": "Cobaya"}[animalKinds[k]]; ok {
+		"snake": "Serpiente", "frog": "Rana", "squirrel": "Ardilla", "boar": "Jabalí", "croc": "Cocodrilo", "cheetah": "Guepardo", "lion": "León", "cobaya": "Cobaya", "capibara": "Capibara"}[animalKinds[k]]; ok {
 		return n
 	}
 	return "Animal"

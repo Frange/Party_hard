@@ -104,15 +104,15 @@ func init() {
 	// underwear parties: a few of each
 	famousPresets = append(famousPresets, presetUnderwearM, presetUnderwearM, presetUnderwearF, presetUnderwearF, presetUnderwearF)
 	for k, v := range map[string]string{
-		"mortadelo": "Mortadelo", "filemon": "Filemón", "super_lopez": "Super López", "zipi": "Zipi", "zape": "Zape",
-		"rompetechos": "Rompetechos", "carpanta": "Carpanta", "mafalda": "Mafalda", "tintin": "Tintín", "capitan_haddock": "Capitán Haddock",
-		"luffy": "Luffy", "zoro": "Zoro", "nami": "Nami", "usopp": "Usopp", "sanji": "Sanji", "chopper": "Chopper", "nico_robin": "Nico Robin", "franky": "Franky", "brook": "Brook", "ace_fuego": "Ace",
-		"asterix": "Astérix", "obelix": "Obélix", "panoramix": "Panóramix", "abraracurcix": "Abraracúrcix", "legionario_romano": "Legionario romano", "julio_cesar": "Julio César", "cleopatra": "Cleopatra",
-		"napoleon": "Napoleón", "van_gogh": "Van Gogh", "frida_kahlo": "Frida Kahlo", "dali": "Dalí", "charlie_chaplin": "Charlie Chaplin", "colon_almirante": "Cristóbal Colón", "isabel_la_catolica": "Isabel la Católica",
-		"che": "Che Guevara", "poirot": "Hércules Poirot", "peter_pan": "Peter Pan", "capitan_garfio": "Capitán Garfio", "jane_selva": "Jane", "juana_de_arco": "Juana de Arco", "bruce_lee": "Bruce Lee",
-		"wonder_woman": "Mujer Maravilla", "capitan_america": "Capitán América", "viuda_negra": "Viuda Negra", "ash_pokemon": "Ash", "caperucita_roja": "Caperucita Roja", "blancanieves": "Blancanieves",
-		"jugador_456": "Jugador 456", "guardia_rosa": "Guardia rosa", "harry_potter": "Harry Potter", "sailor_moon": "Sailor Moon", "super_lopez2": "Super López",
-		"asesino": "Asesino", "wally": "Wally", "wenda": "Walinda", "odlaw": "Odlaw", "mago_blancabarba": "Mago Barbablanca",
+		"mortadelo": "Mortadela", "filemon": "Filimón", "super_lopez": "Super Lópes", "zipi": "Zipy", "zape": "Zappe",
+		"rompetechos": "Rompetecho", "carpanta": "Carpanza", "mafalda": "Mafolda", "tintin": "Tontín", "capitan_haddock": "Capitán Haddok",
+		"luffy": "Fluffy", "zoro": "Zero", "nami": "Nammi", "usopp": "Usop", "sanji": "Sanyi", "chopper": "Choper", "nico_robin": "Nico Robyn", "franky": "Franki", "brook": "Brok", "ace_fuego": "Ase",
+		"asterix": "Astérik", "obelix": "Obélik", "panoramix": "Panóramik", "abraracurcix": "Abraracúrcik", "legionario_romano": "Legionario romano", "julio_cesar": "Julio Cézar", "cleopatra": "Kleopatra",
+		"napoleon": "Napaleón", "van_gogh": "Van Gog", "frida_kahlo": "Frida Kalo", "dali": "Dalín", "charlie_chaplin": "Charlie Chapling", "colon_almirante": "Cristóval Colón", "isabel_la_catolica": "Ysabel la Católica",
+		"che": "Che Guebara", "poirot": "Hércules Poiro", "peter_pan": "Peter Pam", "capitan_garfio": "Capitán Garfo", "jane_selva": "Janne", "juana_de_arco": "Juana de Arcos", "bruce_lee": "Bruce Li",
+		"wonder_woman": "Mujer Marabilla", "capitan_america": "Capitán Amérika", "viuda_negra": "Biuda Negra", "ash_pokemon": "Asch", "caperucita_roja": "Caperucita Roja", "blancanieves": "Blancanieves",
+		"jugador_456": "Jugador 456", "guardia_rosa": "Guardia rosa", "harry_potter": "Harry Plotter", "sailor_moon": "Sailor Mon", "super_lopez2": "Super Lópes",
+		"asesino": "Asesino", "wally": "Walli", "wenda": "Walinda", "odlaw": "Odlow", "mago_blancabarba": "Mago Barbablanka",
 	} {
 		displayNameOverrides[k] = v
 	}

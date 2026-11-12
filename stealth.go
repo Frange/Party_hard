@@ -156,7 +156,10 @@ func stealthDef(def *LevelDef) *LevelDef {
 	}
 	cp := *def
 	cp.Props = append([]PropInst(nil), def.Props...)
+	so := seatsOff // the hedges go first; the seats of seats.go are placed round them afterwards
+	seatsOff = true
 	tmp := buildLevel(&cp)
+	seatsOff = so
 	isHedge := func(p *Prop) bool { return p.Name == "hedge" }
 	have := 0
 	for _, p := range tmp.Props {

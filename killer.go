@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"math"
 
@@ -352,7 +351,7 @@ func (g *Game) slasherWitness(s *Slasher, at Vec) {
 		if o.out() || !g.canWatch(o) || o.perf != "" {
 			continue
 		}
-		if g.sees(o.pos, o.dir, at, guestRange, guestDot) || (dist(o.pos, at) < 45 && g.lvl.LOS(o.pos, at)) {
+		if g.sees(o.pos, o.dir, at, guestRange, guestDot) || (dist(o.pos, at) < 45 && g.lvl.LOS(o.pos, at) && !g.smokeBlocks(o.pos, at)) {
 			saw = true
 			o.sawSlash, o.sawPos = true, s.pos
 			if len(g.bodies) > 0 {
@@ -492,7 +491,7 @@ func (g *Game) hitSlasher() {
 func (g *Game) nearCop(pos Vec) *Cop {
 	var best *Cop
 	for _, c := range g.cops {
-		if c.medic || c.state == cLeave {
+		if c.medic || c.state == cLeave || c.state == cCordon { // sealing off a closed case: off duty (ambulance.go)
 			continue
 		}
 		if d := dist(c.pos, pos); d < 420 && (best == nil || d < dist(best.pos, pos)) {
@@ -527,7 +526,7 @@ func (g *Game) updateReport(gu *Guest, dt float64) {
 			alive = true
 		}
 	}
-	if !alive || gu.timer <= 0 || c.state == cLeave {
+	if !alive || gu.timer <= 0 || c.state == cLeave || c.state == cCordon {
 		g.scare(gu)
 		return
 	}
@@ -579,7 +578,7 @@ func (g *Game) copSlashHook(c *Cop, dt float64) bool {
 	}
 	active := s != nil && (s.state == slHunt || s.state == slCuffed)
 	if c.state != cSlash {
-		if active && s.state == slHunt && s.kills >= 2 && c.state != cChase && c.state != cTired && c.state != cLeave && g.sees(c.pos, c.dir, s.pos, copRange, copDot) {
+		if active && s.state == slHunt && s.kills >= 2 && c.state != cChase && c.state != cTired && c.state != cLeave && c.state != cCordon && g.sees(c.pos, c.dir, s.pos, copRange, copDot) {
 			g.releaseCop(c)
 			c.state = cSlash
 			c.icon, c.iconT = g.line(copCategory(c.kind), "halt"), 2
@@ -656,7 +655,7 @@ func (g *Game) removeCop(c *Cop) {
 // unitForStars maps a criminality level to the responder tier that handles it.
 func unitForStars(stars int) int {
 	u := unitForStarsRaw(stars)
-	for u > unitPolice && !ownedID(fmt.Sprintf("police:%d", u)) {
+	for u > unitPolice && !policeTierOpen(u) { // strictly in order (goalcops.go)
 		u--
 	}
 	return u
@@ -774,7 +773,7 @@ func (g *Game) updateStars(dt float64) {
 func (g *Game) copUnstick(c *Cop, dt float64) {
 	walking := false
 	switch c.state {
-	case cGoto, cSweep, cCollect, cBag, cBagHere, cLeave, cSearch, cArrest, cSlash, cChase:
+	case cGoto, cSweep, cCollect, cBag, cBagHere, cLeave, cSearch, cArrest, cSlash, cChase, cCordon, cExamine:
 		walking = len(c.path) > 0
 	}
 	if !walking {
@@ -859,7 +858,7 @@ func (g *Game) unitFor(medic bool) int {
 	return g.respKind
 }
 
-// drawUnitCar: the patrol car of the FBI, the army, SWAT or the Power Rangers (pi, painted per
+// drawUnitCar: the patrol car of the FBI, the army, SWAT or the Pawer Rangers (pi, painted per
 // unit with its animated lights in vehart.go) and the unit's name over it.
 func (g *Game) drawUnitCar(dst *ebiten.Image, pi PropImg, v *Vehicle) {
 	g.drawImg(dst, pi.img, g.wx(v.x), g.wy(v.y), pi.ox, pi.oy)
@@ -870,13 +869,13 @@ func (g *Game) drawUnitCar(dst *ebiten.Image, pi PropImg, v *Vehicle) {
 	case unitMilitary:
 		label, col = "MILITAR", color.RGBA{60, 200, 70, 255}
 	case unitRangers:
-		label, col = "POWER RANGERS", color.RGBA{255, 60, 60, 255}
+		label, col = "PAWER RANGERS", color.RGBA{255, 60, 60, 255}
 	}
 	// over the roof (and over the light bar), never on the car itself
 	g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y)-pi.oy)-12, col, 1)
 }
 
-// copBrutal: military, SWAT and Power Rangers that cannot find the killer
+// copBrutal: military, SWAT and Pawer Rangers that cannot find the killer
 // start shooting suspicious guests. The FBI only ever investigates, and
 // soldiers withdraw once they have fired their 3 shots.
 func (g *Game) copBrutal(c *Cop, dt float64) {
@@ -891,7 +890,7 @@ func (g *Game) copBrutal(c *Cop, dt float64) {
 		limit = 3
 	}
 	if g.swatKills >= limit {
-		if c.kind == unitMilitary && c.mayLeave() {
+		if c.kind == unitMilitary && g.copMayLeave(c) {
 			g.releaseCop(c)
 			c.state = cLeave
 			c.path = g.lvl.Path(c.pos, g.vehDoor(c))
@@ -998,24 +997,27 @@ func (g *Game) vehicleDestroyed(v *Vehicle) {
 			}
 		} else {
 			g.sayNews("vehicle_wreck_empty", nil)
-			// The crew was already out on scene: with no car left to go back
-			// to, they just walk off down the sidewalk, splitting left/right.
+			// The crew was already out on scene: with no car left to go back to, they
+			// finish their job (cover, carry, search: a unit that got there always works,
+			// 2026-11-11) and then walk off down the sidewalk, splitting left/right.
 			def := g.lvl.Def
 			i := 0
 			for _, c := range g.cops {
-				if c.veh != v || c.state == cLeave {
+				if c.veh != v {
 					continue
 				}
-				g.releaseCop(c)
-				c.veh = nil
-				c.state = cLeave
 				tx := def.CarFrom.X
 				if i%2 == 1 {
 					tx = def.CarTo.X
 				}
 				i++
 				// off the level along the road, never across the middle of the map
-				c.path = g.lvl.Path(c.pos, g.lvl.NearestFree(Vec{tx, def.CarFrom.Y}))
+				c.veh = nil
+				c.exit, c.hasExit = g.lvl.NearestFree(Vec{tx, def.CarFrom.Y}), true
+				c.climbPh = ladNone
+				if c.state == cLeave || c.state == cReturn {
+					c.path = g.lvl.Path(c.pos, c.exit)
+				}
 			}
 		}
 	case 4:

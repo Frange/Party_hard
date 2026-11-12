@@ -270,10 +270,15 @@ func TestCopCards(t *testing.T) {
 			t.Fatalf("%s must not count as a character (shopOwned skin:)", c.key)
 		}
 	}
-	// killing an officer of a type unlocks that card, not the others
+	// killing an officer of a type that has not come yet marks nothing (strict order by kills, goalcops.go)
 	g.copDefeated(&Cop{kind: unitSWAT})
-	if !g.copGot(unitSWAT) || g.copGot(unitFBI) || g.copGot(unitPolice) {
-		t.Fatal("killing a SWAT officer unlocks the SWAT card only")
+	if g.copGot(unitSWAT) || g.progress.Album[copKey(unitSWAT)] != 0 {
+		t.Fatal("a SWAT officer killed before SWAT is unlocked must not mark its card")
+	}
+	// killing a local officer wins the local card only
+	g.copDefeated(&Cop{kind: unitPolice})
+	if !g.copGot(unitPolice) || g.copGot(unitFBI) || g.copGot(unitSWAT) {
+		t.Fatal("killing a local officer unlocks the local card only")
 	}
 	if ownedID("skin:cop:3") {
 		t.Fatal("a police card is not a character")
@@ -282,10 +287,15 @@ func TestCopCards(t *testing.T) {
 	if g.copGot(unitRangers) {
 		t.Fatal("medics are not a police type")
 	}
-	// the milestone that brings the type also marks it
+	// the milestone that brings the type also marks it (and every type before it must have come)
 	g.progress.Owned = []string{"police:2"}
 	g.syncShop()
-	if !g.copGot(unitMilitary) {
+	if g.copGot(unitMilitary) {
+		t.Fatal("the army cannot come before the FBI")
+	}
+	g.progress.Owned = []string{"police:1", "police:2"}
+	g.syncShop()
+	if !g.copGot(unitMilitary) || !g.copGot(unitFBI) || g.copGot(unitSWAT) {
 		t.Fatal("the army milestone unlocks the army card")
 	}
 	// hints
@@ -299,6 +309,8 @@ func TestCopCards(t *testing.T) {
 
 func TestPoliceStabAndTrapMarkTheCard(t *testing.T) {
 	g := goalsGame(t)
+	g.progress.Owned = []string{"police:1"} // the FBI has come (500 kills)
+	g.syncShop()
 	for _, kind := range []int{unitPolice, unitFBI} {
 		c := &Cop{kind: kind, pos: g.p.pos}
 		g.cops = append(g.cops, c)
@@ -308,7 +320,7 @@ func TestPoliceStabAndTrapMarkTheCard(t *testing.T) {
 			g.trapCop(c)
 		}
 	}
-	if !g.copGot(unitPolice) || !g.copGot(unitFBI) {
+	if !g.copGot(unitPolice) || g.progress.Album[copKey(unitFBI)]&albumKilled == 0 {
 		t.Fatal("a stab and a trap on officers mark their cards")
 	}
 }

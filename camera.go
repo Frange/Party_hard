@@ -256,6 +256,9 @@ func (c *secCam) sees(g *Game, q Vec) bool {
 	if g.suitHides(q) || g.blackoutOn() { // the gold VIP suit (vip.go); no power, no cameras (blackout.go)
 		return false
 	}
+	if len(g.smk.clouds) > 0 && g.smokeBlocks(c.eye, q) { // a smoke grenade: the lens sees nothing through it (smoke.go)
+		return false
+	}
 	rng := camRange
 	if g.visK > 0 {
 		rng *= g.visK
@@ -318,6 +321,7 @@ func (g *Game) cameraWitness() {
 		return
 	}
 	g.run.camSeen++
+	g.streakBreak(g.playerIndex(p)) // filmed: the RACHA breaks (streak.go)
 	g.say(camMsg)
 	g.killPos = p.pos
 	g.suspectSeenBy(suspPlayer, nil, true) // direct witness: the cuffs go on, per player (2P)
@@ -407,6 +411,7 @@ func (g *Game) camReport(c *secCam, p *Player, why string) {
 		c.cool[i] = camReportCD
 	}
 	g.run.camSeen++
+	g.streakBreak(g.playerIndex(p)) // filmed: the RACHA breaks (streak.go)
 	g.withPlayer(p, func() {
 		g.say(camMsg)
 		if why == "wanted" {

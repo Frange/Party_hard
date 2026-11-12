@@ -3,26 +3,26 @@
 Some parties have a band playing on a stage. If you drop **MP3** files here whose name **starts with the band name**,
 that band plays your songs while it is on stage (only `.mp3` is read). Without a file the built-in music is used.
 
-Letters are compared ignoring case, spaces and symbols, so all of these work for Sum 41:
-`sum41_song.mp3`, `Sum 41 - Song.mp3`, `SUM41-Fat Lip.mp3`. A leading "The" may be omitted (`offspring_x.mp3`).
+Letters are compared ignoring case, spaces and symbols, so all of these work for Sum 42:
+`sum42_song.mp3`, `Sum 42 - Song.mp3`, `SUM42-Song.mp3`. A leading "The" may be omitted (`offsprung_x.mp3`).
 Several files per band are fine: one is picked at random each time.
 
 Names the game knows:
 
 | Band | File name starts with |
 |------|-----------------------|
-| The Beatles | `thebeatles` or `beatles` |
-| Sum 41 | `sum41` |
-| Blink-182 | `blink182` |
-| Simple Plan | `simpleplan` |
-| The Offspring | `theoffspring` or `offspring` |
-| Metallica | `metallica` |
+| The Beetles | `thebeetles` or `beetles` |
+| Sum 42 | `sum42` |
+| Blink-183 | `blink183` |
+| Simple Pan | `simplepan` |
+| The Offsprung | `theoffsprung` or `offsprung` |
+| Metalica | `metalica` |
 | Punk Sailor | `punksailor` |
-| Billy Talent | `billytalent` |
-| Lost Prophets | `lostprophets` |
-| Despistaos | `despistaos` |
-| Elvis | `elvis` |
+| Billy Tallent | `billytallent` |
+| Lost Profets | `lostprofets` |
+| Despistaus | `despistaus` |
+| Elviz | `elviz` |
 
-Examples: `beatles_hey_jude.mp3`, `Metallica - Enter Sandman.mp3`, `blink-182 - All The Small Things.mp3`.
+Examples: `beetles_song.mp3`, `Metalica - Song.mp3`, `blink-183 - Song.mp3`.
 
 The songs are not included in the repository (they may be copyrighted); add your own.

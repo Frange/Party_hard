@@ -395,7 +395,8 @@ func TestPoliceBlameAbortsCleanly(t *testing.T) {
 		if how != "guest" && inn.out() {
 			t.Fatalf("%s: the guest must be back at the party", how)
 		}
-		if how == "closed" && g.copPresent(cop) && cop.state != cLeave {
+		// 2026-11-11: a fresh officer seals off the place (cCordon) until his 20 s are done
+		if how == "closed" && g.copPresent(cop) && cop.state != cLeave && cop.state != cCordon {
 			t.Fatal("the officer sent home must go home")
 		}
 		g.blame = blameSt{}
@@ -437,6 +438,7 @@ func TestGuestBlameEligible(t *testing.T) {
 
 // The texts: ES and EN, short, and the bubble keeps them in at most two lines inside its width.
 func TestLangBlameTexts(t *testing.T) {
+	snapshotLang(t)
 	blameGlobals(t)
 	g := layerGame(t, false)
 	for _, s := range []string{blameCopWord, blameInnWord, blameFreeCop, blameFreeInn} {

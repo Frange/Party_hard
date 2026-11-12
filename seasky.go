@@ -14,7 +14,8 @@ import (
 //     right, slowly and each with its own phase, as if the swell rocked it;
 //   - the little ship on the horizon: it drifts from left to right, bobbing one pixel, and comes
 //     back in from the left once it has left the screen on the right (never a visible jump);
-//   - now and then (not on the cruise) a pirate ship sails by, right to left, below the horizon.
+//   - now and then (not on the cruise; yes behind the BARCO PIRATA) a pirate ship sails by, right to left, below
+//     the horizon.
 // With ambientOn=false (pixel-exact tests) both stay baked into the background as before.
 
 const (
@@ -174,7 +175,7 @@ func (g *Game) drawSeaSky(dst *ebiten.Image, t float64) {
 	}
 	x, y := seaShipPos(t)
 	drawSeaShip(dst, x+ox, y+oy, true)
-	if def.Shape == nil { // the beach levels: now and then a pirate ship
+	if def.Shape == nil || pirateBay(def) { // the beach levels and the pirate party: now and then a pirate ship
 		if px, py, ok := seaPiratePos(t); ok {
 			drawSeaPirate(dst, px+ox, py+oy, t)
 		}

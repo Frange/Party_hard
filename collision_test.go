@@ -13,6 +13,8 @@ import (
 func testLevels(t *testing.T) []*LevelDef {
 	t.Helper()
 	snapshotPropKinds(t)
+	prevN := campaignN // builtinLevels below sets it: give it back (flowGame trusts it when levelDefs is already long)
+	t.Cleanup(func() { campaignN = prevN })
 	if st := loadAssetStore(); st != nil {
 		applyObjects(st.Objs)
 	}

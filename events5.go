@@ -62,11 +62,11 @@ var f1Drivers = []struct {
 	name, shout          string
 	body, accent, helmet uint32
 }{
-	{"Fernando Alonso", "¡GP2 ENGINE!", 0x0a7a62, 0xd8e830, 0x2a50c0},
-	{"Lewis Hamilton", "¡STILL WE RISE!", 0xd01818, 0xf4f4f4, 0xf0d020},
-	{"Max Verstappen", "¡SIMPLY LOVELY!", 0x1c2a5c, 0xe03030, 0xf08020},
-	{"Charles Leclerc", "¡SOY TONTO, SOY TONTO!", 0xdc1010, 0xf0d030, 0xe0e0e8},
-	{"Carlos Sainz", "¡SMOOTH OPERATOR!", 0x1a58c8, 0xf4f4f4, 0xd02828},
+	{"Fernando Alonzo", "¡GP2 ENGINE!", 0x0a7a62, 0xd8e830, 0x2a50c0},
+	{"Lewis Hamiltom", "¡STILL WE RISE!", 0xd01818, 0xf4f4f4, 0xf0d020},
+	{"Max Verstapen", "¡SIMPLY LOVELY!", 0x1c2a5c, 0xe03030, 0xf08020},
+	{"Charles Leclerk", "¡SOY TONTO, SOY TONTO!", 0xdc1010, 0xf0d030, 0xe0e0e8},
+	{"Carlos Zainz", "¡SMOOTH OPERATOR!", 0x1a58c8, 0xf4f4f4, 0xd02828},
 }
 
 func (g *Game) startF1(e *Event) bool {

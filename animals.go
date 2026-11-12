@@ -373,6 +373,9 @@ func (g *Game) updateAnimals(dt float64) {
 		if a.iconT > 0 {
 			a.iconT -= dt
 		}
+		if g.pevAnimalHold(a, dt) { // petted or fetching a ball (pe_petting.go, pe_fetch.go)
+			continue
+		}
 		restore := g.focus(a.pos) // two players: it reacts to the nearest one
 		switch a.kind {
 		case animHorse:
@@ -401,6 +404,8 @@ func (g *Game) updateAnimals(dt float64) {
 			g.updateSnake(a, dt)
 		case animFrog, animSquirrel, animBoar, animCobaya:
 			g.updateCritter(a, dt)
+		case animCapibara:
+			g.updateCapibara(a, dt)
 		case animCroc:
 			g.updateCroc(a, dt)
 		case animCheetah, animLion:

@@ -184,7 +184,7 @@ func saveParts(path string, pid []uint8, w, h int) error {
 
 type CharMeta struct {
 	Name        string `json:"name"`
-	DisplayName string `json:"display_name,omitempty"` // proper name shown in on-screen messages, e.g. "Sonic"
+	DisplayName string `json:"display_name,omitempty"` // proper name shown in on-screen messages, e.g. "Zonic"
 	Category    string `json:"category"`
 	Role        string `json:"role,omitempty"`   // cop | medic | guard
 	Gender      string `json:"gender,omitempty"` // "" | m | f — only affects the AnimPee pose

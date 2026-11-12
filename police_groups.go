@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 // Police groups (2026-11-09).
 //
 // The groups the player has unlocked (kills milestones in trophies.go: local police
@@ -73,7 +71,7 @@ func policeGroups() []int {
 	}
 	out := []int{unitPolice}
 	for u := unitFBI; u < len(groupStat); u++ {
-		if ownedID(fmt.Sprintf("police:%d", u)) {
+		if policeTierOpen(u) { // strictly in order: FBI, army, SWAT, rangers (goalcops.go)
 			out = append(out, u)
 		}
 	}

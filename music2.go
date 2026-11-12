@@ -9,7 +9,7 @@ import (
 // ---------------------------------------------------------------------------
 // Songs: a tiny step sequencer. Every level has its own playlist (house, techno, disco,
 // reggaeton...), the menu keeps the original electro theme and when the DJ dies the
-// party switches to punk rock.
+// party switches to the songs after the DJ (songs_afterdj.go: lounge, funk, ballad...).
 // ---------------------------------------------------------------------------
 
 type songSpec struct {
@@ -305,7 +305,7 @@ func renderSong(sp songSpec) []byte {
 // playlistFor returns the track specs for a level title: three songs of the genre of that party (genres.go).
 func playlistFor(title string) []songSpec { return genrePlaylist(title) }
 
-// punkPlaylist: several punk rock songs that rotate while the DJ is dead.
+// punkPlaylist: the punk songs of the style "punk" (the punk bands); the dead DJ has songs_afterdj.go now.
 func punkPlaylist() []songSpec {
 	var out []songSpec
 	roots := []float64{82.41, 73.42, 98.0, 110.0, 87.31}
@@ -334,7 +334,7 @@ func (g *Game) menuMusicScreen() bool {
 	return g.lvl == nil
 }
 
-// syncMusic picks the song that fits the moment: the menu theme, the level playlist or punk after the DJ dies.
+// syncMusic picks the song that fits the moment: the menu theme, the level playlist or the songs after the DJ dies.
 func (g *Game) syncMusic() {
 	if g.snd == nil {
 		return
@@ -374,6 +374,9 @@ func (g *Game) syncMusic() {
 		return
 	}
 	g.snd.ClearFade()
+	if !g.djDead {
+		afterDJIdle() // the next dead DJ chooses a song again (songs_afterdj.go)
+	}
 	skip := g.skipSong
 	if g.syncRealMusic() {
 		g.skipSong = false
@@ -396,13 +399,12 @@ func (g *Game) syncMusic() {
 		}
 	}
 	var sp songSpec
-	if g.djDead || g.ownStyleBand() {
-		pl := punkPlaylist()
-		title = "punk"
-		if g.ownStyleBand() && !g.djDead {
-			pl = bandPlaylist(g.band.slug) // a famous band that is not punk keeps to its own style
-			title = "band-" + g.band.slug
-		}
+	if g.djDead {
+		// the DJ is dead: one of the songs after the DJ (songs_afterdj.go), never the last one again
+		sp, title = g.afterDJSong(), "afterdj"
+	} else if g.ownStyleBand() {
+		pl := bandPlaylist(g.band.slug) // a famous band that is not punk keeps to its own style
+		title = "band-" + g.band.slug
 		sp = pl[g.songIdx%len(pl)]
 	} else {
 		pl := playlistFor(title)

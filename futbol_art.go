@@ -48,10 +48,10 @@ type footballer struct{ name, team string }
 
 // footballRealNames: the footballers shown by their real name (card: name / team; detail: team · Futbolista).
 var footballRealNames = map[string]footballer{
-	"cristiano_ronaldo": {"Cristiano Ronaldo", "Portugal"},
-	"lionel_messi":      {"Lionel Messi", "Argentina"},
-	"lamine_yamal":      {"Lamine Yamal", "España"},
-	"kylian_mbappe":     {"Kylian Mbappé", "Francia"},
+	"cristiano_ronaldo": {"Cristiano Ronalda", "Portugal"},
+	"lionel_messi":      {"Lionel Mesi", "Argentina"},
+	"lamine_yamal":      {"Lamine Yamel", "España"},
+	"kylian_mbappe":     {"Kylian Mbapé", "Francia"},
 }
 
 // footballTeam: the national team of a footballer shown by his name ("" for the others).
@@ -105,7 +105,7 @@ func init() {
 		gaitSlugs["cristiano_ronaldo"] = "spin" // he dances jumping and turning, like his goal celebration
 	}
 	descs := map[string][2]string{
-		"cristiano_ronaldo": {"Salta, gira y grita ¡SIUUU! hasta en el ponche", "Jumps, spins and yells SIUUU! even at the punch"},
+		"cristiano_ronaldo": {"Salta, gira y grita ¡SIIUU! hasta en el ponche", "Jumps, spins and yells SIIUU! even at the punch"},
 		"lionel_messi":      {"Regatea a los camareros sin derramar nada", "Dribbles past the waiters without spilling"},
 		"lamine_yamal":      {"Tan joven que pide permiso para quedarse", "So young he asks permission to stay up"},
 		"kylian_mbappe":     {"Llega el primero a la barra, siempre", "Always first to the bar, every time"},
@@ -117,7 +117,7 @@ func init() {
 		"skin:kylian_mbappe":     {"Corre tanto que ya ha vuelto antes de irse.", "Runs so fast he is back before he left."},
 	}
 	lines := map[string][][2]string{
-		"cristiano_ronaldo": {{"¡SIUUU!", "SIUUU!"}, {"¿Habéis visto mis abdominales?", "Have you seen my abs?"}, {"Agua, por favor. Nada de refrescos.", "Water, please. No fizzy drinks."}},
+		"cristiano_ronaldo": {{"¡SIIUU!", "SIIUU!"}, {"¿Habéis visto mis abdominales?", "Have you seen my abs?"}, {"Agua, por favor. Nada de refrescos.", "Water, please. No fizzy drinks."}},
 		"lionel_messi":      {{"Perdón, solo pasaba...", "Sorry, just passing..."}, {"¿Me pasás la pelota?", "Pass me the ball?"}},
 		"lamine_yamal":      {{"Mañana tengo clase...", "I've got school tomorrow..."}, {"¡Regate por la banda!", "Dribble down the wing!"}},
 		"kylian_mbappe":     {{"¡Allez!", "Allez!"}, {"¿Una carrera hasta la barra?", "Race you to the bar?"}},

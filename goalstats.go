@@ -39,6 +39,31 @@ func (g *Game) careerTick(dt float64) {
 	g.progress.Stats[careerSecsKey] += n // (not g.stat: it would wake the trophy check every second)
 }
 
+// careerKills: THE one count of the career kills (2026-11-11, owner), read by CARRERA, the kills trophies and the
+// police unlocks (FBI 500 / army 1000 / SWAT 1500 / rangers 2000), the shop and the trophy cards. Stats["kills"] holds
+// the player's own kills INCLUDING the poisoned ones (poison.go adds "kills" and "poison" for the same death);
+// Stats["traps"] and Stats["poison"] are details of HOW, not extra bodies. CARRERA used to add kills + traps + poison
+// (523 in a real save whose police progress said 447): now every screen shows the same number, the one the trophies
+// and the police unlocks have always used, so no milestone moves and nothing already won can close again. Only the
+// reading changes: the save keeps the same keys (no migration).
+func careerKills(p *Progress) int {
+	if p == nil {
+		return 0
+	}
+	return p.Stats["kills"]
+}
+
+// progressStat: the value of a trophy counter; "kills" is the career count (careerKills), the rest is the raw Stats.
+func progressStat(p *Progress, key string) int {
+	if p == nil {
+		return 0
+	}
+	if key == "kills" {
+		return careerKills(p)
+	}
+	return p.Stats[key]
+}
+
 func careerTime(secs int) string {
 	if secs >= 3600 {
 		return fmt.Sprintf("%d h %02d min", secs/3600, secs/60%60)
@@ -77,7 +102,7 @@ func careerOf(a, b int) string { return fmt.Sprintf("%d / %d", a, b) }
 // careerRows: the two columns of the page (label in Spanish, tr() gives the English one; value already written).
 func (g *Game) careerRows() (left, right [][2]string) {
 	st := g.progress.Stats
-	kills := st["kills"] + st["traps"] + st["poison"]
+	kills := careerKills(&g.progress)
 	left = [][2]string{
 		{"Partidas jugadas", fmt.Sprint(st["played"])},
 		{"Niveles completados", careerOf(g.careerLevelsDone(), campaignN)},

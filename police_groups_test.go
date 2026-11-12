@@ -212,8 +212,10 @@ func TestPoliceFirstResponseThenGroup(t *testing.T) {
 	}) {
 		t.Fatalf("the FBI was never sent (pending %d resp %d)", g.pendingUnit, g.respKind)
 	}
+	// 2026-11-11: an officer relieved before his 20 s seals off the place (cCordon) until he has
+	// done them, but he is off the case: no chasing, no searching (TestEscalationOldTierStaysMinimum)
 	for _, c := range first {
-		if c.state != cLeave && containsCop(g.cops, c) {
+		if c.state != cLeave && c.state != cCordon && containsCop(g.cops, c) {
 			t.Fatalf("the police stay on scene (state %d) after the FBI got out", c.state)
 		}
 	}

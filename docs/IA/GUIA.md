@@ -96,7 +96,7 @@ Límites y seguridad:
 
 1. Abre Claude Code en la carpeta del proyecto.
 2. Pregunta: *"¿Qué skills tienes disponibles en este proyecto?"* (o usa el comando `/skills` si tu versión lo trae). Deben aparecer `party-hard-dev`, `party-hard-orquestador`, `party-hard-qa`, `party-hard-release` y `party-hard-limpieza`.
-3. Pide algo que encaje, sin nombrarlo: *"Añade el personaje Gandalf el Gris como famoso"*. Claude debería cargar el skill y seguir sus pasos (frases de máximo 48 caracteres, traducción, tests...). También puedes pedirlo expresamente: *"Usa el skill party-hard-dev y dime los pasos para añadir un objeto"*.
+3. Pide algo que encaje, sin nombrarlo: *"Añade el personaje Gandolf el Gris como famoso"*. Claude debería cargar el skill y seguir sus pasos (frases de máximo 48 caracteres, traducción, tests...). También puedes pedirlo expresamente: *"Usa el skill party-hard-dev y dime los pasos para añadir un objeto"*.
 4. Si no lo carga, comprueba que la ruta es exactamente `.claude/skills/party-hard-dev/SKILL.md` y que la cabecera tiene `name` y `description`.
 
 ### El servidor MCP

@@ -13,7 +13,7 @@ func init() {
 	partyTypeOfTitle[title] = "Pasta, amore y caos"
 	hintThemes["italy"] = hintTheme{"Italia: la torre se inclina, tú no", "El anfiteatro tiene dos entradas: úsalas"}
 	venueLines["italy"] = []venueLine{
-		{"¡Mamma mia, qué fiestón!", "Mamma mia, what a party!"},
+		{"¡Mama mia, qué fiestón!", "Mama mia, what a party!"},
 		{"Esa torre se inclina más que mi tío", "That tower leans more than my uncle"},
 		{"El gondolero cobra hasta por mirar", "The gondolier charges just for looking"},
 		{"Pizza con piña aquí es delito", "Pineapple pizza is a crime here"},

@@ -153,8 +153,8 @@ func TestItalyMigrationKeepsEveryWin(t *testing.T) {
 	}
 	p := rev1Save(24, all) // the whole 24-party campaign won
 	migrateProgress(&p)
-	if p.CampaignRev != campaignRev || p.Unlocked != 25 {
-		t.Fatalf("rev %d unlocked %d, want %d and 25", p.CampaignRev, p.Unlocked, campaignRev)
+	if p.CampaignRev != campaignRev || p.Unlocked != 26 {
+		t.Fatalf("rev %d unlocked %d, want %d and 26 (ITALIA and the pirate ship open too)", p.CampaignRev, p.Unlocked, campaignRev)
 	}
 	// the same parties (by name) are still won
 	titles := []string{"HOUSE PARTY"} // only checked through the icons below
@@ -181,22 +181,22 @@ func TestItalyMigrationKeepsEveryWin(t *testing.T) {
 	if got := g.careerLevelsDone(); got != 24 {
 		t.Errorf("parties done %d, want 24 (all but ITALIA)", got)
 	}
-	// once saved (rev 2) it is never moved again
+	// once saved (rev 3) it is never moved again
 	raw, _ := json.Marshal(p)
 	var back Progress
 	json.Unmarshal(raw, &back)
 	migrateProgress(&back)
-	if back.Unlocked != 25 || back.Stats["won_24"] != 1 || back.Stats["won_20"] != 1 {
-		t.Errorf("a rev-2 save was migrated again: %+v", back)
+	if back.Unlocked != 26 || back.Stats["won_25"] != 1 || back.Stats["won_24"] != 0 || back.Stats["won_20"] != 1 {
+		t.Errorf("a migrated save was migrated again: %+v", back)
 	}
 }
 
 func TestItalyMigrationFrontier(t *testing.T) {
 	cases := []struct{ un, want int }{
 		{1, 1}, {10, 10},
-		{19, 19}, // the highway is the frontier: beating it opens ITALIA
-		{20, 21}, // the highway was beaten (train station open): ITALIA and the train station are open
-		{22, 23}, {24, 25},
+		{19, 19},           // the highway is the frontier: beating it opens ITALIA
+		{20, 21},           // the highway was beaten (train station open): ITALIA and the train station are open
+		{22, 23}, {24, 26}, // the station was open: the pirate ship (rev 3) opens too
 	}
 	for _, c := range cases {
 		var won []int
@@ -209,10 +209,7 @@ func TestItalyMigrationFrontier(t *testing.T) {
 			t.Errorf("frontier %d became %d, want %d", c.un, p.Unlocked, c.want)
 		}
 		for _, i := range won { // every win keeps its party
-			ni := i
-			if i >= italyIdx {
-				ni = i + 1
-			}
+			ni := campaignIdx(campaignLevelsRev1Icon(i))
 			if p.Stats[fmt.Sprintf("won_%d", ni)] != 1 {
 				t.Errorf("frontier %d: old won_%d did not land on won_%d", c.un, i, ni)
 			}
@@ -227,12 +224,15 @@ func TestItalyMigrationFrontier(t *testing.T) {
 	}
 }
 
-// campaignLevelsRev1Icon: the icon of party i in the 24-party layout
+// campaignLevelsRev1Icon: the icon of party i in the 24-party layout (the campaign without ITALIA and the pirate ship)
 func campaignLevelsRev1Icon(i int) string {
-	if i >= italyIdx {
-		return campaignLevels[i+1].icon
+	var icons []string
+	for _, e := range campaignLevels {
+		if e.icon != "italy" && e.icon != "pirate" {
+			icons = append(icons, e.icon)
+		}
 	}
-	return campaignLevels[i].icon
+	return icons[i]
 }
 
 // editor corrections of the originals saved with the 24-party numbers still find their party

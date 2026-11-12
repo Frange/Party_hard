@@ -19,7 +19,7 @@ import (
 //
 //	music/N_name.mp3   main song of level N (1..15)
 //	more/*.mp3         random songs when the level song ends
-//	DJ/*.mp3           random songs once the DJ is dead
+//	DJ/*.mp3           random songs once the DJ is dead (not the old punk_N.mp3 of earlier versions)
 //
 // Anything missing falls back to the built-in synthesised music.
 type musicLib struct {
@@ -74,7 +74,11 @@ func loadMusicLib() *musicLib {
 		}
 	}
 	m.more = mp3Files(filepath.Join(m.base, "more"))
-	m.dj = mp3Files(filepath.Join(m.base, "DJ"))
+	for _, f := range mp3Files(filepath.Join(m.base, "DJ")) {
+		if !legacyDJFile.MatchString(filepath.Base(f)) { // the old generated punk: the songs after the DJ play instead
+			m.dj = append(m.dj, f)
+		}
+	}
 	m.bands = map[string][]string{}
 	for _, f := range mp3Files(filepath.Join(m.base, "bands")) {
 		name := strings.ToLower(filepath.Base(f))
@@ -158,8 +162,8 @@ func (g *Game) syncRealMusic() bool {
 	}
 	lib := g.lib
 	want := "level"
-	if g.djDead && len(lib.dj) > 0 {
-		want = "dj"
+	if g.djDead {
+		want = "dj" // with no mp3 in DJ/ it turns into "dj-synth": the songs after the DJ (songs_afterdj.go)
 	} else if g.band != nil && !g.djDead && len(lib.bands[g.band.slug]) > 0 {
 		want = "band" // the band of the party plays its own songs
 	}
@@ -246,7 +250,7 @@ func freshSong(batch, n int, styles []string) songSpec {
 }
 
 // exportMusic renders a fresh batch of songs to mp3 (needs ffmpeg): 15 level songs,
-// 10 for more/ and 6 punk for DJ/. A different batch number gives different songs.
+// 10 for more/ and the songs after the DJ for DJ/. A different batch number gives different songs (not in DJ/).
 func exportMusic(base string, batch int) {
 	write := func(dir, name string, sp songSpec) {
 		pcm := renderSong(sp)
@@ -297,8 +301,7 @@ func exportMusic(base string, batch int) {
 		sp := freshSong(batch, 20+i, mix)
 		write("more", fmt.Sprintf("extra_%02d_%s", i+1, sp.style), sp)
 	}
-	for i := 0; i < 6; i++ {
-		sp := freshSong(batch, 40+i, []string{"punk"})
-		write("DJ", fmt.Sprintf("punk_%d", i+1), sp)
+	for i, sp := range afterDJPlaylist() {
+		write("DJ", fmt.Sprintf("tras_dj_%d_%s", i+1, strings.TrimPrefix(sp.style, "tdj_")), sp)
 	}
 }

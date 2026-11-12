@@ -77,10 +77,10 @@ var trophyList = []Trophy{
 	{"t_ki5", "Matamonstruos", "Derrota a 5 asesinos especiales.", "killers", 5, wep("guadana", "Guadaña", HoldMachete, "Una hoja curva de la que huyen hasta los asesinos más duros.")},
 	{"t_ki15", "Exterminador", "Derrota a 15 asesinos especiales.", "killers", 15, kil("tr_k_rey_calavera", "El Rey Calavera", "Corona, capa y un reino de huesos. Los demás asesinos le hacen reverencias.")},
 	// police types: not bought any more, they arrive as the body count grows (see policeUnlocks)
-	{"t_cop1", "Llamada al FBI", "Mata a 500 personas en total: llega el FBI.", "kills", 500, evr("police:1", "Policía: FBI", "Mulder y Scully acuden con 2 estrellas.")},
+	{"t_cop1", "Llamada al FBI", "Mata a 500 personas en total: llega el FBI.", "kills", 500, evr("police:1", "Policía: FBI", "Molder y Skully acuden con 2 estrellas.")},
 	{"t_cop2", "El ejército toma la calle", "Mata a 1000 personas en total: llegan los militares.", "kills", 1000, evr("police:2", "Policía: Ejército", "Soldados con casco y fusiles, con 3 estrellas.")},
 	{"t_cop3", "Operación SWAT", "Mata a 1500 personas en total: llega el SWAT.", "kills", 1500, evr("police:3", "Policía: SWAT", "Operadores que entran por la ventana, con 4 estrellas.")},
-	{"t_cop4", "Rangers al rescate", "Mata a 2000 personas en total: llegan los Power Rangers.", "kills", 2000, evr("police:4", "Policía: Power Rangers", "Cinco colores y una coreografía, con 5 estrellas.")},
+	{"t_cop4", "Rangers al rescate", "Mata a 2000 personas en total: llegan los Pawer Rangers.", "kills", 2000, evr("police:4", "Policía: Pawer Rangers", "Cinco colores y una coreografía, con 5 estrellas.")},
 	{"t_d20", "Pies ligeros", "Baila 20 veces.", "dance", 20, wr(shopOutfits, "out:tr_disco", "Traje disco brillante", "outfit", func(s *CharSpec) {
 		s.Top, s.Shirt, s.Shirt2, s.Pants, s.Pattern = TopSuit, hx(0xf0c030), hx(0xe83a8a), hx(0xf0c030), 3
 	}, "Brilla más que la bola de la discoteca.")},
@@ -97,8 +97,8 @@ var trophyList = []Trophy{
 	}, "Medallas por cada uniforme que no se mancha.")},
 	{"t_e5", "Testigo ocular", "Presencia 5 sucesos especiales.", "events", 5, wr(shopAccess, "haircol:tr_arco", "Pelo arcoíris", "haircol", func(s *CharSpec) { s.Hair = hx(0xe83aa8) }, "Colores para quien lo ha visto todo.")},
 	{"t_ufo", "Contactos", "Presencia el paso de un ovni.", "ev_1", 1, chr("tr_marciano", "El Marciano", "Un alienígena verde con corbata. Viene en misión de paz... y a por las patatas.")},
-	{"t_rex", "Era jurásica", "Presencia la llegada del T-Rex.", "ev_16", 1, chr("tr_paleontologo", "La Paleontóloga", "Con casco y pico. Sabe lo que es un dinosaurio y lo demuestra gritando.")},
-	{"t_ghost", "¿A quién llamarás?", "Presencia la llegada de los Cazafantasmas.", "ev_15", 1, wep("protones", "Aspiradora de protones", HoldVacuum, "Una mochila con un tubo. No atrapa fantasmas, pero deja el suelo limpio.")},
+	{"t_rex", "Era cretácica", "Presencia la llegada del T-Rex.", "ev_16", 1, chr("tr_paleontologo", "La Paleontóloga", "Con casco y pico. Sabe lo que es un dinosaurio y lo demuestra gritando.")},
+	{"t_ghost", "¿A quién yamarás?", "Presencia la llegada de los Cazafantasmos.", "ev_15", 1, wep("protones", "Aspiradora de protones", HoldVacuum, "Una mochila con un tubo. No atrapa fantasmas, pero deja el suelo limpio.")},
 	{"t_m10k", "Primeros ahorros", "Gana 10000 puntos en total.", "earned", 10000, wr(shopOutfits, "out:tr_rapero", "Chaqueta de rapero dorada", "outfit", func(s *CharSpec) {
 		s.Top, s.Shirt, s.Shirt2, s.Pants = TopHoodie, hx(0xe8c040), hx(0xe8c040), hx(0x1a1a22)
 	}, "Con cadena imaginaria y muchas ínfulas.")},
@@ -112,7 +112,7 @@ var trophyList = []Trophy{
 	{"t_world8", "Viajero", "Completa 8 fiestas distintas.", "distinct", 8, wr(shopAccess, "cape:tr_viajero", "Capa de viajero", "cape", func(s *CharSpec) { s.Cape = hx(0x2a6a8a) }, "Con polvo de ocho lugares distintos.")},
 	{"t_world15", "Trotamundos", "Completa las 15 fiestas de la campaña.", "distinct", 15, uniR("rangers", "rangers:tr_oro", "Rangers · platino", func(s *CharSpec) { s.Shirt, s.Shirt2, s.HatCol = hx(0xe8e8f4), hx(0xe8e8f4), hx(0xe8e8f4) }, "Reservado a quien ha visto todo el planeta de fiestas.")},
 	{"t_pts3k", "Buena noche", "Consigue 3000 puntos en una fiesta.", "best", 3000, chr("tr_rockero_leyenda", "El Rockero Legendario", "Cuero, guitarra y una melena de años de fiestas. Su solo no se puede parar.")},
-	{"t_pts8k", "Noche de récord", "Consigue 8000 puntos en una fiesta.", "best", 8000, kil("tr_k_dios_oscuro", "El Dios Oscuro", "Un ser de otra dimensión que se aburre en su trono y viene a divertirse a tu costa.")},
+	{"t_pts8k", "Noche de récord", "Consigue 6500 puntos en una fiesta.", "best", 6500, kil("tr_k_dios_oscuro", "El Dios Oscuro", "Un ser de otra dimensión que se aburre en su trono y viene a divertirse a tu costa.")},
 	{"t_sam", "Cazapatinetes", "Mata a Sam-sam 5 veces (se escapa rápido: ve por la espalda).", "kill_sam_sam", 5, evr("ev:scooters", "Suceso: Desfile de patinetes", "Una fila de niños en patinete cruza la fiesta a toda velocidad y la gente se aparta. Sale de vez en cuando.")},
 	{"t_cesar", "Cazatravesuras", "Mata a César 5 veces.", "kill_cesar", 5, evr("ev:prank", "Suceso: Lluvia de globos de agua", "Globos de agua caen sobre la fiesta y empapan a quien pillen debajo. Sale de vez en cuando.")},
 	{"t_diego", "Cazaskaters", "Mata a Diego 5 veces.", "kill_diego", 5, evr("ev:skate", "Suceso: Exhibición de skate", "Una pandilla de skaters cruza la fiesta haciendo saltos. Sale de vez en cuando.")},
@@ -220,7 +220,7 @@ func (g *Game) checkTrophies() {
 	}
 	g.trophyDirty = false
 	for _, t := range trophyList {
-		reached := g.progress.Stats[t.stat] >= t.need
+		reached := progressStat(&g.progress, t.stat) >= t.need
 		if t.id == legendTrophy {
 			reached = g.othersDone()
 		}
@@ -229,6 +229,9 @@ func (g *Game) checkTrophies() {
 		}
 		if t.id == "s_album15" { // DISTINCT cards kept in the progress, not a counter that may be stale
 			reached = g.albumCount() >= t.need
+		}
+		if t.id == medalTrophy { // gold in every party of the list as it is now (medals.go)
+			reached = g.medalAllGold()
 		}
 		if g.progress.Trophies[t.id] || !reached {
 			continue
@@ -258,6 +261,8 @@ type trophyToast struct {
 	name, reward string
 	t            float64
 	secret       bool
+	medal        int // a medal reached during the party (medals.go medalLive): medalBronze..medalGold, 0 = a trophy
+	medalGoal    int // ...and the kill target its thresholds come from (the "next medal" line)
 }
 
 const toastLife = 5.0
@@ -301,6 +306,19 @@ func (g *Game) drawToast(dst *ebiten.Image) {
 	filledEllipse(dst, x+w-10, y+10, 10, 10, rgb(0x14161e))
 	filledEllipse(dst, x+10, y+h-10, 10, 10, rgb(0x14161e))
 	filledEllipse(dst, x+w-10, y+h-10, 10, 10, rgb(0x14161e))
+	if tt.medal > 0 { // a medal: the same pill, the medal in its colours instead of the cup (medals.go)
+		cx, cy := x+36, y+h/2
+		_, face, _ := medalCols(tt.medal)
+		filledEllipse(dst, cx, cy, 24, 24, rgb(0x2a2c3a))
+		filledEllipse(dst, cx, cy, 20, 20, rgb(0x3a3c4e))
+		drawMedalS(dst, cx-15, cy-21, tt.medal, 3)
+		head, name, foot := medalToastLines(tt.medal, tt.medalGoal)
+		// three lines of 16 px with 6 px or more to the edges of the 64 px pill (the trophy toast keeps its old places)
+		g.drawText(dst, head, x+72, y+7, rgb(0x9aa0b4), 1)
+		g.drawText(dst, name, x+72, y+24, rgb(0xf4f6ff), 1.6)
+		g.drawText(dst, foot, x+72, y+41, face, 1)
+		return
+	}
 	// the gold cup in a circle
 	cx, cy := x+36, y+h/2
 	filledEllipse(dst, cx, cy, 24, 24, rgb(0x2a2c3a))
@@ -456,7 +474,7 @@ func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 		if done {
 			tag, tc = "CONSEGUIDO", rgb(0x70e090)
 		} else if t.need > 1 && !secretTrophy[t.id] {
-			tag = fmt.Sprintf("%d/%d", minI(g.progress.Stats[t.stat], t.need), t.need)
+			tag = fmt.Sprintf("%d/%d", minI(progressStat(&g.progress, t.stat), t.need), t.need)
 		}
 		g.drawText(dst, tag, 600-g.textW(tag, 1.1), y+2, tc, 1.1)
 	}
@@ -482,7 +500,7 @@ func (g *Game) drawTrophyPanel(dst *ebiten.Image) {
 		return
 	}
 	g.drawTextC(dst, t.name, 775, 227, rgb(0xf4f0ff), 1.3)
-	g.drawWrapped(dst, "Cómo conseguirlo: "+t.how, 650, 255, 250, rgb(0xb8b0d0))
+	g.drawWrapped(dst, tr("Cómo conseguirlo: ")+tr(howHint(t.how)), 650, 255, 250, rgb(0xb8b0d0))
 	status := "Premio (aún bloqueado): "
 	scol := rgb(0xf0e060)
 	if g.trophyDone(t) {

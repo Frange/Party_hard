@@ -39,6 +39,14 @@ func TestEmoteByState(t *testing.T) {
 func emoteGame(t *testing.T, two bool) *Game {
 	emoteRestore(t)
 	g := hudPlay(t, two)
+	// the tests put bare guests (no CharSet) in the shared game: give it a real party back when they end, or the next
+	// test that draws it (TestMenuMarginsMainMenu: drawActor) meets them
+	prevMode := g.mode
+	t.Cleanup(func() {
+		g.loadLevel(0)
+		g.emo.reset()
+		g.mode = prevMode
+	})
 	g.stealth = false
 	g.loadLevel(0)
 	g.mode = ModePlay
@@ -178,6 +186,7 @@ func TestEmoteDrawNoOverlap(t *testing.T) {
 
 // the pictures exist for every kind, and the pop is a whole step
 func TestEmotePictures(t *testing.T) {
+	auditGame(t) // the 1x1 pixel the pictures are painted with (px) is made by newGame: run first under -shuffle it was nil
 	for k := emQuestion; k < emCount; k++ {
 		im := emoteImage(k)
 		if im == nil || im.Bounds().Dx() != emoteSize || im.Bounds().Dy() != emoteSize {

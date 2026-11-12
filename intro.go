@@ -272,7 +272,7 @@ func (g *Game) drawIntro(dst *ebiten.Image) {
 	} else {
 		g.introCard(dst, in)
 	}
-	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
+	hint := skipTwiceHint()
 	col := rgba(0x8a86a0, 170)
 	if in.skipArm > 0 {
 		hint, col = "Otra vez para saltar la intro", rgb(0xffe060)

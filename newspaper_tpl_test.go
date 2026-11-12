@@ -491,7 +491,7 @@ func TestPaperTplNoForbiddenRealNames(t *testing.T) {
 			}
 		}
 	}
-	for _, s := range []string{"Donald Trump", "Barack Obama", "Metallica · cantante", "Un nombre larguísimo que no cabe nunca"} {
+	for _, s := range []string{"Donald Trump", "Barack Obama", "Metalica · cantante", "Un nombre larguísimo que no cabe nunca"} {
 		if paperFamousName(s) != "" {
 			t.Errorf("paperFamousName(%q) must be empty", s)
 		}

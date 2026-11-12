@@ -608,7 +608,7 @@ func (g *Game) stepSuper(e *Event, dt float64) bool {
 		d := math.Hypot(dx, dy)
 		if d < 10 {
 			t.gone = true
-			g.say(guestLabel(t) + " se ha ido volando con Superman")
+			g.say(guestLabel(t) + " se ha ido volando con Souperman")
 			g.burst(Vec{t.pos.X, t.pos.Y - 16}, 10, 60, rgb(0xffffff), 0.4, 2, 0)
 			g.checkDone()
 			e.phase = 1

@@ -32,6 +32,14 @@ func partyGame(t *testing.T) *Game {
 		g.pev, g.stealth, g.dc, g.blk = pevState{}, false, nil, blackoutState{}
 		g.levelIdx = 0
 	})
+	// the drop-repeats memory of the messages (bubbles.go) runs on the wall clock: what an earlier test (or an
+	// earlier -count run) said a few seconds ago was dropped here, and the parties of these tests went another way
+	prevSay := sayState
+	sayState.mem, sayState.last, sayState.lastAt, sayState.shownAt, sayState.queue = nil, "", 0, 0, nil
+	prevClock := sayClock
+	sayClock = func() float64 { return g.time } // the game clock: a slow or busy machine no longer changes the party
+	t.Cleanup(func() { sayState, sayClock = prevSay, prevClock })
+	partyPinDice(t)
 	progressFrozen, fastEv, dbgPartyEvent = true, false, ""
 	partyRegistry, partyHist, partySeed, partyRng = append([]*partyEvent(nil), partyRegistry...), nil, 77, nil
 	auditPlay(g, false)
@@ -450,4 +458,34 @@ func TestPartyDemoSpritesAreSharp(t *testing.T) {
 	if painted < 150 {
 		t.Errorf("only %d pixels painted", painted)
 	}
+}
+
+// partyPinDice: the other session dice that loadLevel and the party roll (VIP zone and its pity counter, weather,
+// closing countdown, costumes, wild animals, wrong suspect, bean gang and the events of v1.3.0) start again from a
+// fixed seed in every party of these tests. They were seeded from the clock and kept running from one test (or one
+// -count run) to the next: a VIP zone with its guards, a storm or a gang came or not depending on what ran before,
+// and the behaviour tests (conga, street kids, eating contest, sack race, mascots) failed one run in a few. A test
+// that already fixed a seed (rwLoad, the bull, the sack race...) keeps it.
+func partyPinDice(t *testing.T) {
+	t.Helper()
+	type pin struct {
+		rng  **rand.Rand
+		seed *int64
+		v    int64
+	}
+	pins := []pin{{&vipRng, &vipSeed, 2001}, {&weatherRng, &weatherSeed, 2002}, {&cdRng, &cdSeed, 2003},
+		{&costumeRng, &costumeSeed, 2004}, {&wildRng, &wildSeed, 2005}, {&blameRng, &blameSeed, 2006},
+		{&toroRng, &toroSeed, 2007}, {&heroRng, &heroSeed, 2008}, {&fetchRng, &fetchSeed, 2009},
+		{&gfRng, &gfSeed, 2010}, {&sackRng, &sackSeed, 2011}, {&petRng, &petSeed, 2012},
+		{&iceSkRng, &iceSkSeed, 2013}, {&rwRng, &rwSeed, 2014}, {&fursuitRng, &fursuitSeed, 2015}}
+	for _, p := range pins {
+		r, s := *p.rng, *p.seed
+		t.Cleanup(func() { *p.rng, *p.seed = r, s })
+		if s == 0 {
+			*p.rng, *p.seed = nil, p.v
+		}
+	}
+	fg, misses, sb, sl := fgRng, vipMisses, smokeBase, smokeLoads
+	t.Cleanup(func() { fgRng, vipMisses, smokeBase, smokeLoads = fg, misses, sb, sl })
+	fgRng, vipMisses, smokeBase, smokeLoads = rand.New(rand.NewSource(2016)), 0, 2017, 0
 }

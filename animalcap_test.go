@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"math/rand"
+	"testing"
+)
 
 func animalCounts(g *Game) (total, bulls int) {
 	for _, a := range g.animals {
@@ -56,5 +59,24 @@ func TestAnimalCapTrims(t *testing.T) {
 	g.capAnimals()
 	if len(g.animals) != 2 {
 		t.Errorf("a quiet level keeps its animals")
+	}
+}
+
+// the cap also holds after the WHOLE loadLevel: Wally's dog (spawnWally) is added after spawnAnimals and used to
+// make a 9th animal when the wild ones (capybaras included) had already filled the 8 places
+func TestAnimalCapAfterLoadLevel(t *testing.T) {
+	g := layerGame(t, false)
+	pm := twoPlayerMode
+	t.Cleanup(func() { twoPlayerMode = pm })
+	twoPlayerMode = false
+	oldR, oldS := lifeRng, lifeSeed
+	t.Cleanup(func() { lifeRng, lifeSeed = oldR, oldS })
+	for sd := int64(1); sd <= 30; sd++ {
+		g.rng = rand.New(rand.NewSource(sd))
+		lifeRng = rand.New(rand.NewSource(sd))
+		g.loadLevel(0)
+		if n, b := animalCounts(g); n > animalMax || b > bullMax {
+			t.Errorf("seed %d: %d animals, %d bulls after loadLevel", sd, n, b)
+		}
 	}
 }

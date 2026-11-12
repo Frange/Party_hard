@@ -170,6 +170,33 @@ func (g *Game) wardPickTry(slot string) bool {
 	return open
 }
 
+// wardPickClose: leaves the picker for the wardrobe (the screen it was opened from), the focus on the row "Personaje".
+func (g *Game) wardPickClose() {
+	wardPick = false
+	wardKind, wardRow = wardKindPlayer, 0
+	wardFlash = 0.3
+}
+
+// wardPickClickAt: a click on a cell of the grid wears that character and goes back to the wardrobe (true).
+func (g *Game) wardPickClickAt(x, y int, list []wardPickItem) bool {
+	for v := 0; v < wpkCols*wpkRows; v++ {
+		i := wardPickScroll*wpkCols + v
+		if i >= len(list) {
+			break
+		}
+		cx, cy := wardPickCell(v)
+		if float64(x) >= cx && float64(x) < cx+wpkCellW && float64(y) >= cy && float64(y) < cy+wpkCellH {
+			wardPickSel = i
+			if g.wardPickChoose(wardP, list[i]) {
+				g.snd.Play("alert")
+				g.wardPickClose()
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // updateWardPick runs the picker while it is open; false lets the wardrobe handle the frame.
 func (g *Game) updateWardPick() bool {
 	if !wardPick {
@@ -183,7 +210,7 @@ func (g *Game) updateWardPick() bool {
 	n := len(list)
 	wardPickSel = clampI(wardPickSel, 0, n-1)
 	if actBack.just() {
-		wardPick = false
+		g.wardPickClose()
 		return true
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -199,18 +226,8 @@ func (g *Game) updateWardPick() bool {
 				wardFlash = 0.3
 			}
 		}
-		for v := 0; v < wpkCols*wpkRows; v++ {
-			i := wardPickScroll*wpkCols + v
-			if i >= n {
-				break
-			}
-			cx, cy := wardPickCell(v)
-			if float64(x) >= cx && float64(x) < cx+wpkCellW && float64(y) >= cy && float64(y) < cy+wpkCellH {
-				wardPickSel = i
-				if g.wardPickChoose(wardP, list[i]) {
-					g.snd.Play("alert")
-				}
-			}
+		if g.wardPickClickAt(x, y, list) {
+			return true
 		}
 	}
 	switch {
@@ -235,12 +252,17 @@ func (g *Game) updateWardPick() bool {
 	}
 	if actConfirm.just() && g.wardPickChoose(wardP, list[wardPickSel]) {
 		g.snd.Play("alert")
+		g.wardPickClose() // a character confirmed: back to the wardrobe, on the row "Personaje"
+		return true
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+	// Delete puts the default look back; Backspace is the key that focuses the ATRÁS button (backbtn.go), so it no longer resets
+	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) {
 		wardPickSel = 0
 		g.wardPickChoose(wardP, list[0])
+		g.wardPickClose()
+		return true
 	}
-	if (actInteract.just() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 {
+	if (menuInteractJust() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 { // □ on a pad: ○ goes back
 		wardP = 1 - wardP
 		wardPickSel = g.wardPickIndex(list, wardP)
 		wardFlash = 0.3

@@ -22,7 +22,10 @@ var genreAliases = map[string]string{
 	"pop": "pop", "metal": "metal", "rap": "rap", "hiphop": "hiphop", "hip-hop": "hiphop", "lofi": "hiphop",
 	"clasica": "clasica", "clásica": "clasica", "classical": "clasica", "jazz": "jazz", "country": "country",
 	"flamenco": "flamenco", "pasodoble": "flamenco", "rock": "rock", "synthwave": "synthwave",
-	"orquestal": "orquestal", "orchestral": "orquestal", "epico": "isla", "épico": "isla", "epica": "isla", "épica": "isla", "epic": "isla", "isla": "isla", "jurassic": "isla",
+	"orquestal": "orquestal", "orchestral": "orquestal",
+	// "epico" is the genre of the BARCO PIRATA (pirate_text.go); the secret island has its own word, so an epic mp3
+	// left in the island's number is not taken for the island's score and vice versa
+	"epico": "epico", "épico": "epico", "epica": "epico", "épica": "epico", "epic": "epico", "isla": "isla", "jurassic": "isla",
 	"chiptune": "chiptune",
 }
 
@@ -107,7 +110,7 @@ func planMusic(lib *musicLib, title string, levelIdx int, djDead bool, band stri
 	case !djDead && band != "" && lib != nil && len(lib.bands[band]) > 0:
 		return musicPlan{source: "band-mp3", genre: genreFromFileName(lib.bands[band][0]), file: lib.bands[band][0]}
 	case djDead:
-		return musicPlan{source: "synth", genre: "punk"}
+		return musicPlan{source: "synth", genre: "afterdj"} // the songs after the DJ (songs_afterdj.go)
 	case own:
 		return musicPlan{source: "synth", genre: bandGenre(band)}
 	}

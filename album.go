@@ -85,8 +85,8 @@ func (c albumCard) kind() int {
 var albumList []albumCard
 
 // albumShortName: short card names of the special characters whose full name is wider than a card.
-var albumShortName = map[string]string{"taz": "Taz", "stan_barcos": "Stan", "pantera_rosa": "Pantera Rosa", "lagarto_juancho": "Juancho",
-	"caperucita_roja": "Caperucita", "colon_almirante": "Colón", "isabel_la_catolica": "Isabel",
+var albumShortName = map[string]string{"taz": "Tazz", "stan_barcos": "Stann", "pantera_rosa": "Pantera Rossa", "lagarto_juancho": "Juanchi",
+	"caperucita_roja": "Caperucita", "colon_almirante": "Colón", "isabel_la_catolica": "Ysabel",
 	"tr_bailarina_disco": "Bailarina", "tr_rockero_leyenda": "Rockero", "tr_rey_fiesta": "Rey Fiesta"}
 
 // cardName: what the card prints as the name.
@@ -301,7 +301,7 @@ func (g *Game) secretTick(dt float64) {
 		}
 	}
 	// a blackout survived without killing anybody
-	k := g.progress.Stats["kills"] + g.progress.Stats["traps"] + g.progress.Stats["poison"]
+	k := careerKills(&g.progress) + g.progress.Stats["traps"] // a trap death in the dark also breaks it
 	if g.blk.t > 0 {
 		if !s.blk {
 			s.blk, s.blkKills = true, k

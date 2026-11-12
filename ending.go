@@ -688,7 +688,8 @@ func (g *Game) drawEndFinal(dst *ebiten.Image, e *endState) {
 			g.drawTextC(dst, "Y que la última fiesta tiene dientes.", 480, 316, rgb(0xe8c870), 1.3)
 		}
 	}
-	g.drawFinMurray(dst, e) // Murray talks on both last cards, each with his own lines (fin_murray.go)
+	g.drawFinMurray(dst, e)    // Murray talks on both last cards, each with his own lines (fin_murray.go)
+	g.drawFinRiderSays(dst, e) // and the kids shout skater jokes in the empty sides of the card (skater_lines.go)
 	if e.t > 4.6 {
 		g.drawTextC(dst, "Gracias por jugar", 480, 362, rgba(0xf4f0ff, uint8(255*math.Min(1, (e.t-4.6)/1.2))), 2.6)
 	}

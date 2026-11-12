@@ -165,7 +165,7 @@ func ringColor(p *Player) [3]uint8 {
 // setupPlayers builds player 2 (when the party has two players) and puts both at the entrance.
 func (g *Game) setupPlayers(def *LevelDef) {
 	g.p1, g.p2 = nil, nil
-	g.rev = reviveState{} // one call of the ambulance per party
+	g.rev = reviveState{} // one ambulance per player and per party (revive.go), only in memory
 	twoInput = false
 	if g.p != nil {
 		g.p.idx = 0

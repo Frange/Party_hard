@@ -20,7 +20,7 @@ import (
 // the generic body cannot be a bean. Animation is only the drawing (hitbox, speed, stats and the
 // one-per-party rule are the usual ones): the body waddles side to side when walking (gait "bean":
 // the heavy lumbering walk, a hopping dance), the flippers follow the arms of the pose, the feet the
-// legs, and the falls and deaths use the standard animations. The card says "Fall Guys" under the
+// legs, and the falls and deaths use the standard animations. The card says "Flan Guys" under the
 // name (the game, like other franchises shown in the album). They are rare special guests: in the
 // special pool (each one at most once per party, uniqueFamous) and, now and then, a gang of 2-4 of
 // them arrives together (spawnBeanGang) taking famous places, never adding people to the party.
@@ -51,7 +51,7 @@ var beanKinds = map[string]int{"judia_azul": fgAzul, "judia_animadora": fgAnimad
 	"judia_zanahoria": fgZanahoria, "judia_callejera": fgCallejera, "judia_pinguino": fgPinguino}
 
 // beanGame: the line under the name on their cards (and in the detail window).
-const beanGame = "Fall Guys"
+const beanGame = "Flan Guys"
 
 func beanKind(s *CharSpec) int {
 	if s == nil {
@@ -62,7 +62,7 @@ func beanKind(s *CharSpec) int {
 
 func isBean(s *CharSpec) bool { return beanKind(s) != fgNone }
 
-// beanRole: "Fall Guys" for a bean, "" for anybody else (goalchars.go puts it under the name).
+// beanRole: "Flan Guys" for a bean, "" for anybody else (goalchars.go puts it under the name).
 func beanRole(slug string) string {
 	if beanKinds[slug] != fgNone {
 		return beanGame
@@ -127,17 +127,17 @@ func beanPreset(slug string, body, foot uint32, seed int64) func(*rand.Rand) Cha
 	}
 }
 
-// beanNames: Spanish and English names (the English one goes through tr()).
+// beanNames: the names, the same in Spanish and English (proper names are never translated; owner, 2026-11-11).
 var beanNames = map[string][2]string{
-	"judia_azul":        {"Judía Azul", "Blue Bean"},
-	"judia_animadora":   {"Judía Animadora", "Cheer Bean"},
-	"judia_lima":        {"Judía Lima", "Lima Bean"},
-	"judia_pelofuego":   {"Judía Pelofuego", "Hothead Bean"},
-	"judia_gallina":     {"Judía Gallina", "Chicken Bean"},
-	"judia_hamburguesa": {"Judía Hamburguesa", "Burger Bean"},
-	"judia_zanahoria":   {"Judía Zanahoria", "Carrot Bean"},
-	"judia_callejera":   {"Judía Callejera", "Street Bean"},
-	"judia_pinguino":    {"Judía Pingüino", "Penguin Bean"},
+	"judia_azul":        {"Flan Azul", "Flan Azul"},
+	"judia_animadora":   {"Flan Animador", "Flan Animador"},
+	"judia_lima":        {"Flan Lima", "Flan Lima"},
+	"judia_pelofuego":   {"Flan Pelofuego", "Flan Pelofuego"},
+	"judia_gallina":     {"Flan Gallina", "Flan Gallina"},
+	"judia_hamburguesa": {"Flan Hamburguesa", "Flan Hamburguesa"},
+	"judia_zanahoria":   {"Flan Zanahoria", "Flan Zanahoria"},
+	"judia_callejera":   {"Flan Callejero", "Flan Callejero"},
+	"judia_pinguino":    {"Flan Pingüino", "Flan Pingüino"},
 }
 
 func init() {
@@ -156,10 +156,10 @@ func init() {
 	}
 	descs := map[string][2]string{
 		"judia_azul":        {"Se cae, se levanta y se vuelve a caer", "Falls, gets up and falls down again"},
-		"judia_animadora":   {"Anima a todos aunque vaya la última", "Cheers everyone on, even in last place"},
-		"judia_lima":        {"Verde fosforito: imposible perderla de vista", "Neon green: impossible to lose sight of"},
+		"judia_animadora":   {"Anima a todos aunque vaya el último", "Cheers everyone on, even in last place"},
+		"judia_lima":        {"Verde fosforito: imposible perderlo de vista", "Neon green: impossible to lose sight of"},
 		"judia_pelofuego":   {"Lleva el pelo en llamas y ni se inmuta", "Its hair is on fire and it doesn't care"},
-		"judia_gallina":     {"Disfrazada de gallina, huye de todo", "Dressed as a chicken, runs from everything"},
+		"judia_gallina":     {"Disfrazado de gallina, huye de todo", "Dressed as a chicken, runs from everything"},
 		"judia_hamburguesa": {"Huele a parrilla y a victoria", "Smells of barbecue and victory"},
 		"judia_zanahoria":   {"Viste de verdura y su madre está orgullosa", "Dresses as a vegetable; its mum is proud"},
 		"judia_callejera":   {"Gorra, vaqueros y cero equilibrio", "Cap, jeans and zero balance"},
@@ -167,23 +167,23 @@ func init() {
 	}
 	funny := map[string][2]string{
 		"skin:judia_azul":        {"Tropieza con su propia sombra y lo llama estrategia.", "Trips over its own shadow and calls it strategy."},
-		"skin:judia_animadora":   {"Hace la ola ella sola en mitad del baile.", "Does the wave all alone in the middle of the dance."},
-		"skin:judia_lima":        {"Brilla tanto que la usan de lámpara en el jardín.", "Glows so much they use it as a garden lamp."},
+		"skin:judia_animadora":   {"Hace la ola él solo en mitad del baile.", "Does the wave all alone in the middle of the dance."},
+		"skin:judia_lima":        {"Brilla tanto que lo usan de lámpara en el jardín.", "Glows so much they use it as a garden lamp."},
 		"skin:judia_pelofuego":   {"Enciende las velas de la tarta sin mechero.", "Lights the birthday candles without a lighter."},
 		"skin:judia_gallina":     {"Cacarea cuando alguien saca el móvil.", "Clucks whenever someone takes out a phone."},
 		"skin:judia_hamburguesa": {"Nadie sabe si viene a la fiesta o es el catering.", "Nobody knows if it's a guest or the catering."},
-		"skin:judia_zanahoria":   {"Los conejos de la fiesta la siguen a todas partes.", "The party rabbits follow it everywhere."},
+		"skin:judia_zanahoria":   {"Los conejos de la fiesta lo siguen a todas partes.", "The party rabbits follow it everywhere."},
 		"skin:judia_callejera":   {"Se pone la gorra hacia atrás para correr más.", "Wears the cap backwards to run faster."},
 		"skin:judia_pinguino":    {"Pide el ponche con mucho, mucho hielo.", "Asks for the punch with lots and lots of ice."},
 	}
 	lines := map[string][][2]string{
 		"judia_azul":        {{"¡Uooooh!", "Whoooa!"}, {"¿Dónde está la corona?", "Where's the crown?"}},
-		"judia_animadora":   {{"¡Vamos, vamos, judías!", "Go, go, beans!"}, {"¡Dame una J!", "Give me a B!"}},
+		"judia_animadora":   {{"¡Vamos, vamos, flanes!", "Go, go, flans!"}, {"¡Dame una F!", "Give me an F!"}},
 		"judia_lima":        {{"¡Que no me empujen!", "Stop pushing me!"}, {"¡Hoy sí que gano!", "Today I win for sure!"}},
 		"judia_pelofuego":   {{"¡Estoy que ardo!", "I'm on fire!"}, {"¿Alguien huele a quemado?", "Anyone smell burning?"}},
 		"judia_gallina":     {{"¡Coc, coc, cocoooc!", "Bawk, bawk, bawk!"}, {"¡Yo no he puesto ese huevo!", "I didn't lay that egg!"}},
 		"judia_hamburguesa": {{"¿Con queso o sin queso?", "With or without cheese?"}, {"¡No me pongáis kétchup!", "No ketchup on me!"}},
-		"judia_zanahoria":   {{"¡Soy muy buena para la vista!", "I'm very good for your eyes!"}, {"¡Ni se te ocurra pelarme!", "Don't you dare peel me!"}},
+		"judia_zanahoria":   {{"¡Soy muy bueno para la vista!", "I'm very good for your eyes!"}, {"¡Ni se te ocurra pelarme!", "Don't you dare peel me!"}},
 		"judia_callejera":   {{"¡Me piro, vampiro!", "Later, alligator!"}, {"¿Una carrera de obstáculos?", "Obstacle race, anyone?"}},
 		"judia_pinguino":    {{"¡Qué calor hace aquí!", "It's so hot in here!"}, {"¡Me resbalo! ¡Me resbalooo!", "I'm slipping! Slippiiing!"}},
 	}

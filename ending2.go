@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"math/rand"
@@ -16,7 +17,7 @@ import (
 //     credit roll.
 //   secret ("FIN"): he comes back from the island by helicopter. T-Rex footprints on
 //     the street, the ghost of every guest behind him in a conga (Guybrush, Sonic,
-//     Shrek, a skeleton... and Murray on his stake), the door slammed in their faces,
+//     Shrek, a skeleton... and Murrey on his stake), the door slammed in their faces,
 //     the neighbour who plays the music of the T-Rex, sheep that are dinosaurs, a
 //     very long credit roll and a scene after the credits.
 //
@@ -61,7 +62,7 @@ func (e *endState) sayAt(s string, x, y float64, col uint32, a uint8) {
 
 var cameoNames = []string{"guybrush", "sonic", "shrek", "esqueleto_bailarin", "homer", "jack_rey_calabaza"}
 
-// endBuild prepares the guests of the conga and Murray (once).
+// endBuild prepares the guests of the conga and Murrey (once).
 func (g *Game) endBuild(e *endState) {
 	if e.x.built {
 		return
@@ -222,7 +223,7 @@ func (g *Game) endConga(c *ebiten.Image, camX, t float64, e *endState) {
 		g.drawGhostActor(c, e.x.cameos[i], x, endGround+12, DirLeft, AnimIdle, t, alpha, 1, i)
 		g.ghostWail(e, x, endGround+12-charBase-6, t, i, len(e.x.cameos))
 	}
-	// Murray on his stake, carried by the last two
+	// Murrey on his stake, carried by the last two
 	if e.trueEnd && e.x.haveMur {
 		x := base + float64(len(e.x.cameos))*25 + 6 - camX
 		if x > -30 && x < endCW+30 {
@@ -345,7 +346,7 @@ func endCreditRows(secret bool) [][2]string {
 			[2]string{"Música del vecino", "Silenciada de por vida"},
 			[2]string{"Ovejas contadas", "4.000 (una iba en pijama)"},
 			[2]string{"Sueño recuperado", "Al 100%"},
-			[2]string{"Fiestas arruinadas", "Las 24. Qué pena, qué pena"},
+			[2]string{"Fiestas arruinadas", fmt.Sprintf("Las %d. Qué pena, qué pena", len(campaignLevels))},
 			[2]string{"", ""},
 		)
 	}
@@ -353,13 +354,13 @@ func endCreditRows(secret bool) [][2]string {
 		[2]string{"Cameo no solicitado", "Un T-Rex con muy mala educación"},
 		[2]string{"Raptores de ceremonia", "Sombrero incluido, comida no"},
 		[2]string{"Piloto de helicóptero", "Dimitió en pleno vuelo"},
-		[2]string{"Pirata poderoso (poco)", "Guybrush Threepwood"},
-		[2]string{"Erizo sin carnet", "Sonic, multado por exceso de velocidad"},
-		[2]string{"Ogro de pantano", "Shrek, se ha comido el catering"},
+		[2]string{"Pirata poderoso (poco)", "Guybrush Treepwood"},
+		[2]string{"Erizo sin carnet", "Zonic, multado por exceso de velocidad"},
+		[2]string{"Ogro de pantano", "Shreck, se ha comido el catering"},
 		[2]string{"Esqueleto bailarín", "Sin contrato ni nómina"},
 		[2]string{"Fuegos artificiales", "Los dinosaurios pidieron más"},
 		[2]string{"Tarta", "Se salvó por los pelos (del T-Rex)"},
-		[2]string{"Calavera parlante", "Murray (sigue hablando)"},
+		[2]string{"Calavera parlante", "Murrey (sigue hablando)"},
 		[2]string{"Altavoces destruidos", "1.847 (y uno de los dientes)"},
 		[2]string{"Dinosaurios heridos", "Ninguno. Los invitados, otra cosa"},
 		[2]string{"Sueño recuperado", "Por fin, al 1000%"},
@@ -450,7 +451,7 @@ func (g *Game) walkCaption(e *endState) string {
 	case e.stage == endDoor && e.t < 4.6:
 		return "¡Portazo! Los invitados fantasma se quedan fuera."
 	case e.stage == endDoor && e.t < 6.2:
-		return "El vecino pone la Música Jurásica a todo volumen..."
+		return "El vecino pone la Música Fiestásica a todo volumen..."
 	case e.stage == endDoor && e.t < 8.2:
 		return "...y alguien muy grande ha oído el bajo."
 	case e.stage == endDoor:
@@ -462,7 +463,7 @@ func (g *Game) walkCaption(e *endState) string {
 	case e.t < 15.5:
 		return "Los invitados de todas las fiestas le siguen en forma de fantasma. Hacen la conga."
 	default:
-		return "Hasta Murray viene en su estaca, hablando sin parar."
+		return "Hasta Murrey viene en su estaca, hablando sin parar."
 	}
 }
 

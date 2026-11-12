@@ -41,8 +41,12 @@ func TestFootballersRegistered(t *testing.T) {
 	for _, o := range wardCharacters() {
 		wardrobe[o.id] = true
 	}
+	want := map[string]string{"cristiano_ronaldo": "Cristiano Ronalda", "lionel_messi": "Lionel Mesi", "lamine_yamal": "Lamine Yamel", "kylian_mbappe": "Kylian Mbapé"}
 	for _, slug := range footballSlugs {
 		m := footballRealNames[slug]
+		if m.name != want[slug] { // one letter changed (owner, 2026-11-11)
+			t.Errorf("%s: name %q, want %q", slug, m.name, want[slug])
+		}
 		if presetByName(slug) == nil {
 			t.Fatalf("%s: no preset", slug)
 		}

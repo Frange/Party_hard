@@ -237,7 +237,7 @@ func listLevels(root string, _ map[string]any) (string, error) {
 			}
 		}
 	}
-	sb.WriteString("\nThe Jurassic Park island is not in the campaign: use the -jurassic flag.\n")
+	sb.WriteString("\nThe Parque Fiestásico island (Isla Nublada) is not in the campaign: use the -jurassic flag.\n")
 	return sb.String(), nil
 }
 

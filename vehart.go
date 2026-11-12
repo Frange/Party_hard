@@ -975,7 +975,7 @@ func vaMonsterTruckSide(b *pixBuf, v int) {
 	}, nil)
 }
 
-// vaJeepSide: the Jurassic Park jeep (nose right) with its roll bar, spare wheel, driver and roundel.
+// vaJeepSide: the park jeep (nose right) with its roll bar, spare wheel, driver and roundel.
 func vaJeepSide(b *pixBuf, v int) {
 	body := []color.RGBA{c(0xf2c418), c(0x4aa048), c(0xf2c418)}[v%3]
 	trim := []color.RGBA{c(0x2c8a3c), c(0xf2c418), c(0xb83030)}[v%3]

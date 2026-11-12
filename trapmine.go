@@ -38,6 +38,9 @@ func trapCentre(pr *Prop) Vec {
 func (g *Game) armTrap(pr *Prop, p *Player) {
 	pr.armT, pr.armed, pr.by, pr.armWait = trapArmTime, false, p, false
 	g.coopOwn(pr, p)
+	if pr.K.Trap == "cake" {
+		g.cakeArmed(pr) // the candles fizz (trapcake.go)
+	}
 }
 
 // trapProp: a prop that is a trap (not the poisoned bowl).
@@ -69,7 +72,7 @@ func (g *Game) updateTrapMine(pr *Prop, dt float64) {
 	if !pr.armed {
 		return
 	}
-	if g.trapDetects(pr) {
+	if g.trapDetects(pr) || cakeGoesOff(pr) { // the cake does not wait for anybody: it blows up once armed (trapcake.go)
 		pr.armed = false
 		g.triggerTrap(pr)
 	}

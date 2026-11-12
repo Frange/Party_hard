@@ -92,17 +92,17 @@ func finTypeLen(s string) float64 {
 
 // finMurrayLines: ES -> EN. Short (<= 48 runes) so they fit the bubble.
 var finMurrayLines = [][2]string{
-	{"¿Juego acabado? Hala, ahora a jugar al GTA 6.", "Game beaten? Off you go to play GTA 6, then."},
+	{"¿Juego acabado? Hala, ahora a jugar al GTE 6.", "Game beaten? Off you go to play GTE 6, then."},
 	{"Créditos vistos. Ya podéis apagar. En serio.", "Credits seen. You can switch off. Really."},
 	{"«Un bloque más», dijo. Hace tres años.", "\"One more block,\" he said. Three years ago."},
 	{"Ese ruidito sssss detrás de ti... no es nada.", "That little hisssss behind you... is nothing."},
 	{"Nunca caves hacia abajo. Consejo de calavera.", "Never dig straight down. Skull's advice."},
-	{"Un creeper en una fiesta: el mejor petardo.", "A creeper at a party: the best firecracker."},
-	{"Si ves un Enderman, no le mires. A mí sí.", "See an Enderman? Don't stare. Stare at me."},
+	{"Un kreeper en una fiesta: el mejor petardo.", "A kreeper at a party: the best firecracker."},
+	{"Si ves un Endermon, no le mires. A mí sí.", "See an Endermon? Don't stare. Stare at me."},
 	{"Cama en el Nether: mala idea. Como esta fiesta.", "A bed in the Nether: bad idea. Like this party."},
 	{"Mi bioma favorito: la estaca.", "My favourite biome: the stake."},
-	{"El One Piece existe. Tú has elegido una fiesta.", "The One Piece is real. You chose a party."},
-	{"Luffy estira el brazo. Yo no tengo ni brazo.", "Luffy stretches his arm. I don't even have one."},
+	{"El One Pieze existe. Tú has elegido una fiesta.", "The One Pieze is real. You chose a party."},
+	{"Fluffy estira el brazo. Yo no tengo ni brazo.", "Fluffy stretches his arm. I don't even have one."},
 	{"¡Seré el Rey de los Piratas! ...desde mi estaca.", "I'll be King of the Pirates! ...from my stake."},
 	{"Mi Fruta del Diablo: no poder bajarme de aquí.", "My Devil Fruit: never getting off this stake."},
 	{"Que alguien diga «nakama». Necesito amigos.", "Someone say \"nakama\". I need friends."},
@@ -134,6 +134,32 @@ var finMurrayLines = [][2]string{
 	{"¿Todos los trofeos? Ahora, la vida real. Suerte.", "All trophies? Now try real life. Good luck."},
 	{"Ni una fiesta más. Bueno... una. La última.", "No more parties. Well... one. The last one."},
 	{"Mañana, resaca. Pasado, fiesta. Es el ciclo.", "Hangover tomorrow. Party after. The cycle."},
+	// demonic, like the skull he is
+	{"Firmaste el pacto. Fiesta eterna. Sin reembolso.", "You signed the pact. Eternal party. No refunds."},
+	{"Tu alma ya es mía. La archivo con las demás.", "Your soul is mine now. Filed with the others."},
+	{"¿Oyes esos gritos? Es la fiesta. Siempre lo es.", "Hear those screams? That's the party. Always."},
+	{"El infierno es una fiesta que no acaba. Pasa.", "Hell is a party that never ends. Come in."},
+	{"Mi risa malvada: ¡MUAJAJA! Sin pulmones, claro.", "My evil laugh: MWAHAHA! Lungless, of course."},
+	{"Cierra los ojos. Aquí seguiré. Sonriendo.", "Close your eyes. I'll still be here. Grinning."},
+	{"Soy eterno. Tú mañana madrugas.", "I am eternal. You have an early start."},
+	// blocks, picks and things that hiss
+	{"Ese bloque de tierra me mira raro.", "That dirt block is giving me a look."},
+	{"Hmm. Hmmm. Así hablan los aldeanos. Y yo.", "Hmm. Hmmm. That's how villagers talk. Me too."},
+	{"Con un pico de diamante salía de aquí. Creo.", "A diamond pickaxe and I'd be out. I think."},
+	{"Anochece y salen los zombis. Yo ya estoy fuera.", "Night falls, zombies come out. I'm already out."},
+	{"Lava + agua: obsidiana. Fiesta + vecino: poli.", "Lava + water: obsidian. Party + neighbour: cops."},
+	// pirates, treasure and a crew of friends
+	{"El tesoro era la fiesta del camino.", "The treasure was the party along the way."},
+	{"No tengo sombrero de paja. Tengo estaca.", "No straw hat. I've got a stake."},
+	{"¡Seré el Rey de las Fiestas! Ya lo soy, vaya.", "I'll be King of the Parties! I already am."},
+	{"Mi tripulación: tú y el T-Rex. Somos namaka.", "My crew: you and the T-Rex. We're namaka."},
+	{"Se busca: Murrey. Recompensa: tres doblones.", "Wanted: Murrey. Reward: three doubloons."},
+	// the end of the game
+	{"Juego acabado. ¿Y ahora qué haces con tu vida?", "Game over. Now what do you do with your life?"},
+	{"Media ciudad en el periódico. Y tú, tranquilo.", "Half the town in the papers. And you, so calm."},
+	{"La ciudad entera de fiesta. Para siempre. Je.", "The whole town is partying. Forever. Heh."},
+	{"Los niños del skate no paran. Yo tampoco.", "The skate kids won't stop. Neither will I."},
+	{"¡Diego, César, Sam-sam, a la cama! Ni caso.", "Diego, César, Sam-sam: bedtime! Ignored."},
 }
 
 // finMurrayLinesNormal: what he says on the normal "¿ FINAL ?" (the night is not over: trophies are missing,
@@ -169,6 +195,20 @@ var finMurrayLinesNormal = [][2]string{
 	{"Bostezo. Contagioso, ¿eh? Y sin pulmones.", "Yawn. Contagious, huh? And I've no lungs."},
 	{"El signo de interrogación lo puse yo. De nada.", "I put the question mark there. You're welcome."},
 	{"Fiesta acabada, vecino dormido. Por fin, paz.", "Party over, neighbour asleep. Peace at last."},
+	{"Tu alma queda en depósito hasta el final real.", "Your soul stays on deposit till the real end."},
+	{"El pacto decía «todas las fiestas». Te faltan.", "The pact said \"every party\". Some are missing."},
+	{"Medianoche: hora de demonios. Y de resaca.", "Midnight: demon hour. And hangover hour."},
+	{"Muajaja. Perdón, se me escapó la risa malvada.", "Mwahaha. Sorry, the evil laugh slipped out."},
+	{"Hay más final. Lo juro por mis cuernos.", "There's more ending. I swear on my horns."},
+	{"Te falta un bloque para acabar la casa.", "You're one block short of finishing the house."},
+	{"Hmm. El aldeano dice que te faltan trofeos.", "Hmm. The villager says you lack trophies."},
+	{"Si oyes «sss» en una fiesta, corre.", "If you hear \"sss\" at a party, run."},
+	{"Sin trofeos no hay tesoro. Ley pirata.", "No trophies, no treasure. Pirate law."},
+	{"El gran tesoro está en una isla. No es broma.", "The great treasure is on an island. No joke."},
+	{"Rey de las Fiestas... casi. Te falta corona.", "King of the Parties... almost. No crown yet."},
+	{"Los créditos han pasado. Tus trofeos, no.", "The credits rolled. Your trophies didn't."},
+	{"Los niños siguen dando vueltas. Como tú.", "The kids keep going round. Like you."},
+	{"Patinadores a medianoche. ¿Y sus padres?", "Skaters at midnight. Where are their parents?"},
 }
 
 // finMurraySet: the lines of the card of this ending.

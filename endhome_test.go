@@ -95,6 +95,27 @@ func TestEndingCreditsTestersAndYear(t *testing.T) {
 	}
 }
 
+// QA 2026-11-11: the testers line is English in English (no Spanish "y"); the robot and the funny hero keep one
+// proper name in both languages (no film title, no original name).
+func TestCreditsAndNamesEnglish(t *testing.T) {
+	old := uiLang
+	t.Cleanup(func() { uiLang = old })
+	uiLang = "en"
+	if got := tr("Diego, César y Samuel"); got != "Diego, César and Samuel" {
+		t.Errorf("testers in English: %q", got)
+	}
+	for _, r := range endCreditRows(true) {
+		if strings.Contains(tr(r[1]), " y ") {
+			t.Errorf("credits row %q in English: %q", r[1], tr(r[1]))
+		}
+	}
+	for _, c := range []struct{ es, en string }{{autoDisplayName("johnny5"), "Cortocirquito"}, {"Mega Manolo", "Mega Manolo"}} {
+		if c.es != c.en || tr(c.es) != c.en {
+			t.Errorf("%q -> %q, want %q in both languages", c.es, tr(c.es), c.en)
+		}
+	}
+}
+
 // Home at last: the scene comes after the stinger and before FIN, silent, and it draws in both modes.
 func TestEndingHomeScene(t *testing.T) {
 	if nextEndStage(endPaper, true) != endHome || nextEndStage(endHome, true) != endFinal {

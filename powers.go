@@ -52,7 +52,11 @@ func (g *Game) othersDone() bool {
 }
 
 // allTrophies: the whole list, the last one included (the golden menu).
-func (g *Game) allTrophies() bool { return g.progress.Trophies[legendTrophy] && g.othersDone() }
+// The menu tier kept in the save (MenuTier >= silver: every trophy was won once) still counts when a newer version
+// adds a trophy (medals.go): nothing achieved is taken away.
+func (g *Game) allTrophies() bool {
+	return g.progress.Trophies[legendTrophy] && (g.othersDone() || g.progress.MenuTier >= tierSilver)
+}
 
 func (g *Game) hasLegend() bool { return g.dbg.powers || g.progress.Trophies[legendTrophy] }
 

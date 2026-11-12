@@ -14,7 +14,7 @@ import (
 //      which grows until it fills the picture (re-entry glow, white flash);
 //   2. the Earth (arrival_travel.go): the shuttle lands next to a rental helipad, the players run to the yellow rented
 //      helicopter and it takes off;
-//   3. the island: the helicopter flies over the sea to the coast of Isla Nublar (the big gate of the park in the
+//   3. the island: the helicopter flies over the sea to the coast of Isla Nublada (the big gate of the park in the
 //      jungle) and lands on the helipad. Its engine coughs smoke on the way; the door slides open, they get out (the
 //      blue one calm, the red one in a hurry and dizzy), they step away and the engine catches FIRE: it does not blow
 //      up, it is left burning and smoking (that is how the last scene finds it, preWreck in prelude.go). A T-Rex comes
@@ -252,7 +252,7 @@ type arrLine struct {
 func arrLines(n int) []arrLine {
 	const T = arrTravel
 	out := []arrLine{
-		{0, arrEarthT + 1.25, arrEarthT + 2.2, "¡Taxi! ¡A Isla Nublar!"}, // on the Earth, running to the helicopter
+		{0, arrEarthT + 1.25, arrEarthT + 2.2, "¡Taxi! ¡A Isla Nublada!"}, // on the Earth, running to the helicopter
 		{0, T + 0.4, T + 1.6, "Qué vistas, ¿eh?"},
 		{0, T + 2.9, T + 3.7, "Aterrizaje de diez."},
 	}
@@ -600,7 +600,11 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 	dst.DrawImage(cv, dop)
 	if tl < 2.4 {
 		al := clampF(tl/0.5, 0, 1) * (1 - clampF((tl-1.8)/0.6, 0, 1))
-		g.drawTextC(dst, "VUELO A ISLA NUBLAR: SIN TURBULENCIAS (CASI)", 480, 468, rgba(0xf4f0ff, uint8(255*al)), 2)
+		// on a dark band like the other captions: the camera passes over the park's gate and its wide sign here
+		const flight = "VUELO A ISLA NUBLADA: SIN TURBULENCIAS (CASI)"
+		w := math.Round(g.textW(tr(flight), 2) + 40)
+		fillRect(dst, math.Round(480-w/2), 458, w, 44, rgba(0x000000, uint8(170*al)))
+		g.drawTextC(dst, flight, 480, 468, rgba(0xf4f0ff, uint8(255*al)), 2)
 	}
 	if tl < 0.5 {
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0x000000, uint8(255*(1-tl/0.5))))
@@ -611,9 +615,16 @@ func (g *Game) drawArrival(dst *ebiten.Image, e *endState) {
 	g.arrSkipHint(dst, a)
 }
 
+// skipTwiceHint: "Enter / Esc: skip (press twice)", shared by the intro, arrival and interludes.
+// The fixed part is translated on its own: inside the whole line the shorter key ": saltar"
+// won and left "(dos veces)" in Spanish in the English game.
+func skipTwiceHint() string {
+	return actionHint(actConfirm) + " / " + actionHint(actBack) + tr(": saltar (dos veces)")
+}
+
 // arrSkipHint: the line at the bottom (two presses skip the scene).
 func (g *Game) arrSkipHint(dst *ebiten.Image, a *arrivalState) {
-	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
+	hint := skipTwiceHint()
 	col := rgba(0x8a86a0, 170)
 	if a.skipArm > 0 {
 		hint, col = "Otra vez para saltar", rgb(0xffe060)

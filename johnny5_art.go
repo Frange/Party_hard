@@ -3,7 +3,7 @@ package main
 import "math"
 
 // ---------------------------------------------------------------------------
-// Cortocircuito (slug "johnny5") has his own procedural drawing (genJohnny5), like SpongeBob:
+// Cortocirquito (slug "johnny5") has his own procedural drawing (genJohnny5), like SpongeBob:
 // the generic body cannot show a robot on caterpillar tracks. Our own pixel-art take on the
 // film robot: blue-grey body, a head of two big golden lenses with black pupils on a bridge,
 // two metal horns sticking up over the eyes, a thin neck with cables, a modular blue torso with

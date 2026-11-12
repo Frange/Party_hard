@@ -36,7 +36,7 @@ const lateJoinMin = 10
 // events with extra people, kids, famous powers) asks guestRoom, so one check closes them all. A group already
 // on its way when the threshold is crossed is simply cancelled (addGuestAt finds no room).
 func (g *Game) arrivalsClosed() bool {
-	return g.mode == ModePlay && g.time > 3 && g.aliveCount() <= lateJoinMin
+	return g.mode == ModePlay && (g.time > 3 && g.aliveCount() <= lateJoinMin || g.cdClosed()) // or closed by the countdown (countdown.go)
 }
 
 // ---------------------------------------------------------------------------

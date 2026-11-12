@@ -376,6 +376,7 @@ func TestStealthDebugRowAndFlags(t *testing.T) {
 
 // The HUD, the cones and the texts of the mode fit on the screen in both languages, in every phase.
 func TestStealthHUDTextAudit(t *testing.T) {
+	snapshotLang(t)
 	prevLang, prevEd := gameLang, editorLang
 	oldF := progressFrozen
 	t.Cleanup(func() { gameLang, editorLang, progressFrozen = prevLang, prevEd, oldF })

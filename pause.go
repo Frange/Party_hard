@@ -6,13 +6,13 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// PAUSE WINDOW (Esc / B / Start during a party).
+// PAUSE WINDOW (Esc / START during a party; ○ or START closes it).
 //
-// Esc (or the pad's B, or Start) in an active party opens a small window over the dimmed game with three rows:
+// Esc (or START of the pad) in an active party opens a small window over the dimmed game with three rows:
 // CONTINUAR, AJUSTES and SALIR A ELEGIR FIESTA. Any of the two players can open it. While it is open
 // Game.Update returns before anything of the party runs (like the help window): guests, timers, police,
 // events and the level clock g.time do not move. The music keeps looping.
-//   - CONTINUAR, Esc, B or Start again: back to the party.
+//   - CONTINUAR, Esc, ○ or START again: back to the party (✕ picks a row).
 //   - AJUSTES: the normal settings screen; its ATRÁS / Esc comes back to this window (the party is still
 //     loaded and paused; g.time is held while the settings are open, so the RETO time limit does not run).
 //   - SALIR A ELEGIR FIESTA: the party is dropped and the party list opens. Nothing is added: the points of
@@ -53,6 +53,7 @@ type pauseState struct {
 // pauseInput: what the window reads in one frame (a function so the tests can feed it).
 type pauseInput struct {
 	toggle, up, down, ok, click bool
+	back                        bool // ○ / Esc of the menus: only closes the window (in a party ○ is "interact")
 	mx, my                      int
 }
 
@@ -62,7 +63,8 @@ var pauseNow bool
 var pauseInFn = func() pauseInput {
 	mx, my := ebiten.CursorPosition()
 	in := pauseInput{
-		toggle: actBack.justEither() || pauseStartPressed(),
+		toggle: actBack.justKeysEither() || pauseStartPressed(), // Esc / P / START: the pad's ○ is interact in a party
+		back:   actBack.justEither(),
 		up:     actUp.justEither(),
 		down:   actDown.justEither(),
 		ok:     actConfirm.justEither(),
@@ -121,7 +123,7 @@ func (g *Game) updatePause() bool {
 		return false
 	}
 	in := pauseInFn()
-	if in.toggle {
+	if in.toggle || in.back {
 		g.pause.open = false
 		return true
 	}

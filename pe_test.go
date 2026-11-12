@@ -37,7 +37,24 @@ func peLoad(t *testing.T, idx int, two bool) *Game {
 			keep[k] = v
 		}
 	}
+	// The special killer (killerreg.go, its own time-seeded dice, 1 party in 3) and the mascot suits (fursuit.go, a reactive
+	// event with its own dice, 1 party in 4, that lasts the whole party) are not part of the event under test: a killer
+	// killed guests in the middle of a test and the mascots stayed in g.pev.act after the tested event ended, one run in a
+	// few. Neither comes in these parties unless the test asks for it (fursuitGame clears fursuitLvl to roll its suits).
+	prevFur := [...]any{fursuitRng, fursuitSeed, fursuitLvl, fursuitWant, fursuitAt, fursuitDone}
+	t.Cleanup(func() {
+		fursuitRng, fursuitSeed, fursuitLvl = prevFur[0].(*rand.Rand), prevFur[1].(int64), prevFur[2].(*Level)
+		fursuitWant, fursuitAt, fursuitDone = prevFur[3].(bool), prevFur[4].(float64), prevFur[5].(bool)
+	})
 	g.loadLevel(idx)
+	g.kp = killerPlan{}
+	fursuitLvl, fursuitWant = g.lvl, false
+	// nor the weapons on the floor (presets3.go): a guest who picks one up goes on a rampage and kills two or three
+	// (it broke TestFursuitPartyDanceAndBonus, "the suits changed the party", one run in a few)
+	for _, w := range g.weapons {
+		w.gone = true
+	}
+	g.weapons = nil
 	memState.seen, memState.lvl, memState.pick, memState.spoke = keep, nil, nil, nil
 	g.mode = ModePlay
 	g.time = 0
@@ -137,10 +154,12 @@ func peTrack(g *Game, touched map[*Guest]bool) {
 	}
 }
 
-// peStale: a guest the events took who is still held (nil = all free).
+// peStale: a guest the events took who is still held (nil = all free). A guest that another event still running owns
+// right now (the reactive tablehide hid a released dancer under a cloth table: TestPevCongaEveryVenue, funfair 2P, one
+// run in a few) is not stale: that event lets him go when it ends.
 func peStale(g *Game, touched map[*Guest]bool) *Guest {
 	for gu := range touched {
-		if !gu.out() && peHeld(gu) {
+		if !gu.out() && peHeld(gu) && !g.pevTaken(gu) {
 			return gu
 		}
 	}
@@ -215,7 +234,8 @@ func TestPevEligibilityByLevel(t *testing.T) {
 		e := partyByID(id)
 		in := peEligible(g, id)
 		t.Logf("%-8s fits %2d of %d campaign levels: %v", id, len(in), n, in)
-		if len(in) == 0 || len(in) > n*2/3 {
+		// (the conga fits every party but the station since 2026-11-11, owner: pe_conga_test.go checks it)
+		if len(in) == 0 || id != "conga" && len(in) > n*2/3 {
 			t.Errorf("%s should fit some campaign levels, not all (%d of %d)", id, len(in), n)
 		}
 		for _, i := range in {

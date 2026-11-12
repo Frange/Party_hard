@@ -100,7 +100,7 @@ func (l *LevEd) debugBlock(u *UI, x, y, w int) {
 		}
 		items = append(items, segItem{"world", t})
 	}
-	if i := u.menuBtn(x, y, w, 34, "world", "Escenarios del juego", "lvorig", items, "Abre uno de los 24 escenarios del juego para corregirlo (★: ya tiene correcciones)"); i >= 0 {
+	if i := u.menuBtn(x, y, w, 34, "world", "Escenarios del juego", "lvorig", items, fmt.Sprintf("Abre uno de los %d escenarios del juego para corregirlo (★: ya tiene correcciones)", len(campaignLevels))); i >= 0 {
 		l.loadOriginal(i)
 	}
 	y += 40

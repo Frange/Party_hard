@@ -61,6 +61,9 @@ func loadPlayerSettings() {
 			binds2[i], saved[i] = bindingFrom(sb, binds2[i]), true
 		}
 	}
+	if settingsControlsRev(raw) < controlsRev { // old default pad buttons -> the new ones (input.go)
+		migratePads(&binds2, saved)
+	}
 	dropTakenDefaults2(saved)
 	resolveKeyClashes()
 	twoPlayerMode, devPref = false, [2]int{devAutoPref, devAutoPref}

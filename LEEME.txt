@@ -11,10 +11,32 @@ Mac: abre PartyHardy.app o PartyHardyEditor.app (la carpeta assets va junto a la
 Dentro del juego, F2 abre el editor. En el editor, "Volver al juego (F2)" vuelve.
 El formato de los ficheros está en ASSETS.md.
 
-Versión v.1.0.0 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard; también en Créditos,
+TU PARTIDA: se guarda en assets/progress.json (y tus ajustes en assets/settings.json). Al actualizar el juego
+CONSÉRVALOS: no borres ni sustituyas la carpeta assets entera. Si instalas el juego completo nuevo en otra carpeta,
+copia antes esos dos ficheros a la carpeta assets nueva. Una partida de una versión anterior se actualiza sola al
+cargarla, sin perder nada.
+
+Versión v.1.3.0 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard; también en Créditos,
 en el título de la ventana y en VERSION.txt). Todo lo que trae cada versión está en CHANGELOG.md: cambio menor = x.y.Z,
 medio = x.Y.0, grande = X.0.0. Las teclas fijas (R, M, F11, Enter/Esc) ya no se rotulan en el menú: están en la ventana
 de ayuda, el botón "?" (o F1).
+
+ACTUALIZAR CON UN PARCHE
+------------------------
+En vez del juego completo puede llegarte un parche, PartyHardy-Parche-<Mac|Windows>-<de>-a-<a>.zip (por ejemplo
+PartyHardy-Parche-Mac-1.0.0-a-1.1.0.zip), con SÓLO lo que cambia. Sirve únicamente sobre la versión "de" (mírala en
+VERSION.txt o abajo a la derecha del menú); sigue su LEEME_ACTUALIZAR.txt.
+- Qué incluye: los ficheros nuevos y cambiados (ejecutables, .app, assets, música, LEEME, CHANGELOG, VERSION.txt) en
+  las mismas carpetas que el juego, REMOVIDOS.txt (lo que hay que borrar), LEEME_ACTUALIZAR.txt y VERIFICAR_BASE.txt.
+- Qué NO incluye ni toca: tu partida (assets/progress.json), tus ajustes (assets/settings.json), las preferencias del
+  editor, la carpeta imports y tus mp3 de intros. Tu progreso se conserva.
+- Cómo: cierra el juego, haz una copia de assets/progress.json por si acaso y descomprime el parche ENCIMA de la carpeta
+  del juego, sobrescribiendo. Después borra lo que diga REMOVIDOS.txt.
+- Mac: NO arrastres las carpetas del parche con Finder eligiendo "Reemplazar": Finder sustituye la carpeta assets
+  entera y te quedarías sin partida ni ajustes. Usa el Terminal: unzip -o PartyHardy-Parche-Mac-....zip -d <carpeta del
+  juego> (la que tiene VERSION.txt; las rutas del parche ya empiezan ahí), o, si copias con Finder, mantén pulsada la tecla
+  Opción y elige "Combinar". Si macOS se queja de la .app, clic derecho > Abrir como la primera vez.
+- Windows: "Extraer todo" sobre la carpeta del juego y "Reemplazar los archivos en el destino".
 
 NOVEDADES v6
 - Personajes sin contorno, mas de 300 disenos nuevos.
@@ -26,17 +48,17 @@ NOVEDADES v6
 NOVEDADES v7
 - Los cuerpos solo se "detectan" cuando un testigo vivo avisa a la policia (llamada o en persona).
 - Las esposas sobre tu cabeza NO significan que te hayan detenido: significan que la policía ha sido AVISADA y te busca (estadística del periódico: "Policía avisada"). Salen cuando un testigo AVISA a un poli, no cuando te ve: mientras tanto sale una ALERTA (!) sobre tu cabeza; si matas al testigo antes de que avise, te libras (sin esposas ni alerta). Un poli que lo ve el mismo avisa al instante.
-- Policia mas listo: pocos cuerpos cada uno, ambulancias, refuerzos, SWAT o FBI (Mulder y Scully) muy de vez en cuando.
+- Policia mas listo: pocos cuerpos cada uno, ambulancias, refuerzos, SWAT o FBI (Molder y Skully) muy de vez en cuando.
 - GRUPOS DE POLICIA: al principio solo hay policia local; con tus muertes totales se desbloquean FBI (500), militares (1000),
-  SWAT (1500) y Power Rangers (2000). En cada llamada llegan SIEMPRE primero 1 o 2 polis (segun los cuerpos encontrados);
+  SWAT (1500) y Pawer Rangers (2000). En cada llamada llegan SIEMPRE primero 1 o 2 polis (segun los cuerpos encontrados);
   despues la fiesta se reparte en tramos iguales entre los grupos que tengas (60 invitados y 2 grupos: muertes 1-30 polis,
   31-60 FBI; 3 grupos: 20 cada uno...). Al bajar del coche un grupo superior, los anteriores se van sin preguntar; cada
   grupo ve un poco mas lejos, anda un poco mas rapido y trae mas agentes. Depuracion: -unlocked N (no toca la partida).
 - CUALQUIER cadaver que vea un invitado o un guardia se denuncia (peleas, tiroteos, coches, explosiones, animales...),
   no solo los tuyos: la policia viene a ver, cubre todos los cuerpos y se va. Solo tus muertes dan estrellas o te
   hacen sospechoso. Los grupos de policia cuentan TODAS las muertes de la fiesta. Depuracion: -pevent pelea -peleadie.
-- ISLA NUBLAR: los muertos del T-Rex tambien se denuncian (sin estrellas para ti) y la policia se queda hasta cubrir
-  todos los cuerpos. Militares y SWAT le disparan y lo debilitan (nunca lo matan); los Power Rangers le pegan y a veces
+- ISLA NUBLADA: los muertos del T-Rex tambien se denuncian (sin estrellas para ti) y la policia se queda hasta cubrir
+  todos los cuerpos. Militares y SWAT le disparan y lo debilitan (nunca lo matan); los Pawer Rangers le pegan y a veces
   (35 %) lo tumban, si no se come a alguno. Depuracion: -trexkill (los Rangers vienen a la primera y ganan).
 - El tanque revienta coches y vehiculos de emergencias. Los helicopteros sueltan a la gente en la puerta.
 - DJ en todos los niveles; si lo matas suena punk rock. Muchas canciones nuevas, una lista distinta por escenario.
@@ -55,7 +77,7 @@ OBJETIVOS, VESTUARIO Y TIENDA
 OBJETIVOS (antes Trofeos): pestañas TROFEOS | PERSONAJES | VIPS | ASESINOS | POLICÍAS | CARRERA (386 tarjetas:
 304 personajes, 50 VIPs, 27 asesinos y 5 cuerpos de policía; CARRERA son los totales de tu partida). Lo que ganas jugando
 está aquí: matas a un invitado de un tipo y desbloqueas su personaje; derrotas a un asesino y es tuyo; matas a un
-agente (o llegas a su hito: FBI a las 500 muertes, ejército a las 1000, SWAT a las 1500, Power Rangers a las
+agente (o llegas a su hito: FBI a las 500 muertes, ejército a las 1000, SWAT a las 1500, Pawer Rangers a las
 2000) y se marca su tipo de policía. La policía local está desde el principio.
 UNIFORMES DE POLICÍA: ya no se compran. Se ganan ESCAPANDO: cada vez que te buscan (las esposas) y consigues
 que te dejen de buscar sin que te atrapen o mueras, cuenta un escape. Cada 3 escapes se abre un uniforme
@@ -72,12 +94,13 @@ sigue siendo tuyo y puedes ponértelo en el VESTUARIO. Los animales y asesinos n
 
 BANDAS
 ------
-En algunas fiestas toca una banda famosa (Beatles, Sum 41, Blink-182, Simple Plan, The Offspring,
-Metallica, Punk Sailor, Billy Talent, Lost Prophets, Despistaos, Elvis): en el escenario del nivel
+En algunas fiestas toca una banda famosa (The Beetles, Sum 42, Blink-183, Simple Pan, The Offsprung,
+Metalica, Punk Sailor, Billy Tallent, Lost Profets, Despistaus, Elviz): en el escenario del nivel
 si lo tiene, o en un hueco libre con su propia pista de baile. Mientras tocan suena música punk
 (sintetizada). Si dejas mp3 en la carpeta "bands" cuyo nombre empiece por el de la banda
-(por ejemplo "blink182_all the small things.mp3" o "The Offspring - Pretty Fly.mp3"),
-sonará esa canción cuando esa banda esté en la fiesta.
+(por ejemplo "blink183_mi cancion.mp3" o "The Offsprung - Otra cancion.mp3"),
+sonará esa canción cuando esa banda esté en la fiesta. Los nombres llevan una letra cambiada
+(iguales en español y en inglés); los mp3 con el nombre de antes siguen valiendo.
 
 LÍMITE DE PERSONAJES
 --------------------
@@ -93,8 +116,8 @@ furgoneta amarilla con 1 o 2 técnicos que arreglan las cabinas cortadas y se va
 
 SUCESOS A DEMANDA
 -----------------
-Algunos trofeos (Fiestero, Cortacables, Testigo ocular, Contactos, Era jurásica, ¿A quién llamarás?,
-Servicio técnico) dan el poder de provocar un suceso raro con la tecla V (botón LB del mando;
+Algunos trofeos (Fiestero, Cortacables, Testigo ocular, Contactos, Era cretácica, ¿A quién yamarás?,
+Servicio técnico) dan el poder de provocar un suceso raro con la tecla V (botón L1 del mando;
 se cambia en AJUSTES): máximo 2 por fiesta, separados 30 segundos.
 
 NIÑOS SOBRE RUEDAS
@@ -102,16 +125,18 @@ NIÑOS SOBRE RUEDAS
 Sam-sam y César (patinete) y Diego (monopatín): pequeños y más rápidos que nadie. Si te ven
 de frente, huyen; hay que pillarlos por la espalda. También están en la tienda.
 
-20 FIESTAS
+26 FIESTAS
 ----------
-La campaña tiene 20 escenarios, siempre en este orden: House Party, Miami Beach, Glow Neon, Bull's Eye,
+La campaña tiene 26 escenarios, siempre en este orden: House Party, Miami Beach, Glow Neon, Bull's Eye,
 Plaza de Toros, Torre Eiffel, Crucero Nocturno, Parque de Atracciones, Estadio, Discoteca, Festival,
 Skate Park, CEMENTERIO (noche de brujas), Cine, Circuito, ESTACIÓN DE ESQUÍ, Rooftop Party, CASINO,
-Supermercado y, de colofón, la Estación Espacial. Pub, Plaza Europea y Centro Comercial salen en el modo aleatorio.
+Autopista, ITALIA, Estación de Tren, Fiesta de Cumpleaños, Pista de Hockey, Disco Setentera, BARCO PIRATA y,
+de colofón, la Estación Espacial (y después, la isla secreta). Pub, Plaza Europea, Centro Comercial y
+Supermercado salen en el modo aleatorio.
 
 BARCOS Y NAVES
 --------------
-Donde no hay carretera (el crucero y la estación espacial) la policía, las ambulancias, los invitados
+Donde no hay carretera (el crucero, el barco pirata y la estación espacial) la policía, las ambulancias, los invitados
 nuevos, el coche fúnebre y los técnicos llegan en lancha motora o en nave, cada uno con el color de su
 coche. En la azotea siguen llegando los helicópteros y el ascensor.
 
@@ -125,7 +150,7 @@ skate (Diego). Esos sucesos salen solos de vez en cuando y también con la tecla
 TROFEO FINAL Y PODERES
 ----------------------
 El trofeo 50, "Leyenda de la fiesta", se consigue ganando todos los demás. Da cuatro poderes (teclas en
-AJUSTES; por defecto I, O, K, L y en mando RB, LT, L3, R3):
+AJUSTES; por defecto I, O, K, L y en mando R2, L2, L3, R3):
  I  inmunidad: no te mata nada y la puñalada mata policías; sale un halo dorado sobre tu cabeza
  O  trae un famoso a la fiesta
  K  envía un asesino
@@ -171,10 +196,29 @@ Dos opciones más, solo aquí (apagadas por defecto):
   SOSPECHOSO EQUIVOCADO ("¡ALTO! ¿ES ESE EL SOSPECHOSO?" / "¡YO NO HE SIDO!"), lo esposa, lo lleva al coche y lo suelta.
   En partida es raro (15 % por llamada, nunca en la primera llamada ni en dos seguidas, 3 min entre uno y otro, máx. 2 por
   fiesta); mientras dura (~9 s) la policía se olvida de los jugadores. Escribe en la consola dónde está la escena.
+  -grenade 1|2: GRANADA DE HUMO. 1 = dos granadas en todas las fiestas (una junto al punto de salida); 2 = ademas te da
+  una y la lanza a los ~2 s contra el grupo mas grande. Congela el progreso. En partida aparecen "a veces" (1 fiesta de
+  cada 3 aprox., 1 o 2 granadas junto a mesas, cajas, armarios o bolsas; nunca en sigilo). Se recoge y se lanza con la
+  tecla de usar (E / la del J2) cuando no hay otra cosa que usar cerca: vuela ~130 px hacia donde miras, rebota una vez
+  (los muros la paran) y suelta una nube de 6 s exactos (radio 80 px). Mientras dura nadie ve dentro, desde dentro ni a
+  traves: invitados, guardias, policias y camaras; los que estan dentro tosen aturdidos hasta 1 s despues. Tu si ves.
   -blackout: fuerza el EVENTO APAGON a los ~3 s de la fiesta (10 s); congela el progreso. El apagon real es muy raro
   (1 fiesta de cada 16 aprox., nunca en sigilo): pantalla oscura 8-12 s con halo minimo alrededor del jugador, linternas de
   guardias y polis, moviles, ojos de gato y chispas del cuadro electrico; los invitados se alborotan; mientras dura, las
   camaras NO funcionan (sin cono ni grabacion) y todos ven la MITAD de lejos; vuelve la luz con un "clac".
+  -storm 1: fuerza la TORMENTA a los ~3 s (lluvia; en la estacion de esqui, nevada) con un relampago a los ~9 s;
+  -storm 2: ademas un rayo cae sobre un invitado a los ~12 s. Congela el progreso. La tormenta real sale a veces (1 fiesta
+  de cada 5-6) solo en fiestas al aire libre: Miami Beach, Torre Eiffel, Parque de atracciones, Estadio, Festival,
+  Cementerio, Circuito, Estacion de esqui y Autopista; nunca en sigilo ni en el Reto de hoy; como mucho una por fiesta,
+  a los 70-200 s, dura 40-80 s y no cambia lo que ven guardias ni camaras. El rayo sobre un invitado es muy raro y no
+  cuenta como baja tuya (ni estrellas ni policia).
+  -dawn 0: fuerza el AMANECER en la fiesta (la noche aclara poco a poco: por tiempo, ~5 min, o por invitados caidos);
+  -dawn P (1-100): amanecer fijo al P % (para capturas). Congela el progreso. El real sale en 1 de cada 3 fiestas de
+  Miami Beach, Torre Eiffel, Festival y Rooftop Party; solo cambia la luz (las farolas se apagan al final).
+  -medaldemo: todas las fiestas abiertas con medallas de ejemplo (bronce, plata y oro alternas); no se guarda nada.
+  -hidedemo x,y,in|out|busy: el jugador está en x,y, entra en el escondite más cercano al segundo 1 y (out, busy: con el
+  compañero en el sitio) sale al segundo 2, para ver dónde reaparece.
+  -wildnow ANIMAL: un animal salvaje junto a la salida (frog, squirrel, boar, croc, cheetah, lion, cobaya, capibara).
   MUSICA REACTIVA suave: con alerta (buscado, policia llamada, estrellas o fase roja del sigilo) la musica de la fiesta sube
   un 10 % de volumen en ~2 s y vuelve a la normalidad al calmarse (no cambia el tempo; solo musica de nivel).
   -endstage N (con -ending 1|2|3, y -endat segundos): empieza en esa parte: 1 paseo, 2 puerta, 3 cama, 4 créditos,
@@ -183,19 +227,64 @@ Dos opciones más, solo aquí (apagadas por defecto):
 
 NOVEDADES DE LA ÚLTIMA VERSIÓN
 ------------------------------
+- v1.3.0 (el detalle está en CHANGELOG.md; incluye todo lo de la antigua 1.2.0, que no llegó a publicarse): TORO
+  MECÁNICO (playa, rancho, feria, festival y cumpleaños); murga callejera; pogos en círculo; parejas de baile lento; la
+  ola en el estadio; concurso de comer; invitado con megáfono; los invitados acarician perros, gatos y caballos;
+  lanzador de pelotas para el perro; patinador artístico en el hielo; GUARDIA CON LINTERNA en las fiestas de noche
+  (apágasela por la espalda con E); bola de espejos; OBRAS en la calle y GRÚA (E: soltar la carga encima de alguien);
+  grafitero que deja sus dibujos en la fachada; carrera de sacos; superhéroe aficionado; paraguas con tormenta (los
+  rayos nunca caen cerca de un jugador); helicóptero, lancha y nave sanitarios en la isla, el barco y la estación; los
+  patinadores salen en una de cada dos fiestas; la conga sale en casi todas; DETECTOR DE METALES en una
+  puerta de algunas fiestas del casino, la discoteca y el cine (si lo cruzas pita y un guardia va a por ti).
+  La policía busca menos (10-15 s), las
+  ambulancias van más rápido (2 si hay 5 cuerpos o más) y ya no se van sin actuar; las peleas salen algo menos.
+  Arreglado: la estación espacial con la carpeta assets y las bajas por veneno contadas dos veces en CARRERA.
+  Además, todo lo de la 1.2.0: aviso de MEDALLA durante la fiesta; RACHA de bajas limpias (×1,1 a ×1,5,
+  contador bajo el jugador y fila en el periódico); trampolín en las piscinas; equipo de limpieza; sillas, mesas, bancos,
+  hamacas y pufs donde se sientan los invitados (las mesas largas con mantel sirven de escondite); sucesos nuevos (coche
+  sin gasolina, taxi, invitados disfrazados de mascota que bailan, batallas de baile, cuenta atrás de cierre en 1 de cada
+  12 fiestas, maleta olvidada, estatua humana, cocinero e incendio, coro, vendedor ambulante, dron, póker, tarta
+  explosiva, fotógrafo, pintor en la escalera, guardia dormido); seis canciones nuevas al matar al DJ; más frases de
+  Murrey y de los patinadores; MANDO estilo PlayStation por defecto (X matar/aceptar, O usar/volver, Triángulo bailar,
+  R1 correr, R2 inmunidad, START pausa, Cuadrado minimapa); nombres de bandas con una letra cambiada (Simple Pan, Sum 42,
+  Metalica...), igual en español y en inglés, y tus mp3 de "bands" siguen valiendo con el nombre de antes o con el nuevo.
+- v1.1.1: el marcador de arriba a la izquierda vuelve a verse siempre; solo se oculta mientras un jugador pasa por
+  debajo (en la v1.1.0 no aparecía nunca).
+- v1.1.0 (resumen; el detalle está en CHANGELOG.md): BARCO PIRATA (fiesta 25; la Estación Espacial pasa a la 26);
+  MEDALLAS de bronce, plata y oro por fiesta (se ven al elegir fiesta y al empezar, y en el periódico) y el trofeo
+  "Bañado en oro" (si ya tenías el menú de oro o el 100 % COMPLETADO, lo conservas); TORMENTA (nevada en el esquí) y
+  AMANECER en algunas fiestas; GRANADA DE HUMO; disfraces temáticos en algunas fiestas; capibaras; con 2 jugadores, una
+  ambulancia por jugador y por fiesta; el HUD se oculta cuando un jugador pasa por debajo; nombres de famosos con una letra
+  cambiada y sin traducir (la isla secreta es la ISLA NUBLADA, con el PARQUE FIESTÁSICO); parches de actualización.
+- Nueva fiesta 25: BARCO PIRATA (PIRATE SHIP), justo antes de la ESTACIÓN ESPACIAL. Un galeón anclado en una bahía al
+  atardecer (luz malva suave, nada de dorado): castillo de popa con el timón, la mesa del capitán y un violinista;
+  cubierta principal con el DJ, el palo mayor con su vela y la bandera de la calavera ondeando, cañones (los de la
+  borda norte son trampa: dispara), ron (se puede envenenar), escotilla y loro; castillo de proa con el ancla y un
+  COFRE DEL TESORO (cógelo con E: +100 puntos). Se sube a los castillos por sus escaleras. Escóndete en barriles y
+  cofres (sales en el mismo sitio). El mar no se pisa; una pasarela baja a un muelle pequeño donde atracan todas las
+  lanchas (invitados, policía, ambulancia...). De vez en cuando pasa otro barco pirata a lo lejos. Invitados con
+  tricornio, camisetas de rayas, pañuelo o casaca. Música: épica. Sin cámaras de seguridad. Tope de bajas 65.
+- La campaña tiene ahora 26 fiestas; las dos últimas siguen siendo la ESTACIÓN ESPACIAL (26) y la isla secreta.
+- Tu partida NO pierde nada: al cargarla (CampaignRev 3) la victoria de la estación pasa de won_24 a won_25 y, si ya
+  tenías la estación abierta, sigue abierta y el BARCO PIRATA aparece abierto (sin ganar). Trofeos, álbum, monedero,
+  isla desbloqueada y escenas vistas no cambian. Las correcciones del editor de la estación (c25_station, c24_station
+  o c21_station) se siguen aplicando.
+- La lista de fiestas tiene ahora 3 columnas de 10 filas (el botón RETO DE HOY sube un poco).
+- mp3 por fiesta: si tenías "music/25_..." para la estación espacial, renómbralo a "26_..." (el 25 es ahora el barco
+  pirata; un mp3 de otro estilo se ignora con aviso).
 - Nueva fiesta 20: ITALIA (ITALY), justo después de la AUTOPISTA. Una piazza a la hora azul (luz neutra, como las
   demás fiestas al aire libre) con la torre inclinada sobre su césped (solo la base es sólida), un anfiteatro
   romano en ruinas donde pincha el DJ (se entra por el gran arco o por el hueco derrumbado de la derecha) y un trozo de Venecia: canal con góndolas negras, palos de amarre, palacios de colores y
   un embarcadero de madera (el agua no se pisa). Helados, horno de pizza, mesas con sombrilla, cipreses, fuente, vespas
   aparcadas y la calle pequeña con coches abajo. Invitados vestidos de gondolero, pizzero o "dolce vita". Música: clásica.
-  La campaña tiene ahora 25 fiestas; las dos últimas siguen siendo la ESTACIÓN ESPACIAL y la secreta ISLA NUBLAR.
+  La campaña tiene ahora 25 fiestas; las dos últimas siguen siendo la ESTACIÓN ESPACIAL y la secreta ISLA NUBLADA.
 - Tu partida NO pierde nada: al cargarla, las victorias de la estación de tren en adelante pasan a su nuevo número
   (won_19..won_23 -> won_20..won_24, CampaignRev 2) y, si ya habías ganado la autopista, ITALIA aparece abierta (sin
   ganar). Las correcciones del editor guardadas con el número antiguo (p. ej. c20_train) se siguen aplicando.
 - mp3 por fiesta ("music/N_..."): el número es el de la lista. Tus archivos del 1 al 19 no cambian de fiesta; ITALIA es
   la 20 (sin archivo suena la música sintetizada clásica) y, si tenías mp3 numerados del 20 al 24, renómbralos +1
   (21_estacion_de_tren..., 25_estacion_espacial...). Un mp3 de otro estilo se ignora con aviso (ver ESTILOS DE MÚSICA).
-- Los FBI, SWAT, militares y Power Rangers muertos dejan su propio cuerpo, con su ropa.
+- Los FBI, SWAT, militares y Pawer Rangers muertos dejan su propio cuerpo, con su ropa.
 - El supermercado se ha cambiado en la campaña por la AUTOPISTA: seis carriles, tráfico sin parar y gente
   bailando en el asfalto (los coches atropellan a quien esté en su carril; el supermercado sigue en el modo
   aleatorio). Ahora la campaña tiene 21 fiestas: la ESTACIÓN DE TREN va antes de la estación espacial.
@@ -205,12 +294,12 @@ NOVEDADES DE LA ÚLTIMA VERSIÓN
 - Baños en todos los niveles (si no hay, cabinas portátiles). La gente va cuando le aprieta... y algunos no
   llegan. Hay cola en las cabinas.
 - Animadoras con pompones: llegan en grupo, bailan y animan unos 30 segundos.
-- F1: Alonso, Hamilton, Verstappen, Leclerc y Sainz cruzan la fiesta como locos y atropellan.
+- F1: cinco pilotos de carreras cruzan la fiesta como locos y atropellan.
 - Una serpiente por fiesta, como máximo: muerde (a ti te mata). Se puede apuñalar.
 - Sucesos nuevos: manada que se escapa (elefantes, toros, caballos, jirafas, canguros, cerdos, patos),
   paracaidista que se une a la fiesta, partidillo de fútbol/baloncesto, grupos de Halloween, Navidad o
   verano (bañadores, tumbonas, piscina), taxis que dejan gente, monster trucks que aplastan coches y
-  coches tipo Rocket League (Octane, Fennec, Dominus) con turbo y salto.
+  coches de fútbol con turbo y salto (tres modelos).
 - Más frases graciosas en todos y charla aleatoria según el escenario.
 - Estadio: porterías en vertical y líneas del campo blancas.
 
@@ -231,14 +320,14 @@ OBJETOS, TRAMPAS Y PUNTOS (ÚLTIMA VERSIÓN)
 - Puntos nuevos: animales, cables cortados (una vez por cabina), cuerpos escondidos, veneno, disfraz y muertes por trampas.
 - El asesino especial: ahora cuenta como "por la espalda" todo lo que no esté en su campo de visión, y no puede
   responder mientras sigue aturdido por la puñalada anterior.
-- Los famosos se hablan entre sí (escenas de dos) y tienen momentos propios: Goku (Kamehameha), Freddie, Elvis, Santa,
-  Thor, Sonic, Mario, Deadpool, Hulk y Michael Jackson.
-- Invitados con personalidad (gait.go): los especiales andan y bailan a su manera. Michael Jackson hace el moonwalk
-  (se desliza mirando al otro lado, de puntillas, mano al sombrero); RoboCop, Terminator, Cortocircuito y Bender andan
-  como robots (pasos cortos y rígidos con pausas, brazos en ángulo recto, cabeza girando a tirones); Elvis camina con
-  el micro y baila de caderas con la rodilla temblando; Capitán América y Picard marchan; Mario, los Pitufos, el
-  Minion y Bob Esponja van a saltitos; Hulk, Conan, He-Man, Taz y Pedro Picapiedra andan pesados; Jack Sparrow y Homer
-  se tambalean; Batman y Spider-Man van sigilosos; Vader y Spock se deslizan erguidos. Es solo el dibujo: la velocidad,
+- Los famosos se hablan entre sí (escenas de dos) y tienen momentos propios: Goko (Kamejameja), Fredie, Elviz, Santa,
+  Thorr, Zonic, Marrio, Deadpoll, Bulk y Michael Jakson.
+- Invitados con personalidad (gait.go): los especiales andan y bailan a su manera. Michael Jakson hace el moonwalk
+  (se desliza mirando al otro lado, de puntillas, mano al sombrero); Rotocop, Termimator, Cortocirquito y Blender andan
+  como robots (pasos cortos y rígidos con pausas, brazos en ángulo recto, cabeza girando a tirones); Elviz camina con
+  el micro y baila de caderas con la rodilla temblando; Capitán Amérika y Pickard marchan; Marrio, los Pitubos, el
+  Minyon y Bob Esponjo van a saltitos; Bulk, Coman, He-Mann, Tazz y Pedro Picapiedras andan pesados; Jack Esparrow y Jomer
+  se tambalean; Buttman y Spaiderman van sigilosos; Vater y Spook se deslizan erguidos. Es solo el dibujo: la velocidad,
   la colisión y el tamaño no cambian. Además, un 12% de los invitados corrientes tiene un rasgo: borracho que se
   tambalea (5%), tímido que se agacha y da la espalda si te acercas (4%) o grabador con el móvil en alto (3%).
 
@@ -286,7 +375,7 @@ MÚSICA DE LAS INTROS
 --------------------
 - Carpeta "intros" (junto a "assets"): pon ahí tus mp3 para las escenas de la historia y se usan en lugar de la música
   sintetizada. Se nombran con el número de la escena: 1_intro.mp3 (la primera intro), 2_interludio_A.mp3 (tras la fiesta 5),
-  3_interludio_B.mp3 (tras la 10), 4_final.mp3, 5_final_secreto.mp3, 6_invitacion.mp3 y 7_cohete.mp3 (el interludio del cohete, tras la fiesta 24, antes de la estación espacial). Si repites el número
+  3_interludio_B.mp3 (tras la 10), 4_final.mp3, 5_final_secreto.mp3, 6_invitacion.mp3 y 7_cohete.mp3 (el interludio del cohete, tras la fiesta 25, antes de la estación espacial). Si repites el número
   (2_interludio_A_2.mp3...) se elige una al azar.
 - Sin archivo suena la música sintetizada: la primera intro con el "pum pum" del bajo de la fiesta de al lado y una melodía pegadiza encima (los altavoces
   y la habitación se mueven al ritmo) y las demás con melodías alegres sin bombo: una marcha de dibujos animados en los
@@ -310,9 +399,10 @@ música sintetizada en ese estilo (al empezar sale un letrero pequeño con el g�
    9 Estadio: Pop                          20 Italia: Clásica (ópera)
   10 Discoteca: Techno                     21 Estación de tren: Rap (boom bap)
   11 Festival: Electrónica                 22 Cumpleaños: Pop · 23 Hockey: Rock · 24 Disco setentera: Disco
-                                           25 Estación espacial: Electrónica · Isla Nublar (secreto): Orquestal épica
+                                           25 Barco pirata: Épica · 26 Estación espacial: Electrónica
+                                           Isla Nublada (secreto): Orquestal épica
 En el modo aleatorio: pub = rock, plaza europea = pasodoble, centro comercial = pop. Si muere el DJ, entra el punk; una
-banda de otro estilo (Metallica = metal, The Beatles = pop, Elvis = country, Lost Prophets y Despistaos = rock) toca el
+banda de otro estilo (Metalica = metal, The Beetles = pop, Elviz = country, Lost Profets y Despistaus = rock) toca el
 suyo, y las bandas punk tocan el estilo de la fiesta. Si pones tus propios mp3 ("music/N_nombre.mp3"), mandan ellos:
 la tabla te sirve para saber qué canción poner en cada pantalla.
 Cada fiesta tiene además su TIPO de fiesta (con nombre gracioso), que sale en la pantalla ELIGE LA FIESTA bajo el
@@ -321,7 +411,7 @@ nombre ("Botellón de salón · House") y en el letrero del principio. Tipos: 1 
 cinturón, 9 Final de copa, 10 Sesión de madrugada, 11 Festival de barro, 12 Jam en el bowl, 13 Velatorio con riffs,
 14 Sesión golfa, 15 Carrera sin freno, 16 Après-ski con chocolate, 17 Terraza con piscina, 18 Noche de corbata,
 19 Atasco con altavoces, 20 Pasta, amore y caos, 21 Fiesta sin billete, 22 Soplavelas sin control, 23 Prórroga sin
-árbitro, 24 Fiebre de pata de elefante, 25 Rave de gravedad cero, Isla Nublar: Última fiesta jurásica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
+árbitro, 24 Fiebre de pata de elefante, 25 Abordaje con ron, 26 Rave de gravedad cero, Isla Nublada: Última fiesta cretácica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
 NOMBRES DE LOS MP3: si la última palabra del nombre es un género ("13_cementerio_metal.mp3"), el juego lo compara con
 el de la fiesta: si coincide suena (y el letrero lo dice); si es de otro estilo (por ejemplo restos de un lote antiguo
 como "13_cine_electro.mp3") se IGNORA con un aviso en la consola y suena la música del juego. Un nombre sin género
@@ -335,18 +425,18 @@ CAMEO DE DJs (FINAL SECRETO) Y ESCENAS
   manos al aire), Martín Garbanzo (el chaval de la gorra), Avichi (el barbudo con cascos), Daft Pank (dos robots con casco,
   uno hace de plato) y Ratón Neón (cabeza de ratón de luces).
 - ESCENAS tiene ahora 9 entradas, en orden de historia: 1 Intro, 2 coche (tras la fiesta 5), 3 barco (10), 4 globo (15),
-  5 cohete (24), 6 ¿FINAL?, 7 Carta, 8 Llegada, 9 Final secreto. Cada una se repite con Enter.
+  5 cohete (25), 6 ¿FINAL?, 7 Carta, 8 Llegada, 9 Final secreto. Cada una se repite con Enter.
 
 INVITADOS POR FIESTA
 --------------------
 - Cada fiesta empieza con entre 45 y 60 invitados (aleatorio). En AJUSTES puedes cambiar "Invitados mínimo" e "Invitados máximo".
 - El máximo es un tope estricto: nunca hay más invitados vivos a la vez, contando a los que llegan durante la fiesta
-  (autobús, taxis, tren, grupos temáticos, Cazafantasmas, etc.). Si un grupo no cabe, llegan sólo los que caben.
+  (autobús, taxis, tren, grupos temáticos, Cazafantasmos, etc.). Si un grupo no cabe, llegan sólo los que caben.
   No cuentan guardias, policía, animales, el asesino especial ni el T-Rex.
 - Animales: como máximo 8 por nivel y 1 toro (en la plaza de toros o en cualquier nivel); el tope está en un solo sitio
   (capAnimals en cap.go, constantes animalMin=2 orientativa, animalMax=8, bullMax=1). Los dinosaurios y monstruos de la
   isla no están entre los animales y no cuentan.
-- Los personajes famosos (Sonic, Shrek...) sólo aparecen una vez por fiesta.
+- Los personajes famosos (Zonic, Shreck...) sólo aparecen una vez por fiesta.
 
 
 UNO O DOS JUGADORES
@@ -363,15 +453,15 @@ UNO O DOS JUGADORES
   comunes. Los poderes de leyenda (I O K L) y el suceso (V) son de toda la fiesta: los puede usar cualquiera de los dos
   (con el teclado compartido es la misma tecla; con mando, el botón de cada jugador).
 - Al empezar una fiesta de dos jugadores salen unos segundos las teclas de cada uno (azul el J1, rojo el J2).
-- PAUSA: Esc (o B / Start del mando) durante una fiesta abre la pausa: CONTINUAR, AJUSTES (vuelve a la pausa) y SALIR
+- PAUSA: Esc (o START del mando; O o START la cierran) durante una fiesta abre la pausa: CONTINUAR, AJUSTES (vuelve a la pausa) y SALIR
   A ELEGIR FIESTA (no suma puntos ni cuenta como derrota). Mientras está abierta nada se mueve.
 - Cosas que cada jugador hace por su cuenta: esconderse, bailar (cada uno molesta a la gente con sus propios bailes),
   cortar teléfonos, coger objetos, meterse en la piscina. Las marcas de "usar" salen con la tecla de cada jugador y un
   cuadradito de su color. La trampa de gas y el fuego afectan a los dos por separado, y el disfraz sólo lo usa quien
   lo lleva: la policía pierde el rastro cuando ya no queda nadie buscado sin cambiar de aspecto.
-- Los bocadillos esquivan a los dos jugadores. Los anillos de color van a la escala de la gente (Isla Nublar).
+- Los bocadillos esquivan a los dos jugadores. Los anillos de color van a la escala de la gente (Isla Nublada).
 
-Banderas de depuracion/captura (-level, -shot, -gamebench...) o PH_QUIET=1: modo silencioso (ventana fuera de pantalla, sin foco, prioridad baja). -visible lo desactiva.
+Banderas de depuracion/captura (-level N: 1 a 26 la campana, 25 = BARCO PIRATA, 26 = ESTACION ESPACIAL; -shot, -gamebench...) o PH_QUIET=1: modo silencioso (ventana fuera de pantalla, sin foco, prioridad baja). -visible lo desactiva.
 
 PUNTOS, RETO Y PERIODICO DE FIN DE NIVEL (levelscore.go, newspaper.go):
 - Puntos y dinero son lo mismo: lo que sumas en la fiesta pasa a la cartera al acabar (por la cartera dorada). Baja de invitado +30,
@@ -413,10 +503,10 @@ ZONAS VIP, TRAJE DORADO, INVITACION Y RELEVO (vip.go):
 AYUDA DE CONTROLES (botón "?")
 ------------------------------
 - Botón "?" arriba a la derecha (a la izquierda del contador de trofeos), en el menú principal y en las fiestas (normal, sigilo, 1 y 2 jugadores). Al pasar el ratón sale "Ayuda: controles (F1 / Select)".
-- Clic en el botón, tecla F1 o botón Select (Back) de cualquier mando: abre la ventana de ayuda a pantalla con las teclas de J1, las de J2, el mando y los modos (caja y señuelo del sigilo, trampas, traje dorado, invitación VIP, bailar). Las teclas salen de AJUSTES (si las cambias, la ayuda cambia). Los iconos azules son J1, los rojos J2 y los verdes el mando.
-- Mientras está abierta el juego queda PAUSADO por completo (nada avanza; la música sigue sonando en bucle). Se cierra con CERRAR, clic fuera, Esc, F1, B o Select y se reanuda donde estaba.
-- Mapa de mando (sin cambios, todo lo nuevo reutiliza botones): stick/cruceta mover, RT correr, A golpear, X usar (caja del sigilo, trampas, traje, invitación VIP), Y bailar (señuelo en sigilo 2P), B volver, Select ayuda. Debug: -helpov abre la ventana.
-- MINIMAPA (minimap.go): panel semitransparente abajo a la derecha (150x84) con el mapa a escala: paredes y objetos solidos en BLANCO y un pixel por personaje (jugador 1 azul parpadeante, 2 px; jugador 2 rojo; invitados gris; guardias verdes; policias azul/rojo parpadeante; VIP dorado; camaras amarillas con su cono tenue; trampas armadas naranja; asesinos morados). Se activa con TAB o con Start del mando (se recuerda solo durante la sesion, no se guarda; empieza apagado). En sigilo solo muestra paredes y jugadores; en un apagon parpadea con ruido. Aparece en la ayuda "?". Bandera de depuracion: -minimap (empieza encendido, progreso congelado).
+- Clic en el botón, tecla F1 o botón SELECT de cualquier mando: abre la ventana de ayuda a pantalla con las teclas de J1, las de J2, el mando y los modos (caja y señuelo del sigilo, trampas, traje dorado, invitación VIP, bailar). Las teclas salen de AJUSTES (si las cambias, la ayuda cambia). Los iconos azules son J1, los rojos J2 y los verdes el mando.
+- Mientras está abierta el juego queda PAUSADO por completo (nada avanza; la música sigue sonando en bucle). Se cierra con CERRAR, clic fuera, Esc, F1, O o SELECT y se reanuda donde estaba.
+- Mapa de mando (estilo PlayStation por defecto; se cambia en AJUSTES): stick/cruceta mover, R1 correr, X apuñalar / aceptar, O interactuar / volver (caja del sigilo, trampas, traje, invitación VIP), Triángulo bailar (señuelo en sigilo 2P), R2 inmunidad, L1 suceso, START pausa (O o START la cierran), SELECT ayuda, Cuadrado minimapa; en el VESTUARIO y en OBJETIVOS, Cuadrado cambia entre J1 y J2 y abre la ficha. Debug: -helpov abre la ventana.
+- MINIMAPA (minimap.go): panel semitransparente abajo a la derecha (150x84) con el mapa a escala: paredes y objetos solidos en BLANCO y un pixel por personaje (jugador 1 azul parpadeante, 2 px; jugador 2 rojo; invitados gris; guardias verdes; policias azul/rojo parpadeante; VIP dorado; camaras amarillas con su cono tenue; trampas armadas naranja; asesinos morados). Se activa con TAB o con Cuadrado del mando (se recuerda solo durante la sesion, no se guarda; empieza apagado). En sigilo solo muestra paredes y jugadores; en un apagon parpadea con ruido. Aparece en la ayuda "?". Bandera de depuracion: -minimap (empieza encendido, progreso congelado).
 - MENSAJE DE NIVEL (levelhint.go): tras el parpadeo del suelo sale ~5 s un rotulo de 1-2 lineas abajo en el centro: el objetivo (segun el tema del nivel) y un consejo sacado de los datos reales (VIP, camaras, trampas, veneno, disfraz). Se cierra con golpear / usar / bailar. No sale en sigilo, finales ni interludios. Apagar: -nohint (variable levelHintOn; el menu DEBUG esta lleno, no tiene fila).
 - EMOTES (emote.go): iconos de 9x9 sobre la cabeza de los invitados segun su estado ("?" esperando, gota de sudor huyendo o asustado, zzz durmiendo, corazon besando o bailando en pareja, nota bailando, calavera envenenado, enfado peleando, bocadillo charlando). Maximo 6 a la vez (3 de los tranquilos), duran ~1,3 s con un pequeno "pop", nunca tapan un bocadillo, un jugador ni otro icono. Apagar: -noemotes (variable emotesOn). Los testigos (alarma, telefono, avisar) NO llevan icono: las unicas senales de "te han visto" son el "!" sobre el jugador y las esposas.
 

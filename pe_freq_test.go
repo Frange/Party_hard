@@ -172,3 +172,36 @@ func TestRareEventsStartInTheCampaign(t *testing.T) {
 		}
 	}
 }
+
+// v1.2.0 rebalance (the new events made a party see 4.8 events): the chances went down, but every event still comes in
+// some party of the kind of level it fits ("que ocurran a veces"): over 4000 parties each planned event fits, it is
+// planned at least a few times.
+func TestPartyEventsEveryOneComesSometimes(t *testing.T) {
+	g := partyGame(t)
+	r := rand.New(rand.NewSource(4242))
+	var hist [][]string
+	fits, planned := map[string]int{}, map[string]int{}
+	for k := 0; k < 4000; k++ {
+		idx := r.Intn(len(campaignLevels))
+		tr := partyTraitsOf(levelDefs[idx], idx)
+		for _, e := range partyEvents() {
+			if !e.Reactive && e.External == nil && e.Eligible != nil && e.Eligible(g, tr) {
+				fits[e.ID]++
+			}
+		}
+		var ids []string
+		for _, p := range partyPlan(r, g, tr, hist, false) {
+			planned[p.ev.ID]++
+			ids = append(ids, p.ev.ID)
+		}
+		hist = append(hist, ids)
+		if len(hist) > partyMemory {
+			hist = hist[1:]
+		}
+	}
+	for id, n := range fits {
+		if planned[id] < 5 {
+			t.Errorf("%s fits %d of 4000 parties but was planned only %d times", id, n, planned[id])
+		}
+	}
+}

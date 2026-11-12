@@ -705,13 +705,23 @@ func (gs genreSong) render(shift int, bpmMul float64, retro bool) []float64 {
 		if shift != 0 {
 			text = transposeText(text, shift)
 		}
+		// the same note of the same length comes back many times (chords, arpeggios, riffs): it is played once
+		// (every instrument is deterministic: the same note gives the same samples)
+		type noteKey struct {
+			m    int
+			secs float64
+		}
+		played := map[noteKey][]float64{}
 		for _, nt := range parseNotes(text) {
 			at := int(math.Round(nt.at * spb))
 			secs := nt.dur * 60 / bpm
 			for _, m := range nt.midi {
-				for i, v := range inst.play(midiFreq(m), secs, tr.vol) {
-					out[(at+i)%n] += v
+				snip, ok := played[noteKey{m, secs}]
+				if !ok {
+					snip = inst.play(midiFreq(m), secs, tr.vol)
+					played[noteKey{m, secs}] = snip
 				}
+				mixWrap(out, at, snip, 1)
 			}
 		}
 	}
@@ -738,9 +748,7 @@ func (gs genreSong) render(shift int, bpmMul float64, retro bool) []float64 {
 					continue
 				}
 				at := int(math.Round(beat * spb))
-				for i, v := range kitSample(ch) {
-					out[(at+i)%n] += v * pc.vol
-				}
+				mixWrap(out, at, kitSample(ch), pc.vol)
 			}
 		}
 	}
@@ -750,8 +758,25 @@ func (gs genreSong) render(shift int, bpmMul float64, retro bool) []float64 {
 	return out
 }
 
+// mixWrap adds snip*vol to out from at, going round to the start past the end (the songs are seamless loops).
+func mixWrap(out []float64, at int, snip []float64, vol float64) {
+	n := len(out)
+	at %= n
+	for len(snip) > 0 {
+		k := min(len(snip), n-at)
+		dst := out[at : at+k]
+		for i, v := range snip[:k] {
+			dst[i] += v * vol
+		}
+		snip, at = snip[k:], 0
+	}
+}
+
 // finishGenre: no DC offset, the peaks gently squeezed, one loudness for every genre, and a peak that is always below 0 dBFS.
-func finishGenre(x []float64) []byte {
+func finishGenre(x []float64) []byte { return finishGenreRMS(x, 0.17) }
+
+// finishGenreRMS: finishGenre with another loudness (target RMS).
+func finishGenreRMS(x []float64, target float64) []byte {
 	var mean float64
 	for _, v := range x {
 		mean += v
@@ -775,7 +800,7 @@ func finishGenre(x []float64) []byte {
 		peak = math.Max(peak, math.Abs(v))
 	}
 	rms := math.Sqrt(sq / float64(len(x)))
-	g := math.Min(0.17/rms, 0.9/peak)
+	g := math.Min(target/rms, 0.9/peak)
 	for i := range x {
 		x[i] *= g
 	}
@@ -838,7 +863,7 @@ var genreOfTitle = map[string]string{
 	"AUTOPISTA":             "rock",
 	"ESTACIÓN DE TREN":      "rap",
 	"ESTACIÓN ESPACIAL":     "electro",
-	"ISLA NUBLAR":           "isla",
+	"ISLA NUBLADA":          "isla",
 	"PUB":                   "rock",
 	"PLAZA EUROPEA":         "flamenco",
 	"CENTRO COMERCIAL":      "pop",
@@ -914,10 +939,12 @@ func genreSiblings(g *Game, title string) []songSpec {
 	if g.djDead {
 		return nil
 	}
+	// the song the DJ's death would start is rendered beforehand too (songs_afterdj.go)
+	next := afterDJPlaylist()[afterDJNext(g.rng)]
 	if g.ownStyleBand() {
-		return bandPlaylist(g.band.slug)
+		return append(bandPlaylist(g.band.slug), next)
 	}
-	return playlistFor(title)
+	return append(playlistFor(title), next)
 }
 
 // genreSongPCM renders a song of one of the new genres.
@@ -928,6 +955,9 @@ func genreSongPCM(sp songSpec) []byte {
 	if gs.rotVariant > 0 && sp.variant == gs.rotVariant { // the loop is seamless: starting half way round puts the sections in another order
 		h := len(x) / 2
 		x = append(append([]float64{}, x[h:]...), x[:h]...)
+	}
+	if isAfterDJ(sp.style) { // the songs after the DJ (songs_afterdj.go) are a little quieter
+		return finishGenreRMS(x, tdjRMS)
 	}
 	return finishGenre(x)
 }

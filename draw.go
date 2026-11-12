@@ -236,6 +236,8 @@ func (g *Game) renderBG() {
 			g.drawRink(bg, r) // ice, lines and creases (rinkdraw.go)
 		case "water":
 			drawCanal(bg, r) // the canal of the ITALIA party (italy.go)
+		case "bay", "galleon":
+			drawPirateFloor(bg, r) // the bay and the ship of the BARCO PIRATA (pirate.go)
 		case "disco70":
 			fillRect(bg, r.X, r.Y, r.W, r.H, rgb(0x0e0a14)) // the lit tiles are painted every frame (disco70.go)
 		case "helipad":
@@ -327,7 +329,7 @@ func (g *Game) floorShading(bg *ebiten.Image, rng *rand.Rand) {
 	}
 	for _, f := range def.Floors {
 		switch f.Kind {
-		case "dance", "dash", "rug", "helipad":
+		case "dance", "dash", "rug", "helipad", "bay", "galleon":
 			continue
 		}
 		r := sr(f.R)
@@ -644,6 +646,8 @@ func (g *Game) drawActor(dst *ebiten.Image, cs *CharSet, anim int, phase float64
 	}
 	op.GeoM.Translate(cx, cy)
 	dst.DrawImage(img, op)
+	b := img.Bounds()
+	g.hudTouch(cx+(-charCX)*sc, cy+(-charBase+yoff)*sc, cx+(float64(b.Dx())-charCX)*sc, cy+(float64(b.Dy())-charBase+yoff)*sc)
 	if swim {
 		for i := 0; i < 2; i++ {
 			a := uint8(110 - 40*i)
@@ -659,6 +663,7 @@ func (g *Game) drawLying(dst *ebiten.Image, cs *CharSet, sleep bool, pos Vec) {
 	cx, cy := g.wx(pos.X), g.wy(pos.Y)
 	fillRect(dst, cx-float64(w)/2+3, cy-2, float64(w)-6, 3, color.RGBA{0, 0, 0, 50})
 	g.drawImg(dst, im, cx, cy, float64(w)/2, float64(h)-2)
+	g.hudTouch(cx-float64(w)/2, cy-float64(h)+2, cx+float64(w)/2, cy+2)
 }
 
 func fillShadow(dst *ebiten.Image, cx, cy float64, k ...float64) {
@@ -693,6 +698,10 @@ func (g *Game) drawBubbleBox(dst *ebiten.Image, r bubReq) {
 	h := r.h
 	if h == 0 {
 		h = 13
+	}
+	if r.loud { // the megaphone (pe_megaphone.go)
+		g.drawLoudBubble(dst, r, x, y, h)
+		return
 	}
 	fillRect(dst, x+1, y, w-2, h, col)
 	fillRect(dst, x, y+1, w, h-2, col)
@@ -842,7 +851,7 @@ func (g *Game) guardPose(gd *Guard) (int, float64) {
 func (g *Game) copPose(c *Cop) (int, float64) {
 	t := g.time
 	switch {
-	case c.state == cBag || (c.state == cBagHere && !c.moving):
+	case c.state == cBag || ((c.state == cBagHere || c.state == cExamine) && !c.moving):
 		return AnimCrouch, t * 2
 	case c.state == cTired:
 		return AnimTired, t * 2
@@ -996,6 +1005,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if d.kind == 4 {
 			col = color.RGBA{96, 58, 24, 230}
 		}
+		if c, ok := decalMoreCols[d.kind]; ok { // cream of the cake, paint of the painter (pe_painter.go)
+			col = c
+		}
 		r := d.r * wk
 		for i := 0; i < 5; i++ {
 			a := float64(i) * 1.7
@@ -1005,6 +1017,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	g.drawDamage(screen)     // lasting marks on the ground (damage.go)
+	g.drawGraffiti(screen)   // the street painter's pieces on the walls (pe_graffiti.go)
 	g.drawStartBlink(screen) // floor marker under the players at the start (startblink.go)
 	g.drawLastRings(screen)  // faint rings under the last guests (lastguests.go)
 	g.drawVIPFloor(screen)   // red carpet of the VIP zone (vip.go)
@@ -1050,6 +1063,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 			if gu.state == gLift {
 				yoff = -gu.lift
+			} else if isKid(gu) {
+				yoff -= g.kidHopZ(gu) // a hop on his board (skater_park.go)
 			}
 			g.zombieTint = gu.state == gZombie
 			defer func() { g.zombieTint = false }()
@@ -1063,6 +1078,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				return
 			}
 			g.drawActor(screen, gu.cs, anim, phase, pos, g.gaitDir(gu), yoff, swim)
+			g.drawUmbrella(screen, gu, pos, yoff) // in the rain (umbrellas.go)
 			g.drawVIPStars(screen, gu.pos, gu.vipStun > 0)
 		}})
 	}
@@ -1075,6 +1091,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			// A faint halo drawn just before the body, so the opaque sprite
 			// covers its center and only a subtle rim of color shows through.
 			g.glowAt(screen, Vec{gd.pos.X, gd.pos.Y - 20}, 16, color.RGBA{230, 140, 30, 42})
+			if g.sleepGuardDraw(screen, gd) { // asleep on his chair (pe_sleepguard.go)
+				return
+			}
 			anim, phase := g.guardPose(gd)
 			g.drawActor(screen, gd.cs, anim, phase, gd.pos, gd.dir, 0, false)
 		}})
@@ -1097,11 +1116,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 			cs := g.copCSFor(c)
 			anim, phase := g.copPose(c)
-			g.drawActor(screen, cs, anim, phase, c.pos, c.dir, 0, g.lvl.InPool(c.pos) && c.carry == nil)
+			cp := g.copDrawPos(c) // on the rope ladder of the pirate ship he hangs below the rail (ambulance.go)
+			g.drawActor(screen, cs, anim, phase, cp, c.dir, 0, g.lvl.InPool(c.pos) && c.carry == nil)
 			if c.carry != nil {
 				bi := g.bodyLyingImg(c.carry)
 				w, h := bi.Bounds().Dx(), bi.Bounds().Dy()
-				g.drawImg(screen, bi, g.wx(c.pos.X), g.wy(c.pos.Y)-32, float64(w)/2, float64(h))
+				g.drawImg(screen, bi, g.wx(cp.X), g.wy(cp.Y)-32, float64(w)/2, float64(h))
 			}
 		}})
 	}
@@ -1193,11 +1213,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	items = g.reviveItems(screen, items)
 	items = g.lifeItems(screen, items)  // selfies, contest crown, pizza boy, mascot (partylife.go)
 	items = g.partyItems(screen, items) // party events (partyevents.go)
+	items = g.heroItems(screen, items)  // capes of fallen heroes (pe_hero.go)
+	items = g.worksItems(screen, items) // roadworks: puddle, water jet, jackhammers, crane load (roadworks.go)
+	items = g.mdItems(screen, items)    // metal detector arches in a doorway (metaldet.go)
+	items = g.seatItems(screen, items)  // guests sitting on chairs and benches (seats.go)
 	items = g.stashItems(screen, items) // glints on containers with an object (stash.go)
 	for _, pl := range g.players() {
 		pl := pl
 		if g.mode != ModeMenu && g.mode != ModeLevelSelect && g.mode != ModeSettings && g.mode != ModeShop && g.mode != ModeConfirm && g.mode != ModeTrophies && g.mode != ModeScenes && g.mode != ModeDebug && !pl.hidden {
-			items = append(items, drawItem{pl.pos.Y + 0.2, func() { g.withPlayer(pl, func() { g.drawPlayerOne(screen, pl, l) }) }})
+			items = append(items, drawItem{pl.pos.Y + 0.2, func() { g.withPlayer(pl, func() { g.hudPlayerDraw(func() { g.drawPlayerOne(screen, pl, l) }) }) }})
 		}
 	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].y < items[j].y })
@@ -1219,9 +1243,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			g.drawAmbient(screen, a)
 		}
 	}
+	g.drawSmoke(screen) // smoke grenades: a see-through veil over the world, under the texts (smoke.go)
 	g.drawEvents(screen)
 	g.coopDrawWorld(screen)
 	g.drawSuspectCuffs(screen) // the cuffs mark over each suspect (twojail.go)
+	g.mdDrawMarks(screen)      // ...and over the one the metal detector caught (metaldet.go)
 	g.drawBlame(screen)        // ...and over a passer-by taken for the suspect (wrongsuspect.go)
 	g.drawVIPOverlay(screen)   // invitation tags, VIP hints and suit bars (vip.go)
 	g.drawAlertMarks(screen)   // the alert over each player a witness is about to report (suspect.go)
@@ -1267,7 +1293,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	g.drawLighting(screen)
 	g.drawBlackout(screen) // power cut (blackout.go)
+	g.drawWeather(screen)  // rain, lightning, dawn sky (weather.go)
 	g.partyOver(screen)    // emergency lights over the dark (partyevents.go)
+	g.drawDiscoGlints(screen)
+	g.drawFlashlights(screen) // the torch guard's beam (pe_flashlight.go)
 	g.drawCrossingLights(screen)
 	g.drawEventsTop(screen)
 	g.drawPhoneMarkers(screen)
@@ -1514,6 +1543,12 @@ func (g *Game) drawHeli(dst *ebiten.Image, v *Vehicle) {
 	if v.kind == 3 && g.heliImg(v) == nil && !view {
 		fillRect(dst, math.Round(cx-5), math.Round(cy-5), 7, 2, rgb(0xd02828))
 		fillRect(dst, math.Round(cx-3), math.Round(cy-7), 3, 6, rgb(0xd02828))
+	} else if v.kind == 3 && !view { // the medical livery: a white badge with the red cross on the side (2026-11-11)
+		bx, by := math.Round(cx+2), math.Round(cy-1)
+		fillRect(dst, bx-1, by-1, 11, 11, rgb(0x6a1414))
+		fillRect(dst, bx, by, 9, 9, rgb(0xf8f8fc))
+		fillRect(dst, bx+1, by+3, 7, 3, rgb(0xd02828))
+		fillRect(dst, bx+3, by+1, 3, 7, rgb(0xd02828))
 	}
 	rc := Vec{cx, cy - 25*wk}
 	for _, a := range []float64{0, 1.6, 3.2} {
@@ -1566,8 +1601,14 @@ func (g *Game) drawProp(dst *ebiten.Image, pr *Prop) {
 	if pr.Name == "hen" && k.Native == nil {
 		v = (int(g.time*2.5) + int(pr.X)) % 2
 	}
+	if k.Native == nil {
+		v = pirateAnimVar(pr.Name, v, g.time, pr.X) // the flags of the masts and the parrot (pirate_props.go)
+	}
 	if pr.Name == "palm" { // palms placed by hand all say variant 0: their place picks one (palmart.go)
 		v += int(pr.X)/23 + int(pr.Y)/17
+	}
+	if pr.Name == bullName {
+		v = g.bullVar(pr) // the mechanical bull bucks while somebody rides it (events_toro.go)
 	}
 	if k.FPS > 0 && k.Native != nil {
 		v = (int(g.time*k.FPS) + int(pr.X)) % len(k.Native)
@@ -1768,6 +1809,9 @@ func (g *Game) drawLighting(dst *ebiten.Image) {
 				r, col = k.LightR, k.LightC
 			}
 		}
+		if lk := g.dawnLampK(); lk < 1 { // at the end of a dawn the street lamps dim (weather.go)
+			col = scaleRGBA(col, lk)
+		}
 		lights = append(lights, lightSrc{lp, r, col, 0.95})
 	}
 	for _, gl := range def.Glows {
@@ -1826,9 +1870,8 @@ func (g *Game) drawLighting(dst *ebiten.Image) {
 		return
 	}
 	dark := g.as.dark
-	aOut := clampF(float64(t.A)*1.2, 70, 112) // night, but still playable everywhere
+	base, aOut := nightWash(def, g.dawnE()) // night, but still playable everywhere; lighter at dawn (weather.go)
 	aIn := aOut * 0.3
-	base := mixc(rgb(0x14142a), color.RGBA{t.R, t.G, t.B, 255}, 0.5)
 	a := uint8(aOut)
 	dark.Fill(color.RGBA{uint8(float64(base.R) * aOut / 255), uint8(float64(base.G) * aOut / 255), uint8(float64(base.B) * aOut / 255), a})
 	skyTop := 1e9
@@ -2012,7 +2055,7 @@ func starLabel(kind int) string {
 	case unitSWAT:
 		return "SWAT"
 	case unitRangers:
-		return "POWER RANGERS"
+		return "PAWER RANGERS"
 	default:
 		return "POLICIA"
 	}
@@ -2022,6 +2065,7 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 	if g.mode == ModeMenu || g.mode == ModeLevelSelect || g.mode == ModeSettings || g.mode == ModeShop || g.mode == ModeConfirm || g.mode == ModeTrophies || g.mode == ModeScenes || g.mode == ModeDebug {
 		return
 	}
+	g.drawStreaks(dst)  // RACHA N under the feet of each player (streak.go), never over the shown panel
 	g.drawHUDPanel(dst) // one panel: people left, points, progress bar, kills, forces, RETO / CADENA (hud.go)
 	for _, pl := range g.players() {
 		if it := pl.item; it != "" && g.mode == ModePlay {
@@ -2029,9 +2073,13 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 			if it == "disguise" {
 				name, col = "DISFRAZ", rgb(0xd090ff)
 			}
+			if it == "smoke" {
+				name, col = "GRANADA DE HUMO", rgb(0xc8d0dc)
+			}
 			if it == "poison" && pl.doses > 0 {
 				name += " x" + itoa(pl.doses)
 			}
+			name += smokeHudSuffix(pl) // the smoke grenade: x1, or + the one in the second slot (smoke.go)
 			y, _, _, _ := g.hudSide()
 			label := "OBJETO: "
 			if g.is2P() { // two players: each item is tagged with its owner, in his colour
@@ -2041,6 +2089,7 @@ func (g *Game) drawHUD(dst *ebiten.Image) {
 		}
 	}
 	g.drawStars(dst)
+	g.drawCountdown(dst) // the closing time of the party, under the HUD panel (countdown.go)
 	g.drawJailHud(dst)
 	g.drawCallHud(dst)
 	g.drawReviveHud(dst)
@@ -2205,24 +2254,26 @@ func (g *Game) drawMenu(dst *ebiten.Image) {
 	g.drawMenuCorner(dst)
 }
 
-// the level list: three columns of nine rows (24 parties + ALEATORIO + ISLA = 26 slots of the 27)
+// the level list: three columns of ten rows (26 parties + ALEATORIO + ISLA = 28 slots of the 30)
 var levelColX = [3]float64{345, 580, 815}
 
-const levelRowsPerCol = 9
+const levelRowsPerCol = 10
 
-// the rows start under the RETO DE HOY button (daily.go)
+// the rows start under the RETO DE HOY button (daily.go): the button sits 12 px under the ink of the title and the
+// list 12 px under the button; ten rows 40 px apart end above the free strip (levelFreeY)
 const (
-	levelRowY0  = 134.0
-	levelRowDY  = 41.0  // name + small line: 16 px of air between one row and the next
-	levelFreeY  = 500.0 // the last row ends above this: the strip under the list stays free (no help lines)
-	levelSubDY  = 17.0  // the small line under the name
-	dailyBtnW   = 560.0
-	dailyBtnH   = 62.0 // room for the title, the party and the modifiers (daily.go)
-	dailyBtnX   = 580 - dailyBtnW/2
-	dailyBtnY   = 60.0
-	dailyBtnPad = 16.0 // inner margin of the button
-	dailyTextY0 = 7.0  // first text line inside the button
-	dailyLineDY = 16.0 // line pitch inside the button
+	levelRowY0   = 114.0
+	levelRowDY   = 40.0  // name + small line: 14 px of ink-free air between one row and the next
+	levelFreeY   = 504.0 // the last row ends above this: the strip under the list stays free (no help lines)
+	levelSubDY   = 17.0  // the small line under the name
+	dailyBtnW    = 560.0
+	dailyBtnH    = 44.0 // two lines: the title with the party, then the modifiers (daily.go), 8 px under the last one
+	dailyBtnX    = 580 - dailyBtnW/2
+	dailyBtnY    = 58.0
+	dailyHeadGap = 14.0 // between the title and the party on the first line of the button
+	dailyBtnPad  = 16.0 // inner margin of the button
+	dailyTextY0  = 7.0  // first text line inside the button
+	dailyLineDY  = 16.0 // line pitch inside the button
 )
 
 func (g *Game) drawLevelSelect(dst *ebiten.Image) {
@@ -2254,14 +2305,14 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 			continue
 		}
 		if i == campaignN+1 { // the island, unlocked by the invitation
-			label := pre + "ISLA NUBLAR"
+			label := pre + "ISLA NUBLADA"
 			ic := cx - g.textW(label, 1.3)/2 - 18
 			g.drawLevelIcon(dst, ic, y-1, "jurassic", false)
 			if i != g.menuSel {
 				col = rgb(0xf0c030)
 			}
 			g.drawTextC(dst, label, cx, y, col, 1.3)
-			g.drawTextC(dst, partySubtitle("ISLA NUBLAR"), cx, y+levelSubDY, rgb(0x9a8a40), 1)
+			g.drawTextC(dst, partySubtitle("ISLA NUBLADA"), cx, y+levelSubDY, rgb(0x9a8a40), 1)
 			continue
 		}
 		locked := i >= g.progress.Unlocked
@@ -2277,10 +2328,18 @@ func (g *Game) drawLevelSelect(dst *ebiten.Image) {
 			g.drawLock(dst, iconX+2, y+2)
 		}
 		g.drawTextC(dst, label, cx, y, col, 1.3)
+		if m := g.medalOf(levelDefs[i].Icon); m != medalNone && !locked { // the best medal won here (medals.go)
+			drawMedal(dst, levelMedalX(cx, g.textW(label, 1.3)), y-1, m)
+		}
 		// what kind of party it is and the style of its music, small, under the name
 		sub := rgb(0x7f8ca0)
 		if locked {
 			sub = rgb(0x3a4652)
+		}
+		if i == g.menuSel && !locked && medalLevel(levelDefs[i].Icon) { // the highlighted party: the points of its medals
+			ml := medalLine(g.medalGoalFor(levelDefs[i]))
+			g.drawTextC(dst, ml, levelLineCX(cx, g.textW(ml, 1)), y+levelSubDY, rgb(0xe8b860), 1)
+			continue
 		}
 		g.drawTextC(dst, partySubtitle(title), cx, y+levelSubDY, sub, 1)
 	}
@@ -2292,7 +2351,7 @@ func (g *Game) drawPanel(dst *ebiten.Image, title, sub string, c color.RGBA, l3,
 	g.bigText(dst, title, screenW/2, 188, c, color.RGBA{0, 0, 0, 255}, 3)
 	g.drawTextC(dst, sub, screenW/2, 248, rgb(0xe0d8f0), 1.5)
 	g.drawTextC(dst, l3, screenW/2, 282, rgb(0xf0e060), 1.5)
-	g.drawTextC(dst, l4, screenW/2, 322, rgb(0xb8b0d0), 1.5)
+	g.drawTextC(dst, padKeyText(tr(l4)), screenW/2, 322, rgb(0xb8b0d0), 1.5) // ENTER / ESC as ✕ / ○ on a pad (input.go)
 }
 
 // ---------------------------------------------------------------------------

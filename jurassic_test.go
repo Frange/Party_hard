@@ -29,7 +29,7 @@ func TestJurassicReachable(t *testing.T) {
 // the island is a stand-alone level: not in the campaign list, not in the random pool
 func TestJurassicIsSpecial(t *testing.T) {
 	for _, d := range builtinLevels() {
-		if d.Title == "ISLA NUBLAR" {
+		if d.Title == "ISLA NUBLADA" {
 			t.Fatal("the island must not be one of the normal levels")
 		}
 	}

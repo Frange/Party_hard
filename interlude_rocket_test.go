@@ -12,11 +12,11 @@ import (
 func TestRocketInterludeAfterParty23(t *testing.T) {
 	g := testGame()
 	builtinLevels()
-	disco := campaignIdx("disco70")
+	disco := campaignIdx("pirate") // the last party before the space station (it was the 70s disco before the pirate ship)
 	if k, ok := g.interludeAfter(disco); !ok || k != interRocket || disco != len(campaignLevels)-2 {
-		t.Fatal("after the 70s disco (party 23, the last before the space station) there must be the rocket interlude")
+		t.Fatal("after the pirate ship (party 25, the last before the space station) there must be the rocket interlude")
 	}
-	for _, i := range []int{18, 19, 20, 21, 22, disco + 1} {
+	for _, i := range []int{18, 19, 20, 21, 22, 23, disco + 1} {
 		if _, ok := g.interludeAfter(i); ok {
 			t.Errorf("level %d should not have an interlude", i)
 		}
@@ -49,7 +49,7 @@ func TestRocketInterludeIsListed(t *testing.T) {
 	}
 	// the memories are the last five parties of the campaign, all of them beaten before the interlude
 	pl := interludePlaces(interRocket)
-	if len(pl) != 5 || pl[0] != campaignIdx("italy") || pl[4] != campaignIdx("disco70") {
+	if len(pl) != 5 || pl[0] != campaignIdx("train") || pl[4] != campaignIdx("pirate") {
 		t.Errorf("memories: %v", pl)
 	}
 }

@@ -61,6 +61,12 @@ func bigPlay(t *testing.T, level int, seed int64, two bool) *Game {
 // sit at ~50-56 with 60). Every other party stays at 65.
 func TestBigCrowdLevelsChosenByRoom(t *testing.T) {
 	n := killTargetLevels(t)
+	// the occasional VIP zone (vipchance.go, 1 party in 3 on the session dice) fills free ground with its rope and staff:
+	// with one in the festival and none in the skate park the order changed (festival 6th in a full pass, 2026-11-11).
+	// The choice is about the level itself, so it is measured without the zone.
+	prevOff := vipOff
+	vipOff = true
+	t.Cleanup(func() { vipOff = prevOff })
 	if len(bigCrowd) < 2 || len(bigCrowd) > 3 {
 		t.Fatalf("%d big-crowd parties, want 2 or 3", len(bigCrowd))
 	}
@@ -212,6 +218,7 @@ func TestBigCrowdPoliceStretches(t *testing.T) {
 // The BAJAS row with three figures (110/110 with two players, 95/95 alone), Spanish and English: inside the panel
 // with >= 6 px to its right edge, and the figures and the players' chips never touch.
 func TestBigCrowdHUDThreeFigures(t *testing.T) {
+	snapshotLang(t)
 	for _, two := range []bool{false, true} {
 		for _, lang := range []string{"es", "en"} {
 			g := hudPlay(t, two)

@@ -143,6 +143,9 @@ func walkLegs(p *Pose, phi, amp, lift float64) {
 }
 
 func poseFor(kind, f int) Pose {
+	if kind >= AnimSitRest && kind < animSitEnd { // sitting on a chair (seats.go)
+		return sitPoseFor(kind, f)
+	}
 	if kind >= AnimCount { // the hidden gait animations (gait.go)
 		return gaitPoseFor(kind, f)
 	}
@@ -714,7 +717,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 	if isSponge(s) {
 		return genSponge(s, vw, p)
 	}
-	if isJohnny5(s) { // Cortocircuito: robot on tracks (johnny5_art.go)
+	if isJohnny5(s) { // Cortocirquito: robot on tracks (johnny5_art.go)
 		return genJohnny5(s, vw, p)
 	}
 	if isCrash(s) { // Crash: cartoon bandicoot (crash_art.go)
@@ -2061,6 +2064,8 @@ type CharSet struct {
 	cache map[int]*ebiten.Image
 	rig   *Rig
 	over  map[string]*pixBuf
+	dress dressKey // a themed costume painted over every frame (costume.go)
+	fat   bool     // the eating contest: every frame widened (belly, cheeks), pe_eatfat.go
 }
 
 func newCharSet(s *CharSpec) *CharSet {
@@ -2091,7 +2096,14 @@ func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 		return im
 	}
 	if cs.rig != nil {
-		im := cs.rigFrame(anim, vw, f).img()
+		b := cs.rigFrame(anim, vw, f)
+		if cs.dress.look != 0 {
+			b = cs.dressFrame(b, anim, vw, f)
+		}
+		if cs.fat {
+			b = fattenFrame(b, anim, vw)
+		}
+		im := b.img()
 		cs.cache[key] = im
 		return im
 	}
@@ -2111,6 +2123,12 @@ func (cs *CharSet) frameImg(anim, vw, f int) *ebiten.Image {
 		pp := poseFor(anim, f)
 		pp.Anim, pp.F = anim, f
 		b = genChar(cs.Spec, vw, pp)
+	}
+	if cs.dress.look != 0 {
+		b = cs.dressFrame(b, anim, vw, f)
+	}
+	if cs.fat {
+		b = fattenFrame(b, anim, vw)
 	}
 	im := b.outlinedSel(0.42).img()
 	cs.cache[key] = im

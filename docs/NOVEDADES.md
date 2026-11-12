@@ -76,7 +76,7 @@ Nota: "A la cámara" NO está hecho.
 
 | Nº | Qué es | Cómo probarlo (bandera / dónde) | Estado | ¿Me gusta? |
 |---|---|---|---|---|
-| 44 | Famosos con movimiento propio: moonwalk, Elvis, RoboCop robótico y otros. | ver LEEME.txt | En curso | ☐ Sí ☐ No ☐ Cambiar |
+| 44 | Famosos con movimiento propio: moonwalk, Elviz, Rotocop robótico y otros. | ver LEEME.txt | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 45 | Tope de animales de 2 a 8, con 1 toro. | ver LEEME.txt | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 25 | Álbum de tarjetas de VIP y especiales (incluye Diego, César y Sam-sam), dentro del menú Trofeos. | Menú Trofeos | En curso | ☐ Sí ☐ No ☐ Cambiar |
 | 47 | Trofeos secretos. | Menú Trofeos | En curso | ☐ Sí ☐ No ☐ Cambiar |
@@ -95,7 +95,7 @@ Nota: "A la cámara" NO está hecho.
 | Nº | Qué es | Cómo probarlo (bandera / dónde) | Estado | ¿Me gusta? |
 |---|---|---|---|---|
 | 56 | Mensaje de nivel al empezar. Probar y quedarse si funciona. | Inicio de nivel | Pendiente | ☐ Sí ☐ No ☐ Cambiar |
-| 57 | Minimapa semitransparente estilo Pro Evolution Soccer 6: paredes en blanco y personajes de 1 px de color según el tipo. | Pantalla de juego | Pendiente | ☐ Sí ☐ No ☐ Cambiar |
+| 57 | Minimapa semitransparente estilo de los juegos de fútbol clásicos: paredes en blanco y personajes de 1 px de color según el tipo. | Pantalla de juego | Pendiente | ☐ Sí ☐ No ☐ Cambiar |
 | 58 | Trampas iguales para todos: cualquier jugador que pase explota, sin excepciones. | Pasar por una trampa con cualquier personaje | Pendiente | ☐ Sí ☐ No ☐ Cambiar |
 | 59 | Huellas en arena, nieve y charcos. | Caminar por arena, nieve o charcos | Pendiente | ☐ Sí ☐ No ☐ Cambiar |
 | 60 | Emotes de invitados sobre la cabeza. | Pantalla de juego | Pendiente | ☐ Sí ☐ No ☐ Cambiar |

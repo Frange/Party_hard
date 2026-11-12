@@ -131,13 +131,13 @@ func charCards() []albumCard {
 		seen[slug] = true
 		spec := f(probe)
 		c := albumCard{key: slug, nameES: nameFromSpec(&spec), cardES: albumShortName[slug], roleES: role, slug: slug, trophyID: trophy}
-		if band := bandOfMember(slug); band != "" { // a musician shown by his name: "James Hetfield" / Metallica
+		if band := bandOfMember(slug); band != "" { // a musician shown by his name: "James Hetfiel" / Metalica
 			c.roleCard = band
-		} else if team := footballTeam(slug); team != "" { // a footballer shown by his name: "Lionel Messi" / Argentina (futbol_art.go)
+		} else if team := footballTeam(slug); team != "" { // a footballer shown by his name: "Lionel Mesi" / Argentina (futbol_art.go)
 			c.roleCard = team
-		} else if game := beanRole(slug); game != "" { // a Fall Guys bean: "Judía Gallina" / Fall Guys (fallguys.go)
+		} else if game := beanRole(slug); game != "" { // a Fall Guys bean: "Flan Gallina" / Fall Guys (fallguys.go)
 			c.roleCard = game
-		} else if i := strings.Index(c.nameES, " · "); i > 0 { // a band member: "Metallica · cantante" -> Cantante / Metallica
+		} else if i := strings.Index(c.nameES, " · "); i > 0 { // a band member: "Metalica · cantante" -> Cantante / Metalica
 			part := c.nameES[i+len(" · "):]
 			c.cardES, c.roleCard = strings.ToUpper(part[:1])+part[1:], c.nameES[:i]
 			if part == "bateria" {

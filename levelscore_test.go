@@ -45,6 +45,7 @@ func TestScoreKillMultiplier(t *testing.T) {
 	// a credited (trap) kill is worth 50, x3 in the challenge
 	g.time += 10
 	p0 = g.points
+	g.run.streakN = [2]int{} // only the RETO here: the RACHA (3rd clean kill) has its own tests (streak_test.go)
 	g.credit = true
 	g.trapKill(liveGuest(g, 0))
 	g.credit = false
@@ -177,6 +178,7 @@ func TestScoreChainMultiplier(t *testing.T) {
 	var got []int
 	for i := 0; i < 3; i++ {
 		p0 := g.points
+		g.run.streakN = [2]int{} // only the chain here: the RACHA has its own tests (streak_test.go)
 		g.killGuest(liveGuest(g, 0), true)
 		got = append(got, g.points-p0)
 		g.time += 2 // inside the window
@@ -188,6 +190,7 @@ func TestScoreChainMultiplier(t *testing.T) {
 		t.Errorf("chain max/now %d/%d, want 3/3", g.run.chainMax[0], g.chainNow(0))
 	}
 	g.time += chainWindow + 1 // too late: the chain restarts
+	g.run.streakN = [2]int{}  // only the chain here (streak_test.go)
 	p0 := g.points
 	g.killGuest(liveGuest(g, 0), true)
 	if g.points-p0 != 30 || g.chainNow(0) != 1 {
@@ -195,6 +198,7 @@ func TestScoreChainMultiplier(t *testing.T) {
 	}
 	// cap
 	g.run.chainN[0], g.run.chainLast[0] = 50, g.time
+	g.run.streakN = [2]int{} // only the chain here (streak_test.go)
 	p0 = g.points
 	g.killGuest(liveGuest(g, 0), true)
 	if g.points-p0 != 90 {

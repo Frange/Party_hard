@@ -187,8 +187,9 @@ func TestIslandPoliceCoverEveryBody(t *testing.T) {
 	g.cops = []*Cop{c}
 	g.ambCalled = true
 	g.copNext(c)
-	if c.state != cCollect || c.target == nil {
-		t.Fatalf("with bodies uncovered the officer must not leave (state %d)", c.state)
+	// 2026-11-11: the police only COVER the bodies (cBagHere), carrying them is the paramedics' job
+	if c.state != cBagHere || c.target == nil {
+		t.Fatalf("with bodies uncovered the officer must cover them, not leave (state %d)", c.state)
 	}
 	c.target.claimed, c.target = nil, nil
 	g.bodies = nil // all picked up

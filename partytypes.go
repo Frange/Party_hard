@@ -34,7 +34,7 @@ var partyTypeOfTitle = map[string]string{
 	"AUTOPISTA":             "Atasco con altavoces",
 	"ESTACIÓN DE TREN":      "Fiesta sin billete",
 	"ESTACIÓN ESPACIAL":     "Rave de gravedad cero",
-	"ISLA NUBLAR":           "Última fiesta jurásica",
+	"ISLA NUBLADA":          "Última fiesta cretácica",
 	"PUB":                   "Noche de dardos",
 	"PLAZA EUROPEA":         "Verbena europea",
 	"CENTRO COMERCIAL":      "Rebajas a todo ritmo",

@@ -177,7 +177,7 @@ func (g *Game) drawRocketScene(dst *ebiten.Image, in *interState) {
 	if t > rkFlash { // a white flash that stays until the cut to the space station
 		fillRect(dst, 0, 0, screenW, screenH, rgba(0xf4f8ff, uint8(255*math.Min(1, (t-rkFlash)/0.6))))
 	}
-	hint := actionHint(actConfirm) + " / " + actionHint(actBack) + ": saltar (dos veces)"
+	hint := skipTwiceHint()
 	col := rgba(0x8a86a0, 170)
 	if in.skipArm > 0 {
 		hint, col = "Otra vez para saltar", rgb(0xffe060)

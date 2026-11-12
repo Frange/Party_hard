@@ -598,7 +598,7 @@ var partyLines = []partyLine{
 	{"shrek", 6.7, 7.9, "Yo me he comido el catering.", false},
 	{"hero0", 10.4, 11.8, "¡Conga! ¡Conga!", false},
 	{"sonic", 13.5, 14.9, "¡Yo voy delante! ¡Soy rápido!", false},
-	{"hero0", 15.2, 16.6, "¡No corras tanto, Sonic!", false},
+	{"hero0", 15.2, 16.6, "¡No corras tanto, Zonic!", false},
 	{"hero0", 22.0, 23.4, "¡Oooooh!", false},
 	{"rex", 24.4, 25.9, "¡Otra! ¡Otra! ¡Otra!", false},
 	{"hero1", 26.2, 27.5, "¡Qué bonito!", true},

@@ -48,9 +48,16 @@ var auditSpanishHints = []string{": saltar", ": salir", "volver al menú", "Otra
 
 var auditSpanishOK = []auditExc{
 	{"", "César", "", "a tester's name in the credits"},
-	{"", "Filemón", "", "name of a character of the shop (proper noun)"},
-	{"", "Tintín", "", "name of a character of the shop (proper noun)"},
-	{"", "Capitán Haddock", "", "name of a character of the shop (proper noun)"},
+}
+
+// auditProperName: a character, band or Flan Guys name is the same in both languages (ipnames.go), accents included.
+func auditProperName(s string) bool {
+	for _, n := range properNames() {
+		if s == n {
+			return true
+		}
+	}
+	return false
 }
 
 // FAULTS FOUND BY THE AUDIT THAT ARE NOT FIXED YET (owner told). They are printed, not failed, and the test fails when
@@ -71,6 +78,7 @@ var (
 // auditGame returns the shared headless game. It needs noAssets while it is used, but the flag is a
 // process global: t.Cleanup puts it back so the tests that run later still see a normal program.
 func auditGame(t *testing.T) *Game {
+	snapshotLang(t) // the audits draw in both languages
 	prev := noAssets
 	noAssets = true
 	t.Cleanup(func() { noAssets = prev })
@@ -198,7 +206,7 @@ func auditCheck(screen string, rec *textRecorder, panels bool, exc []auditExc, o
 			}
 		}
 		// (d) English screens must not show Spanish (menu-like screens only: the play screens use made-up phrases)
-		if panels && strings.HasSuffix(screen, "[en]") && strings.ContainsAny(t.s, "áéíóúñ¿¡Ñ") && !allowed(auditSpanishOK, t.s, "") {
+		if panels && strings.HasSuffix(screen, "[en]") && strings.ContainsAny(t.s, "áéíóúñ¿¡Ñ") && !allowed(auditSpanishOK, t.s, "") && !auditProperName(t.s) {
 			add("Spanish text in the English version: %s", desc(t))
 		}
 		// (d2) the skip / quit hints of every screen, cinematics too: a key label glued to a Spanish piece
@@ -231,6 +239,8 @@ func auditRender(g *Game, sh auditShot, lang string) (rec *textRecorder, err str
 			err = fmt.Sprintf("the screen could not be drawn: %v\n%s", r, firstFrames(debug.Stack()))
 		}
 	}()
+	prevUI := uiLang // g.Draw copies gameLang into uiLang (pickLanguage): never leave it in English
+	defer func() { uiLang = prevUI }()
 	gameLang, editorLang = lang, lang
 	sh.setup(g)
 	textRec = &textRecorder{}
@@ -337,15 +347,15 @@ func auditShots() []auditShot {
 		g.startTitle()
 		g.title.t = 4
 	})
-	for _, sel := range []int{0, 8, 17, 23, 24, 25} {
+	for _, sel := range []int{0, 9, 19, 24, 25, 26, 27} {
 		sel := sel
-		add(fmt.Sprintf("level select (Isla Nublar unlocked) sel=%d", sel), true, func(g *Game) {
+		add(fmt.Sprintf("level select (Isla Nublada unlocked) sel=%d", sel), true, func(g *Game) {
 			auditReset(g)
 			g.mode = ModeLevelSelect
 			g.menuSel = sel
 		})
 	}
-	for _, sel := range []int{26} { // the RETO DE HOY button selected (24 parties + ALEATORIO + Isla: index = rows)
+	for _, sel := range []int{28} { // the RETO DE HOY button selected (26 parties + ALEATORIO + Isla: index = rows)
 		sel := sel
 		add(fmt.Sprintf("level select RETO DE HOY button sel=%d", sel), true, func(g *Game) {
 			auditReset(g)
@@ -360,6 +370,17 @@ func auditShots() []auditShot {
 		g.p.item = "poison"
 		g.p.suitT = suitDuration
 	})
+	for _, two := range []bool{false, true} { // the closing time of the party under the HUD panel (countdown.go)
+		for _, fired := range []bool{false, true} {
+			two, fired := two, fired
+			add(fmt.Sprintf("HUD with party countdown fired=%v players=%d", fired, map[bool]int{false: 1, true: 2}[two]), false, func(g *Game) {
+				auditPlay(g, two)
+				g.cd = cdState{on: true, dur: 600, end: g.time + 599, fired: fired}
+				g.p.item = "poison"
+				g.p.stamina = 3
+			})
+		}
+	}
 	for r := 0; r < setRows; r++ {
 		r := r
 		add(fmt.Sprintf("settings row=%d", r), true, func(g *Game) {

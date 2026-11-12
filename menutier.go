@@ -42,7 +42,11 @@ func (g *Game) menuTier() int {
 	if g.dbg.tier > 0 {
 		return g.dbg.tier - 1
 	}
-	return menuTierOf(g.gameFinished(), g.allTrophies(), g.complFull())
+	t := menuTierOf(g.gameFinished(), g.allTrophies(), g.complFull())
+	if t > g.progress.MenuTier { // the best tier ever reached is kept (medals.go: a new trophy never takes it away)
+		g.progress.MenuTier = t
+	}
+	return maxI(t, clampI(g.progress.MenuTier, tierNormal, tierGold))
 }
 
 var complFullCache struct {

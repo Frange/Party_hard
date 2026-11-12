@@ -303,6 +303,7 @@ func level4() *LevelDef {
 		vw(0, 90, 464, 8, WallFence),
 		vw(952, 90, 464, 8, WallFence),
 	)
+	addSeaShore(d) // the sea above the sand is solid: nobody walks into the water (water.go)
 	d.Props = []PropInst{
 		P("stage", 480, 214), P("speaker", 280, 204), P("speaker", 690, 204),
 		P("bungalow", 160, 180), P("palm", 280, 130), P("palm", 80, 300),

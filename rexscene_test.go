@@ -11,7 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// The T-Rex that eats the cake after the credits is the T-Rex of the Jurassic Park level (the "jp_trex" sprite),
+// The T-Rex that eats the cake after the credits is the T-Rex of the island level (the "jp_trex" sprite),
 // in the poses of its meal: head down with the jaws open, bite, swallow/chew, roar (the burp); and it walks in and
 // out with the walking poses. The old hand-painted green head must not come back.
 func TestStingerRexIsLevelSprite(t *testing.T) {

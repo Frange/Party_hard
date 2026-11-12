@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,7 +23,7 @@ func fgSpec(t *testing.T, slug string) CharSpec {
 }
 
 // The nine beans are famous guests with a name and a description in ES and EN, short translated
-// catchphrases, a card in PERSONAJES with "Fall Guys" under the name, the wardrobe lists them, the
+// catchphrases, a card in PERSONAJES with "Flan Guys" under the name, the wardrobe lists them, the
 // drawing does not depend on chance and the slugs collide with nobody.
 func TestFallGuysRegistered(t *testing.T) {
 	if len(beanSlugs) != 9 || len(beanKinds) != 9 || len(beanNames) != 9 {
@@ -51,6 +52,9 @@ func TestFallGuysRegistered(t *testing.T) {
 			t.Errorf("%s: name repeated", slug)
 		}
 		esNames[n[0]], enNames[n[1]] = true, true
+		if n[0] != n[1] || !strings.HasPrefix(n[0], "Flan ") { // a proper name: never translated (owner, 2026-11-11)
+			t.Errorf("%s: %q / %q must be the same Flan name in both languages", slug, n[0], n[1])
+		}
 		if displayNameOverrides[slug] != n[0] || langDataEN[n[0]] != n[1] {
 			t.Errorf("%s: name %q / %q", slug, displayNameOverrides[slug], langDataEN[n[0]])
 		}
@@ -94,7 +98,7 @@ func TestFallGuysRegistered(t *testing.T) {
 			t.Errorf("%s: the drawing depends on chance", slug)
 		}
 	}
-	if langDataEN[beanGame] != beanGame {
+	if beanGame != "Flan Guys" || langDataEN[beanGame] != beanGame {
 		t.Errorf("%q has no English", beanGame)
 	}
 	if beanRole("homer") != "" || beanRole("judia_gallina") != beanGame {
@@ -223,7 +227,7 @@ func TestFallGuysLook(t *testing.T) {
 	}
 }
 
-// Card and detail window in ES and EN: the bean's name (translated), "Fall Guys" under it and in the
+// Card and detail window in ES and EN: the bean's name (the same in both), "Flan Guys" under it and in the
 // window, his description, and the longest name keeps >= 6 px of padding on the card (margins rule).
 func TestFallGuysCardsAndDetail(t *testing.T) {
 	g := goalDetailGame(t)

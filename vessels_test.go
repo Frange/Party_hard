@@ -211,7 +211,7 @@ func TestVesselStylesDistinct(t *testing.T) {
 	}
 }
 
-// the ferry of Isla Nublar: white superstructure, red and orange bands, blue windows
+// the ferry of Isla Nublada: white superstructure, red and orange bands, blue windows
 func TestFerrySprite(t *testing.T) {
 	b := newPix(124, 66)
 	genFerry(b)

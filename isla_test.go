@@ -13,8 +13,8 @@ func TestIslaScore(t *testing.T) {
 	if !ok {
 		t.Fatal("no score for the island")
 	}
-	if genreForTitle("ISLA NUBLAR").id != "isla" || genreForTitle("ISLA NUBLAR").label != "Música: Orquestal épica" {
-		t.Errorf("the island is %+v", genreForTitle("ISLA NUBLAR"))
+	if genreForTitle("ISLA NUBLADA").id != "isla" || genreForTitle("ISLA NUBLADA").label != "Música: Orquestal épica" {
+		t.Errorf("the island is %+v", genreForTitle("ISLA NUBLADA"))
 	}
 	if gs.bpm < 60 || gs.bpm > 80 || gs.beats != 64 {
 		t.Errorf("slow and long: %v bpm, %v beats", gs.bpm, gs.beats)
@@ -119,7 +119,7 @@ func TestIslaScore(t *testing.T) {
 		}
 	}
 	// the three variants are different songs (key, speed and order of the sections)
-	pl := genrePlaylist("ISLA NUBLAR")
+	pl := genrePlaylist("ISLA NUBLADA")
 	if len(pl) != 3 || pl[0].shift != 0 || pl[1].shift == pl[0].shift || pl[2].shift == pl[1].shift {
 		t.Errorf("playlist %+v", pl)
 	}

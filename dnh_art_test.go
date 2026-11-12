@@ -135,12 +135,13 @@ func TestDnhArtShort(t *testing.T) {
 	}
 }
 
-// Ron is a new famous guest with his name, description (ES and EN), group and catchphrases.
+// Rom (slug ron) is a new famous guest with his name, description (ES and EN), group and catchphrases.
 func TestDnhRonRegistered(t *testing.T) {
 	if presetByName("ron") == nil {
 		t.Fatal("ron: no preset")
 	}
-	if displayNameOverrides["ron"] != "Ron" {
+	// The name carries one changed letter (owner's naming policy, 2026-11-11); the slug stays "ron".
+	if displayNameOverrides["ron"] != "Rom" {
 		t.Errorf("ron: display name %q", displayNameOverrides["ron"])
 	}
 	d, ok := charDescs["ron"]

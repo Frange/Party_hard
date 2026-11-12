@@ -32,7 +32,7 @@ type copForce struct {
 
 var copForces = []copForce{
 	{"cop", "Policía local", unitPolice}, {"fbi", "FBI", unitFBI}, {"army", "Ejército", unitMilitary},
-	{"swat", "SWAT", unitSWAT}, {"rangers", "Power Rangers", unitRangers},
+	{"swat", "SWAT", unitSWAT}, {"rangers", "Pawer Rangers", unitRangers},
 }
 
 // copSetPick: the 36 uniforms kept, per force, in the order they open inside their force.

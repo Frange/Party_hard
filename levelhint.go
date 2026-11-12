@@ -154,6 +154,9 @@ func (g *Game) levelHintLines() []string {
 
 func (h *levelHint) reset(g *Game) {
 	*h = levelHint{lines: g.levelHintLines()}
+	if m := g.medalHintLine(); m != "" && len(h.lines) > 0 { // the points of the medals (medals.go), a third line
+		h.lines = append(h.lines, m)
+	}
 }
 
 // active: the plate is on screen right now.
@@ -175,6 +178,20 @@ func (g *Game) updateLevelHint(dt float64) {
 	}
 }
 
+// levelHintShown: the lines on the plate now. The plate stays two lines tall (taller, it covered the players at the
+// start): with the medals line of a campaign party (medals.go) the second line shows the tip for the first half of
+// the time and the points of the medals for the second half.
+func (g *Game) levelHintShown() []string {
+	h := &g.lh
+	if len(h.lines) <= 2 {
+		return h.lines
+	}
+	if h.t < lhDur/2 {
+		return h.lines[:2]
+	}
+	return []string{h.lines[0], h.lines[2]}
+}
+
 // drawLevelHint paints the plate. Called from drawHUD (ModePlay only).
 func (g *Game) drawLevelHint(dst *ebiten.Image) {
 	h := &g.lh
@@ -193,14 +210,18 @@ func (g *Game) drawLevelHint(dst *ebiten.Image) {
 	for _, l := range h.lines {
 		w = math.Max(w, g.textW(l, 1))
 	}
-	w = math.Round(w) + 24
-	ph := lhLineH*float64(len(h.lines)) + 8
+	w = math.Round(w) + 24 // the widest of ALL the lines: the plate keeps its size when line 2 changes
+	shown := g.levelHintShown()
+	ph := lhLineH*float64(len(shown)) + 8
 	x, y := math.Round(screenW/2-w/2), screenH-lhBottom-ph+slide
 	g.panel(dst, x, y, w, ph)
-	for i, l := range h.lines {
+	for i, l := range shown {
 		col := rgb(0xf0e060)
 		if i > 0 {
 			col = rgb(0xe8e4f4)
+		}
+		if i == 1 && len(h.lines) > 2 && l == h.lines[2] { // the medals line
+			col = rgb(0xe8b860)
 		}
 		g.drawTextC(dst, l, screenW/2, y+4+lhLineH*float64(i), col, 1)
 	}

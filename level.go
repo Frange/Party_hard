@@ -674,7 +674,7 @@ func (l *Level) Outdoor(p Vec) bool {
 		}
 	}
 	switch kind {
-	case "grass", "dirt", "sand", "cobble", "pave", "asphalt", "dash", "pitch", "arena", "boardwalk", "deck", "rooftop", "rooftop2", "snow", "chalk", "edge", "rails", "":
+	case "grass", "dirt", "sand", "cobble", "pave", "asphalt", "dash", "pitch", "arena", "boardwalk", "deck", "rooftop", "rooftop2", "snow", "chalk", "edge", "rails", "galleon", "":
 		return true
 	}
 	return false

@@ -291,20 +291,20 @@ func (g *Game) partyDrop(c *ebiten.Image, t float64) {
 
 // djLines: what Gabbo says (Italian-flavoured Spanish). They are balloons of the party: see partyLines.
 var djLines = []partyLine{
-	{"gabbo", 1.5, 3.1, "¡Mamma mia! ¡Che festa!", false},
+	{"gabbo", 1.5, 3.1, "¡Mama mia! ¡Che festa!", false},
 	{"gabbo", 3.4, 4.6, "¡Lluvia de spaghetti en 3, 2...!", false},
 	{"gabbo", 8.3, 10.2, "¡Bajo fuera! ¡Lo bajo con la cuchara!", false},
 	{"gabbo", 11.9, 13.4, "¡Spaghetti drop! ¡Bellissimo!", false},
-	{"gabbo", 16.7, 18.2, "¡Mi madre baila mejor! ¡Mamma mia!", false},
+	{"gabbo", 16.7, 18.2, "¡Mi madre baila mejor! ¡Mama mia!", false},
 	{"gabbo", 23.45, 24.4, "¡Tres, dos, uno... DROP!", false},
 }
 
 var djLinesEN = map[string]string{
-	"¡Mamma mia! ¡Che festa!":               "Mamma mia! Che festa!",
+	"¡Mama mia! ¡Che festa!":                "Mama mia! Che festa!",
 	"¡Lluvia de spaghetti en 3, 2...!":      "Spaghetti rain in 3, 2...!",
 	"¡Bajo fuera! ¡Lo bajo con la cuchara!": "Bass out! I lower it with a spoon!",
 	"¡Spaghetti drop! ¡Bellissimo!":         "Spaghetti drop! Bellissimo!",
-	"¡Mi madre baila mejor! ¡Mamma mia!":    "My mamma dances better! Mamma mia!",
+	"¡Mi madre baila mejor! ¡Mama mia!":     "My mamma dances better! Mama mia!",
 	"¡Tres, dos, uno... DROP!":              "Three, two, one... DROP!",
 	"¡DROP!":                                "DROP!",
 }

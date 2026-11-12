@@ -36,6 +36,11 @@ func isKid(gu *Guest) bool { return gu.quirk == "kid" }
 
 // updateKid: spot the player in front and run for it.
 func (g *Game) updateKid(gu *Guest) {
+	if g.skateKidDedupe(gu); !isKid(gu) {
+		return
+	}
+	g.kidHopTick(gu)            // a hop on the board now and then (skater_park.go)
+	g.kidStreetTick(gu, 1.0/60) // outside: a trick when he stops, and the stuck watchdog (kids_street.go)
 	if g.mode != ModePlay || gu.out() || g.p.dead || g.p.hidden || gu.perf != "" {
 		return
 	}
@@ -51,6 +56,13 @@ func (g *Game) updateKid(gu *Guest) {
 		}
 	}
 	if !g.sees(gu.pos, gu.dir, g.p.pos, 135, 0.35) {
+		return
+	}
+	if path, ok := g.kidStreetFleeTo(gu); ok { // a street kid runs away without leaving his open ground
+		g.detachPartner(gu)
+		gu.state, gu.timer = gScared, 4+g.rng.Float64()*3
+		gu.path = path
+		gu.icon, gu.iconT = []string{"¡Aaah!", "¡Corre!", "¡Viene!", "¡Socorro!"}[g.rng.Intn(4)], 1.2
 		return
 	}
 	var best Vec
@@ -99,21 +111,107 @@ func (g *Game) kidPresent(slug string) bool {
 	return false
 }
 
-// planKids decides which kids turn up after the party has started. The ones the
-// player has bought always come, early; the others only sometimes, and later.
+// planKids decides which kids turn up after the party has started. Since 2026-11-11 (owner: "1 de cada 2
+// pantallas FIJO") no dice decide it: the skate park has the three from the start, every other party of the rule
+// (kids_street.go: 1, 3, 5... passing the turn on where they have no room) gets the three riding outside a few
+// seconds after the start, and the rest gets none.
 func (g *Game) planKids() {
 	g.kidPlan = nil
-	for _, slug := range kidSlugs {
-		if g.kidPresent(slug) {
+	g.kidStreetSetup()
+	skate := g.lvl != nil && len(g.lvl.bowls) > 0
+	street := g.kidStreetActive()
+	for i, slug := range kidSlugs {
+		if skate { // the skate park: the three are always there from the start
+			g.skateKidAtStart(slug, i)
 			continue
 		}
-		switch {
-		case ownedID("skin:" + slug):
-			g.kidPlan = append(g.kidPlan, kidPlan{slug: slug, at: 8 + g.rng.Float64()*25})
-		case g.rng.Float64() < 0.35:
-			g.kidPlan = append(g.kidPlan, kidPlan{slug: slug, at: 40 + g.rng.Float64()*90})
+		if g.kidPresent(slug) {
+			if street { // already at the party (a famous guest of the start): he is the one, kept by the trims
+				for _, o := range g.guests {
+					if !o.out() && o.cs != nil && o.cs.Spec != nil && o.cs.Spec.Name == slug {
+						o.keep = true
+						kidStreetOwn(o)
+						break
+					}
+				}
+			}
+			continue
+		}
+		// the old dice (the bought ones always, the others 35 %) are still rolled, so the rest of the party (guests,
+		// stars, the arsonist...) keeps the same dice as before; they decide nothing now
+		if ownedID("skin:" + slug) {
+			g.rng.Float64()
+		} else if g.rng.Float64() < 0.35 {
+			g.rng.Float64()
+		}
+		if street {
+			g.kidPlan = append(g.kidPlan, kidPlan{slug: slug, at: 4 + float64(i)*3})
 		}
 	}
+}
+
+// skateKidAtStart: the kid is part of the skate park's start (so the trims and the kill target count him like
+// anybody): the one already there (a star of the party) or a new one, kept (keep) and first in the list, as the
+// start's trims cut plain guests and from the back (trimGuests). With no room at all, he comes soon after.
+func (g *Game) skateKidAtStart(slug string, i int) {
+	var gu *Guest
+	for _, o := range g.guests {
+		if !o.out() && o.cs != nil && o.cs.Spec != nil && o.cs.Spec.Name == slug {
+			gu = o
+			break
+		}
+	}
+	if gu == nil {
+		gu = g.addKid(slug, g.lvl.RandomRoam(g.rng))
+	}
+	if gu == nil {
+		g.kidPlan = append(g.kidPlan, kidPlan{slug: slug, at: 1 + float64(i)*1.5})
+		return
+	}
+	gu.keep = true
+	for k, o := range g.guests {
+		if o == gu {
+			copy(g.guests[1:k+1], g.guests[:k])
+			g.guests[0] = gu
+			break
+		}
+	}
+	for _, o := range g.guests[1:] {
+		g.skateKidDedupe(o)
+	}
+}
+
+// skateKidDedupe: in the skate park each of the three is there once: any other guest dressed as one of them
+// (a bought character turning up, a later arrival...) becomes a plain guest, as uniqueFamous does with the famous.
+// The one that stays is the first in the list (the start puts the three at the front).
+// The same outside (kids_street.go): in a party of the rule the first one stays; in a party WITHOUT the three, any
+// of them that came by another route (the random mix, a folder of famous guests) becomes a plain guest, except the
+// ones a debug switch brought (-kidsnow, -with).
+func (g *Game) skateKidDedupe(gu *Guest) {
+	if g.lvl == nil || gu.out() || gu.cs == nil || gu.cs.Spec == nil || !isKidSlug(gu.cs.Spec.Name) {
+		return
+	}
+	if len(g.lvl.bowls) == 0 && !g.kidStreetActive() {
+		if kidStreet.lvl == g.lvl && !kidStreet.own[gu] && len(g.dbgWith) == 0 {
+			delete(kidSessions, gu)
+			gu.cs, gu.name = g.plainGuestCS(), ""
+			gu.quirk, gu.quirkInit, gu.gaitInit = "", false, false
+			gu.keep = false
+		}
+		return
+	}
+	for _, o := range g.guests {
+		if o == gu {
+			return // he is the first one: he stays
+		}
+		if !o.out() && o.cs != nil && o.cs.Spec != nil && o.cs.Spec.Name == gu.cs.Spec.Name {
+			break
+		}
+	}
+	delete(kidSessions, gu)
+	gu.cs, gu.name = g.plainGuestCS(), ""
+	gu.quirk, gu.quirkInit, gu.gaitInit = "", false, false
+	gu.keep = false
 }
 
 func (g *Game) updateKidArrivals() {
@@ -128,6 +226,8 @@ func (g *Game) updateKidArrivals() {
 		if g.guestRoom() < 1 || g.kidPresent(k.slug) {
 			if g.kidPresent(k.slug) {
 				k.done = true
+			} else if len(g.lvl.bowls) > 0 {
+				k.at = g.time + 2 // the skate park waits for a free place: the three must come
 			} else {
 				k.at = g.time + 8
 			}
@@ -140,8 +240,17 @@ func (g *Game) updateKidArrivals() {
 
 // addKidAt puts one of the kids into the party.
 func (g *Game) addKidAt(slug string, pos Vec) *Guest {
+	if g.guestRoom() < 1 {
+		return nil
+	}
+	return g.addKid(slug, pos)
+}
+
+// addKid: addKidAt without asking for room: only while the party loads, before the start is trimmed to its
+// caps (trimGuests / trimStartTotal drop plain guests first: the kids are kept).
+func (g *Game) addKid(slug string, pos Vec) *Guest {
 	f := presetByName(slug)
-	if f == nil || g.guestRoom() < 1 {
+	if f == nil {
 		return nil
 	}
 	spec := f(g.rng)
@@ -149,6 +258,7 @@ func (g *Game) addKidAt(slug string, pos Vec) *Guest {
 	gu.icon, gu.iconT = "¡Wiiii!", 1.6
 	g.guests = append(g.guests, gu)
 	g.total++
+	kidStreetOwn(gu)
 	return gu
 }
 
@@ -196,12 +306,18 @@ func (g *Game) kidOnFoot(slug, name string) {
 	if def.CarFrom.X < def.CarTo.X {
 		x = def.W - 24
 	}
-	gu := g.addKidAt(slug, Vec{x, def.CarFrom.Y - 42})
+	entry, street := g.kidStreetArrivePos(Vec{x, def.CarFrom.Y - 42}) // outside: on his open ground (kids_street.go)
+	gu := g.addKidAt(slug, entry)
 	if gu == nil {
 		return
 	}
-	gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
-	gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
+	if street {
+		g.kidStreetPick(gu)
+		gu.hurry = true
+	} else {
+		gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
+		gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
+	}
 	if slug == "diego" {
 		g.say(name + " llega en su monopatín por la acera")
 	} else {
@@ -213,8 +329,12 @@ func (g *Game) kidOnFoot(slug, name string) {
 func (g *Game) kidFromVehicle(v *Vehicle) {
 	slug := kidSlugs[v.alt%len(kidSlugs)]
 	if gu := g.addKidAt(slug, Vec{v.x - 12, v.y - 24}); gu != nil {
-		gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
-		gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
+		if g.kidStreetPick(gu) { // a party of the rule: straight to his open ground (kids_street.go)
+			gu.hurry = true
+		} else {
+			gu.path = g.lvl.PathG(gu.pos, g.lvl.RandomRoam(g.rng))
+			gu.state, gu.next, gu.dur, gu.hurry = gGoto, gIdle, 2, true
+		}
 	}
 	g.snd.Play("alert")
 }

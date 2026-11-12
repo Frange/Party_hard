@@ -49,9 +49,9 @@ func defaultBindings2() Bindings {
 	set(actDown, ebiten.KeyArrowDown, ebiten.StandardGamepadButtonLeftBottom)
 	set(actLeft, ebiten.KeyArrowLeft, ebiten.StandardGamepadButtonLeftLeft)
 	set(actRight, ebiten.KeyArrowRight, ebiten.StandardGamepadButtonLeftRight)
-	set(actRun, ebiten.KeyShiftRight, ebiten.StandardGamepadButtonFrontBottomRight)
+	set(actRun, ebiten.KeyShiftRight, ebiten.StandardGamepadButtonFrontTopRight)
 	set(actAttack, ebiten.KeyPeriod, ebiten.StandardGamepadButtonRightBottom)
-	set(actInteract, ebiten.KeyComma, ebiten.StandardGamepadButtonRightLeft)
+	set(actInteract, ebiten.KeyComma, ebiten.StandardGamepadButtonRightRight)
 	set(actDance, ebiten.KeySlash, ebiten.StandardGamepadButtonRightTop)
 	// the same actions and powers as player 1, on letters of the right hand that player 1 and the fixed
 	// shortcuts (1-9, R, G, M, F11, F2, Esc, Tab, F1, Backspace) do not use. On a pad player 2 has his
@@ -60,7 +60,7 @@ func defaultBindings2() Bindings {
 	set(actConfirm, ebiten.KeyN, ebiten.StandardGamepadButtonRightBottom)
 	b[actConfirm].Keys[1] = ebiten.KeyPeriod // like player 1's Space: his stab key also confirms
 	set(actEvent, ebiten.KeyH, ebiten.StandardGamepadButtonFrontTopLeft)
-	set(actImmune, ebiten.KeyU, ebiten.StandardGamepadButtonFrontTopRight)
+	set(actImmune, ebiten.KeyU, ebiten.StandardGamepadButtonFrontBottomRight)
 	set(actFamous, ebiten.KeyY, ebiten.StandardGamepadButtonFrontBottomLeft)
 	set(actKiller, ebiten.KeyB, ebiten.StandardGamepadButtonLeftStick)
 	set(actPowerEvent, ebiten.KeyT, ebiten.StandardGamepadButtonRightStick)
@@ -181,12 +181,12 @@ func actionHintFor(a Action, p int) string {
 		b = binds2
 	}
 	if playerDev[p&1] >= 0 { // on a gamepad: the button
-		return padLabel(b[a].Pad)
+		return padShort(b[a].Pad)
 	}
 	for _, k := range b[a].Keys {
 		if k != noKey {
 			return keyLabel(k)
 		}
 	}
-	return padLabel(b[a].Pad)
+	return padShort(b[a].Pad)
 }

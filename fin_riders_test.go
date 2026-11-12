@@ -56,6 +56,12 @@ func finPartPix(t *testing.T, a *finRideArt, i int, p finPart) *pixBuf {
 		return finDrawSkate(p.view, p.w, hx(finRiders[i].deck))
 	case finPartScooter:
 		return finDrawScooter(p.view, p.w, hx(finRiders[i].deck))
+	case finPartKidRot:
+		return finKidRotBuf(i, p.view)
+	case finPartCombo:
+		return finComboBuf(i, p.view)
+	case finPartKidArms:
+		return finKidArmsBuf(i)
 	}
 	return finKidPix(t, a.kids[i], p.anim, p.dir, p.fr)
 }
@@ -86,7 +92,7 @@ func TestFinRidersInsideTheirBox(t *testing.T) {
 		}
 		cache := map[[6]int]*pixBuf{}
 		worst := 0.0
-		for tt := finRidersFrom; tt < finRidersFrom+90; tt += 1.0 / 60 {
+		for tt := finRidersFrom; tt < finRidersFrom+240; tt += 1.0 / 60 {
 			s := finRideAt(i, tt)
 			x0, y0, x1, y1, on := finRideBox(i, tt)
 			if !on {
@@ -152,6 +158,9 @@ func TestFinRidersClearOfCard(t *testing.T) {
 						t.Errorf("two=%v trueEnd=%v: the riders are not drawn on the card", two, trueEnd)
 					}
 					for _, r := range textRec.texts {
+						if r.kind == "riderSay" { // the kids' own little bubbles (TestFinRiderSaysLayout checks them)
+							continue
+						}
 						b := finBox{r.x, r.y, r.x + r.w, r.y + r.h}
 						if r.scale >= 7 {
 							b.y0, b.y1 = b.y0-2, b.y1+2
@@ -206,7 +215,13 @@ func TestFinRidersClearOfCard(t *testing.T) {
 // spins, Sam-sam tailwhips), jumps in an arc and lands, faces the way he goes, and the three cross each other.
 // All of it is a pure function of the card's time.
 func TestFinRidersTricksAndCrossing(t *testing.T) {
-	want := map[string][]int{"diego": {finTrickKickflip, finTrickOllie}, "cesar": {finTrickSpin}, "sam_sam": {finTrickWhip}}
+	want := map[string][]int{}
+	for _, r := range finRiders {
+		want[r.slug] = r.tricks
+	}
+	if len(want["diego"]) < 8 || len(want["cesar"]) < 7 || len(want["sam_sam"]) < 7 {
+		t.Fatalf("the repertoires are short: %v", want)
+	}
 	speeds := map[float64]bool{}
 	for i, r := range finRiders {
 		speeds[r.speed] = true
@@ -216,7 +231,7 @@ func TestFinRidersTricksAndCrossing(t *testing.T) {
 		seen := map[int]int{}
 		prevTrick, prevX, starts, lastStart := finTrickNone, -1.0, 0, finRidersFrom
 		maxGapT := 0.0
-		for tt := finRidersFrom; tt < finRidersFrom+60; tt += 1.0 / 60 {
+		for tt := finRidersFrom; tt < finRidersFrom+240; tt += 1.0 / 60 {
 			s := finRideAt(i, tt)
 			if s != finRideAt(i, tt) {
 				t.Fatalf("%s: not deterministic at %.2f", r.slug, tt)
@@ -230,8 +245,8 @@ func TestFinRidersTricksAndCrossing(t *testing.T) {
 			if s.trick == finTrickNone && s.h != 0 {
 				t.Fatalf("%s off the ground with no trick at %.2f", r.slug, tt)
 			}
-			if s.trick != finTrickNone && math.Abs(s.p-0.5) < 0.01 && math.Abs(s.h-r.jumpH) > 1 {
-				t.Errorf("%s: apex %v, want %v", r.slug, s.h, r.jumpH)
+			if s.trick != finTrickNone && s.trick != finTrickBail && math.Abs(s.p-0.5) < 0.01 && math.Abs(s.h-finTrickLift(s.trick)*r.jumpH) > 1 {
+				t.Errorf("%s: apex %v, want %v", r.slug, s.h, finTrickLift(s.trick)*r.jumpH)
 			}
 			if (s.dir == DirLeft || s.dir == DirRight) && s.dir != s.dirOfMove {
 				t.Fatalf("%s faces %v but goes %v at %.2f", r.slug, s.dir, s.dirOfMove, tt)
@@ -253,7 +268,7 @@ func TestFinRidersTricksAndCrossing(t *testing.T) {
 		}
 		for _, k := range want[r.slug] {
 			if seen[k] == 0 {
-				t.Errorf("%s never does trick %d in a minute (%v)", r.slug, k, seen)
+				t.Errorf("%s never does trick %d in four minutes (%v)", r.slug, k, seen)
 			}
 		}
 		for k := range seen {
@@ -265,8 +280,8 @@ func TestFinRidersTricksAndCrossing(t *testing.T) {
 				t.Errorf("%s does trick %d, not his", r.slug, k)
 			}
 		}
-		if starts < 5 || maxGapT > 16 {
-			t.Errorf("%s: %d tricks in a minute, longest wait %.1f s (want one every few seconds)", r.slug, starts, maxGapT)
+		if starts < 20 || maxGapT > 16 {
+			t.Errorf("%s: %d tricks in four minutes, longest wait %.1f s (want one every few seconds)", r.slug, starts, maxGapT)
 		}
 	}
 	if len(speeds) != len(finRiders) {

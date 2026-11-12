@@ -2,8 +2,8 @@ package main
 
 import "strings"
 
-// The big monuments (the Eiffel Tower, the leaning tower and the walls of the amphitheatre) are almost always
-// standing in front of somebody, so the usual "tall things turn see-through while somebody is behind them" made
+// The big monuments (the Eiffel Tower, the leaning tower, the walls of the amphitheatre, the masts of the pirate ship)
+// are almost always standing in front of somebody, so the usual "tall things turn see-through while somebody is behind them" made
 // them look like ghosts. They stay solid while guests walk behind them and only turn a little see-through while a
 // PLAYER is behind (so you never lose yourself). landmarkFadeAmp gives how much (0 = never).
 func landmarkFadeAmp(name string) (float64, bool) {
@@ -14,6 +14,8 @@ func landmarkFadeAmp(name string) (float64, bool) {
 		return 0.4, true
 	case strings.HasPrefix(name, "colos") && name != "colosfloor":
 		return 0.4, true
+	case name == "pmast": // the masts of the BARCO PIRATA (pirate_props.go)
+		return 0.5, true
 	}
 	return 0, false
 }

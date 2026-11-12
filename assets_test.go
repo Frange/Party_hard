@@ -295,8 +295,13 @@ func TestCopMinimumStay(t *testing.T) {
 	if !c.mayLeave() {
 		t.Fatal("after 20s the officer may leave")
 	}
-	if !(&Cop{medic: true}).mayLeave() {
-		t.Fatal("medics are not bound by the police minimum")
+	// medics are not bound by the police minimum, but (2026-11-11) a paramedic never goes back
+	// without having worked: a body taken, or the place examined for medicMinAct seconds
+	if (&Cop{medic: true}).mayLeave() {
+		t.Fatal("a paramedic who did nothing must not leave")
+	}
+	if !(&Cop{medic: true, carried: 1}).mayLeave() || !(&Cop{medic: true, actT: medicMinAct}).mayLeave() {
+		t.Fatal("a paramedic who worked may leave")
 	}
 }
 

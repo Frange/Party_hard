@@ -182,9 +182,9 @@ func (g *Game) endTwoSay(dst *ebiten.Image, e *endState) {
 		case sceneIn(t, 12.6, 14.2):
 			b1("Te lo dije.")
 		case sceneIn(t, 16.0, 17.6):
-			b2("¡Murray me mira!")
+			b2("¡Murrey me mira!")
 		case sceneIn(t, 17.8, 19.4):
-			b1("Murray mira a todos.")
+			b1("Murrey mira a todos.")
 		}
 	case e.stage == endDoor:
 		switch {
@@ -221,7 +221,7 @@ func (g *Game) walkCaption2(e *endState) string {
 	case e.stage == endDoor && e.t < 4.6:
 		return "¡Portazo! Los invitados fantasma se quedan fuera."
 	case e.stage == endDoor && e.t < 6.2:
-		return "El vecino pone la Música Jurásica a todo volumen..."
+		return "El vecino pone la Música Fiestásica a todo volumen..."
 	case e.stage == endDoor && e.t < 8.2:
 		return "...y alguien muy grande ha oído el bajo."
 	case e.stage == endDoor:
@@ -233,7 +233,7 @@ func (g *Game) walkCaption2(e *endState) string {
 	case e.t < 15.5:
 		return "Los fantasmas de todas las fiestas hacen la conga. El rojo grita."
 	default:
-		return "Hasta Murray viene en su estaca, hablando sin parar."
+		return "Hasta Murrey viene en su estaca, hablando sin parar."
 	}
 }
 

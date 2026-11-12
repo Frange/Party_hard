@@ -6,7 +6,8 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Guests dressed for the party. In the birthday party many wear a cone hat, on the rink they wear helmets, team
+// Guests dressed for the party. On the pirate ship they wear tricorns, striped shirts, bandanas and long coats.
+// In the birthday party many wear a cone hat, on the rink they wear helmets, team
 // shirts and skates (some carry a stick), and in the 70s disco they have afros, sideburns, shades and bell-bottoms.
 // Chosen with their own dice (never g.rng, so the rest of the party is rolled as always); a guest that is dressed
 // replaces the random one (no name, never a famous face).
@@ -34,14 +35,14 @@ func crowdKind(def *LevelDef) string {
 		return ""
 	}
 	switch def.Icon {
-	case "cake", "hockey", "disco70", "italy":
+	case "cake", "hockey", "disco70", "italy", "pirate":
 		return def.Icon
 	}
 	return ""
 }
 
 // crowdChance: share of the guests that arrive dressed for the party.
-var crowdChance = map[string]float64{"cake": 0.5, "hockey": 0.45, "disco70": 0.6, "italy": 0.45}
+var crowdChance = map[string]float64{"cake": 0.5, "hockey": 0.45, "disco70": 0.6, "italy": 0.45, "pirate": 0.5}
 
 // crowdSpec dresses one guest.
 func crowdSpec(kind string, r *rand.Rand) CharSpec {
@@ -108,6 +109,28 @@ func crowdSpec(kind string, r *rand.Rand) CharSpec {
 				s.Carry = HoldGuitar
 			}
 		}
+	case "pirate": // BARCO PIRATA (pirate.go): tricorns, striped sailors, captains in long coats, bandanas, grog
+		switch r.Intn(4) {
+		case 0: // the deckhand: a striped shirt and a bandana (a red or black cap pulled tight)
+			s.Top, s.Shirt, s.Shirt2, s.Pattern = TopTee, hx(0xf0ece0), hx(pick(r, []uint32{0xb83a30, 0x1a2a5a, 0x2a2a30})), 2
+			s.Hat, s.HatCol = HatBeanie, hx(pick(r, []uint32{0xb83a30, 0x2a2a30}))
+			s.Bottom, s.Pants = BotShorts, hx(pick(r, []uint32{0x3a3a52, 0x5a4a3a}))
+		case 1: // the captain: tricorn, long coat, beard
+			s.Hat, s.HatCol = HatPirate, hx(0x16141a)
+			s.Top, s.Shirt, s.Shirt2 = TopLong, hx(pick(r, []uint32{0x7a2a2a, 0x2a2a4a, 0x3a4a2a})), hx(0xe8e0c8)
+			s.Bottom, s.Pants = BotPants, hx(0x2a2018)
+			if !s.Female {
+				s.Beard = []int{BeardFull, BeardGoatee, BeardMustache}[r.Intn(3)]
+			}
+		case 2: // the buccaneer: a vest over a white shirt, a tricorn of another colour, a mug of grog
+			s.Top, s.Shirt, s.Shirt2 = TopVest, hx(0xf0ece0), hx(pick(r, []uint32{0x5a3a26, 0x2a2a30, 0x6a2a3a}))
+			s.Hat, s.HatCol = HatPirate, hx(pick(r, []uint32{0x5a3a26, 0x3a2a1a}))
+			s.Carry = HoldBeer
+		default: // a guest in a plain sailor's shirt with a drink
+			s.Top, s.Shirt, s.Shirt2, s.Pattern = TopLong, hx(0xf4f4f0), hx(0x1a2a5a), 2
+			s.Carry = HoldCup
+		}
+		s.Shoes = hx(pick(r, []uint32{0x2a1a10, 0x14141a}))
 	}
 	return s
 }

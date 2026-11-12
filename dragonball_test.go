@@ -125,13 +125,14 @@ func TestDragonBallStature(t *testing.T) {
 	}
 }
 
-// Cell is a new famous guest: preset, name, description in both languages, card in the album
+// Sell (slug cell) is a new famous guest: preset, name, description in both languages, card in the album
 // and in the Dragon Ball group; drawn the same with any random source (so its pictures can be exported).
 func TestDragonBallCellGuest(t *testing.T) {
 	if presetByName("cell") == nil {
 		t.Fatal("no preset for cell")
 	}
-	if n := displayNameOverrides["cell"]; n != "Cell" {
+	// One changed letter (owner's naming policy, 2026-11-11); the slug stays "cell".
+	if n := displayNameOverrides["cell"]; n != "Sell" {
 		t.Errorf("name %q", n)
 	}
 	d, ok := charDescs["cell"]

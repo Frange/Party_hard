@@ -350,16 +350,16 @@ func buildShopCatalog() {
 	c[shopPolice] = []shopItem{
 		{id: "police:0", name: "Policía local", desc: "Siempre disponible: 1 estrella.", price: 0},
 		// the other types are not for sale: each one is unlocked by a trophy (kills milestones)
-		{id: "police:1", name: "FBI", desc: "Mulder y Scully llegan con 2 estrellas.", price: 1<<20 + 701, arg: "1", trophy: "t_cop1"},
+		{id: "police:1", name: "FBI", desc: "Molder y Skully llegan con 2 estrellas.", price: 1<<20 + 701, arg: "1", trophy: "t_cop1"},
 		{id: "police:2", name: "Ejército", desc: "Soldados con 3 estrellas.", price: 1<<20 + 702, arg: "2", trophy: "t_cop2"},
 		{id: "police:3", name: "SWAT", desc: "Operadores con 4 estrellas.", price: 1<<20 + 703, arg: "3", trophy: "t_cop3"},
-		{id: "police:4", name: "Power Rangers", desc: "Llegan con 5 estrellas.", price: 1<<20 + 704, arg: "4", trophy: "t_cop4"},
+		{id: "police:4", name: "Pawer Rangers", desc: "Llegan con 5 estrellas.", price: 1<<20 + 704, arg: "4", trophy: "t_cop4"},
 	}
 	// the uniforms are not sold (copsets.go): the 36 kept sets open with escapes, the other 72 are only worn by whoever
 	// bought them before. Every one is a locked entry of shopUniforms (never buyable); the price argument is the old list price.
 	uni := func(slot, id, name string, price int, fx func(*CharSpec)) {
 		wearFx[id] = fx
-		who := map[string]string{"cop": "la policía local", "fbi": "el FBI", "army": "el ejército", "swat": "el SWAT", "rangers": "los Power Rangers"}[slot]
+		who := map[string]string{"cop": "la policía local", "fbi": "el FBI", "army": "el ejército", "swat": "el SWAT", "rangers": "los Pawer Rangers"}[slot]
 		lock := "retired"
 		if copSetRank(id) > 0 {
 			lock = "escapes"

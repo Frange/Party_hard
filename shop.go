@@ -739,7 +739,7 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 		if it.trophy != "" {
 			tag, tcol = "TROFEO", rgb(0x8a6aa8)
 			if g.shopTab == shopPolice {
-				tag = fmt.Sprintf("%d/%d", g.progress.Stats["kills"], policeNeed(it.id))
+				tag = fmt.Sprintf("%d/%d", careerKills(&g.progress), policeNeed(it.id))
 			}
 		}
 		switch {
@@ -780,10 +780,10 @@ func (g *Game) drawShop(dst *ebiten.Image) {
 			g.drawTextC(dst, n, 775, 238, rgb(0x6a4a10), 3)
 		}
 		g.drawTextC(dst, it.name, 775, 134, rgb(0xf4f0ff), 1.2)
-		g.drawWrapped(dst, it.desc, 650, 352, 250, rgb(0xb8b0d0))
+		g.drawWrapped(dst, shopDescHint(it.desc), 650, 352, 250, rgb(0xb8b0d0))
 		if g.shopTab == shopPolice && it.trophy != "" && !g.shopOwns(it) {
 			need := policeNeed(it.id)
-			have := minI(g.progress.Stats["kills"], need)
+			have := minI(careerKills(&g.progress), need)
 			g.drawText(dst, fmt.Sprintf("Desbloquea al llegar a %d asesinatos", need), 650, 296, rgb(0xf0e060), 1)
 			fillRect(dst, 650, 312, 250, 8, rgb(0x2a2240))
 			fillRect(dst, 650, 312, float64(250*have/maxI(1, need)), 8, rgb(0xd84a5a))

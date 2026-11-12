@@ -26,11 +26,11 @@ type killerInfo struct {
 
 // killerCatalog: the 23 killers of the game (21 + the endoskeleton + the beak doctor), in the order of the ASESINOS tab.
 var killerCatalog = []killerInfo{
-	{"michael", "Michael", "Michael", "", ""},
-	{"jason", "Jason", "Jason", "", ""},
-	{"ghostface", "Ghostface", "Ghostface", "", ""},
+	{"michael", "Michel", "Michel", "", ""},
+	{"jason", "Jasson", "Jasson", "", ""},
+	{"ghostface", "Ghostfase", "Ghostfase", "", ""},
 	{"leatherface", "Cara de Cuero", "Leather Mask", "", ""},
-	{"freddy", "Freddy", "Freddy", "", ""},
+	{"freddy", "Freddi", "Freddi", "", ""},
 	{"chucky", "Muñeco diabólico", "Devil doll", "Muñeco", "Doll"},
 	{"mimo", "El Mimo", "The Mime", "", ""},
 	{"demonio", "El Demonio", "The Demon", "", ""},

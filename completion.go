@@ -111,13 +111,17 @@ func (g *Game) complLines(parts []complPart) []string {
 		return []string{"100 %"}
 	}
 	lines := []string{tr(fmt.Sprintf("COMPLETADO %d%%", pc))}
-	cur := tr("Faltan:")
+	head := tr("Faltan:")
+	if g.progress.MenuTier >= tierGold { // the 100 % was reached once: it stays, what came later is "new" (medals.go)
+		lines[0], head = "100 %", tr("Nuevo:")
+	}
+	cur := head
 	for _, m := range complMissing(parts, 4) {
 		next := cur + " " + m
-		if cur != tr("Faltan:") {
+		if cur != head {
 			next = cur + " · " + m
 		}
-		if cur != tr("Faltan:") && g.textW(next, 1) > complMaxW && len(lines) < 3 {
+		if cur != head && g.textW(next, 1) > complMaxW && len(lines) < 3 {
 			lines = append(lines, cur)
 			cur = m
 			continue

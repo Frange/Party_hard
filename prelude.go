@@ -17,7 +17,7 @@ import (
 //     and open it. Then the letter of invite.go comes up, exactly as it was.
 //   preBad (space station, trophies missing): the party has used up the oxygen. Red alarm, a panic,
 //     everybody runs to the escape pod, only the heroes fit. Then the short epilogue of ending.go.
-//   preIsland (Isla Nublar, after the last party): the rented helicopter is a wreck, raptors in
+//   preIsland (Isla Nublada, after the last party): the rented helicopter is a wreck, raptors in
 //     party hats come out of the palms, the T-Rex arrives... and fires a confetti cannon. Then the
 //     party of endparty.go (the real ending).
 // Everything is drawn into a 480x270 canvas and shown at 2x; the texts are drawn on the screen.

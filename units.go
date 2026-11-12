@@ -26,9 +26,9 @@ func unitSpecs() unitSet {
 			Shoes: hx(0x0e0e12), Top: TopSuit, Accent: hx(0x22222c), Hair2: HairBob},
 	}
 	u.military = []CharSpec{
-		{Name: "military_a", Skin: hx(0xc89868), Hair: hx(0x1a1a1a), Shirt: hx(0x3a4a2a), Shirt2: hx(0x3a4a2a), Pants: hx(0x2a3a22), Shoes: hx(0x14140e),
+		{Name: "military_a", DisplayName: "Militar A", Skin: hx(0xc89868), Hair: hx(0x1a1a1a), Shirt: hx(0x3a4a2a), Shirt2: hx(0x3a4a2a), Pants: hx(0x2a3a22), Shoes: hx(0x14140e),
 			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x3a4a2a), Accent: hx(0x3a4a2a), Body: BodyBig},
-		{Name: "military_b", Skin: hx(0x8a6244), Hair: hx(0x0e0e0e), Shirt: hx(0x344028), Shirt2: hx(0x344028), Pants: hx(0x263018), Shoes: hx(0x100f0a),
+		{Name: "military_b", DisplayName: "Militar B", Skin: hx(0x8a6244), Hair: hx(0x0e0e0e), Shirt: hx(0x344028), Shirt2: hx(0x344028), Pants: hx(0x263018), Shoes: hx(0x100f0a),
 			Top: TopArmor, Hat: HatHelmet, HatCol: hx(0x344028), Accent: hx(0x344028), Body: BodyBig, Beard: BeardMustache},
 	}
 	for _, rc := range []struct {

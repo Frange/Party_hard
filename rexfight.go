@@ -2,7 +2,7 @@ package main
 
 import "math"
 
-// The authorities against the T-Rex (Isla Nublar, 2026-11-09).
+// The authorities against the T-Rex (Isla Nublada, 2026-11-09).
 //
 //   - Whatever the T-Rex kills on the island is reported like the player's kills (Body.byRex):
 //     a witness calls, the local police come first and then the group of the stretch
@@ -10,16 +10,16 @@ import "math"
 //     The officers stay until every body is covered.
 //   - The local police and the FBI cannot hurt it: they get eaten or keep out of its way.
 //   - The military and the SWAT shoot it: it gets weaker and slower, never below rexFloorHP.
-//   - The Power Rangers fight it hand to hand: with chance rexRangerWinP they bring it down;
+//   - The Pawer Rangers fight it hand to hand: with chance rexRangerWinP they bring it down;
 //     otherwise it stays on its feet and eats some of them.
 
 const (
 	rexMaxHP      = 400.0 // a lot of life
 	rexFloorHP    = 140.0 // what the guns can take it down to: weakened, never killed
-	rexRangerWinP = 0.35  // the Power Rangers win the fight about one time in three
+	rexRangerWinP = 0.35  // the Pawer Rangers win the fight about one time in three
 	rexSlowMin    = 0.75  // its speed at 0 life (x1 at full life)
 	rexFightRange = 210.0 // how far the armed groups engage it from
-	rexMeleeRange = 40.0  // the Power Rangers hit it from this close
+	rexMeleeRange = 40.0  // the Pawer Rangers hit it from this close
 )
 
 // rexShotDamage: one burst of fire / one blow of a group. The police and the FBI do nothing.
@@ -57,10 +57,10 @@ func rexSlow(hp float64) float64 {
 	return rexSlowMin + (1-rexSlowMin)*clampF(hp/rexMaxHP, 0, 1)
 }
 
-// dbgRexKill: -trexkill (debug) sends the Power Rangers to the island and they always win.
+// dbgRexKill: -trexkill (debug) sends the Pawer Rangers to the island and they always win.
 var dbgRexKill bool
 
-// rexRangersRoll decides, once per T-Rex, whether the Power Rangers will win.
+// rexRangersRoll decides, once per T-Rex, whether the Pawer Rangers will win.
 func (g *Game) rexRangersRoll(r *JRex) bool {
 	if !r.rolled {
 		r.rolled = true
@@ -137,7 +137,7 @@ func (g *Game) rexHit(c *Cop) {
 		g.rexDies()
 		return
 	}
-	// the Power Rangers losing the fight: it turns on them
+	// the Pawer Rangers losing the fight: it turns on them
 	if c.kind == unitRangers && !win && r.state != jrEat && g.rng.Float64() < 0.35 {
 		cs := g.copCSFor(c)
 		cc := c
@@ -147,7 +147,7 @@ func (g *Game) rexHit(c *Cop) {
 	}
 }
 
-// rexDies: the Power Rangers bring it down. It is not a guest: the party goes on as before.
+// rexDies: the Pawer Rangers bring it down. It is not a guest: the party goes on as before.
 func (g *Game) rexDies() {
 	r := g.rex
 	if r == nil {
@@ -162,7 +162,7 @@ func (g *Game) rexDies() {
 		g.rexSplat(Vec{r.pos.X + (g.rng.Float64()-0.5)*50, r.pos.Y - 10}, nil)
 	}
 	g.burst(Vec{r.pos.X, r.pos.Y - 20}, 50, 140, rgba(0xb8a888, 220), 1.2, 3, 40)
-	g.say("¡Los Power Rangers han tumbado al T-Rex! Sin Megazord.")
+	g.say("¡Los Pawer Rangers han tumbado al T-Rex! Sin Megazort.")
 	g.rex = nil
 }
 

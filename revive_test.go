@@ -1,10 +1,16 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/hajimehoshi/bitmapfont/v3"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+)
 
 // reviveGame is a two-player party with the paramedics' look ready.
 func reviveGame() *Game {
 	g := twoGame(true)
+	g.face = text.NewGoXFace(bitmapfont.Face) // the font of the game (newGame): the notice box measures its texts
 	sp := medicSpec()
 	g.as.medicCS = newCharSet(&sp)
 	g.mode = ModePlay
@@ -32,7 +38,7 @@ func runRescue(g *Game) []int {
 	return seen
 }
 
-func TestReviveOncePerParty(t *testing.T) {
+func TestReviveOncePerPlayerPerParty(t *testing.T) {
 	g := reviveGame()
 	kill(g, g.p2, "Un asesino te ha dado caza")
 	if !g.p2.dead || g.p2.deathWhy == "" {
@@ -48,8 +54,8 @@ func TestReviveOncePerParty(t *testing.T) {
 		t.Fatal("a dead player cannot call")
 	}
 	g.callAmbulance(g.p, nil)
-	if !g.rev.used || g.rev.job == nil {
-		t.Fatal("the call did not start a rescue")
+	if !g.reviveSpent(g.p2) || g.reviveSpent(g.p) || g.rev.job == nil {
+		t.Fatal("the call must start a rescue and spend the ambulance of J2 only")
 	}
 	if g.canCallAmbulance(g.p) {
 		t.Fatal("nobody can call twice while the ambulance is coming")
@@ -71,10 +77,120 @@ func TestReviveOncePerParty(t *testing.T) {
 	if g.rev.job != nil {
 		t.Error("the rescue must be over and the paramedics gone")
 	}
-	// the call was spent: a second death in the same party is final
+	// J2 spent his ambulance: a second death of J2 in the same party is final
 	kill(g, g.p2, "Un asesino te ha dado caza")
-	if g.canCallAmbulance(g.p) {
-		t.Error("only ONE call per party")
+	if g.canCallAmbulance(g.p) || g.reviveTarget() != nil {
+		t.Fatal("only ONE revival per player and party: J2 stays dead")
+	}
+	if g.reviveHudLine() != "J2 ya gastó su ambulancia" {
+		t.Errorf("the HUD must say J2 has no ambulance left: %q", g.reviveHudLine())
+	}
+	if _, ok := g.reviveNoticeBox(0); ok {
+		t.Error("no notice for a partner that cannot be saved")
+	}
+}
+
+func TestReviveEachPlayerHasHisOwn(t *testing.T) {
+	g := reviveGame()
+	if got := g.reviveHudLine(); got != "Ambulancia: J1 1 · J2 1" {
+		t.Fatalf("at the start each player has one ambulance: %q", got)
+	}
+	kill(g, g.p, "Un asesino te ha dado caza") // J1 dies first, J2 calls
+	if !g.canCallAmbulance(g.p2) {
+		t.Fatal("J2 must be able to call for J1")
+	}
+	g.callAmbulance(g.p2, nil)
+	runRescue(g)
+	if g.p.dead {
+		t.Fatal("J1 was not revived")
+	}
+	if got := g.reviveHudLine(); got != "Ambulancia: J1 0 · J2 1" {
+		t.Errorf("J1 spent his, J2 keeps his: %q", got)
+	}
+	// later in the same party J2 dies: J1 can still bring HIM back
+	g.p.knockT = 0 // he got up a while ago (runRescue only moves the rescue, not the players)
+	kill(g, g.p2, "Te ha caído un piano encima")
+	if !g.canCallAmbulance(g.p) {
+		t.Fatal("J2 still has his own ambulance in this party")
+	}
+	g.callAmbulance(g.p, nil)
+	runRescue(g)
+	if g.p2.dead || g.rev.done != 2 {
+		t.Fatalf("J2 must be revived too (done=%d)", g.rev.done)
+	}
+	// and now neither of them has any left
+	kill(g, g.p, "Un asesino te ha dado caza")
+	if g.canCallAmbulance(g.p2) {
+		t.Error("J1 already had his ambulance")
+	}
+}
+
+func TestReviveResetsWithANewParty(t *testing.T) {
+	g := reviveGame()
+	kill(g, g.p2, "Un asesino te ha dado caza")
+	g.callAmbulance(g.p, nil)
+	runRescue(g)
+	if !g.reviveSpent(g.p2) {
+		t.Fatal("J2 spent his ambulance")
+	}
+	old := twoPlayerMode
+	twoPlayerMode = true
+	defer func() { twoPlayerMode = old }()
+	g.setupPlayers(g.lvl.Def) // what loadLevel does for every party
+	if g.reviveSpent(g.p) || g.reviveSpent(g.p2) || g.rev.done != 0 || g.rev.job != nil {
+		t.Fatal("a new party gives each player his ambulance again")
+	}
+	g.mode = ModePlay
+	kill(g, g.p2, "Un asesino te ha dado caza")
+	if !g.canCallAmbulance(g.p) {
+		t.Error("after loading a party J2 can be revived again")
+	}
+}
+
+// From the moment the paramedics reach the body to the partner getting up: about 10 seconds, with the two shocks.
+func TestReviveTakesTenSecondsAtTheBody(t *testing.T) {
+	if revWorkT < 9.5 || revWorkT > 10.5 {
+		t.Fatalf("the work by the body adds up to %.1f s, wanted about 10", revWorkT)
+	}
+	g := reviveGame()
+	kill(g, g.p2, "Te ha atropellado un coche")
+	g.callAmbulance(g.p, nil)
+	const dt = 1.0 / 60
+	arrived, up := -1.0, -1.0
+	shocks := 0
+	lastPhase := -1
+	for i := 0; i < 60*120 && up < 0; i++ {
+		g.time += dt
+		g.updateVehicles(dt)
+		g.updateTwoPlayers(dt)
+		j := g.rev.job
+		if j == nil {
+			break
+		}
+		if j.phase != lastPhase {
+			if j.phase == rvCheck {
+				arrived = g.time
+			}
+			if j.phase == rvShock1 || j.phase == rvShock2 {
+				shocks++
+				if j.phase == rvShock1 && !g.p2.dead {
+					t.Fatal("the first shock must fail")
+				}
+			}
+			lastPhase = j.phase
+		}
+		if arrived >= 0 && !g.p2.dead {
+			up = g.time
+		}
+	}
+	if arrived < 0 || up < 0 {
+		t.Fatalf("the rescue did not finish (arrived %.1f, up %.1f)", arrived, up)
+	}
+	if d := up - arrived; d < 9.5 || d > 10.5 {
+		t.Errorf("from the paramedics at the body to the partner up: %.2f s, wanted about 10", d)
+	}
+	if shocks != 2 {
+		t.Errorf("two shocks (the first fails), got %d", shocks)
 	}
 }
 
@@ -122,7 +238,7 @@ func TestReviveNeedsTwoPlayers(t *testing.T) {
 		t.Error("with one player there is nobody to revive")
 	}
 	g.updateTwoPlayers(0.1)
-	if g.rev.used || g.rev.job != nil {
+	if g.rev.spent != [2]bool{} || g.rev.job != nil || g.reviveHudH() != 14 {
 		t.Error("nothing may change with one player")
 	}
 }
@@ -154,7 +270,7 @@ func TestCutPhoneCannotCall(t *testing.T) {
 	// pressing the use key at the phone makes the call
 	g.p.pos = Vec{ph.Foot.X + ph.Foot.W/2, ph.Foot.Y + ph.Foot.H + 2}
 	g.interact()
-	if !g.rev.used {
+	if !g.reviveSpent(g.p2) || g.rev.job == nil {
 		t.Error("the use key at the phone must call the ambulance")
 	}
 	if ph.used {
@@ -174,7 +290,7 @@ func TestDebugTwoDeadKillsPlayer(t *testing.T) {
 	}
 	g.time = 2
 	g.updateRevive(0.1)
-	if !g.rev.used {
+	if !g.reviveSpent(g.p2) || g.rev.job == nil {
 		t.Error("with -twodead the living player calls by himself")
 	}
 }

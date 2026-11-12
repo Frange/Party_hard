@@ -71,7 +71,7 @@ func init() {
 
 // dogBodyOK: a corpse the dog may take (nobody carries it, nobody is on the way to it, it is a normal body).
 func dogBodyOK(g *Game, b *Body) bool {
-	if b == nil || b.carried || b.bagged || b.skeleton || b.fallT > 0 || b.claimed != nil {
+	if b == nil || b.carried || b.bagged || b.skeleton || b.fallT > 0 || b.claimed != nil || g.bodyHeld(b) { // an ambulance's body stays (ambulance.go)
 		return false
 	}
 	for _, x := range g.bodies {

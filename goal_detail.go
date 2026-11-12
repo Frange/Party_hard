@@ -146,7 +146,7 @@ func (g *Game) goalDetailMove(d int) {
 }
 
 // goalDetailAsk: the input that opens the window on the selected element of a page (the click is the caller's).
-func goalDetailAsk() bool { return actConfirm.just() || actInteract.just() }
+func goalDetailAsk() bool { return actConfirm.just() || menuInteractJust() } // ○ goes back on a pad (input.go)
 
 // updateGoalDetail runs the window; it returns true while it is open (the page under it must not read input
 // this frame, also on the frame it closes, so that the same Esc does not leave the screen too).
@@ -267,13 +267,13 @@ func (g *Game) goalDetailContent() gdContent {
 		case out.ok:
 			out.seal, out.sealCol = "CONSEGUIDO", rgb(0x70e090)
 		case t.need > 1 && !secretTrophy[t.id]:
-			out.seal, out.sealCol = fmt.Sprintf("%d/%d", minI(g.progress.Stats[t.stat], t.need), t.need), rgb(0x8a86a0)
+			out.seal, out.sealCol = fmt.Sprintf("%d/%d", minI(progressStat(&g.progress, t.stat), t.need), t.need), rgb(0x8a86a0)
 		}
 		status, scol := tr("Premio (aún bloqueado): "), rgb(0xf0e060)
 		if out.ok {
 			status, scol = tr("Premio desbloqueado: "), rgb(0x70e090)
 		}
-		out.paras = []gdPara{{tr("Cómo conseguirlo: ") + tr(t.how), rgb(0xb8b0d0)}, {status + tr(t.reward.name) + ". " + tr(t.reward.desc), scol}}
+		out.paras = []gdPara{{tr("Cómo conseguirlo: ") + tr(howHint(t.how)), rgb(0xb8b0d0)}, {status + tr(t.reward.name) + ". " + tr(t.reward.desc), scol}}
 		return out
 	}
 	view := g.albumView()

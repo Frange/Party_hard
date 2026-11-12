@@ -402,6 +402,8 @@ func (g *Game) spawnWally() {
 	}
 	if pos, ok := g.outdoorSpot(); ok {
 		g.animals = append(g.animals, &Animal{kind: animDog, pos: g.lvl.NearestFree(pos), face: 1, area: Rect{pos.X - 100, pos.Y - 60, 200, 120}, seed: g.rng.Float64() * 10, timer: g.rng.Float64() * 3, coat: 2, label: "Woof"})
+		// it comes after spawnAnimals, so the cap must apply again (cap.go): the dog is the last one and the first to go
+		g.capAnimals()
 	}
 }
 

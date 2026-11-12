@@ -1025,7 +1025,7 @@ func TestTableHideOnlyWhereThereAreTables(t *testing.T) {
 		g.time = 5
 		ok := e.Eligible(g, tr)
 		dbgPartyEvent = ""
-		if ok != (tablesIcons[campaignLevels[i].icon] > 0) {
+		if ok != (tablesIcons[campaignLevels[i].icon] > 0 || seatHideIcon(campaignLevels[i].icon)) { // + the long tables (seats.go)
 			t.Errorf("level %d (%s): eligible=%v", i, campaignLevels[i].icon, ok)
 		}
 	}

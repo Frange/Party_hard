@@ -18,6 +18,9 @@ import (
 var kidEventID = map[int]string{evScooters: "ev:scooters", evSkate: "ev:skate", evPrank: "ev:prank"}
 
 func (g *Game) startKidRun(e *Event) bool {
+	if pirateBay(g.lvl.Def) { // no scooters riding in over the sea to the pirate ship (pirate.go)
+		return false
+	}
 	ride, slugs, n := 1, []string{"sam_sam", "cesar"}, 6
 	e.vx = 200
 	e.sp = 26

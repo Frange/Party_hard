@@ -13,7 +13,7 @@ Lecciones del equipo (checklist que este rol aplica): `docs/EQUIPO/LECCIONES.md`
 6. Un test que no prueba lo pedido, o que se aflojó para pasar, es un hallazgo.
 
 ## Qué revisar siempre
-- Menú principal con 10 filas (DEBUG) y 2 jugadores; ELIGE LA FIESTA con Isla Nublar; Ajustes (todas las filas y créditos); tienda (todas las pestañas) y vestuario; trofeos; HUD con 1 y 2 jugadores; bocadillos; pantallas de fin de nivel.
+- Menú principal con 10 filas (DEBUG) y 2 jugadores; ELIGE LA FIESTA con Isla Nublada; Ajustes (todas las filas y créditos); tienda (todas las pestañas) y vestuario; trofeos; HUD con 1 y 2 jugadores; bocadillos; pantallas de fin de nivel.
 - Inglés: los textos son más largos; mirar anchos y que no haya mezcla ES/EN.
 
 ## Fallos recurrentes conocidos

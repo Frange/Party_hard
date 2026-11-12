@@ -184,6 +184,7 @@ func genBeach(rng *rand.Rand) *LevelDef {
 		vw(0, 90, 464, 8, WallFence),
 		vw(952, 90, 464, 8, WallFence),
 	)
+	addSeaShore(d) // the sea above the sand is solid: nobody walks into the water (water.go)
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
 	pl.avoid = append(pl.avoid, Vec{130, 440}, Vec{490, 450})

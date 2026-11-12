@@ -4,10 +4,10 @@ package main
 func init() {
 	for k, v := range map[string]string{
 		"ÁLBUM":                   "ALBUM",
-		"Taz":                     "Taz",
-		"Stan":                    "Stan",
-		"Pantera Rosa":            "Pink Panther",
-		"Juancho":                 "Lenny",
+		"Tazz":                    "Tazz",
+		"Stann":                   "Stann",
+		"Pantera Rossa":           "Pantera Rossa",
+		"Juanchi":                 "Juanchi",
 		"Peque travieso":          "Little rascal",
 		"Invitado famoso":         "Famous guest",
 		"VISTO":                   "SEEN",

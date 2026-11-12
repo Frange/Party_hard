@@ -52,6 +52,12 @@ func applyObjects(objs []*ObjAsset) {
 			// a built-in walkable prop (the stage): keep its built-in solid parts
 			k.Solids, k.NoSolid = old.Solids, old.NoSolid
 		}
+		if old := propKinds[m.Name]; old != nil && len(k.Use) == 0 && k.UseKind == "" {
+			// an export without use points (the portable toilet of the first export) keeps the built-in ones: without
+			// them ensureToilets added booths with no toilet spot, and the ESTACIÓN ESPACIAL stopped building (25 of
+			// 26 parties) as soon as the assets were loaded (TestAssetObjectsKeepEveryPartyBuilding)
+			k.Use, k.UseKind = old.Use, old.UseKind
+		}
 		propKinds[m.Name] = k
 	}
 }

@@ -186,6 +186,9 @@ func actKeyName(p int, a Action) string {
 	if p == 1 {
 		b = &binds2
 	}
+	if hintOnPad(p) && b[a].Pad != noPad { // playing on a pad: the button
+		return padShort(b[a].Pad)
+	}
 	for _, k := range b[a].Keys {
 		if k != noKey {
 			return capName(k)
@@ -249,8 +252,8 @@ func helpPadRows() []helpRow {
 		{"Golpear", []string{padLabel(b[actAttack].Pad)}},
 		{"Usar / interactuar", []string{padLabel(b[actInteract].Pad)}},
 		{"Bailar / señuelo", []string{padLabel(b[actDance].Pad)}},
-		{"Ayuda", []string{"SELECT"}}, // upper case: tr() would turn the word "Select" into "Elegir"
-		{"Menú / salir", []string{padLabel(b[actBack].Pad)}},
+		{"Ayuda", []string{"SELECT"}},                                 // upper case: tr() would turn the word "Select" into "Elegir"
+		{"Menú / salir", []string{"START", padLabel(b[actBack].Pad)}}, // START pauses a party, ○ goes back in the menus
 	}
 }
 
@@ -273,7 +276,7 @@ var helpModes = []helpModeLine{
 // helpUseNear: the other uses of E in the party: pizza boy, mascot, live DJ, waiter, magician, stashes.
 const helpUseNear = "Cerca de: pizzero, mascota, DJ (canción), camarero (copa), mago (propina), escondites"
 
-// helpMinimapText: the minimap row (minimap.go). TAB and Start are not rebindable, so they are fixed caps.
+// helpMinimapText: the minimap row (minimap.go). TAB and □ are not rebindable, so they are fixed caps.
 const helpMinimapText = "Minimapa: muestra u oculta el mapa de la fiesta"
 
 // helpGeneral: the fixed keys (not rebindable).
@@ -335,11 +338,14 @@ func (g *Game) drawHelpWindow(dst *ebiten.Image) {
 		cx += g.helpCap(dst, cx, ly, padLabel(binds[m.act].Pad), rgb(0x70d890)) + 10
 		g.drawText(dst, m.text, cx, ly+3, rgb(0xe8e4f4), 1)
 	}
-	{ // the minimap: TAB / Start (fixed keys)
+	{ // the minimap: TAB / □ (fixed keys)
 		ly := my0 + 28 + float64(len(helpModes))*helpModeRowH
 		cx := helpPanX + 20.0
 		cx += g.helpCap(dst, cx, ly, "Tab", playerColor(0)) + 3
-		cx += g.helpCap(dst, cx, ly, "Start", rgb(0x70d890)) + 10
+		if minimapPadFree() {
+			cx += g.helpCap(dst, cx, ly, padLabel(minimapPadButton), rgb(0x70d890)) + 3
+		}
+		cx += 7
 		g.drawText(dst, helpMinimapText, cx, ly+3, rgb(0xe8e4f4), 1)
 	}
 	g.drawText(dst, helpGeneral, helpPanX+20, helpFooterY, rgb(0xa89cd0), 1)

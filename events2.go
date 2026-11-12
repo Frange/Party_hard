@@ -34,7 +34,7 @@ func (g *Game) startGhost(e *Event) bool {
 	gp := g.lvl.RandomRoam(g.rng)
 	e.x, e.y = gp.X, gp.Y
 	e.bolts = []Vec{g.lvl.RandomRoam(g.rng)}
-	g.say("¡Llegan los Cazafantasmas! Hay un fantasma suelto")
+	g.say("¡Llegan los Cazafantasmos! Hay un fantasma suelto")
 	g.snd.Play("alert")
 	return true
 }
@@ -67,7 +67,7 @@ func (g *Game) stepGhost(e *Event, dt float64) bool {
 	}
 	if e.t > 20 { // caught in the trap
 		g.burst(Vec{e.x, e.y - 20}, 30, 100, rgb(0x90ffb0), 0.8, 2, 0)
-		g.say("¡Fantasma atrapado! Los Cazafantasmas se quedan a la fiesta")
+		g.say("¡Fantasma atrapado! Los Cazafantasmos se quedan a la fiesta")
 		g.snd.Play("win")
 		for _, gu := range e.crew {
 			if !gu.out() {
@@ -114,7 +114,7 @@ func (g *Game) drawGhost(dst *ebiten.Image, e *Event) {
 // ---- T-Rex --------------------------------------------------------------
 
 func (g *Game) startRex(e *Event) bool {
-	if g.isIsland() || len(g.liveGuests()) < 6 { // the island has its own rex
+	if g.isIsland() || pirateBay(g.lvl.Def) || len(g.liveGuests()) < 6 { // the island has its own rex; none wades out to the pirate ship
 		return false
 	}
 	p := g.lvl.RandomRoam(g.rng)

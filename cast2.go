@@ -67,14 +67,14 @@ func allowedSlug(slug string) bool { return !shopOnly[slug] || ownedID("skin:"+s
 func init() {
 	famousPresets = append(famousPresets, asFuncs(castPresets2)...)
 	for k, v := range map[string]string{
-		"leeloo": "Leeloo", "korben": "Korben Dallas", "conan": "Conan el Bárbaro", "he_man": "He-Man", "marty_mcfly": "Marty McFly", "doc_brown": "Dr. Emmett Brown",
-		"la_mascara": "La Máscara", "taz": "El Diablo de Tasmania", "burro_shrek": "Burro", "michael_jackson": "Michael Jackson",
-		"tortuga_leonardo": "Leonardo", "tortuga_donatello": "Donatello", "tortuga_raphael": "Rafael", "tortuga_michelangelo": "Miguel Ángel",
-		"gb_venkman": "Cazafantasmas Peter", "gb_stantz": "Cazafantasmas Ray", "gb_spengler": "Cazafantasmas Egon", "gb_winston": "Cazafantasmas Winston",
-		"alf": "ALF", "johnny5": "Cortocircuito", "inspector_gadget": "Inspector Gadget", "capitan_planeta": "Capitán Planeta", "picard": "Capitán Picard",
-		"johnny_bravo": "Johnny Bravo", "pedro_picapiedra": "Pedro Picapiedra", "wilma": "Wilma", "pablo_marmol": "Pablo Mármol", "betty": "Betty",
-		"pitufo": "Pitufo", "papa_pitufo": "Papá Pitufo", "pitufina": "Pitufina", "lagarto_juancho": "Lagarto Juancho", "bob_esponja": "Bob Esponja",
-		"beavis": "Beavis", "butthead": "Butt-Head", "doraemon": "Doraemon", "nobita": "Nobita",
+		"leeloo": "Leelou", "korben": "Korben Dalas", "conan": "Coman el Bárbaro", "he_man": "He-Mann", "marty_mcfly": "Marty McFry", "doc_brown": "Dr. Emmett Braun",
+		"la_mascara": "La Máskara", "taz": "El Diablo de Tazmania", "burro_shrek": "Burro", "michael_jackson": "Michael Jakson",
+		"tortuga_leonardo": "Leomardo", "tortuga_donatello": "Donatelo", "tortuga_raphael": "Rafaello", "tortuga_michelangelo": "Miguel Ángelo",
+		"gb_venkman": "Cazafantasmos Petter", "gb_stantz": "Cazafantasmos Rai", "gb_spengler": "Cazafantasmos Egonn", "gb_winston": "Cazafantasmos Winstone",
+		"alf": "ALFO", "johnny5": "Cortocirquito", "inspector_gadget": "Inspector Gadjet", "capitan_planeta": "Capitán Planetta", "picard": "Capitán Pickard",
+		"johnny_bravo": "Johnny Brabo", "pedro_picapiedra": "Pedro Picapiedras", "wilma": "Willma", "pablo_marmol": "Pablo Márbol", "betty": "Betti",
+		"pitufo": "Pitubo", "papa_pitufo": "Papá Pitubo", "pitufina": "Pitubina", "lagarto_juancho": "Lagarto Juanchi", "bob_esponja": "Bob Esponjo",
+		"beavis": "Beabis", "butthead": "Butt-Hed", "doraemon": "Doramon", "nobita": "Nobito",
 	} {
 		displayNameOverrides[k] = v
 	}
@@ -123,11 +123,11 @@ func quirkOf(slug string) string {
 }
 
 var quirkLines = map[string][]string{
-	"mj":       {"¡Hee-hee!", "¡Shamone!", "¡Auuu!", "¡Moonwalk!"},
+	"mj":       {"¡Hee-hee!", "¡Chamone!", "¡Auuu!", "¡Moonwalk!"},
 	"mask":     {"¡SSSMOKIN'!", "¡Fiuuu!", "¡Me gusta!", "¡Estoy de lujo!", "¡Alegría!"},
 	"taz":      {"¡Grrrr!", "¡Aaarrgh!", "¡Rrrr!"},
-	"beavis":   {"¡Heh heh!", "¡Soy Cornholio!", "¡Necesito papel higiénico!", "¡Fuego! ¡Fuego!", "¡Heh heh, dijo 'mojar'!"},
-	"butthead": {"Huh huh... mola.", "Huh huh huh, dijo 'culo'.", "Eres idiota, Beavis.", "Esto es un rollo.", "Huh huh, qué asco."},
+	"beavis":   {"¡Heh heh!", "¡Soy Cornolio!", "¡Necesito papel higiénico!", "¡Fuego! ¡Fuego!", "¡Heh heh, dijo 'mojar'!"},
+	"butthead": {"Huh huh... mola.", "Huh huh huh, dijo 'culo'.", "Eres idiota, Beabis.", "Esto es un rollo.", "Huh huh, qué asco."},
 }
 
 var quirkAnims = map[string][]int{
@@ -155,6 +155,9 @@ func (g *Game) quirkPose(gu *Guest) (int, float64, bool) {
 
 // updateQuirk: things they shout, and the Lean needs him to face sideways.
 func (g *Game) updateQuirk(gu *Guest, dt float64) {
+	if gu.quirk == rwQuirk {
+		return // the workers of the roadworks talk through roadworks.go (own dice)
+	}
 	if gu.quirk == "kid" {
 		g.updateKid(gu)
 	}

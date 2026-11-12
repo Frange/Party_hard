@@ -182,6 +182,7 @@ var trEN, trES *trTable
 
 func initTables() {
 	if trEN == nil {
+		keepProperNames() // proper names are never translated (ipnames.go)
 		trEN = buildTable(langDataEN)
 		trES = buildTable(langDataES)
 	}

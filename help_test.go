@@ -182,7 +182,7 @@ func TestHelpListsEveryActionFromTheSettings(t *testing.T) {
 	if j1["Usar / interactuar"] != "Q" || j2["Bailar / señuelo"] != "B" || pad["Bailar / señuelo"] != "L3" {
 		t.Fatalf("keys not read from the settings: %v %v %v", j1, j2, pad)
 	}
-	if j1["Mover"] != "W+A+S+D" || j2["Mover"] != "↑+←+↓+→" || pad["Usar / interactuar"] != "X" || pad["Ayuda"] != "SELECT" {
+	if j1["Mover"] != "W+A+S+D" || j2["Mover"] != "↑+←+↓+→" || pad["Usar / interactuar"] != "O" || pad["Ayuda"] != "SELECT" || pad["Menú / salir"] != "START+O" { // PlayStation layout (2026-11-11)
 		t.Fatalf("default keys: %v %v %v", j1, j2, pad)
 	}
 	// the new features each have an action with a pad button that nothing else uses

@@ -13,7 +13,7 @@ func TestLevelSelectSpacing(t *testing.T) {
 	t.Cleanup(func() { gameLang, editorLang, uiLang = pg, pe, pu })
 	for _, lang := range []string{"es", "en"} {
 		gameLang, editorLang = lang, lang
-		for _, sel := range []int{0, 8, 17, 25} {
+		for _, sel := range []int{0, 9, 19, 24, 27} {
 			g := auditGame(t)
 			auditReset(g)
 			t.Cleanup(func() { auditReset(g); g.mode = ModeMenu })

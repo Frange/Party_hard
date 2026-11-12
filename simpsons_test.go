@@ -128,7 +128,8 @@ func TestSimpsonsCast(t *testing.T) {
 	if !found {
 		t.Errorf("Maggie is not in the family group")
 	}
-	for slug, want := range map[string]string{"homer": "Homer", "marge": "Marge", "bart": "Bart", "lisa": "Lisa", "maggie": "Maggie"} {
+	// Visible names carry one changed letter (owner's naming policy, 2026-11-11); slugs stay.
+	for slug, want := range map[string]string{"homer": "Jomer", "marge": "Marje", "bart": "Bort", "lisa": "Liza", "maggie": "Maggy"} {
 		sp := simpSpec(t, slug)
 		if n := nameFromSpec(&sp); n != want {
 			t.Errorf("%s: name %q", slug, n)

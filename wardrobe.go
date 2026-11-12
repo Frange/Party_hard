@@ -347,7 +347,7 @@ func (g *Game) updateWardrobe() {
 		g.applyShop()
 		wardFlash = 0.45
 	}
-	if (actInteract.just() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 && wardKind == wardKindPlayer {
+	if (menuInteractJust() || inpututil.IsKeyJustPressed(ebiten.KeyTab)) && g.wardPlayers() > 1 && wardKind == wardKindPlayer { // □ on a pad: ○ goes back
 		wardP = 1 - wardP
 		wardFlash = 0.3
 	}

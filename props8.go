@@ -54,12 +54,32 @@ var jpGlyphs = map[rune][5]string{
 	'C': {".####", "#....", "#....", "#....", ".####"},
 	'P': {"####.", "#...#", "####.", "#....", "#...."},
 	'K': {"#...#", "#..#.", "###..", "#..#.", "#...#"},
+	'Q': {".###.", "#...#", "#.#.#", "#..#.", ".##.#"},
+	'E': {"#####", "#....", "####.", "#....", "#####"},
+	'F': {"#####", "#....", "####.", "#....", "#...."},
+	'T': {"#####", "..#..", "..#..", "..#..", "..#.."},
+	'O': {".###.", "#...#", "#...#", "#...#", ".###."},
 }
+
+// jpAccent: letters drawn as another glyph plus an acute accent above it (two cells, one cell clear of the letter).
+var jpAccent = map[rune]rune{'Á': 'A'}
 
 func jpText(b *pixBuf, s string, x, y, k int, col, edge color.RGBA) {
 	for pass := 0; pass < 2; pass++ {
 		cx := x
 		for _, r := range s {
+			base, acc := jpAccent[r]
+			if acc {
+				r = base
+				for _, cell := range [][2]int{{3, -3}, {2, -2}} { // the acute: up and to the right
+					gx, gy := cell[0], cell[1]
+					if pass == 0 {
+						b.rect(cx+gx*k-1, y+gy*k-1, k+2, k+2, edge)
+					} else {
+						b.rect(cx+gx*k, y+gy*k, k, k, col)
+					}
+				}
+			}
 			g, ok := jpGlyphs[r]
 			if ok {
 				for gy := 0; gy < 5; gy++ {
@@ -284,7 +304,7 @@ func init() {
 				if px > 100 {
 					ix = px + 2
 				}
-				for _, ty := range []int{22, 54} { // torches on the inner side
+				for _, ty := range []int{22, 88} { // torches on the inner side (the lower one below the wide sign)
 					b.rect(ix-1, ty+4, 4, 12, c(0x3a2a1c))
 					b.rect(ix-3, ty+3, 8, 3, c(0x1a1210))
 					flame(b, ix+1, ty-3, 6)
@@ -299,18 +319,19 @@ func init() {
 				b.rect(x, y, 1, 4, c(0x2a1c10))
 				b.set(x, y, c(0x5a4026))
 			}
-			b.rect(50, 38, 90, 3, c(0x2a1c10))
-			b.rect(46, 40, 98, 30, c(0x2a1a12))
-			b.rect(48, 42, 94, 26, c(0xa82a22))
-			b.rect(48, 42, 94, 2, c(0xd84a38))
-			b.rect(48, 66, 94, 2, c(0x7a1a14))
-			jpText(b, "JURASSIC", 48, 44, 2, c(0xf8d030), c(0x3a1010)) // both lines: same size, centred on the sign (x = 95)
-			jpText(b, "PARK", 72, 56, 2, c(0xf8d030), c(0x3a1010))
-			for _, lx := range []int{52, 138} { // lamps on the sign
+			// the sign of our own park (PARQUE FIESTÁSICO, the same name in ES and EN): wider than the
+			// gap between the pillars, in front of them; party purple, not the colours of any real park
+			b.rect(30, 38, 130, 40, c(0x24102e))
+			b.rect(32, 40, 126, 36, c(0x6a2a8a))
+			b.rect(32, 40, 126, 2, c(0x9a4ab8))
+			b.rect(32, 74, 126, 2, c(0x3a1450))
+			jpText(b, "PARQUE", 60, 43, 2, c(0xf8d030), c(0x200a30))     // both lines: same size, centred on the sign (x = 95)
+			jpText(b, "FIESTÁSICO", 36, 62, 2, c(0xf8d030), c(0x200a30)) // 10 letters = 118 px; the accent goes above the A
+			for _, lx := range []int{36, 154} {                          // lamps on the sign
 				b.ellipse(float64(lx), 40, 2, 2, c(0xfff0a0))
 			}
 			b.ellipse(95, 20, 3.4, 3.4, c(0xf8d030)) // emblem at the top of the arch
-			b.ellipse(95, 20, 1.6, 1.6, c(0xa82a22))
+			b.ellipse(95, 20, 1.6, 1.6, c(0x6a2a8a))
 		}}
 
 	// ---- buildings and towers ----------------------------------------------------------
@@ -490,7 +511,7 @@ func init() {
 		}
 	}}
 
-	// ---- vehicles: the Jurassic Park jeep (faces right: headlight on the right) ---------
+	// ---- vehicles: the park jeep (faces right: headlight on the right) ---------
 	pk["jp_jeep"] = &PropKind{W: 60, H: 34, FW: 52, FH: 14, Vars: 3, Category: "vehicle", Draw: vaJeepSide} // vehart.go
 	pk["jp_boat"] = &PropKind{W: 124, H: 66, FW: 100, FH: 20, NoSolid: true, Draw: func(b *pixBuf, v int) {
 		b.ellipse(62, 60, 56, 4, color.RGBA{255, 255, 255, 70})

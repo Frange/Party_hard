@@ -61,6 +61,7 @@ func TestGenreFromFileName(t *testing.T) {
 		"13_cementerio_metal.mp3": "metal", "1_house_party_reggaeton.mp3": "reggaeton", "extra_01_house.mp3": "house",
 		"6_torre_eiffel_clasica.mp3": "clasica", "5_plaza_de_toros_flamenco.mp3": "flamenco", "5_fiesta.mp3": "",
 		"3 Neón Synthwave.mp3": "synthwave", "7_crucero_Disco.MP3": "disco", "punk_1.mp3": "punk", "song.mp3": "",
+		"25_barco_pirata_epico.mp3": "epico", "x_epic.mp3": "epico", "x_isla.mp3": "isla", "x_jurassic.mp3": "isla",
 	} {
 		if got := genreFromFileName(name); got != want {
 			t.Errorf("%s: %q, want %q", name, got, want)
@@ -118,9 +119,9 @@ func TestMusicPlanIsCoherent(t *testing.T) {
 		if p.source != "synth" || p.genre != lg {
 			t.Errorf("%s: more/ without the style -> %+v", title, p)
 		}
-		// the DJ dead: punk, and the card says nothing about the style of the party
+		// the DJ dead: the songs after the DJ (songs_afterdj.go), and the card says nothing about the style of the party
 		p = planMusic(fakeLib(map[int]string{}, nil, nil), title, i, true, "")
-		if p.genre != "punk" || p.label != "" {
+		if p.genre != "afterdj" || p.label != "" {
 			t.Errorf("%s: DJ dead -> %+v", title, p)
 		}
 		// a famous band of its own style

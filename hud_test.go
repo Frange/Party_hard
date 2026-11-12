@@ -11,6 +11,7 @@ import (
 // hudPlay: the shared headless game in a party (1 or 2 players), with every global put back afterwards.
 func hudPlay(t *testing.T, two bool) *Game {
 	t.Helper()
+	snapshotLang(t)
 	g := auditGame(t)
 	prevTwo, prevDbg, prevLang, prevEd := twoPlayerMode, dbgTwoPlayers, gameLang, editorLang
 	t.Cleanup(func() {
@@ -41,6 +42,7 @@ func rectsHit(ax, ay, aw, ah, bx, by, bw, bh float64) bool {
 // no text over another, every text inside the panel, and the panel clear of the "?" button, the trophy counter,
 // the stealth panel, the police stars and the ringing phone.
 func TestHUDLayoutNoOverlap(t *testing.T) {
+	snapshotLang(t)
 	for _, two := range []bool{false, true} {
 		for _, lang := range []string{"es", "en"} {
 			t.Run(fmt.Sprintf("players=%v/%s", two, lang), func(t *testing.T) {

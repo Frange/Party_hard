@@ -62,7 +62,7 @@ func presetMaggie(r *rand.Rand) CharSpec {
 
 func init() {
 	famousPresets = append(famousPresets, presetMaggie)
-	displayNameOverrides["maggie"] = "Maggie"
+	displayNameOverrides["maggie"] = "Maggy"
 	for i, g := range starGroups {
 		if len(g) > 0 && g[0] == "homer" {
 			starGroups[i] = append(append([]string(nil), g...), "maggie")

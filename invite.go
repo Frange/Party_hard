@@ -71,14 +71,14 @@ var (
 // the text of the letter, in the order of the paper
 func invParas() []invPara {
 	return []invPara{
-		{"IN GEN — INVITACIÓN EXCLUSIVA", 2, invRed, 0, 16, 0},
+		{"JUERGEN — INVITACIÓN EXCLUSIVA", 2, invRed, 0, 16, 0},
 		{"Estimado/a invitado/a:", 0, invInk, 1, 8, 0},
 		{"Prepárese para asistir a", 0, invInk, 1, 4, 0},
 		{"LA FIESTA MÁS GRANDE QUE JAMÁS HAYA IMAGINADO", 0, invRed, 0, 10, 0},
-		{"Un evento irrepetible en Isla Nublar, donde la diversión está garantizada... la supervivencia, no tanto.", 0, invInk, 1, 8, 0},
+		{"Un evento irrepetible en Isla Nublada, donde la diversión está garantizada... la supervivencia, no tanto.", 0, invInk, 1, 8, 0},
 		{"Habrá música, comida, bebida y alguna que otra sorpresa prehistórica.", 0, invInk, 1, 10, 0},
-		{"¡Le esperamos en Jurassic Park!", 0, invGreen, 0, 8, 0},
-		{"— John Hammond", 0, invGold, 2, 12, 0},
+		{"¡Le esperamos en el Parque Fiestásico!", 0, invGreen, 0, 8, 0},
+		{"— John Jammond", 0, invGold, 2, 12, 0},
 		{"AVISO: Esta carta se autodestruirá en 5 segundos.", 0, invRed, 1, 0, 520},
 	}
 }

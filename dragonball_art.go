@@ -862,7 +862,7 @@ func presetCell(r *rand.Rand) CharSpec {
 
 func init() {
 	famousPresets = append(famousPresets, presetCell)
-	displayNameOverrides["cell"] = "Cell"
+	displayNameOverrides["cell"] = "Sell"
 	for i, g := range starGroups {
 		if len(g) > 0 && g[0] == "goku" {
 			starGroups[i] = append(append([]string(nil), g...), "cell")

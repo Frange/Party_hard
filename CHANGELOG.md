@@ -1,6 +1,151 @@
 # Registro de cambios de Party Hardy
 ---
 
+## [v1.3.0] - 2026-11-11 - medio
+
+### Añadido
+- **Aviso de medalla** de bronce, plata y oro durante la fiesta, en cuanto la consigues (como los trofeos).
+- **RACHA** de bajas limpias (que nadie ve): multiplicador de ×1,1 a ×1,5, contador bajo el jugador y su fila en
+  el periódico.
+- **Trampolín** en las piscinas: los invitados saltan con giro.
+- **Equipo de limpieza** verde menta: recoge los cuerpos que ya se conocen o que no mataste tú y friega la
+  sangre; se le puede matar.
+- **Sillas, mesas, mesas largas con mantel** (sirven para esconderse), **bancos, hamacas y pufs** según el tema
+  de la fiesta; los invitados se sientan a descansar.
+- Sucesos de calle: **coche sin gasolina** con el conductor empujándolo y **taxi** que se lleva invitados (salen
+  del objetivo y más tarde llegan otros).
+- **Invitados disfrazados** de oso, vaca, pato y dinosaurio que bailan (+150 puntos).
+- **Batallas de baile** entre invitados.
+- **Cuenta atrás**: en 1 de cada 12 fiestas el local cierra a los 7-10 minutos; al llegar a 0 llega la policía en
+  tropel y la fiesta se cierra.
+- **Maleta olvidada** con premio, **estatua humana**, **cocinero** que provoca un incendio de verdad (con
+  bomberos), **coro espontáneo**, **vendedor ambulante** con regalos (turbo, gorro, globo, limonada) y **dron con
+  luces**.
+- **Póker clandestino** entre invitados, **tarta explosiva** (trampa), **fotógrafo** del evento con flash,
+  **pintor en una escalera** (solo se le mata tirando la escalera) y **guardia dormido** junto a una puerta.
+- **Música al matar al DJ**: adiós al punk de bombo en cada tiempo que se repetía cada pocos segundos. Ahora
+  suena una de seis canciones nuevas (lounge, funk, balada, disco suave, ambiente y bossa), de 70 a 100 s cada
+  una, con melodía, acordes que cambian, partes distintas, pausas y redobles; a volumen algo más bajo, y nunca la
+  misma dos veces seguidas. Los punk_1..6.mp3 que versiones anteriores dejaban en la carpeta DJ se retiran (se
+  ignoran y el parche los borra); tus propios mp3 de esa carpeta siguen sonando.
+- Más de 40 frases nuevas de **Murrey** y frases de los **patinadores** con muchos más trucos (heelflip, shove-it,
+  grab, manual, mortal, barspin, tailwhip, sin manos, handplant, 540, caídas y combos); el **skate park** tiene
+  siempre a los tres y van al bowl por turnos.
+- **Toro mecánico** en la playa, el rancho, la feria, el festival y los cumpleaños: fila de hasta 4, montadas de
+  hasta 20 s, caídas al colchón y vuelta a la fila.
+- **Murga callejera** (cubo, cacerola, flauta, trompeta y kazoo), **pogos** de hasta 8 en círculo (discoteca, neón,
+  festival, estadio, disco 70 y skate), **parejas de baile lento** con corazones y **la ola** en el estadio.
+- **Concurso de comer** hamburguesas y perritos entre invitados gordos: hay ganador y el perdedor vomita.
+- **Invitado con megáfono** (19 frases en bocadillos amarillos).
+- Los invitados **acarician perros, gatos y caballos**; **lanzador de pelotas** para el perro; **patinador
+  artístico** en las pistas de hielo.
+- **Guardia con linterna** en las fiestas nocturnas: apágasela por la espalda con E.
+- **Bola de espejos** con destellos en la casa, el neón, la discoteca, el casino, los cumpleaños y el crucero.
+- **Obras en la calle**: obreros con taladros, conos, vallas y una tubería rota que echa agua; los coches se
+  apartan. **Grúa de obra**: "[E] Soltar la carga" aplasta a quien esté debajo (cuenta como trampa).
+- **Grafitero** con 15 diseños de pixel art que se quedan pintados en la fachada.
+- **Carrera de sacos** en los sitios espaciosos.
+- **Superhéroe aficionado**: se lanza a la piscina, salta bancos o vuela... y a veces se estrella.
+- **Paraguas de colores** cuando hay tormenta (los rayos nunca caen cerca de un jugador).
+- Rescates nuevos: **helicóptero sanitario** en la isla, **lancha de rescate** con escalera de cuerda en el Barco
+  Pirata y **nave sanitaria** con luces en la Estación Espacial.
+- Diego, César y Sam-sam salen **patinando** en una de cada dos fiestas (la 1, la 3, la 5...; en el skate park,
+  siempre).
+- La **conga** sale en casi todas las fiestas (35 %), con una versión corta donde no cabe la larga.
+- **Detector de metales** en una puerta de algunas fiestas del casino, la discoteca y el cine: los invitados
+  pasan sin más, pero si pasas tú (llevas el cuchillo) pita, parpadea en rojo y el guardia más cercano va a por ti
+  con las esposas encima de tu cabeza; se le puede despistar como a cualquier guardia y no vuelve a pitar en 20 s.
+
+### Cambiado
+- **Mando estilo PlayStation** por defecto: X matar/aceptar, O usar/volver, Triángulo bailar, R1 correr,
+  inmunidad en R2, START pausa y minimapa en Cuadrado. Los ajustes antiguos adoptan los nuevos sin perder los
+  botones que cambiaste, y las pistas en pantalla muestran los botones del mando.
+- Los **nombres de las bandas** también llevan una letra cambiada, igual en español y en inglés: Simple Pan,
+  Sum 42, Blink-183, The Offsprung, Metalica, Billy Tallent, Lost Profets, Despistaus y The Beetles (cartel del
+  escenario, fichas, periódico y textos). Tus mp3 de la carpeta "bands" siguen funcionando con el nombre de
+  antes o con el nuevo. Lo mismo para algunos nombres reales que quedaban en descripciones y frases (una app de
+  mensajes, un videojuego, una nave, personajes y lugares de series y películas: WatsApp, GTE 6...).
+- El coche del interludio **"Otra fiesta más"** y el coche de policía de los recuerdos usan los modelos nuevos.
+- Los sucesos de la fiesta llegan "a veces": con tantos nuevos, cada uno sale un poco menos (de media unos 4 por
+  fiesta, peleas incluidas) y todos siguen apareciendo en su tipo de fiesta.
+- La **policía** solo tapa los cuerpos y busca 10-15 s (antes 27-40 s).
+- Las **ambulancias** se llevan los cuerpos un 40 % más rápido, y salen 2 si hay 5 cuerpos o más.
+- El trofeo **"Noche de récord"** pide 6500 puntos.
+- La noticia del periódico al morir el DJ ya no habla de punk rock (ahora suena lounge, funk o balada).
+- Los **DJ/punk_*.mp3** se retiran del juego (el parche los borra).
+- Más nombres y frases con una letra cambiada (Diablo de Tazmania, Cazafantasmos, Tuper, D'ohh, Hokaje...),
+  también en citas de cine y series y en muletillas de personajes.
+- LEEME y README explican el mapa del mando PlayStation.
+- Las **peleas** salen algo menos (200 s de media entre una y otra).
+
+### Arreglado
+- **OBJETIVOS > POLICÍAS**: los cuerpos se consiguen en orden estricto por bajas (FBI 500, Ejército 1000, SWAT
+  1500, Pawer Rangers 2000); un uniforme de trofeo ya no marca el cuerpo como conseguido y al cargar la partida
+  se limpian las marcas prematuras.
+- El perro Woof ya no se cuela como animal número 9.
+- El váter portátil ya no mete a su invitado cuando hay alguien dentro.
+- Con la carpeta assets cargada la **Estación Espacial** no se construía (el váter portátil exportado perdía su
+  punto de uso).
+- La **ambulancia** y la **policía** ya no llegan y se van sin hacer nada: el paramédico se lleva un cuerpo o
+  examina el lugar al menos 6 s, y no se despachan sin objetivo.
+- **CARRERA** contaba dos veces las bajas por veneno: ahora es una sola cifra.
+- Los **rayos** de la tormenta nunca caen cerca de un jugador.
+- La bandera de depuración **-band** no hacía nada.
+- Los **patinadores de la calle** ya no atraviesan edificios: al asustarse huyen por su zona abierta y no entran a
+  llamar por teléfono.
+- Con 2 jugadores, el policía que detiene a uno ya no se vuelve al coche en el acto: se queda vigilando al detenido.
+- En inglés salían en español las noticias del pirómano y "¡" en gritos cortos de famosos ("¡Soy Cornolio!"...).
+- El cartel de la banda ya no se pega al HUD (Barco Pirata con 2 jugadores) y los bocadillos ya no tapan el HUD
+  ni los carteles "[E] ..." de uso.
+- Los textos "Ayuda a un VIP que da propina" y "Enter: ponértelo" muestran el botón del mando cuando juegas con
+  mando.
+
+## [v1.1.1] - 2026-11-11 - menor
+
+### Arreglado
+- El **marcador** de arriba a la izquierda (BAJAS, puntos...) vuelve a verse siempre: en la v1.1.0 no aparecía
+  nunca porque cualquier invitado de esa esquina lo ocultaba. Ahora solo se oculta mientras un **jugador** pasa
+  por debajo, y reaparece al salir (1 y 2 jugadores).
+
+## [v1.1.0] - 2026-11-11 - medio
+
+### Añadido
+- **BARCO PIRATA**, fiesta nueva número 25: un galeón anclado en una bahía al atardecer, con cañones trampa, ron
+  que se puede envenenar, un cofre del tesoro y un muelle donde atraca todo el mundo. La **Estación Espacial**
+  pasa a ser la 26 y la isla secreta sigue aparte. Las partidas de la v1.0.0 se actualizan solas (revisión 3 de
+  la campaña) sin perder nada.
+- **Medallas** de bronce, plata y oro en cada fiesta de la campaña, según los puntos con los que la ganas
+  (umbrales fáciles). Se ven al elegir la fiesta y al empezarla, y la medalla sale en el periódico.
+- Trofeo **"Bañado en oro"**: oro en todas las fiestas de la campaña. Si ya tenías el menú de oro o el 100 %
+  COMPLETADO, lo conservas.
+- **Tormenta** en algunas fiestas al aire libre (en la estación de esquí, nevada) y **amanecer** en algunas
+  fiestas nocturnas.
+- **Granada de humo** que se recoge en algunas fiestas: 6 s de nube en la que nadie ve dentro (tú sí).
+- **Disfraces temáticos** en algunas fiestas: parte de los invitados va vestida para la ocasión (playa, parque
+  de atracciones, cementerio, esquí, casino y Torre Eiffel).
+- **Capibaras**: animales tranquilos que aparecen a veces junto al agua o en el césped.
+- **Parches de actualización**: además del juego completo, puede llegarte un zip pequeño con solo lo que cambia
+  desde tu versión (con su LEEME_ACTUALIZAR.txt).
+
+### Cambiado
+- **Nombres**: todos los personajes, personas reales y marcas llevan una letra cambiada (Clara Croft, Flan Guys,
+  Lionel Mesi...), y los nombres propios ya no se traducen (son los mismos en español y en inglés). La isla
+  secreta es ahora el **PARQUE FIESTÁSICO** en la **ISLA NUBLADA**.
+- Nombres: pilotos de F1 (Fernando Alonzo, Lewis Hamiltom, Max Verstapen, Charles Leclerk, Carlos Zainz), Pawer Rangers, la calavera Murrey y otras referencias (Shakiro, Endermon, DeLorian, hobit, Barrio Césamo, Tortugas Nimja) con una letra cambiada, iguales en ES y EN.
+- **2 jugadores**: la ambulancia para revivir al compañero se puede usar **una vez por jugador y por fiesta**;
+  el compañero se levanta unos 10 s después de que lleguen los sanitarios y un aviso claro dice qué hacer.
+- El **HUD** se oculta mientras un personaje pasa por debajo, para no taparlo.
+- La lista de **ELIGE LA FIESTA** tiene 10 filas por columna (caben las 26 fiestas) y muestra la medalla de cada una.
+
+### Arreglado
+- En Miami Beach y la Playa ya no se puede caminar por el mar.
+- Al salir de un escondite ya no apareces en otro sitio (por ejemplo, dentro de un edificio): sales donde estabas.
+- Vestuario: después de elegir personaje se puede volver atrás sin quedarse atascado.
+- Los textos de "[E] Esconderse" y similares ya no se pisan entre sí.
+- Textos en español que se colaban en la versión inglesa.
+
+---
+
 ## [v1.0.0] - 2026-11-10 - grande
 
 ### Añadido
@@ -9,15 +154,15 @@
   actualizan solas (revisión 2 de la campaña) sin perder nada.
 - **T-Rex nuevo**, dibujado a mano en píxeles, y es el mismo en el nivel de la isla y en las escenas: el que
   se come la tarta tras los créditos, la cabeza en la ventana del vecino y la oveja que resulta ser un T-Rex.
-- **Combate contra el T-Rex** en la isla: los militares y el SWAT le disparan y lo debilitan; los Power
-  Rangers le pelean y a veces lo tumban.
-- **Grupos de policía** (policía local, FBI, militares, SWAT y Power Rangers) que se reparten la fiesta
+- **Combate contra el T-Rex** en la isla: los militares y el SWAT le disparan y lo debilitan; los Rangers
+  le pelean y a veces lo tumban.
+- **Grupos de policía** (policía local, FBI, militares, SWAT y Rangers) que se reparten la fiesta
   **por tramos** de muertes según los que tengas desbloqueados; cada grupo ve más lejos, anda más rápido y
   trae más agentes.
 - **Sospechoso equivocado**: de vez en cuando la policía culpa a alguien que pasaba al lado de un cuerpo.
 - **Periódico**: más de 150 noticias nuevas por plantillas (se rellenan con lo que pasó en la fiesta) y una
   **edición final especial con foto** en el final secreto.
-- **Pantalla FIN** con Murray, la calavera parlanchina: en el final secreto dice 42 frases propias y no deja
+- **Pantalla FIN** con la calavera parlanchina: en el final secreto dice 42 frases propias y no deja
   volver al menú hasta pasados 20 s; en el final normal tiene sus propias frases y espera 8 s. Por abajo
   pasan los tres pequeños de la casa en monopatín y patinetes.
 - **Música del menú**: el himno de la fiesta de al lado con el estribillo repetido, un bajón y una transición
@@ -27,10 +172,10 @@
 - **OBJETIVOS**: ventana de detalle al pulsar cualquier tarjeta o trofeo, y página CARRERA con los totales.
 - **Vestuario > PERSONAJE**: elige con qué personaje juega cada jugador.
 - **Ajustes del Jugador 2** con todas sus acciones y poderes.
-- **Bandas** (Sum 41, Blink-182, Billy Talent, Lost Prophets, The Offspring, Simple Plan, Metallica,
-  Despistaos y Punk Sailor) con aspecto propio y los nombres reales de sus músicos.
-- **Futbolistas**: Cristiano Ronaldo, Lionel Messi, Lamine Yamal y Kylian Mbappé como invitados.
-- **Fall Guys**: 9 judías como invitados, que también llegan en pandilla.
+- **Bandas** (Sum 42, Blink-183, Billy Tallent, Lost Profets, The Offsprung, Simple Pan, Metalica,
+  Despistaus y Punk Sailor) con aspecto propio y los nombres reales de sus músicos.
+- **Futbolistas**: Cristiano Ronalda, Lionel Mesi, Lamine Yamel y Kylian Mbapé como invitados.
+- **Flan Guys**: 9 flanes como invitados, que también llegan en pandilla.
 - **Animales**: cobayas en grupitos y caballos con jinete que pasan por la calle y atropellan.
 - **Fiestas de aforo grande**: Parque de atracciones, Estación de esquí y Festival admiten 30 invitados más.
 
@@ -41,7 +186,7 @@
 - **Muros de las casas** más gruesos y visibles; ya no se confunden con el suelo de fuera ni con una puerta.
 - **Torre Eiffel** rediseñada: ahora se puede pasar por debajo de su arco. Los monumentos grandes ya no se
   vuelven transparentes como fantasmas.
-- **Taz** y el **canguro** con dibujo propio.
+- **Tazz** y el **canguro** con dibujo propio.
 - **Tope de bajas**: 65 por fiesta (65 + 30 en las tres fiestas de aforo grande); con 2 jugadores, más.
 - **Zombis**: aparecen más o menos en 1 de cada 6 fiestas.
 - **Periódico**: la noticia principal de cada fiesta ya no cambia si vuelves a abrirlo.
@@ -51,7 +196,7 @@
 - Modo DEBUG actualizado con todo lo nuevo (grupos de policía, Reto de hoy, escenas nuevas).
 
 ### Arreglado
-- Ambulancias y barcos de la isla jurásica: los sanitarios ya no desaparecen nada más bajar ni llegan
+- Ambulancias y barcos de la isla fiestásica: los sanitarios ya no desaparecen nada más bajar ni llegan
   ambulancias repetidas.
 - Los cambios de pista de la música del menú ya no se cortan ni se pisan.
 - Zombis con 2 jugadores: el zombi persigue al jugador más cercano, no siempre al primero.
@@ -72,7 +217,7 @@
   asesinos se desbloquean **matándolos**; los uniformes de policía, **escapando**.
 - **39 VIP nuevos** (50 en total), todos inventados.
 - **Famosos con dibujo propio**: superhéroes, la familia amarilla de la tele, la esponja del mar, piratas de
-  anime, tortugas ninja, guerreros de anime, un policía robot, un lord oscuro del espacio, un robot de los 80,
+  anime, tortugas nimja, guerreros de anime, un policía robot, un lord oscuro del espacio, un robot de los 80,
   un marsupial naranja, un robot de dibujos, el corredor azul y su amigo de dos colas, y más.
 - **Asesinos nuevos**: el Doctor Pico y el Exterminador.
 - **Animales salvajes**: ranas, ardillas, jabalíes, cocodrilos, guepardos y leones.
@@ -166,9 +311,9 @@
 ## [v0.6.0] - 2026-11-04 - medio
 
 ### Añadido
-- **Final oculto**: la isla del parque jurásico, con su T-Rex, después de la Estación Espacial.
+- **Final oculto**: la isla del Parque Fiestásico, con su T-Rex, después de la Estación Espacial.
 - **Historia**: intro, interludios entre fiestas, final y menú **ESCENAS** para volver a verlas.
-- Homenaje a los piratas de Monkey Island, con Murray, la calavera que no para de hablar.
+- Homenaje a las aventuras gráficas de piratas, con la calavera que no para de hablar.
 - Invitados esqueleto, cuerpos que se iluminan como rayos X al electrocutarse y pistas de skate hundidas.
 - **Veneno** por dosis (bebida envenenada o ponche).
 - Vehículos y naves vistos de frente y de espaldas; bocadillos que no se pisan.

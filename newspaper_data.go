@@ -8,6 +8,7 @@ type paperPlayer struct {
 	chainMax, clean, seen, cuff int
 	coop                        coopStats
 	title                       string // 2P: the nickname of coop.go
+	streakBest                  int    // the best RACHA of clean kills (streak.go)
 }
 
 // paperPhotoCaptions: funny captions (Spanish, English) per scene; the seed picks one.
@@ -196,7 +197,11 @@ func newPaperData(f paperFacts, fin finishBreak, pl []paperPlayer, endTime float
 		d.score = append(d.score, [2]string{tr("Reto x3 en las bajas"), plus(fin.killExtra)})
 	}
 	d.score = append(d.score,
-		[2]string{tr("Cadenas"), plus(fin.chain)},
+		[2]string{tr("Cadenas"), plus(fin.chain)})
+	if fin.streak > 0 { // RACHA (streak.go): only when it paid something, so a party without it keeps the old table
+		d.score = append(d.score, [2]string{tr(fmt.Sprintf("Racha · mejor %d", fin.streakBest)), plus(fin.streak)})
+	}
+	d.score = append(d.score,
 		[2]string{tr("Bajas limpias"), plus(fin.clean)},
 		[2]string{tr("Nivel completado"), plus(fin.complete)},
 		[2]string{tr("Sin ser visto"), plus(fin.unseen)},
@@ -209,7 +214,7 @@ func newPaperData(f paperFacts, fin finishBreak, pl []paperPlayer, endTime float
 	for _, b := range paperBriefsFor(f, lsFmtTime(endTime)) {
 		d.briefs = append(d.briefs, paperBrief{head: tr(b.head), es: paperBriefText(b)}) // a filled template is already in both languages
 	}
-	d.hint, d.hint2 = tr(hint), tr("También vale ESC, clic o el botón del mando")
+	d.hint, d.hint2 = padKeyText(tr(hint)), tr("También vale ESC, clic o el botón del mando") // ENTER -> ✕ on a pad (input.go)
 	d.foot = tr("Prohibida su venta a asesinos reincidentes")
 	d.banner = tr("PULSA PARA CONTINUAR")
 	return d
@@ -234,7 +239,7 @@ func (g *Game) paperDataNow() *paperData {
 		titles = coopTitleFor(g.coop.score[0], g.coop.score[1])
 	}
 	for i := range pl {
-		pl[i] = paperPlayer{kills: r.kills[i], chainMax: r.chainMax[i], clean: r.cleanKills[i], seen: r.seen[i], cuff: r.cuffed[i], title: titles[i]}
+		pl[i] = paperPlayer{kills: r.kills[i], chainMax: r.chainMax[i], clean: r.cleanKills[i], seen: r.seen[i], cuff: r.cuffed[i], title: titles[i], streakBest: r.streakBest[i]}
 		if n == 2 {
 			pl[i].coop = g.coop.score[i]
 		}
@@ -247,5 +252,7 @@ func (g *Game) paperDataNow() *paperData {
 	if day < 1 {
 		day = 1
 	}
-	return newPaperData(f, fin, pl, g.endTime, day, levelDoneHint(g), other)
+	d := newPaperData(f, fin, pl, g.endTime, day, levelDoneHint(g), other)
+	g.paperMedal(d) // the medal of a campaign party, in the head of the points table (medals.go)
+	return d
 }

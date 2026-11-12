@@ -69,5 +69,10 @@ if [ -d assets ]; then
   done
   (cd $OUT/mac && ditto -c -k --keepParent . ../../PartyHardy-Mac.zip 2>/dev/null || zip -qr ../../PartyHardy-Mac.zip .)
   (cd $OUT/win && zip -qr ../../PartyHardy-Windows.zip .)
+  # manifest of this version (path + sha256 + size of every file of each zip): releases/manifest-<ver>-<mac|win>.json,
+  # the base of the update patches (./mkpatch.sh <base version>). A different manifest of the same version is never
+  # overwritten (that version was already handed out): raise the version, or PH_MANIFEST_FORCE=1 if it never was.
+  go -C tools/mkpatch run . manifest -mac "$PWD/PartyHardy-Mac.zip" -win "$PWD/PartyHardy-Windows.zip" \
+    -dir "$PWD/releases" ${PH_MANIFEST_FORCE:+-force}
 fi
 echo "built v$VERSION into $OUT"

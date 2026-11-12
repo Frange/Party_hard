@@ -24,17 +24,17 @@ var starPresets = []presetEntry{
 	def("pantera_rosa", skinc(0xf080b0), hairc(0xf080b0, HairBald), earsn(2), headc(HeadBig), tops(TopBare, 0xf080b0, 0xf080b0), bottomc(BotShorts, 0xf080b0), shoesc(0xf080b0), bodyc(BodyNormal), stat(1)),
 	def("espinete", skinc(0xf0c090), hairc(0x7a4a2a, HairSpiky), headc(HeadBig), tops(TopTee, 0xf0e040, 0xf0e040), bottomc(BotShorts, 0x3a6ac0), shoesc(0xd82a2a), stat(4)),
 	def("don_pimpon", hatc(HatBowler, 0x3a2a1a), beardc(BeardMustache), hairc(0x3a2a1a, HairShort), tops(TopSuit, 0xc83a2a, 0xf4e8a0), accentc(0x2a2a8a), pantsc(0x3a2a1a), bodyc(BodyBig), stat(-1)),
-	// The Beatles
+	// The Beetles
 	def("lennon", hairc(0x5a3a22, HairLong), glass(GlassRound), tops(TopSuit, 0xf4f4f0, 0xf4f4f0), pantsc(0xf4f4f0), accentc(0xf4f4f0), shoesc(0xf4f4f0)),
 	def("mccartney", hairc(0x3a2414, HairBowl), tops(TopSuit, 0x1a1a22, 0xf4f4f4), pantsc(0x1a1a22), accentc(0x1a1a22), shoesc(0x14141a)),
 	def("harrison", hairc(0x1a1410, HairBowl), tops(TopSuit, 0x3a3a46, 0xf4f4f4), pantsc(0x3a3a46), accentc(0x3a3a46), shoesc(0x14141a)),
 	def("ringo", hairc(0x3a2414, HairBowl), beardc(BeardStubble), tops(TopSuit, 0x1a1a22, 0xf4f4f4), pantsc(0x1a1a22), accentc(0x1a1a22), shoesc(0x14141a)),
-	// Sum 41 (style archetypes, the prints, spikes, belts and cans are drawn in pnk_art.go)
+	// Sum 42 (style archetypes, the prints, spikes, belts and cans are drawn in pnk_art.go)
 	def("deryck", skinc(0xf0c8a8), hairc(0x5a3a22, HairShort), hatc(HatCap, 0xf4f4f4), tops(TopTee, 0x16161c, 0x16161c), pantsc(0x3a5a8a), shoesc(0x14141a), carryc(HoldBeer)),
 	def("dave_baksh", skinc(0x9a6440), hairc(0x14101a, HairShort), beardc(BeardGoatee), tops(TopTee, 0x16161c, 0x16161c), pantsc(0x4a4a52), shoesc(0x14141a), carryc(HoldBeer)),
 	def("jason_mc", skinc(0xf0c8a8), hairc(0xf4d81c, HairShort), tops(TopTee, 0x16161c, 0x16161c), pantsc(0x6a6a4a), shoesc(0x2a2a30), carryc(HoldBeer)),
 	def("frank_zummo", skinc(0xf4d0b4), hairc(0xe8501a, HairShort), tops(TopTee, 0xf4f4f4, 0xf4f4f4), pantsc(0x16161c), shoesc(0x14141a), carryc(HoldBeer)),
-	// Blink-182 (skate tee, tattoos, mohawk and drumsticks in pnk_art.go)
+	// Blink-183 (skate tee, tattoos, mohawk and drumsticks in pnk_art.go)
 	def("mark_hoppus", skinc(0xf0c8a8), hairc(0x14101a, HairShort), tops(TopTee, 0x3a4a6a, 0x3a4a6a), pantsc(0x2a3a5a), shoesc(0xf4f4f4), beardc(BeardStubble)),
 	def("tom_delonge", skinc(0xecc4a0), hairc(0x3a2414, HairShort), tops(TopTee, 0xa82830, 0xa82830), bottomc(BotShorts, 0x6a5a3a), shoesc(0x14141a)),
 	def("travis_barker", skinc(0xe0b890), hairc(0x18181e, HairBald), tops(TopTank, 0x16161c, 0x16161c), pantsc(0x14141a), shoesc(0x14141a), bodyc(BodyBig)),
@@ -43,15 +43,15 @@ var starPresets = []presetEntry{
 func init() {
 	famousPresets = append(famousPresets, asFuncs(starPresets)...)
 	for k, v := range map[string]string{
-		"don_quijote": "Don Quijote", "sancho_panza": "Sancho Panza", "tails": "Tails", "knuckles": "Knuckles", "sonic": "Sonic", "krilin": "Krilin", "piccolo": "Piccolo", "bulma": "Bulma", "maestro_roshi": "Maestro Roshi", "gohan": "Gohan",
-		"pantera_rosa": "La Pantera Rosa", "espinete": "Espinete", "don_pimpon": "Don Pimpón",
-		"lennon": "John Lennon", "mccartney": "Paul McCartney", "harrison": "George Harrison", "ringo": "Ringo Starr",
-		"deryck": bandMemberName("deryck", "Sum 41", "cantante"), "dave_baksh": bandMemberName("dave_baksh", "Sum 41", "guitarra"),
-		"jason_mc": bandMemberName("jason_mc", "Sum 41", "bajo"), "frank_zummo": bandMemberName("frank_zummo", "Sum 41", "batería"),
-		"mark_hoppus": bandMemberName("mark_hoppus", "Blink-182", "bajo"), "tom_delonge": bandMemberName("tom_delonge", "Blink-182", "guitarra"),
-		"travis_barker": bandMemberName("travis_barker", "Blink-182", "batería"), "elvis": "Elvis",
-		"homer": "Homer", "bart": "Bart", "marge": "Marge", "lisa": "Lisa", "cartman": "Cartman", "kenny": "Kenny", "kyle": "Kyle", "stan": "Stan",
-		"fry": "Fry", "leela": "Leela", "bender": "Bender", "farnsworth": "Profesor Farnsworth", "zoidberg": "Zoidberg",
+		"don_quijote": "Don Quijote", "sancho_panza": "Sancho Panza", "tails": "Tailz", "knuckles": "Karnackles", "sonic": "Zonic", "krilin": "Crilin", "piccolo": "Picolo", "bulma": "Vulma", "maestro_roshi": "Maestro Rochi", "gohan": "Gojan",
+		"pantera_rosa": "La Pantera Rossa", "espinete": "Espinote", "don_pimpon": "Don Pinpón",
+		"lennon": "John Lenon", "mccartney": "Paul MacCartney", "harrison": "George Harrisson", "ringo": "Ringo Star",
+		"deryck": bandMemberName("deryck", "Sum 42", "cantante"), "dave_baksh": bandMemberName("dave_baksh", "Sum 42", "guitarra"),
+		"jason_mc": bandMemberName("jason_mc", "Sum 42", "bajo"), "frank_zummo": bandMemberName("frank_zummo", "Sum 42", "batería"),
+		"mark_hoppus": bandMemberName("mark_hoppus", "Blink-183", "bajo"), "tom_delonge": bandMemberName("tom_delonge", "Blink-183", "guitarra"),
+		"travis_barker": bandMemberName("travis_barker", "Blink-183", "batería"), "elvis": "Elviz",
+		"homer": "Jomer", "bart": "Bort", "marge": "Marje", "lisa": "Liza", "cartman": "Kartman", "kenny": "Keny", "kyle": "Kile", "stan": "Stam",
+		"fry": "Fray", "leela": "Leila", "bender": "Blender", "farnsworth": "Profesor Farmsworth", "zoidberg": "Zoiberg",
 	} {
 		displayNameOverrides[k] = v
 	}

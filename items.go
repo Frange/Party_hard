@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
@@ -145,6 +146,12 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 		return "", color.RGBA{}
 	}
 	switch {
+	case pr.Name == "suitcase": // the forgotten suitcase of a guest (pe_suitcase.go)
+		return g.suitcaseLabel(pr)
+	case pr.Name == "paintladder": // the painter's ladder (pe_painter.go)
+		return g.painterLabel(pr)
+	case pr.Name == craneName: // the crane of the roadworks (crane.go)
+		return g.craneLabel(pr)
 	case k.Hide:
 		if p.carrying != nil {
 			return "Esconder cuerpo", rgb(0x70e0ff)
@@ -161,8 +168,12 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 		return "Coger veneno", rgb(0x60ff80)
 	case k.Item == "disguise":
 		return "Coger disfraz", rgb(0xd090ff)
+	case k.Item == "smoke":
+		return "Recoger granada de humo", rgb(0xc8d0dc)
 	case k.Item == "suit":
 		return "Ponerte el traje dorado", rgb(0xffd860)
+	case k.Item == "treasure":
+		return "Coger el tesoro", rgb(0xffd860)
 	case k.Poison && pr.armT <= 0:
 		if p.item == "poison" {
 			return "Envenenar", rgb(0x60ff80)
@@ -194,8 +205,32 @@ func (g *Game) drawUseMarks(dst *ebiten.Image) {
 	}
 }
 
+// useTextProp: of the props whose "[E] ..." text could show for the current player (within 30 px and
+// with a label) only the nearest one gets it, as E acts on the nearest too; several booths or bushes side
+// by side no longer pile their texts on top of each other. Ties go to the first in the list.
+func (g *Game) useTextProp() *Prop {
+	var best *Prop
+	bd := 30.0
+	for _, pr := range g.lvl.Props {
+		if lab, _ := g.useLabel(pr); lab == "" {
+			continue
+		}
+		if d := distRect(g.p.pos, pr.Foot); d < bd {
+			best, bd = pr, d
+		}
+	}
+	return best
+}
+
+// clampUseTextX: the centre x for a text of width w so that it keeps 16 px from both sides of the screen
+// (props against the edge of a party, like a phone in a corner, used to push their text off screen).
+func clampUseTextX(x, w float64) float64 {
+	return math.Round(math.Max(16+w/2, math.Min(screenW-16-w/2, x)))
+}
+
 func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bool) {
 	hint := actionHintFor(actInteract, pl.idx)
+	textProp := g.useTextProp()
 	for _, pr := range g.lvl.Props {
 		lab, col := g.useLabel(pr)
 		if lab == "" {
@@ -205,11 +240,7 @@ func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bo
 		if d > 260 {
 			continue
 		}
-		top := float64(pr.K.H) * 0.62
-		if pr.K.NoSolid && pr.K.H < 30 {
-			top = float64(pr.K.H) + 4
-		}
-		x, y := g.wx(pr.X), g.wy(pr.Y)-top-8+math.Sin(g.time*4+pr.X)*2
+		x, y := g.useMarkXY(pr)
 		a := 0.45 + 0.35*math.Sin(g.time*3+pr.Y)
 		if d < 56 {
 			a = 1
@@ -223,12 +254,11 @@ func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bo
 				fillRect(dst, x-3+i, y+i, 7-2*i, 1, c)
 			}
 		}
-		if d < 30 {
+		if d < revPromptNear && lab == "Llamar a la ambulancia" { // in a box over the phone (revive.go)
+			g.drawAmbulancePrompt(dst, pr, "["+hint+"] "+lab, pl)
+		} else if d < 30 && pr == textProp {
 			txt := "[" + hint + "] " + lab
-			ty := y - 16
-			if g.is2P() {
-				ty = g.clearOfTags(x, ty, g.textW(txt, 1)+10)
-			}
+			x, ty := g.usePromptXY(txt, x, y)
 			g.drawTextC(dst, txt, x, ty, col, 1)
 			if g.is2P() { // a small square in the player's colour says whose key it is
 				pc := playerColor(pl.idx)
@@ -239,13 +269,75 @@ func (g *Game) drawUseMarksFor(dst *ebiten.Image, pl *Player, drawn map[*Prop]bo
 	// with poison in the pocket the guest within reach can be offered a drink
 	if gu := g.poisonTarget(); gu != nil {
 		col := rgb(0x60ff80)
-		x, y := g.wx(gu.pos.X), g.wy(gu.pos.Y)-48+math.Sin(g.time*4)*2
+		x, y := g.poisonMarkXY(gu)
 		for i := 0.0; i < 4; i++ {
 			fillRect(dst, x-i, y-4+i, 1+2*i, 1, col)
 			fillRect(dst, x-3+i, y+i, 7-2*i, 1, col)
 		}
 		g.drawTextC(dst, "["+hint+"] Ofrecer copa envenenada", x, y-16, col, 1)
 	}
+}
+
+// useMarkXY: the screen point of the bobbing diamond over a prop that can be used.
+func (g *Game) useMarkXY(pr *Prop) (x, y float64) {
+	top := float64(pr.K.H) * 0.62
+	if pr.K.NoSolid && pr.K.H < 30 {
+		top = float64(pr.K.H) + 4
+	}
+	return g.wx(pr.X), g.wy(pr.Y) - top - 8 + math.Sin(g.time*4+pr.X)*2
+}
+
+// poisonMarkXY: the same over the guest who can be offered the poisoned drink.
+func (g *Game) poisonMarkXY(gu *Guest) (x, y float64) {
+	return g.wx(gu.pos.X), g.wy(gu.pos.Y) - 48 + math.Sin(g.time*4)*2
+}
+
+// usePromptXY: where the "[E] ..." text of a mark at (mx, my) goes (centre x, top y), the same for drawing it and for
+// keeping the speech bubbles off it (usePromptRects).
+func (g *Game) usePromptXY(txt string, mx, my float64) (x, ty float64) {
+	ty = my - 16
+	x = clampUseTextX(mx, g.textW(txt, 1)+map2P(g.is2P()))
+	if g.is2P() {
+		ty = g.clearOfTags(x, ty, g.textW(txt, 1)+10)
+	}
+	return x, ty
+}
+
+// usePromptRects: the screen boxes of the "[E] ..." texts on screen this frame (every player's), with a small margin.
+// The use prompts come first: no speech bubble may cover them (flushBubbles; the sleeping guard's "¡Eh!" sat on
+// "[E] Necesita veneno").
+func (g *Game) usePromptRects() []bubRect {
+	if g.mode != ModePlay || g.lvl == nil {
+		return nil
+	}
+	var out []bubRect
+	add := func(txt string, x, ty float64) {
+		w := g.textW(txt, 1) + map2P(g.is2P())
+		out = append(out, bubRect{x - w/2 - 3, ty - 3, x + w/2 + 3, ty + 13})
+	}
+	for _, pl := range g.players() {
+		if pl == nil || pl.dead || pl.hidden {
+			continue
+		}
+		hint := actionHintFor(actInteract, pl.idx)
+		g.withPlayer(pl, func() {
+			if pr := g.useTextProp(); pr != nil {
+				lab, _ := g.useLabel(pr)
+				d := distRect(g.p.pos, pr.Foot)
+				if !(d < revPromptNear && lab == "Llamar a la ambulancia") {
+					txt := "[" + hint + "] " + lab
+					mx, my := g.useMarkXY(pr)
+					x, ty := g.usePromptXY(txt, mx, my)
+					add(txt, x, ty)
+				}
+			}
+			if gu := g.poisonTarget(); gu != nil {
+				mx, my := g.poisonMarkXY(gu)
+				add("["+hint+"] Ofrecer copa envenenada", mx, my-16)
+			}
+		})
+	}
+	return out
 }
 
 // clearOfTags (two players): the y for a text of width w centred on x whose top is at ty so that it does not
@@ -293,9 +385,13 @@ func canTake(p *Player, kind string) bool {
 	switch {
 	case kind == "suit":
 		return p.suitT <= 0
+	case kind == "treasure": // the treasure of the BARCO PIRATA is points, not a slot (pirate_props.go)
+		return true
 	case p.item == kind:
 		return kind == "poison" && p.doses < poisonDoses
 	case p.item != "" && p.spare == kind:
+		return false
+	case p.item != "" && p.spare != "": // both slots full (three kinds now: the smoke grenade, smoke.go)
 		return false
 	}
 	return true
@@ -345,11 +441,22 @@ func (g *Game) pickItem(pr *Prop) {
 		g.putOnSuit(p) // worn at once, one use (vip.go)
 		return
 	}
+	if kind == "treasure" { // the treasure of the BARCO PIRATA: points at once (pirate_props.go)
+		g.award(Vec{pr.X, pr.Y}, pirateTreasurePts, "tesoro")
+		g.say("¡Un tesoro! Doblones para el bolsillo")
+		return
+	}
 	if p.item != "" && p.item != kind {
 		p.spare, p.spareDoses = kind, 0 // the other kind waits in the second slot
 		if kind == "poison" {
 			p.spareDoses = poisonDoses
-			g.say("Guardas el frasco de veneno junto al disfraz")
+			if p.item == "disguise" {
+				g.say("Guardas el frasco de veneno junto al disfraz")
+			} else {
+				g.say("Guardas el frasco de veneno para después")
+			}
+		} else if kind == "smoke" {
+			g.say(fmt.Sprintf("Granada de humo: pulsa %s para lanzarla", actionHintFor(actInteract, p.idx)))
 		} else {
 			g.say("Guardas un disfraz: se usa solo cuando te buscan")
 		}
@@ -363,6 +470,9 @@ func (g *Game) pickItem(pr *Prop) {
 	case "disguise":
 		p.item = "disguise"
 		g.say("Tienes un disfraz: se usa solo cuando te buscan")
+	case "smoke":
+		p.item = "smoke"
+		g.say(fmt.Sprintf("Granada de humo: pulsa %s para lanzarla", actionHintFor(actInteract, p.idx)))
 	}
 }
 
@@ -647,4 +757,12 @@ func (l *Level) ensureItems() bool {
 	place("fireworksbox", 1)
 	place("lever", 1)
 	return added
+}
+
+// map2P: extra width the text takes in two players (the square in the player's colour left of it).
+func map2P(two bool) float64 {
+	if two {
+		return 14
+	}
+	return 0
 }

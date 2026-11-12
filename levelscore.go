@@ -62,6 +62,8 @@ type finishBreak struct {
 	base       int // the points of the party without the extras below
 	chain      int // style: extra of the kill chains (before the RETO)
 	clean      int // style: clean kills (before the RETO)
+	streak     int // style: extra of the RACHA multiplier (before the RETO, streak.go)
+	streakBest int // the best streak of the party (either player)
 	killExtra  int // RETO: the extra of the x3 on kills
 	complete   int
 	unseen     int
@@ -96,6 +98,18 @@ type runStats struct {
 	knifed               bool // the knife (or hands, guards, officers, killer) took a life: no "noknife" trophy
 	fin                  finishBreak
 	done                 bool // fin is the real final breakdown (the level was completed)
+	// MEDALS (medals.go): set by awardMedal when the party is won; the newspaper shows them
+	medalOn   bool // this party gives a medal
+	medal     int  // the medal these points won (medalNone..medalGold)
+	medalNew  bool // ...and it is better than the one saved before
+	medalGoal int  // the kill target the thresholds were measured against
+	medalSaid int  // the best medal already announced in this party (the toast, medals.go medalLive)
+	// RACHA (streak.go): clean kills in a row per player and the extra points of its multiplier
+	streakN, streakBest [2]int
+	streakExtra         int        // extra of the streak multiplier (before the RETO x3, whose extra goes to killExtra)
+	streakPts           [2]int     // ...per player
+	streakUndo          [2]int     // extra of the LAST kill (before the RETO): taken back if that kill is seen
+	streakUndoT         [2]float64 // when that last kill was scored (only the same frame can take it back)
 }
 
 func (r *runStats) killsOf(i int) (n int) {
@@ -117,6 +131,7 @@ func (g *Game) killVal(n int) int {
 	m := math.Min(chainMaxMult, 1+chainStep*float64(maxI(r.chainN[r.lastPl]-1, 0)))
 	v := int(math.Round(float64(n) * m))
 	r.chainExtra += v - n
+	v = g.streakApply(v) // RACHA: x1.1 ... x1.5 for a run of clean kills (streak.go)
 	if !g.challenge {
 		return v
 	}
@@ -199,6 +214,7 @@ func (g *Game) countKill(c killCause, guest bool) {
 	r.chainMax[pi] = maxI(r.chainMax[pi], r.chainN[pi])
 	g.statMax("chain", r.chainN[pi])
 	r.cleanAt[pi] = g.time + cleanDelay
+	g.streakKill(pi) // RACHA (streak.go)
 	if !guest {
 		g.run.nonGuest++
 	}
@@ -207,6 +223,8 @@ func (g *Game) countKill(c killCause, guest bool) {
 // trackCuffs counts the times each player got the handcuffs mark (a rising edge, polled every frame).
 func (g *Game) trackCuffs() {
 	g.tickClean(false)
+	g.streakTick()             // the streak breaks while a player is wanted / alerted / held (streak.go)
+	g.medalLive()              // the medal toast when the points reach bronze / silver / gold (medals.go)
 	for _, c := range g.cops { // who came (the newspaper)
 		if c.medic {
 			g.run.medic = true
@@ -257,7 +275,8 @@ func speedBonus(t float64) int {
 
 // previewFinish computes the final breakdown from the current state without changing anything.
 func (g *Game) previewFinish() finishBreak {
-	f := finishBreak{base: g.points - g.run.killExtra - g.run.chainExtra - g.run.cleanPts, killExtra: g.run.killExtra, chain: g.run.chainExtra, clean: g.run.cleanPts, complete: bonusComplete, challenge: g.challenge}
+	f := finishBreak{base: g.points - g.run.killExtra - g.run.chainExtra - g.run.cleanPts - g.run.streakExtra, killExtra: g.run.killExtra, chain: g.run.chainExtra, clean: g.run.cleanPts, complete: bonusComplete, challenge: g.challenge,
+		streak: g.run.streakExtra, streakBest: maxI(g.run.streakBest[0], g.run.streakBest[1])}
 	if g.run.seen[0]+g.run.seen[1] == 0 {
 		f.unseen = bonusUnseen
 	}
@@ -311,6 +330,8 @@ func (g *Game) levelDoneDemoSetup() {
 	g.run.chainMax, g.run.cleanKills = [2]int{6, 3}, [2]int{4, 2}
 	g.run.chainExtra, g.run.cleanPts = 180, 6*bonusClean
 	g.points += g.run.chainExtra + g.run.cleanPts
+	g.run.streakBest, g.run.streakPts, g.run.streakExtra = [2]int{9, 4}, [2]int{48, 6}, 54 // RACHA (streak.go)
+	g.points += g.run.streakExtra
 	g.time = 212
 	if !g.is2P() { // one player: nothing belongs to J2
 		g.run.kills[1], g.run.seen[1], g.run.cuffed[1], g.run.chainMax[1], g.run.cleanKills[1] = [kcN]int{}, 0, 0, 0, 0
@@ -318,5 +339,6 @@ func (g *Game) levelDoneDemoSetup() {
 	g.run.slasher, g.run.camSeen, g.run.medic = true, 1, true
 	g.run.units = 1<<unitPolice | 1<<unitSWAT
 	g.finishScore()
+	g.awardMedal() // the medal of the party in the points table (medals.go); the progress is frozen here
 	g.mode = ModeLevelDone
 }

@@ -41,6 +41,7 @@ func mtext(g *Game, name, s string, x, y, scale float64) mrect {
 }
 
 func TestMarginsGoalsScreen(t *testing.T) {
+	snapshotLang(t)
 	g := goalDetailGame(t)
 	screen := mrect{"screen", 0, 0, screenW, screenH}
 	panel := mrect{"panel", 230, 56, 700, 440}
@@ -133,6 +134,7 @@ func TestMarginsGoalDetailWindow(t *testing.T) {
 
 // The DEBUG menu: title, subtitle, rows and status line never touch each other nor the frame.
 func TestMarginsDebugMenu(t *testing.T) {
+	snapshotLang(t)
 	g := textGame()
 	frame := mrect{"frame", 132, 28, 696, 504}
 	rows := g.debugRows()

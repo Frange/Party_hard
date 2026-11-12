@@ -240,7 +240,7 @@ func (g *Game) clearPlayer() {
 // copsGoFor points the officers already on the scene at the new suspect.
 func (g *Game) copsGoFor(kind suspectKind, gu *Guest) {
 	for _, c := range g.cops {
-		if c.medic || c.state == cLeave || c.state == cArrest && kind == suspGuest {
+		if c.medic || c.state == cLeave || c.state == cCordon || c.state == cArrest && kind == suspGuest {
 			continue
 		}
 		switch kind {

@@ -11,15 +11,19 @@ import (
 // arrivals and every route that adds people (taxis, bus, train, elevators, God, famous powers, themed groups,
 // kids, cheerleaders, exhibitionists, Ghostbusters) stops when it is full.
 
-// killTargetLevels: the 25 campaign parties, whatever the previous tests left in levelDefs.
+// killTargetLevels: the 26 campaign parties, whatever the previous tests left in levelDefs.
 func killTargetLevels(t *testing.T) int {
 	t.Helper()
-	if len(levelDefs) < 25 {
-		old := levelDefs
+	if len(levelDefs) < len(campaignLevels) {
+		// the full campaign is what newGame builds too (arrival_test.go does the same): it is NOT put back. Putting
+		// back the 5 classic levels undid the shared audit game built meanwhile (playGame) and left campaignN = 26
+		// with 5 levels: the medal tests saw "no campaign" and TestPirateBoatArrivals indexed out of range (-shuffle)
 		levelDefs = builtinLevels()
-		t.Cleanup(func() { levelDefs = old })
 	}
-	return 25
+	if len(campaignLevels) != 26 {
+		t.Fatalf("the campaign has %d parties, want 26", len(campaignLevels))
+	}
+	return len(campaignLevels)
 }
 
 // killTargetStress plays the level with a kill every 2 s and every arrival route forced again and again.
@@ -97,7 +101,7 @@ func killAll(g *Game) {
 	}
 }
 
-// Every one of the 25 parties: the start keeps room for the arrivals (and is a real party: >= 40), the
+// Every one of the 26 parties: the start keeps room for the arrivals (and is a real party: >= 40), the
 // target never passes 65 however many arrivals are forced, the HUD writes exactly kills/total, and killing
 // the people of the target ends the party (nobody impossible to reach is left in it).
 func TestKillTargetCappedAllLevels(t *testing.T) {

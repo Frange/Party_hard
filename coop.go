@@ -282,7 +282,7 @@ func (g *Game) coopSpeedMul(p *Player) float64 {
 
 func (g *Game) coopBlockStab(p *Player) bool {
 	if g.coopCarrying(p) {
-		g.say("Suelta a tu compañero primero (E)")
+		g.say(fmt.Sprintf("Suelta a tu compañero primero (%s)", actionHintFor(actInteract, g.playerIndex(p))))
 		return true
 	}
 	return false

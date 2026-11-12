@@ -69,6 +69,19 @@ func pevFxPurge(g *Game) {
 
 // pevGuestDraw is called by the guest draw loop with the position he will be drawn at. true = already drawn (or hidden).
 func (g *Game) pevGuestDraw(dst *ebiten.Image, gu *Guest, pos *Vec) bool {
+	if gu.seat != nil && g.seatDrawn(gu) { // sitting: drawn with his seat (seats.go)
+		return true
+	}
+	for _, a := range g.pev.act { // events that draw their own guests (diving board, cleaners: poolboard.go, cleaners.go)
+		if d, ok := a.D.(interface {
+			drawGuest(*Game, *ebiten.Image, *Guest, Vec) bool
+		}); ok && d.drawGuest(g, dst, gu, *pos) {
+			return true
+		}
+	}
+	if gu.quirk == rwQuirk {
+		pos.Y += g.worksJitter(gu) // a worker shaking with his jackhammer (roadworks.go)
+	}
 	if len(pevFxs) == 0 {
 		return false
 	}

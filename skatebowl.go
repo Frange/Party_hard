@@ -180,6 +180,12 @@ const (
 	trKickflip
 	trFlip
 	trWipeout
+	trHandplant // upside down on one hand on the coping, then back in
+	trSpin540
+	trHeelflip
+	trTailwhip // scooters only: the deck swings round the stem
+	trBarspin  // scooters only: the handlebar spins
+	trNoHander // scooters only: both hands up in the air
 )
 
 type skaterSt struct {
@@ -209,6 +215,13 @@ type skaterSt struct {
 	boardX    float64
 	imgs      map[int]*ebiten.Image
 	boardImgs map[int]*ebiten.Image
+	scooter   bool    // César and Sam-sam ride their scooters in the bowl too
+	view      int     // the scooter's view this frame (finScSide, finScWhip...)
+	walkT     float64 // seconds on his way to the bowl (a safety timeout: he never gets stuck)
+	sched     bool    // sent by the skate park's turn (skateParkTurn): a short visit
+	tricks    int     // tricks done in this visit
+	sayN      int     // lines said in this visit
+	shout     string  // a line to put in his bubble (set by ride, said by kidBowl)
 }
 
 // the kids that are going to, riding or leaving a bowl
@@ -217,7 +230,8 @@ var (
 	kidBowlNext = map[*Guest]float64{}
 )
 
-// bowlRateDiv: on average a free kid decides to go to a bowl once in this many seconds (-bowlkids makes it 1)
+// bowlRateDiv: with -bowlkids (0.5) every free kid goes to a bowl on his own about every half second; otherwise
+// the kids only go by turns (skateTurnFor, skater_park.go) and this is not used
 var bowlRateDiv = 14.0
 
 const bowlFeetDY = -34.0 // the middle of the floor of the bowl, above the anchor of the sprite
@@ -254,18 +268,48 @@ func newSkaterSt(gu *Guest, pr *Prop, rng *rand.Rand) *skaterSt {
 	if deck.A == 0 {
 		deck = hx(0x3a8ae0)
 	}
+	scooter := spec.Ride == 1
 	spec.Ride = 0 // the board is drawn on its own
 	return &skaterSt{
 		pr: pr, cx: pr.X, cy: pr.Y + bowlFeetDY, speed: 1.3 + rng.Float64()*0.8, reach: []float64{40, 44, 38}[pr.Var%3],
 		swing: 4 + rng.Float64()*4, curN: -9999, face: 1, spin: []float64{1, -1}[rng.Intn(2)],
-		rng: rand.New(rand.NewSource(rng.Int63())), spec: spec, deck: deck,
+		rng: rand.New(rand.NewSource(rng.Int63())), spec: spec, deck: deck, scooter: scooter,
 		imgs: map[int]*ebiten.Image{}, boardImgs: map[int]*ebiten.Image{},
 	}
 }
 
 func (g *Game) endKidBowl(gu *Guest, wait float64) {
+	if st := kidSessions[gu]; st != nil && st.sched {
+		g.skateTurnDone()
+	}
 	delete(kidSessions, gu)
 	kidBowlNext[gu] = g.time + wait + g.rng.Float64()*20
+}
+
+// kidTurnState: the states a kid may be taken from when it is his turn to go to a bowl.
+func kidTurnState(s gState) bool {
+	switch s {
+	case gIdle, gGoto, gDance, gDanceWith, gChatGo, gWaitP, gChat:
+		return true
+	}
+	return false
+}
+
+// kidBowlWalkMax: a kid who has not reached his bowl after this many seconds gives up (and rolls on as always).
+const kidBowlWalkMax = 25.0
+
+// rimReach: whether a kid at p may glide straight to the rim point q (the last bit of his way, over ground the
+// guests' grid leaves closed round the bowl): close enough and with nothing solid in between.
+func (l *Level) rimReach(p, q Vec) bool {
+	if dist(p, q) > 64 {
+		return false
+	}
+	for _, r := range l.solidsP {
+		if segHitsRect(p, q, r) {
+			return false
+		}
+	}
+	return true
 }
 
 // kidBowl is the whole life of a kid in a bowl: he decides to go, walks there, steps in, rides
@@ -273,8 +317,14 @@ func (g *Game) endKidBowl(gu *Guest, wait float64) {
 func (g *Game) kidBowl(gu *Guest, dt float64) bool {
 	st := kidSessions[gu]
 	if st == nil {
-		if g.mode != ModePlay || gu.state != gIdle || gu.partner != nil || g.time < kidBowlNext[gu] ||
-			g.rng.Float64() > dt/bowlRateDiv || g.lvl.InBowl(gu.pos) {
+		if g.mode != ModePlay || g.lvl.InBowl(gu.pos) {
+			return false
+		}
+		// the skate park sends one of the three every few seconds (skater_park.go): standing, rolling about, dancing
+		// or chatting (he leaves his partner there: a kid's attention span)
+		turn := kidTurnState(gu.state) && g.skateTurnFor(gu)
+		// besides the turns, a kid only goes on his own with -bowlkids (debug: all of them, all the time)
+		if !turn && (bowlRateDiv >= 1 || gu.partner != nil || gu.state != gIdle || g.time < kidBowlNext[gu] || g.rng.Float64() > dt/bowlRateDiv) {
 			return false
 		}
 		var bowls []*Prop
@@ -286,16 +336,44 @@ func (g *Game) kidBowl(gu *Guest, dt float64) bool {
 		if len(bowls) == 0 {
 			return false
 		}
+		// the nearest bowl he can ride to (a turn); a random one otherwise
 		pr := bowls[g.rng.Intn(len(bowls))]
+		if turn { // the nearest one nobody is riding
+			used := map[*Prop]bool{}
+			for _, o := range kidSessions {
+				used[o.pr] = true
+			}
+			best := -1.0
+			for _, b := range bowls {
+				if d := dist(Vec{b.X, b.Y}, gu.pos); !used[b] && (best < 0 || d < best) {
+					pr, best = b, d
+				}
+			}
+			if best < 0 {
+				return false // all of them taken: wait
+			}
+		}
 		z := bowlZone(pr)
 		q := Vec{math.Max(z.X, math.Min(z.X+z.W, gu.pos.X)), math.Max(z.Y, math.Min(z.Y+z.H, gu.pos.Y))}
 		out := Vec{gu.pos.X - q.X, gu.pos.Y - q.Y}
 		if n := math.Hypot(out.X, out.Y); n > 0 {
 			q = Vec{q.X + out.X/n*9, q.Y + out.Y/n*9}
 		}
+		path := g.lvl.PathG(gu.pos, q)
+		if len(path) == 0 && !g.lvl.rimReach(gu.pos, q) { // no way there: not now
+			if turn {
+				g.skateTurnDone()
+			}
+			kidBowlNext[gu] = g.time + 5
+			return false
+		}
+		g.detachPartner(gu)
 		st = newSkaterSt(gu, pr, g.rng)
-		st.to = q
-		gu.path = g.lvl.PathG(gu.pos, q)
+		st.to, st.sched = q, turn
+		if turn {
+			g.skateTurnStarted(gu)
+		}
+		gu.path = path
 		gu.state, gu.timer = gIdle, 60
 		kidSessions[gu] = st
 		return false
@@ -310,6 +388,13 @@ func (g *Game) kidBowl(gu *Guest, dt float64) bool {
 	case 0: // walking to the edge of the bowl
 		gu.timer = 60
 		gu.walk(guestSpeed, dt)
+		st.walkT += dt
+		// a safety net: never stuck on the way, never sliding over anything to the rim
+		if st.walkT > kidBowlWalkMax || (len(gu.path) == 0 && !g.lvl.rimReach(gu.pos, st.to)) {
+			gu.path = nil
+			g.endKidBowl(gu, 6)
+			return false
+		}
 		if len(gu.path) == 0 || dist(gu.pos, st.to) < 6 {
 			st.stage, st.t, st.from = 1, 0, gu.pos
 			if gu.pos.X < st.cx {
@@ -338,19 +423,31 @@ func (g *Game) kidBowl(gu *Guest, dt float64) bool {
 		if st.stage == 1 {
 			st.stage = 2
 			st.until = g.time + 18 + g.rng.Float64()*27
+			if st.sched { // the park's turn: in, up the wall, a big trick or two, and out again
+				st.until = g.time + 10.5 + g.rng.Float64()*3.5
+			}
 		} else {
 			gu.state, gu.timer, gu.path = gIdle, 0.3, nil
 			g.endKidBowl(gu, 12)
 		}
 	case 2:
+		say, sayT := gu.icon, gu.iconT
 		gu.state, gu.icon, gu.iconT, gu.path, gu.moving, gu.timer = gIdle, "", 0, nil, false, 60
-		st.z, st.ang, st.bang, st.pose = 0, 0, 0, 0
+		if st.sayN > 0 && sayT > 0 { // only his own shouts stay up while he rides
+			gu.icon, gu.iconT = say, sayT-dt
+		}
+		st.z, st.ang, st.bang, st.pose, st.view = 0, 0, 0, 0, finScSide
 		if st.fallT > 0 {
 			st.fallT -= dt
 			g.skaterFall(st, dt)
 		} else {
 			st.ph += dt * st.speed
 			st.ride(g)
+		}
+		if st.shout != "" {
+			gu.icon, gu.iconT = st.shout, 1.8
+			st.sayN++
+			st.shout = ""
 		}
 		gu.pos = Vec{st.cx + st.x, st.cy + st.y}
 		if st.face < 0 {
@@ -373,6 +470,21 @@ func (g *Game) kidBowl(gu *Guest, dt float64) bool {
 
 // pickTrick draws the trick for the next wall: some ollies and grabs, a few flips, the odd fall.
 func (st *skaterSt) pickTrick() int {
+	if st.sched && st.tricks == 0 { // a visit of the park's turn starts with a big one
+		return []int{trHandplant, trSpin540, trFlip}[st.rng.Intn(3)]
+	}
+	if st.scooter { // César and Sam-sam: scooter tricks
+		return []int{trNone, trOllie, trOllie, trSpin180, trSpin360, trTailwhip, trTailwhip, trBarspin, trBarspin,
+			trNoHander, trNoHander, trHandplant, trSpin540, trFlip, trWipeout}[st.rng.Intn(15)]
+	}
+	switch r := st.rng.Intn(20); {
+	case r < 2:
+		return trHandplant
+	case r < 4:
+		return trHeelflip
+	case r < 5:
+		return trSpin540
+	}
 	r := st.rng.Intn(16)
 	switch {
 	case r < 2:
@@ -425,10 +537,62 @@ func (st *skaterSt) ride(g *Game) {
 	if st.curN != n {
 		st.curN = n
 		st.trick = st.pickTrick()
+		if st.trick != trNone {
+			st.tricks++
+			// now and then he shouts the trick's name, or one of his jokes (kidBowl puts it in his bubble)
+			if st.rng.Float64() < 0.4 {
+				st.shout = skaterTrickShout[st.trick][0]
+				if st.rng.Float64() < 0.4 {
+					l := skaterLines(st.spec.Name)
+					st.shout = l[st.rng.Intn(len(l))][0]
+				}
+			}
+		}
 	}
 	t := (d + 0.3) / 0.6
 	air := math.Sin(math.Pi * t)
 	switch st.trick {
+	case trHandplant: // up over the coping, upside down on one hand, and back in
+		st.z += 30 * air
+		st.pose = 3 // arms over his head: upside down, they reach for the rim
+		k := math.Min(1, math.Min(t/0.3, (1-t)/0.3))
+		st.ang += st.face * math.Pi * k
+		st.bang = st.ang
+	case trSpin540:
+		st.z += 26 * air
+		st.pose = 1
+		if (t > 0.25 && t < 0.5) || t > 0.75 {
+			st.face = -st.face
+		}
+	case trHeelflip:
+		st.z += 22 * air
+		st.pose = 1
+		st.bang = -st.spin * 2 * math.Pi * t
+	case trTailwhip:
+		st.z += 22 * air
+		st.pose = 1
+		switch int(t * 5) {
+		case 1, 3:
+			st.view = finScEdge
+		case 2:
+			st.view = finScWhip
+		}
+	case trBarspin:
+		st.z += 22 * air
+		switch int(t * 5) {
+		case 1, 3:
+			st.view, st.pose = finScBarN, 3
+		case 2:
+			st.view, st.pose = finScBarW, 3
+		default:
+			st.pose = 1
+		}
+	case trNoHander:
+		st.z += 24 * air
+		st.pose = 1
+		if t > 0.2 && t < 0.8 {
+			st.pose = 3
+		}
 	case trOllie:
 		st.z += 22 * air
 		st.pose = 1
@@ -522,6 +686,10 @@ func (st *skaterSt) kidImage(pose, step int) *ebiten.Image {
 		p.LA, p.RA = Limb{3, 10, 2}, Limb{3, 10, 2}
 		p.LF, p.RF = Limb{2.5, 7, 0}, Limb{2.5, 7, 0}
 		p.Bob = 2
+	case 3: // both arms up: no hands (or, upside down in a handplant, reaching for the rim)
+		p.LA, p.RA = Limb{4, -8, 0}, Limb{5, -7, 0}
+		p.LF, p.RF = Limb{2, 9, 0}, Limb{2, 9, 0}
+		p.Open = true
 	case 4: // standing
 	default: // riding: knees bent, arms a bit apart
 		p.LA, p.RA = Limb{4, 6, 0}, Limb{4, 6, 0}
@@ -536,7 +704,17 @@ func (st *skaterSt) kidImage(pose, step int) *ebiten.Image {
 
 // boardImage: the skateboard on its own (so it can flip or roll away from the kid).
 func (st *skaterSt) boardImage(step int) *ebiten.Image {
-	if im, ok := st.boardImgs[step]; ok {
+	key := step
+	if st.scooter {
+		key += 100 * (st.view + 1)
+	}
+	if im, ok := st.boardImgs[key]; ok {
+		return im
+	}
+	if st.scooter { // the same scooter as on the last card, its deck where a skateboard's would be
+		sc := finDrawScooter(st.view, 0, st.deck)
+		im := rotateAround(sc.outlinedSel(0.42), float64(step)/bowlSteps*2*math.Pi, finRideScCX, finRideScTop+1).img()
+		st.boardImgs[key] = im
 		return im
 	}
 	b := newPix(24, 24)
@@ -548,17 +726,23 @@ func (st *skaterSt) boardImage(step int) *ebiten.Image {
 	b.rect(7, 13, 2, 1, hx(0xf0f0f0))
 	b.rect(15, 13, 2, 1, hx(0xf0f0f0))
 	im := rotateAround(b.outlinedSel(0.42), float64(step)/bowlSteps*2*math.Pi, 12, 12).img()
-	st.boardImgs[step] = im
+	st.boardImgs[key] = im
 	return im
 }
 
 // rotateAround turns a sprite (nearest neighbour) around a pivot into a square canvas, clockwise on screen.
 func rotateAround(src *pixBuf, th, pvx, pvy float64) *pixBuf {
+	return rotateAroundN(src, th, pvx, pvy, kidCanvas)
+}
+
+// rotateAroundN: rotateAround into a square canvas of side n (the pivot lands in its middle).
+func rotateAroundN(src *pixBuf, th, pvx, pvy float64, n int) *pixBuf {
 	cs, sn := math.Cos(th), math.Sin(th)
-	out := newPix(kidCanvas, kidCanvas)
-	for y := 0; y < kidCanvas; y++ {
-		for x := 0; x < kidCanvas; x++ {
-			dx, dy := float64(x)-kidCanvas/2+0.5, float64(y)-kidCanvas/2+0.5
+	out := newPix(n, n)
+	half := float64(n) / 2
+	for y := 0; y < n; y++ {
+		for x := 0; x < n; x++ {
+			dx, dy := float64(x)-half+0.5, float64(y)-half+0.5
 			sx := int(math.Floor(pvx + dx*cs + dy*sn))
 			sy := int(math.Floor(pvy - dx*sn + dy*cs))
 			if sx < 0 || sy < 0 || sx >= src.w || sy >= src.h {
@@ -566,7 +750,7 @@ func rotateAround(src *pixBuf, th, pvx, pvy float64) *pixBuf {
 			}
 			i := (sy*src.w + sx) * 4
 			if src.p[i+3] > 0 {
-				j := (y*kidCanvas + x) * 4
+				j := (y*n + x) * 4
 				copy(out.p[j:j+4], src.p[i:i+4])
 			}
 		}
@@ -590,14 +774,16 @@ func (g *Game) drawSkater(dst *ebiten.Image, gu *Guest) {
 	filledEllipse(dst, px, py+1, r, r*0.4, color.RGBA{0, 0, 0, uint8(80 - math.Min(45, st.z))})
 	face := st.face
 	// kid: the picture is flipped when he faces left, so its own angle mirrors
-	im := st.kidImage(st.pose, angleStep(st.ang*face))
+	kstep := angleStep(st.ang * face)
+	im := st.kidImage(st.pose, kstep)
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(-kidCanvas/2, -kidCanvas/2)
 	op.GeoM.Scale(face, 1)
 	op.GeoM.Translate(math.Round(px), math.Round(py-13-st.z))
-	dst.DrawImage(im, op)
-	// board under the feet (or lying where it rolled to after a fall)
-	bx, by := px, py-st.z
+	// board under the feet: it turns with him (a flip, a handplant), so it stays under his feet, 12 px from his
+	// middle along his body; or it lies where it rolled to after a fall
+	aq := float64(kstep) / bowlSteps * 2 * math.Pi
+	bx, by := px-face*12*math.Sin(aq), py-13-st.z+12*math.Cos(aq)+1
 	if st.fallT > 0 && st.fallT < 2.05 {
 		bx = g.wx(st.cx + st.boardX)
 		by = py
@@ -607,6 +793,12 @@ func (g *Game) drawSkater(dst *ebiten.Image, gu *Guest) {
 	bop.GeoM.Translate(-kidCanvas/2, -kidCanvas/2)
 	bop.GeoM.Scale(face, 1)
 	bop.GeoM.Translate(math.Round(bx), math.Round(by-1))
+	if st.scooter { // the scooter behind him: his feet on its deck, his hands on its bar
+		dst.DrawImage(bi, bop)
+		dst.DrawImage(im, op)
+		return
+	}
+	dst.DrawImage(im, op)
 	dst.DrawImage(bi, bop)
 }
 

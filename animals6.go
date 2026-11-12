@@ -145,6 +145,9 @@ func (g *Game) scatterWild() {
 		if k == animCobaya {
 			g.addCobayaGroup(r, Vec{st.X + 50, st.Y - 20}, 3) // a group, as in the parties
 		}
+		if k == animCapibara {
+			g.addCapibaraGroup(r, Vec{st.X + 84, st.Y - 12}, 1, true, nil) // another adult and a baby beside it (animals8.go)
+		}
 		if k == animCheetah || k == animLion {
 			g.animals[len(g.animals)-1].huntT = 4 // the debug flag wants to see the hunt
 		}
@@ -201,6 +204,7 @@ func (g *Game) scatterWild() {
 			g.addWild(r, cats[r.Intn(len(cats))], p, 240, 150)
 		}
 	}
+	g.scatterCapibaras(r, green, wet) // last: the draws of the animals above do not move (animals8.go)
 }
 
 // dropGoneAnimals removes the animals that left the party.
@@ -361,6 +365,8 @@ func wildFrame(a *Animal) int {
 		if a.state == aCharge {
 			return fWalk0 + int(a.anim*14)%4
 		}
+	case animCapibara:
+		return capibaraFrame(a)
 	}
 	return critterFrame(a)
 }
@@ -379,6 +385,7 @@ func buildWildSprites(out AnimalSprites) {
 			out[animalKey(animCroc, coat, f)] = genCrocFrame(f, coat).outlinedSel(0.4).img()
 		}
 	}
+	buildCapibaraSprites(out)
 }
 
 func genFrogFrame(frame, coat int) *pixBuf {

@@ -302,7 +302,7 @@ func (g *Game) dailyLinesFor(d dailyChallenge) (lines []string) {
 }
 
 // drawDailyButton: the single RETO DE HOY button on top of the party list. Whole-pixel boxes and scale-1 text,
-// with an inner margin: title, party and modifiers each on their own line.
+// with an inner margin: the title and the party on the first line, the modifiers on the second.
 func (g *Game) drawDailyButton(dst *ebiten.Image, sel bool) {
 	label, lines, open := g.dailyButtonLines()
 	g.drawDailyBox(dst, sel, label, lines, open)
@@ -331,6 +331,20 @@ func (g *Game) drawDailyBox(dst *ebiten.Image, sel bool, label string, lines []s
 		pre = "> "
 	}
 	cx := x + dailyBtnW/2
+	if open && len(lines) > 0 {
+		// the title and the party share the first row (the list of 26 parties needs the height); the modifiers
+		// go under them
+		head, party := pre+label, lines[0]
+		hw, pw := g.textW(head, 1), g.textW(party, 1)
+		x0 := math.Round(cx - (hw+dailyHeadGap+pw)/2)
+		g.drawText(dst, head, x0, y+dailyTextY0, tc, 1)
+		drawChallengeFlag(dst, x0-12, y+dailyTextY0, tc)
+		g.drawText(dst, party, x0+hw+dailyHeadGap, y+dailyTextY0, sc, 1)
+		for i, l := range lines[1:] {
+			g.drawTextC(dst, l, cx, y+dailyTextY0+dailyLineDY*float64(i+1), sc, 1)
+		}
+		return
+	}
 	lw := g.textW(pre+label, 1)
 	g.drawTextC(dst, pre+label, cx, y+dailyTextY0, tc, 1)
 	drawChallengeFlag(dst, math.Round(cx-lw/2)-12, y+dailyTextY0, tc)

@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 // ---------------------------------------------------------------------------
-// The 25 fixed campaign scenarios, always in this order, unlocked one at a
+// The 26 fixed campaign scenarios, always in this order, unlocked one at a
 // time by finishing the previous one (see progress.go). Everything else
 // (extraLevels below, plus a second roll of every campaign kind with a
 // different seed) only feeds the free "random" mode and never gates
@@ -44,6 +44,9 @@ var campaignLevels = []campaignEntry{
 	{kind: "birthday", seed: 331, title: "FIESTA DE CUMPLEAÑOS", icon: "cake"},
 	{kind: "hockey", seed: 173, title: "PISTA DE HOCKEY", icon: "hockey"},
 	{kind: "disco70", seed: 257, title: "DISCO SETENTERA", icon: "disco70"},
+	// the BARCO PIRATA goes right before the space station (pirate.go); saves of the 25-party layout are moved by
+	// progress_migrate.go (CampaignRev 3)
+	{kind: "pirate", seed: 613, title: "BARCO PIRATA", icon: "pirate"},
 	// RULE: the last two parties are ALWAYS the space station and then the secret island (jurassic.go, not listed here).
 	{kind: "station", seed: 239, title: "ESTACIÓN ESPACIAL", icon: "station"},
 }
@@ -62,9 +65,22 @@ func campaignIdx(icon string) int {
 }
 
 // campaignKeyRev1: the editor key that party i had in the 24-party layout (before ITALIA was inserted at
-// italyIdx), "" for ITALIA itself and for the parties that did not move.
+// italyIdx and the BARCO PIRATA at pirateIdx), "" for those two and for the parties that did not move.
 func campaignKeyRev1(i int) string {
-	if i <= italyIdx || i >= len(campaignLevels) {
+	if i <= italyIdx || i == pirateIdx || i >= len(campaignLevels) {
+		return ""
+	}
+	old := i - 1 // the parties behind ITALIA moved one place
+	if i > pirateIdx {
+		old-- // ...and the ones behind the pirate ship one more
+	}
+	return fmt.Sprintf("c%02d_%s", old+1, campaignLevels[i].icon)
+}
+
+// campaignKeyRev2: the editor key that party i had in the 25-party layout (before the BARCO PIRATA was inserted at
+// pirateIdx), "" for the pirate ship and for the parties that did not move.
+func campaignKeyRev2(i int) string {
+	if i <= pirateIdx || i >= len(campaignLevels) {
 		return ""
 	}
 	return fmt.Sprintf("c%02d_%s", i, campaignLevels[i].icon)
@@ -93,8 +109,8 @@ func builtinLevels() []*LevelDef {
 		if d := resolveCampaign(e); d != nil {
 			d.Icon = e.icon
 			la := levelOverrides[campaignKey(i)]
-			if la == nil { // an editor correction saved before ITALIA was inserted keeps the old number in its key
-				if k := campaignKeyRev1(i); k != "" {
+			for _, k := range []string{campaignKeyRev2(i), campaignKeyRev1(i)} { // an editor correction saved before
+				if la == nil && k != "" { // the BARCO PIRATA or ITALIA were inserted keeps the old number in its key
 					la = levelOverrides[k]
 				}
 			}
@@ -105,6 +121,7 @@ func builtinLevels() []*LevelDef {
 				applyLevelOverride(d, la)
 				addMurray(d) // an edited level may have moved things next to him: re-check his spot
 			}
+			addMirrorBall(d, e.icon) // the dance parties under a roof hang a mirror ball (discoball.go)
 			out = append(out, d)
 		}
 	}
@@ -122,6 +139,7 @@ func builtinLevels() []*LevelDef {
 			continue
 		}
 		if d := genNamed(e.kind, e.seed+1013, e.title); d != nil {
+			addMirrorBall(d, e.icon)
 			out = append(out, d)
 		}
 	}

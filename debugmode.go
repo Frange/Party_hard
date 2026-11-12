@@ -49,6 +49,7 @@ func (g *Game) debugBegin() {
 func (g *Game) debugApply() {
 	g.debugBegin()
 	p := cloneProgress(*debugSnap)
+	p.MenuTier = 0 // the DEBUG switches show the tier they give, not the one kept by the real save (medals.go)
 	d := g.dbg
 	own := map[string]bool{}
 	for _, id := range p.Owned {
@@ -142,6 +143,9 @@ func debugAlbum(p *Progress, mode int) {
 			}
 			if c.kind() == cardChar {
 				p.CharKills[c.key] = charKillsNeed
+			}
+			if c.kind() == cardCop && c.roleKind > unitPolice { // a police card needs its type open (goalcops.go)
+				p.Owned = append(p.Owned, fmt.Sprintf("police:%d", c.roleKind))
 			}
 		}
 	}
@@ -334,7 +338,7 @@ func (g *Game) debugRows() []debugRow {
 		}),
 		{stealthMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth(0) }},
 		{stealth2pMenuLabel, func() string { return "" }, func() { g.debugBegin(); g.startStealth2P(0) }},
-		{"Ir a la última fiesta: Isla Nublar (Jurassic Park)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
+		{"Ir a la última fiesta: Isla Nublada (Parque Fiestásico)", func() string { return "" }, func() { g.startLevel(specialJurassic) }},
 		stepRow("Ver escena", func() string {
 			return fmt.Sprintf("◄ %d/%d %s ►", debugSceneSel+1, len(debugScenes), tr(debugScenes[debugSceneSel].label))
 		}, func() { g.playScene(debugScenes[debugSceneSel].scene, ModeDebug) }, debugSceneStep),

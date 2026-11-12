@@ -36,6 +36,7 @@ var ptAnimals = []ptNoun{
 	{es: "guepardo", en: "cheetah", esPl: "guepardos", enPl: "cheetahs", key: "cheetah"},
 	{es: "león", en: "lion", esPl: "leones", enPl: "lions", key: "lion"},
 	{es: "cobaya", fem: true, en: "guinea pig", esPl: "cobayas", enPl: "guinea pigs", key: "cobaya"},
+	{es: "capibara", fem: true, en: "capybara", esPl: "capibaras", enPl: "capybaras", key: "capibara"},
 	{es: "cangrejo", en: "crab", esPl: "cangrejos", enPl: "crabs", key: "crab"},
 	{es: "pingüino", en: "penguin", esPl: "pingüinos", enPl: "penguins", key: "penguin"},
 	{es: "vaca", fem: true, en: "cow", esPl: "vacas", enPl: "cows", key: "cow"},
