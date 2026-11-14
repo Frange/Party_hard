@@ -23,16 +23,13 @@ func (g *Game) vipEscalates() bool {
 	if g.lvl == nil || g.lvl.vip == nil || !g.lvl.vip.spawned {
 		return false
 	}
-	boss := false
+	// the main VIP (the first boss) rules: once he is dead the ladder ends, even in a mini VIP party
 	for _, gd := range g.guards {
 		if gd.vip == vipBoss {
-			if gd.dead {
-				return false
-			}
-			boss = true
+			return !gd.dead
 		}
 	}
-	return boss
+	return false
 }
 
 // vipStaffChase: a staff member goes after the player of the alarm and, on contact, gives the warning.
@@ -170,7 +167,7 @@ func (g *Game) vipGuestWatch(z *vipZone, dt float64) {
 		z.guestGd, z.guestTgt = nil, nil
 		return
 	}
-	if z.guestGd != nil && (z.guestGd.dead || z.guestTgt == nil || z.guestTgt.out() || !z.trig.Has(z.guestTgt.pos.X, z.guestTgt.pos.Y) || z.guestT > 10) {
+	if z.guestGd != nil && (z.guestGd.dead || z.guestTgt == nil || z.guestTgt.out() || !z.inside(z.guestTgt.pos.X, z.guestTgt.pos.Y) || z.guestT > 10) {
 		z.guestGd, z.guestTgt = nil, nil
 	}
 	if z.guestGd != nil || z.relieving() || z.alarmed {
@@ -178,7 +175,7 @@ func (g *Game) vipGuestWatch(z *vipZone, dt float64) {
 		return
 	}
 	for _, gu := range g.guests {
-		if gu.out() || gu.py != nil || gu.perf != "" || gu.vipImmT > 0 || gu.state == gLift || gu.state == gSleep || gu.vipStun > 0 || !z.trig.Has(gu.pos.X, gu.pos.Y) {
+		if gu.out() || gu.py != nil || gu.perf != "" || gu.vipImmT > 0 || gu.state == gLift || gu.state == gSleep || gu.vipStun > 0 || !z.inside(gu.pos.X, gu.pos.Y) {
 			continue
 		}
 		var best *Guard

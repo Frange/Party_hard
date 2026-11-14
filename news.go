@@ -95,7 +95,7 @@ func defaultNewsBank() NewsBank {
 		"fbi_arrive":          {"¡El FBI se hace cargo del caso!", "El FBI toma el control de la investigación", "Agentes del FBI llegan a la escena"},
 		"military_arrive":     {"Entra en acción el ejército", "Llegan los militares a poner orden", "El ejército toma posiciones en la zona"},
 		"swat_arrive":         {"El SWAT toma el control", "Un furgón del SWAT irrumpe en la escena", "El SWAT se despliega por la zona"},
-		"rangers_arrive":      {"¡Llaman a los Pawer Rangers!", "¡Es morfing time! Llegan los Pawer Rangers", "Los Pawer Rangers aparecen para salvar el día"},
+		"rangers_arrive":      {"¡Llaman a los Pawer Rangers!", "¡Es morphling time! Llegan los Pawer Rangers", "Los Pawer Rangers aparecen para salvar el día"},
 		"police_call":         {"¡Alguien ha llamado a la policía!", "La policía ha sido avisada", "Suenan las sirenas: viene la policía"},
 		"ambulance_call":      {"Llega una ambulancia a por los cuerpos", "Avisan a una ambulancia, hay demasiados cuerpos", "Una ambulancia viene de camino"},
 		"backup_call":         {"Piden refuerzos: llega otro agente", "La policía pide refuerzos", "Un segundo agente viene de camino"},
@@ -112,7 +112,7 @@ func defaultNewsBank() NewsBank {
 		"arson_fire":          {"¡Fuego en la fiesta!", "Algo arde y no es la pista de baile", "El pirómano ha prendido algo"},
 		"fire_call":           {"Piden bomberos: hay un incendio en la fiesta", "Alguien ha llamado a los bomberos por el fuego"},
 		"fire_death":          {"{victim} se ha chamuscado", "{victim} no ha salido a tiempo del fuego", "El fuego se ha llevado a {victim}"},
-		"dj_dead":             {"¡Han matado al DJ! Suena lounge, funk o balada", "El DJ ha muerto. ¿Quién pondrá la música ahora?"},
+		"dj_dead":             {"¡Han matado al DJ! Suena funk, ska o salsa", "El DJ ha muerto. ¿Quién pondrá la música ahora?"},
 		"vehicle_wreck_crew":  {"¡El tanque ha aplastado un vehículo de emergencias con su tripulación!", "¡El tanque ha hecho pedazos un vehículo de emergencias, con todos dentro!"},
 		"vehicle_wreck_empty": {"¡El tanque ha aplastado el vehículo de emergencias!", "El tanque deja el vehículo de emergencias hecho chatarra"},
 	}

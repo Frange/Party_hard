@@ -54,7 +54,7 @@ func (g *Game) murrayTalk(pr *Prop) int {
 }
 
 // murrayLevels: the parties where he is stuck on his stake.
-var murrayLevels = map[string]bool{"MIAMI BEACH": true, "CRUCERO NOCTURNO": true, "CEMENTERIO": true, "BULL'S EYE": true}
+var murrayLevels = map[string]bool{"MIAMI BEACH": true, "CRUCERO NOCTURNO": true, "CEMENTERIO": true} // (v1.4.0: the ranch became BARCELONA, a city square)
 
 // addMurray puts the skull outdoors, on open ground where it covers nothing (see murraySpotOK).
 // A Murray already in the level that breaks the rule is moved; a level with no valid

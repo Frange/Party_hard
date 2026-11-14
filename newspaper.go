@@ -44,7 +44,7 @@ func (g *Game) paperFactsNow() paperFacts {
 	r := &g.run
 	f := paperFacts{level: "EXTRA", levelN: g.levelIdx + 1, two: g.is2P(), challenge: g.challenge, secs: int(g.endTime)}
 	if g.levelIdx >= 0 && g.levelIdx < campaignN {
-		f.level = fmt.Sprint(g.levelIdx + 1)
+		f.level = fmt.Sprint(campaignNumber(g.levelIdx)) // its number in the list (campaign_retired.go)
 	}
 	for i := 0; i < 2; i++ {
 		f.kills += r.killsOf(i)

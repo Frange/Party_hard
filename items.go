@@ -190,7 +190,9 @@ func (g *Game) useLabel(pr *Prop) (string, color.RGBA) {
 // drawUseMarks: a bobbing diamond over everything that can be used; close up
 // it turns into the key and the name of the action.
 func (g *Game) drawUseMarks(dst *ebiten.Image) {
-	if g.mode != ModePlay {
+	// paused (Esc): nothing can be used, and a prompt near the panel ("[E] Coger veneno" with 2 players) used to
+	// poke out under its bottom edge
+	if g.mode != ModePlay || g.pause.open {
 		return
 	}
 	// with two players each one gets his own marks (the key and the colour are his): the diamond
@@ -516,12 +518,17 @@ type gasCloud struct {
 type fwBox struct {
 	pos    Vec
 	t, nxt float64
+	aim    *Guest // the guest who set the trap off: the first rocket is for him
 }
 type pianoDrop struct {
 	pos Vec
 	t   float64
 	hit bool
+	aim *Guest // the guest who set the trap off: the shadow follows him until it lands
 }
+
+// trapGasKill: the gas a guest who set the trap off breathes at once (more than the 2.2 s that kill).
+const trapGasKill = 2.25
 
 func (g *Game) trapKill(gu *Guest) {
 	g.killCause = kcTrap
@@ -545,12 +552,24 @@ func (g *Game) triggerNewTrap(pr *Prop) {
 		g.snd.Play("alert")
 		g.gas = append(g.gas, gasCloud{pos: centre, t: 7})
 		g.say("¡Fuga de gas!")
+		for _, gu := range trapSetOff { // whoever set it off breathes it all at once, however fast he goes (trapmine.go)
+			gu.gasT = math.Max(gu.gasT, trapGasKill)
+		}
 	case "fireworks":
 		g.snd.Play("spark")
-		g.fw = append(g.fw, fwBox{pos: centre, t: 4.5})
+		f := fwBox{pos: centre, t: 4.5}
+		if len(trapSetOff) > 0 {
+			f.aim = trapSetOff[0] // the first rocket goes for whoever set it off
+		}
+		g.fw = append(g.fw, f)
 		g.say("¡Se disparan los fuegos artificiales!")
 	case "piano":
-		// the piano drops on the biggest crowd
+		if len(trapSetOff) > 0 { // it falls on whoever set it off, and its shadow follows him (trapmine.go)
+			g.pianos = append(g.pianos, pianoDrop{pos: trapSetOff[0].pos, aim: trapSetOff[0]})
+			g.say("Algo enorme cae del cielo...")
+			return
+		}
+		// nobody at hand: the piano drops on the biggest crowd
 		best, bn := centre, -1
 		for _, gu := range g.guests {
 			if gu.out() {
@@ -626,6 +645,12 @@ func (g *Game) updateTraps2(dt float64) {
 			a := g.rng.Float64() * 2 * math.Pi
 			r := 18 + g.rng.Float64()*80
 			at := Vec{f.pos.X + math.Cos(a)*r, f.pos.Y + math.Sin(a)*r*0.7 - 10}
+			if f.aim != nil { // the first rocket: for whoever set it off (trapmine.go)
+				if !f.aim.out() {
+					at = f.aim.pos
+				}
+				f.aim = nil
+			}
 			cols := []uint32{0xff4040, 0xffd040, 0x40ff80, 0x40c0ff, 0xff60e0}
 			g.burst(at, 18, 90, rgb(cols[g.rng.Intn(len(cols))]), 0.7, 2, 70)
 			g.snd.Play("spark")
@@ -659,6 +684,9 @@ func (g *Game) updateTraps2(dt float64) {
 	po := g.pianos[:0]
 	for _, d := range g.pianos {
 		d.t += dt
+		if d.aim != nil && !d.hit && !d.aim.out() { // the shadow follows whoever set it off
+			d.pos = d.aim.pos
+		}
 		if d.t >= 0.9 && !d.hit {
 			d.hit = true
 			g.snd.Play("boom")

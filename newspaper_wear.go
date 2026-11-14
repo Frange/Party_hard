@@ -320,44 +320,145 @@ func (w *pwear) middleStains() {
 
 // ---- blood ----------------------------------------------------------------------------------------------------------
 
-// blood: a few drops and splashes, dark red, dried at the rim. None without victims except, sometimes, a red wine drop.
+// blood: drops and splashes, dark red, dried at the rim; the more victims, the more and the bigger they are. None
+// without victims except, sometimes, a red wine drop. After a massacre the hands that picked the paper up were full of
+// blood too (hands).
 func (w *pwear) blood(kills int) {
 	n := 0
 	switch {
 	case kills <= 0:
 		n = w.rnd(2)
 	case kills < 6:
-		n = 1 + w.rnd(2)
-	case kills < 15:
 		n = 2 + w.rnd(2)
+	case kills < 15:
+		n = 4 + w.rnd(2)
 	default:
-		n = 3 + w.rnd(2)
+		n = 5 + w.rnd(3) + minI(kills/10, 4)
 	}
 	for i := 0; i < n; i++ {
 		var x, y int
 		switch w.rnd(3) {
 		case 0: // the bottom strip
-			x, y = w.spot(30, 498, screenW-30, screenH-14, 10)
+			x, y = w.spot(30, 498, screenW-30, screenH-14, 12)
 		case 1: // a side margin
 			if w.rnd(2) == 0 {
-				x, y = w.spot(4, 30, 10, screenH-40, 6)
+				x, y = w.spot(4, 30, 10, screenH-40, 8)
 			} else {
-				x, y = w.spot(screenW-11, 40, screenW-5, screenH-40, 6)
+				x, y = w.spot(screenW-11, 40, screenW-5, screenH-40, 8)
 			}
 		default: // anywhere on the page (over text it stays a pale pink)
-			x, y = w.spot(30, 90, screenW-30, screenH-30, 8)
+			x, y = w.spot(30, 90, screenW-30, screenH-30, 10)
 		}
-		w.splash(x, y, kills > 0)
+		w.splash(x, y, kills > 0, kills)
+	}
+	w.hands(kills)
+}
+
+// paperHandPrints: how many bloody prints the hands leave on a page with that many victims (0 = clean hands).
+func paperHandPrints(kills int) int {
+	if kills <= 0 {
+		return 0
+	}
+	return minI(2+kills/3, 14)
+}
+
+// hands: where the paper is held (the left and right edges, half way down) the bloody thumbs leave their prints,
+// smeared where the hand slid; from 10 victims on, a whole palm with its fingers grabs the edge (both edges from 20).
+func (w *pwear) hands(kills int) {
+	n := paperHandPrints(kills)
+	if n == 0 {
+		return
+	}
+	core := uint32(0x7a0e0a)
+	a := minI(170+kills*3, 240) // fresher, darker blood the more victims
+	for i := 0; i < n; i++ {
+		// where the thumb holds the page, on the free paper between the texts if there is any
+		x, y := w.spot(6, 160, 28, 440, 10)
+		if i%2 == 1 {
+			x = screenW - 1 - x
+		}
+		tilt := float64(w.rnd(80)-40) / 100
+		w.thumb(x, y, tilt, core, a)
+		if w.rnd(3) == 0 { // the thumb slid: a fading smear
+			dx, dy := 2-w.rnd(5), 3+w.rnd(4)
+			for k := 1; k <= 3; k++ {
+				w.thumb(x+dx*k, y+dy*k, tilt, core, a*(4-k)/6)
+			}
+		}
+	}
+	if kills >= 10 {
+		_, y := w.spot(18, 180, 34, 430, 26)
+		w.palm(true, y, core, a)
+	}
+	if kills >= 20 {
+		_, y := w.spot(18, 180, 34, 430, 26)
+		w.palm(false, y, core, a)
+	}
+}
+
+// thumb: an oval print with the curved ridges of a fingertip.
+func (w *pwear) thumb(cx, cy int, tilt float64, hex uint32, a int) {
+	for y := -11; y <= 11; y++ {
+		for x := -11; x <= 11; x++ {
+			u := float64(x)*math.Cos(tilt) + float64(y)*math.Sin(tilt)
+			v := -float64(x)*math.Sin(tilt) + float64(y)*math.Cos(tilt)
+			if u*u/56+v*v/110 > 1 {
+				continue
+			}
+			if int(math.Sqrt(u*u*1.6+v*v*0.5)*1.6)%3 == 0 {
+				w.paint(cx+x, cy+y, 0x4e0606, a/3)
+			} else {
+				w.paint(cx+x, cy+y, hex, a)
+			}
+		}
+	}
+}
+
+// palm: a hand that grabbed the page by one edge: the heel of the palm cut by the edge and four fingers reaching in.
+func (w *pwear) palm(left bool, cy int, hex uint32, a int) {
+	sx := 1
+	ex := 2
+	if !left {
+		sx, ex = -1, screenW-3
+	}
+	blob := func(cx, cy int, rx, ry float64, tilt float64) {
+		for y := -int(ry) - 1; y <= int(ry)+1; y++ {
+			for x := -int(rx) - 1; x <= int(rx)+1; x++ {
+				u := float64(x)*math.Cos(tilt) + float64(y)*math.Sin(tilt)
+				v := -float64(x)*math.Sin(tilt) + float64(y)*math.Cos(tilt)
+				e := u*u/(rx*rx) + v*v/(ry*ry)
+				if e > 1 {
+					continue
+				}
+				aa := a
+				if paperHash(cx+x, cy+y, w.s+83)%7 == 0 { // the skin leaves gaps
+					aa = a / 3
+				}
+				w.paint(cx+x, cy+y, hex, aa)
+			}
+		}
+	}
+	blob(ex, cy, 16, 24, 0) // the heel of the palm
+	for f := 0; f < 4; f++ {
+		fy := cy - 21 + f*13 + w.rnd(3)
+		l := 30 + w.rnd(10)
+		if f == 0 || f == 3 {
+			l -= 6
+		}
+		ang := float64(f-1)*0.12*float64(sx) - 0.06*float64(sx)
+		cx := ex + sx*(10+l/2)
+		blob(cx, fy, float64(l)/2, 4.5, ang)
+		w.thumb(ex+sx*(10+l), fy, 0, 0x6a0a08, a) // the fingertip presses harder
 	}
 }
 
 // splash: a round drop with satellites thrown in one direction and one or two elongated drops with a tail.
-func (w *pwear) splash(cx, cy int, blood bool) {
+func (w *pwear) splash(cx, cy int, blood bool, kills int) {
 	core, rim := uint32(0x7a0e0a), uint32(0x4e0606)
 	if !blood { // red wine: more purple
 		core, rim = 0x6a1430, 0x48102a
 	}
-	r := 3 + w.rnd(4)
+	r := 4 + w.rnd(5) + minI(kills/12, 3) // bigger drops after a massacre
 	drop := func(x0, y0, rr int, a int) {
 		for y := -rr - 1; y <= rr+1; y++ {
 			for x := -rr - 1; x <= rr+1; x++ {
@@ -376,16 +477,16 @@ func (w *pwear) splash(cx, cy int, blood bool) {
 	}
 	drop(cx, cy, r, 225)
 	ang := float64(w.rnd(628)) / 100
-	for k, m := 0, 7+w.rnd(7); k < m; k++ {
+	for k, m := 0, 9+w.rnd(8); k < m; k++ {
 		a := ang + float64(w.rnd(110)-55)/100
-		dist := float64(r + 3 + w.rnd(20))
-		drop(cx+int(math.Cos(a)*dist), cy+int(math.Sin(a)*dist), w.rnd(3), 210)
+		dist := float64(r + 3 + w.rnd(24))
+		drop(cx+int(math.Cos(a)*dist), cy+int(math.Sin(a)*dist), 1+w.rnd(3), 210)
 	}
 	for k, m := 0, 1+w.rnd(2); k < m; k++ {
 		a := ang + float64(w.rnd(60)-30)/100
 		dist := float64(r + 6 + w.rnd(10))
 		x, y := cx+int(math.Cos(a)*dist), cy+int(math.Sin(a)*dist)
-		drop(x, y, 1, 220)
+		drop(x, y, 2, 220)
 		for t := 1; t < 5+w.rnd(5); t++ { // the tail points back to the main drop
 			w.paint(x-int(math.Cos(a)*float64(t)), y-int(math.Sin(a)*float64(t)), core, 200-t*14)
 		}

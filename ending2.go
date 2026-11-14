@@ -346,7 +346,7 @@ func endCreditRows(secret bool) [][2]string {
 			[2]string{"Música del vecino", "Silenciada de por vida"},
 			[2]string{"Ovejas contadas", "4.000 (una iba en pijama)"},
 			[2]string{"Sueño recuperado", "Al 100%"},
-			[2]string{"Fiestas arruinadas", fmt.Sprintf("Las %d. Qué pena, qué pena", len(campaignLevels))},
+			[2]string{"Fiestas arruinadas", fmt.Sprintf("Las %d. Qué pena, qué pena", len(campaignLevels)-len(retiredParties()))},
 			[2]string{"", ""},
 		)
 	}

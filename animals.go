@@ -464,7 +464,7 @@ func (g *Game) whoIsBehind(a *Animal, reach, width float64) (any, Vec) {
 		}
 	}
 	for _, gd := range g.guards {
-		if !gd.dead && a.behind(gd.pos, reach, width) {
+		if !gd.dead && gd.vip == 0 && a.behind(gd.pos, reach, width) { // never the VIP zone staff (vipshape.go)
 			return gd, gd.pos
 		}
 	}

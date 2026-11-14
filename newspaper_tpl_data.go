@@ -94,8 +94,6 @@ var ptPlaces = []ptNoun{
 	{es: "parrilla de salida", fem: true, en: "starting grid", theme: "circuit"},
 	{es: "azotea", fem: true, en: "rooftop", theme: "roof"},
 	{es: "chimenea", fem: true, en: "chimney", theme: "roof"},
-	{es: "establo", en: "stable", theme: "ranch"},
-	{es: "granero", en: "barn", theme: "ranch"},
 	{es: "mesa de los regalos", fem: true, en: "present table", theme: "cake"},
 	{es: "diana de dardos", fem: true, en: "dartboard", theme: "pub"},
 	{es: "patio de comidas", en: "food court", theme: "mall"},

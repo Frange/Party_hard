@@ -101,6 +101,7 @@ func jpText(b *pixBuf, s string, x, y, k int, col, edge color.RGBA) {
 }
 
 func flame(b *pixBuf, x, y int, h int) {
+	b.ellipse(float64(x), float64(y)+0.5, 4, float64(h)+0.5, fireRamp[5]) // dark red rim (fire_art.go)
 	b.ellipse(float64(x), float64(y), 3.4, float64(h), c(0xe84a18))
 	b.ellipse(float64(x), float64(y)+1, 2.4, float64(h)*0.75, c(0xff9a20))
 	b.ellipse(float64(x), float64(y)+2, 1.3, float64(h)*0.45, c(0xfff0a0))

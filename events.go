@@ -673,7 +673,9 @@ func (g *Game) updateZombie(gu *Guest, dt float64) {
 			}
 			d := dist(gu.pos, o.pos)
 			if d < 12 {
-				g.makeZombie(o)
+				if !g.gyBite(gu, o) { // the graveyard's zombies eat brains instead (graveyard.go)
+					g.makeZombie(o)
+				}
 				g.snd.Play("thud")
 			} else if d < 70 && o.state != gScared && o.perf == "" {
 				o.state, o.timer, o.path = gScared, 5+g.rng.Float64()*3, nil

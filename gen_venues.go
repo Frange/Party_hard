@@ -52,7 +52,7 @@ func genBirthday(rng *rand.Rand) *LevelDef {
 	pl.at("giftable", 560, 122, 0)
 	pl.at("giftable", 508, 122, 1)
 	pl.at("longtable", 190, 106, 0)
-	pl.at("punch", 296, 106, rng.Intn(2))
+	pl.at("punch", 300, 140, rng.Intn(2))        // next to the dance floor of the room (it stood against the top wall)
 	for i, x := range []float64{190, 370, 550} { // garlands across the room
 		pl.at("bunting", x, 72, i%2)
 	}
@@ -107,7 +107,7 @@ func genHockey(rng *rand.Rand) *LevelDef {
 		vw(810, 94, 378, 8, WallBoards, [2]float64{198, 262}),
 		hw(142, 818, 370, 8, WallBoards, [2]float64{268, 340}, [2]float64{620, 692}),
 	)
-	genStreet(d, frontX)
+	genStreetGates(d, frontX, [2]float64{830, 910}) // two ways in from the street (one alone was a trap with the police)
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
 	// on the ice: the two nets
@@ -144,6 +144,20 @@ func genHockey(rng *rand.Rand) *LevelDef {
 	return d
 }
 
+// genStreetGates: genStreet with a second gate in the street fence (gate: its x range, away from the front one).
+func genStreetGates(d *LevelDef, frontX float64, gate [2]float64) {
+	genStreet(d, frontX)
+	ws := d.Walls[:0]
+	for _, w := range d.Walls {
+		if !(w.Style == WallFence && w.R.Y == 444 && w.R.H == 10) {
+			ws = append(ws, w)
+		}
+	}
+	d.Walls = ws
+	doorLog = doorLog[:len(doorLog)-1] // the front gate of genStreet: hw logs it again below
+	d.Walls = append(d.Walls, hw(0, 960, 444, 10, WallFence, [2]float64{frontX - 80, frontX + 90}, gate)...)
+}
+
 // discoFloor: the lit tiles of the 70s disco (disco70.go draws them every frame). 36 x 24 tiles of 8 px.
 var discoFloor = Rect{336, 128, 288, 192}
 
@@ -166,19 +180,31 @@ func genDisco70(rng *rand.Rand) *LevelDef {
 		F(frontX-50, 396, 100, 50, "pave"),
 		{R: discoFloor, Kind: "disco70"},
 	}
+	for _, m := range discoMinis { // the small lit floors, each with its own moving drawing (disco70_mini.go)
+		d.Floors = append(d.Floors, Floor{R: m.R, Kind: "disco70"})
+	}
 	d.Walls = walls(
 		hw(0, 960, 0, 14, WallHedge),
 		vw(0, 14, 452, 10, WallFence),
 		vw(950, 14, 452, 10, WallFence),
 		hw(70, 890, 30, 16, WallWood),
-		vw(70, 30, 382, 8, WallWood),
-		vw(882, 30, 382, 8, WallWood),
+		// the side walls reach the front wall (they stopped 14 px short and left two slits in the corners); the left one has
+		// a side door to the garden, so the hall is no trap with a single way out
+		vw(70, 30, 396, 8, WallWood, [2]float64{292, 348}),
+		vw(882, 30, 396, 8, WallWood),
 		hw(70, 890, 396, 16, WallWood, [2]float64{frontX - 48, frontX + 48}),
 	)
-	genStreet(d, frontX)
+	genStreetGates(d, frontX, [2]float64{18, 98}) // and a second gate in the street fence, at the end of the garden
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
-	pl.avoid = append(pl.avoid, Vec{frontX, 380}, Vec{frontX, 350}, Vec{frontX, 420})
+	pl.avoid = append(pl.avoid, Vec{frontX, 380}, Vec{frontX, 350}, Vec{frontX, 420}, Vec{96, 320}, Vec{120, 320})
+	for _, p := range [][2]float64{{690, 170}, {770, 170}, {690, 240}, {770, 240}, {730, 300}} { // the lounge on the right
+		pl.avoid = append(pl.avoid, Vec{p[0], p[1]}) // stays clear of the scatter: room for the VIP carpet (vip.go)
+	}
+	for _, m := range discoMinis { // nothing scattered on the small floors
+		r := m.R
+		pl.avoid = append(pl.avoid, r.Center(), Vec{r.X, r.Y}, Vec{r.X + r.W, r.Y}, Vec{r.X, r.Y + r.H + 10}, Vec{r.X + r.W, r.Y + r.H + 10})
+	}
 	pl.at("dj", 480, 114, 0)
 	pl.at("speaker", 408, 110, 0)
 	pl.at("speaker", 552, 110, 0)
@@ -198,12 +224,15 @@ func genDisco70(rng *rand.Rand) *LevelDef {
 	pl.at("jukebox", 860, 200, 0)
 	pl.at("couch", 215, 372, 0)
 	pl.at("couch", 745, 372, 0)
-	pl.at("punch", 740, 128, rng.Intn(2))
+	pl.at("punch", 310, 150, rng.Intn(2)) // by the small floors and the big one (it stood in the far corner)
 	pl.at("phone", 864, 372, 0)
 	pl.scatter(R(78, 46, 804, 350), 5+rng.Intn(3), 90, "plant", "table", "lamp", "speaker")
 	d.Props = props
 	d.Roam = []Rect{R(90, 70, 240, 310), R(640, 70, 240, 310), R(336, 330, 288, 50), R(336, 128, 288, 192), R(14, 408, 930, 34)}
 	d.Dance = []Rect{discoFloor}
+	for _, m := range discoMinis { // the small floors are dance floors too: nothing is built on them
+		d.Dance = append(d.Dance, m.R)
+	}
 	d.Guards = [][]Vec{{{110, 160}, {110, 340}}, {{850, 160}, {850, 340}}, {{360, 355}, {600, 355}}}
 	d.Doors = append(d.Doors, doorLog...)
 	return d

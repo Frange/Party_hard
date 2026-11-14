@@ -350,11 +350,11 @@ func TestToroDebugFlag(t *testing.T) {
 	}
 	// peLoad starts a new party game (and clears the flag): the bull is forced there and the flag set again
 	toroForce = true
-	g = peLoad(t, campaignIdx("ranch"), false)
+	g = peLoad(t, campaignIdx("festival"), false) // (v1.4.0: the ranch became BARCELONA, no mechanical bull there)
 	dbgPartyEvent = "toro:fall"
 	toroLvl = nil // the first session starts 3 s into the party (toroDue with the flag)
 	if g.lvl.bullRide() == nil {
-		t.Fatal("no bull in the ranch")
+		t.Fatal("no bull in the festival")
 	}
 	fell := false
 	for f := 0; f < 30*40 && !fell; f++ {

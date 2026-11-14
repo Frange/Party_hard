@@ -249,7 +249,8 @@ func buildShopCatalog() {
 	}{{"short", "Pelo corto", HairShort, 100}, {"long", "Pelo largo", HairLong, 150}, {"bald", "Calvo", HairBald, 100}, {"mohawk", "Cresta", HairMohawk, 250}, {"curly", "Rizos", HairCurly, 200},
 		{"pompadour", "Tupé", HairPompadour, 250}, {"spiky", "Pelo de punta", HairSpiky, 200}, {"bun", "Moño", HairBun, 160}, {"bob", "Media melena", HairBob, 160}, {"pony", "Coleta", HairPony, 160},
 		{"fry", "Pelo alborotado", HairFry, 220}, {"dreads", "Rastas", HairDreads, 300}, {"beehive", "Colmena", HairBeehive, 400}, {"star", "Pelo de estrella", HairStar, 500}, {"quiff", "Tupé alto", HairQuiff, 300},
-		{"bowl", "Corte de tazón", HairBowl, 150}, {"buns", "Dos moños", HairBuns, 220}, {"messy", "Pelo desastre", HairMessy, 180}, {"comb", "Peinado hacia atrás", HairComb, 200}, {"homer", "Casi calvo", HairHomer, 300}}
+		{"bowl", "Corte de tazón", HairBowl, 150}, {"buns", "Dos moños", HairBuns, 220}, {"messy", "Pelo desastre", HairMessy, 180}, {"comb", "Peinado hacia atrás", HairComb, 200}, {"homer", "Casi calvo", HairHomer, 300},
+		{"baldmane", "Calvo con melena", HairBaldMane, 450}}
 	for _, h := range hairs {
 		k := h.k
 		addWear(shopAccess, "hair:"+h.id, h.n, "hair", h.p, func(s *CharSpec) { s.Hair2 = k })

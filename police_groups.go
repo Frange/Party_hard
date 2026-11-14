@@ -111,6 +111,9 @@ func (g *Game) groupCrew(unit int) int {
 // is sent after the case has been closed). Groups only go up during a call.
 func (g *Game) updatePoliceGroup() {
 	want := g.groupUnitNow()
+	if g.swatKills > 0 { // the burst of this call was fired: everybody is going back, nobody new comes (copcrew.go)
+		return
+	}
 	if want <= g.respKind || want == g.pendingUnit || (g.pendingUnit >= 0 && g.pendingUnit > want) {
 		return
 	}
@@ -127,3 +130,21 @@ func (g *Game) updatePoliceGroup() {
 	g.escalateTo(want)
 	g.announceUnit(want)
 }
+
+// starCap: the most stars there can be: one per police type that has come to the parties (2026-11-12, owner): with
+// the local police, the FBI and the army the rating stops at 3 and the HUD shows only 3 stars (no empty extra ones).
+func (g *Game) starCap() int { return len(policeGroups()) }
+
+// clampStars keeps the rating (and the floor a new call starts from) inside starCap.
+func (g *Game) clampStars() {
+	c := g.starCap()
+	if g.stars > c {
+		g.stars = c
+	}
+	if g.starFloor > c {
+		g.starFloor = c
+	}
+}
+
+// starsDrawn: how many star icons the HUD drew in the last frame (drawStars; tests read it).
+var starsDrawn int

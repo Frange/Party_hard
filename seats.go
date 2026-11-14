@@ -51,7 +51,6 @@ var seatThemes = map[string]seatTheme{
 	"house":    {0, [kitN]int{1, 0, 0, 0, 1, 0}, false},
 	"beach":    {2, [kitN]int{2, 0, 1, 2, 0, 0}, false},
 	"neon":     {5, [kitN]int{1, 0, 0, 0, 2, 0}, false},
-	"ranch":    {0, [kitN]int{0, 1, 2, 0, 0, 0}, false},
 	"bull":     {0, [kitN]int{1, 0, 2, 0, 0, 0}, true},
 	"eiffel":   {1, [kitN]int{3, 0, 1, 0, 0, 0}, false},
 	"boat":     {2, [kitN]int{1, 0, 0, 2, 0, 0}, false},
@@ -597,6 +596,15 @@ func (g *Game) seatFree(gu *Guest) {
 		g.seats.next = map[*Guest]float64{}
 	}
 	g.seats.next[gu] = g.time + 40 + float64(int(gu.off*1000)%50)
+}
+
+// seatDropOut: the seats of the guests who are out of the party (dead, gone) are free again (end of every frame).
+func (g *Game) seatDropOut() {
+	for _, gu := range g.guests {
+		if gu.seat != nil && gu.out() {
+			g.seatFree(gu)
+		}
+	}
 }
 
 // seatsNowF: -seatsnow sends a dozen guests to sit down a second after the start (debug, for captures).

@@ -385,7 +385,7 @@ func (g *Game) nearestSeen(s *Slasher) (*Guest, *Guard, float64) {
 		}
 	}
 	for _, gd := range g.guards {
-		if gd.dead {
+		if gd.dead || gd.vip != 0 { // the VIP zone staff and the VIP are not his prey (vipshape.go)
 			continue
 		}
 		if d := dist(gd.pos, s.pos); d < best && g.sees(s.pos, s.dir, gd.pos, 110, guestDot) {
@@ -434,7 +434,7 @@ func (g *Game) slasherPick(s *Slasher) {
 		}
 	}
 	for _, gd := range g.guards {
-		if gd.dead {
+		if gd.dead || gd.vip != 0 { // the VIP zone staff and the VIP are not his prey (vipshape.go)
 			continue
 		}
 		if d := dist(gd.pos, s.pos) + 40; d < best {
@@ -707,8 +707,8 @@ func (g *Game) starsTarget() int {
 	if g.starFloor > t {
 		t = g.starFloor
 	}
-	if t > 5 {
-		t = 5
+	if c := g.starCap(); t > c { // never more stars than police types have come (police_groups.go)
+		t = c
 	}
 	return t
 }
@@ -767,6 +767,7 @@ func (g *Game) updateStars(dt float64) {
 			g.starFloor = g.stars
 		}
 	}
+	g.clampStars() // the countdown or the VIP may have pushed them past the types that have come
 }
 
 // unstick: police and medics that stop making progress are moved to a free spot.
@@ -875,26 +876,18 @@ func (g *Game) drawUnitCar(dst *ebiten.Image, pi PropImg, v *Vehicle) {
 	g.drawText(dst, label, math.Round(g.wx(v.x))-g.textW(label, 1)/2, math.Round(g.wy(v.y)-pi.oy)-12, col, 1)
 }
 
-// copBrutal: military, SWAT and Pawer Rangers that cannot find the killer
-// start shooting suspicious guests. The FBI only ever investigates, and
-// soldiers withdraw once they have fired their 3 shots.
+// copBrutal: army and SWAT (machine guns in their hands, copcrew.go) that cannot find the killer may, now and
+// then, fire at a guest: at most ONE burst among all of them per call; then everybody reviews the place and the
+// whole response goes back. The local police, the FBI and the Pawer Rangers only investigate.
 func (g *Game) copBrutal(c *Cop, dt float64) {
-	if c.medic || c.kind == unitPolice || c.kind == unitFBI || (c.state != cSweep && c.state != cGoto) {
+	if c.medic || !copGunUnit(c.kind) || (c.state != cSweep && c.state != cGoto) {
 		return
 	}
 	if c.searchT < c.maxSearch*0.4 {
 		return
 	}
-	limit := 4
-	if c.kind == unitMilitary {
-		limit = 3
-	}
-	if g.swatKills >= limit {
-		if c.kind == unitMilitary && g.copMayLeave(c) {
-			g.releaseCop(c)
-			c.state = cLeave
-			c.path = g.lvl.Path(c.pos, g.vehDoor(c))
-		}
+	// at most one burst among all of them per call (copcrew.go): then they review the place and go
+	if g.swatKills >= 1 {
 		return
 	}
 	c.shootT -= dt
@@ -902,6 +895,9 @@ func (g *Game) copBrutal(c *Cop, dt float64) {
 		return
 	}
 	c.shootT = 5 + g.rng.Float64()*4
+	if g.rng.Float64() >= copGunChance { // only now and then
+		return
+	}
 	var best *Guest
 	bd := 190.0
 	for _, gu := range g.guests {
@@ -929,6 +925,7 @@ func (g *Game) copBrutal(c *Cop, dt float64) {
 		}
 	}
 	g.sayNews("shoot_suspect", map[string]string{"actor": starLabel(c.kind), "victim": guestLabel(best)})
+	g.copGunReviewAll() // they look around a little and the whole response goes back (copcrew.go)
 }
 
 // ---------------------------------------------------------------------------
@@ -1033,11 +1030,9 @@ func (g *Game) vehicleDestroyed(v *Vehicle) {
 }
 
 func (g *Game) drawFlames(dst *ebiten.Image, x, y, w float64) {
-	for i := 0; i < 5; i++ {
-		ph := g.time*9 + float64(i)*1.7 + x
-		h := 5 + 4*math.Abs(math.Sin(ph))
-		fx := x - w/2 + float64(i)*w/4
-		fillRect(dst, math.Round(fx), math.Round(y-h), 3, math.Round(h), color.RGBA{250, 140, 30, 230})
-		fillRect(dst, math.Round(fx)+1, math.Round(y-h*0.6), 1, math.Round(h*0.6), color.RGBA{255, 230, 120, 240})
+	for i := 0; i < 4; i++ { // small layered flames (fire_art.go), each one on its own frame
+		fx := x - w/2 + float64(i)*w/3
+		fr := int(g.time*9+x*0.37) + i*3
+		drawFireFrame(dst, i%2, fr, fx, y)
 	}
 }

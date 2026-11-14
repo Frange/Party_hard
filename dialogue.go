@@ -55,7 +55,7 @@ func baseDialogueBank() DialogueBank {
 		},
 		"power_rangers": {
 			"understood": {"¡RECIBIDO!", "¡VAMOS ALLÁ!", "¡EN CAMINO, EQUIPO!"},
-			"halt":       {"¡SE ACABÓ EL JUEGO!", "¡NO TE SALDRÁS CON LA TUYA!", "¡ES MORFIN TIME!"},
+			"halt":       {"¡SE ACABÓ EL JUEGO!", "¡NO TE SALDRÁS CON LA TUYA!", "¡ES MORPHLING TIME!"},
 			"arrest":     {"¡JUSTICIA SERVIDA!", "¡OTRO VILLANO MENOS!", "¡EL POR EL PODER DEL GREYSKULL!"},
 			"tired":      {"¡AÚN QUEDA PELEA!", "¡NO NOS RENDIMOS!"},
 		},

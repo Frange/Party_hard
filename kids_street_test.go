@@ -24,8 +24,8 @@ func TestKidStreetFitMatchesTheLevels(t *testing.T) {
 
 // kidStreetWant: the campaign parties (1-based) where the three ride outside today (12, the skate park, has its
 // bowls instead).
-var kidStreetWant = map[int]bool{1: true, 3: true, 5: true, 7: true, 9: true, 11: true, 13: true, 15: true, 17: true,
-	19: true, 22: true, 24: true}
+var kidStreetWant = map[int]bool{1: true, 3: true, 5: true, 7: true, 9: true, 11: true, 14: true, 16: true, 18: true,
+	20: true, 22: true, 24: true, 26: true} // (v1.4.0: ALCALÁ DE HENARES is party 7 and GUADALAJARA 16: the ones after them moved)
 
 var kidStreetDebug func(string, ...any)
 
@@ -102,7 +102,7 @@ func kidStreetRun(g *Game, s float64) (stuck float64, outside int) {
 	return
 }
 
-// With a real Game after loadLevel, in each of the 26 parties: the three come exactly where the rule says (3 kids,
+// With a real Game after loadLevel, in each of the 27 parties: the three come exactly where the rule says (3 kids,
 // riding outside, never into a building, never stuck), nowhere else (not even dressed-up guests), and the caps hold.
 func TestKidStreetExactlyEveryOtherParty(t *testing.T) {
 	got := map[int]bool{}

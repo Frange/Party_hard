@@ -1,8 +1,6 @@
 package main
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -268,17 +266,14 @@ func tableHideEnd(g *Game, st *hideState) {
 
 func tableHideItems(g *Game, dst *ebiten.Image, a *partyAct, items []drawItem) []drawItem {
 	st := a.D.(*hideState)
-	plot := g.plotter(dst)
 	for _, h := range st.h {
 		h := h
 		if !h.in || !h.m.mine() {
 			continue
 		}
 		items = append(items, drawItem{h.tbl.Y + 0.5, func() {
-			sx, sy := g.pevXY(Vec{h.slot.X, h.tbl.Y})
-			// the cloth is lifted at the front: a dark opening with the feet inside it
-			plot(sx-7, sy-8, 14, 8, color.RGBA{0x24, 0x1a, 0x2a, 255})
-			g.pevDrawFeet(dst, h.m.gu.cs, Vec{h.slot.X, h.tbl.Y - 2}, 6)
+			// the cloth is lifted at the front: the guest crouched in the dark (tablehide_draw.go)
+			g.drawHider(dst, h.tbl, h.slot.X, h.m.gu.cs)
 		}})
 	}
 	return items

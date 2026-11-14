@@ -27,7 +27,7 @@ func gfGame(t *testing.T, idx int, two bool, seed int64) *Game {
 }
 
 // gfExpected: the campaign parties with a free street-facing house wall (measured from the walls, see gfSegments).
-var gfExpected = []string{"house", "ranch", "neon", "roof", "eiffel", "disco", "cinema", "casino", "cake", "disco70"}
+var gfExpected = []string{"house", "neon", "roof", "eiffel", "disco", "cinema", "casino", "cake", "disco70", "skate"} // skate: its graffiti walls (v1.4.0, skategraffiti.go)
 
 func TestGraffitiWallsOnlyInTheExpectedLevels(t *testing.T) {
 	g := partyGame(t)
@@ -244,7 +244,7 @@ func TestGraffitiKilledHalfway(t *testing.T) {
 
 // No painter where there is no free wall, and nothing in stealth or in the island (the frame never runs there).
 func TestGraffitiNeverWithoutAWall(t *testing.T) {
-	for _, icon := range []string{"beach", "festival", "skate", "pirate"} {
+	for _, icon := range []string{"beach", "festival", "pirate"} { // (the skate park has graffiti walls since v1.4.0)
 		g := gfGame(t, campaignIdx(icon), false, 1)
 		if len(gfLv.segs) != 0 {
 			t.Errorf("%s: walls for the painter %v", icon, gfLv.segs)

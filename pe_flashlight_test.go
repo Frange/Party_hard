@@ -11,6 +11,11 @@ import (
 func flashGame(t *testing.T, two bool) (*Game, *flashGuard) {
 	t.Helper()
 	t.Cleanup(func() { flashGuards = map[*Guard]*flashGuard{} })
+	// the tests need walls near the patrol (sight through a wall): the walled night parties first (until v1.4.0 the
+	// ranch was the first one; it became BARCELONA, a day square without the torch guard)
+	old := flashIcons
+	t.Cleanup(func() { flashIcons = old })
+	flashIcons = map[string]bool{"skate": true, "grave": true}
 	g := peStart(t, "linterna", two)
 	s, _ := g.partyRunning("linterna").D.(*flashGuard)
 	if s == nil || s.gd == nil || !s.on {

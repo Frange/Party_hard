@@ -11,15 +11,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// the campaign: 26 parties (ITALIA after the highway), the three new ones and the pirate ship before the space
-// station, the station last (then the secret island, which is not in the list: jurassic.go)
+// the campaign: 28 parties (ALCALÁ DE HENARES 7th, GUADALAJARA 16th, ITALIA after the highway), the three new ones and the pirate ship
+// before the space station, the station last (then the secret island, which is not in the list: jurassic.go)
 func TestCampaignHasTheThreeNewParties(t *testing.T) {
-	if len(campaignLevels) != 26 {
-		t.Fatalf("the campaign has %d parties, want 26", len(campaignLevels))
+	if len(campaignLevels) != 28 {
+		t.Fatalf("the campaign has %d parties, want 28", len(campaignLevels))
 	}
-	want := map[int][2]string{18: {"highway", "highway"}, 19: {"italy", "italy"}, 20: {"trainstation", "train"},
-		21: {"birthday", "cake"}, 22: {"hockey", "hockey"}, 23: {"disco70", "disco70"}, 24: {"pirate", "pirate"},
-		25: {"station", "station"}}
+	want := map[int][2]string{6: {"alcala", "alcala"}, 15: {"guadalajara", "guadalajara"}, 20: {"highway", "highway"},
+		21: {"italy", "italy"}, 22: {"trainstation", "train"}, 23: {"birthday", "cake"}, 24: {"hockey", "hockey"},
+		25: {"disco70", "disco70"}, 26: {"pirate", "pirate"}, 27: {"station", "station"}}
 	for i, w := range want {
 		e := campaignLevels[i]
 		if e.kind != w[0] || e.icon != w[1] {
@@ -30,11 +30,11 @@ func TestCampaignHasTheThreeNewParties(t *testing.T) {
 		t.Fatalf("RULE: the space station must be the last listed party, and the island the one after it (got %q)", last.icon)
 	}
 	defs := builtinLevels()
-	if campaignN != 26 {
-		t.Fatalf("campaignN = %d, want 26 (some party did not build)", campaignN)
+	if campaignN != 28 {
+		t.Fatalf("campaignN = %d, want 28 (some party did not build)", campaignN)
 	}
-	for i, w := range map[int]string{19: "ITALIA", 21: "FIESTA DE CUMPLEAÑOS", 22: "PISTA DE HOCKEY", 23: "DISCO SETENTERA",
-		24: "BARCO PIRATA", 25: "ESTACIÓN ESPACIAL"} {
+	for i, w := range map[int]string{6: "ALCALÁ DE HENARES", 15: "GUADALAJARA", 21: "ITALIA", 23: "FIESTA DE CUMPLEAÑOS",
+		24: "PISTA DE HOCKEY", 25: "DISCO SETENTERA", 26: "BARCO PIRATA", 27: "ESTACIÓN ESPACIAL"} {
 		if defs[i].Title != w {
 			t.Errorf("party %d is %q, want %q", i+1, defs[i].Title, w)
 		}
@@ -99,27 +99,30 @@ func oldSave(unlocked int, wonUpTo int) Progress {
 func TestMigrationStationOpenAndWon(t *testing.T) {
 	p := oldSave(21, 20) // had finished the whole old campaign, station included
 	migrateProgress(&p)
-	if p.Unlocked != 26 || p.CampaignRev != campaignRev {
-		t.Fatalf("unlocked %d rev %d, want 26 and %d: the station and the new parties stay open", p.Unlocked, p.CampaignRev, campaignRev)
+	if p.Unlocked != 28 || p.CampaignRev != campaignRev {
+		t.Fatalf("unlocked %d rev %d, want 28 and %d: the station and the new parties stay open", p.Unlocked, p.CampaignRev, campaignRev)
 	}
-	for i := 0; i <= 18; i++ {
-		if p.Stats[fmt.Sprintf("won_%d", i)] != 1 {
+	// (rev 5: ALCALÁ DE HENARES at 6, the old 6..18 are 7..19; rev 6: GUADALAJARA at 15, those from 15 on one more)
+	for i := 0; i <= 20; i++ {
+		if i != alcalaIdx && i != guadalajaraIdx && p.Stats[fmt.Sprintf("won_%d", i)] != 1 {
 			t.Errorf("won_%d was lost", i)
 		}
 	}
-	if _, ok := p.Stats["won_19"]; ok {
-		t.Error("won_19 now means ITALIA, which was never played: it must not exist")
+	for _, k := range []string{"won_6", "won_15", "won_21"} {
+		if _, ok := p.Stats[k]; ok {
+			t.Errorf("%s now means ALCALÁ / GUADALAJARA / ITALIA, which were never played: it must not exist", k)
+		}
 	}
-	if p.Stats["won_20"] != 1 {
-		t.Error("the old win of the train station (won_19) did not move to won_20")
+	if p.Stats["won_22"] != 1 {
+		t.Error("the old win of the train station (won_19) did not move to won_22")
 	}
-	for _, i := range []int{21, 22, 23, 24} {
+	for _, i := range []int{23, 24, 25, 26} {
 		if p.Stats[fmt.Sprintf("won_%d", i)] != 0 {
 			t.Errorf("won_%d was invented", i)
 		}
 	}
-	if p.Stats["won_25"] != 1 {
-		t.Error("the old win of the space station did not move to won_25")
+	if p.Stats["won_27"] != 1 {
+		t.Error("the old win of the space station did not move to won_27")
 	}
 	if p.Stats["distinct"] != 21 || p.Stats["played"] != 40 {
 		t.Errorf("the counters changed: distinct %d played %d", p.Stats["distinct"], p.Stats["played"])
@@ -129,12 +132,12 @@ func TestMigrationStationOpenAndWon(t *testing.T) {
 func TestMigrationStationOpenButNotWon(t *testing.T) {
 	p := oldSave(21, 19)
 	migrateProgress(&p)
-	if p.Unlocked != 26 {
-		t.Errorf("unlocked %d, want 26", p.Unlocked)
+	if p.Unlocked != 28 {
+		t.Errorf("unlocked %d, want 28", p.Unlocked)
 	}
-	if p.Stats["won_25"] != 0 || p.Stats["won_24"] != 0 || p.Stats["won_19"] != 0 || p.Stats["won_20"] != 1 {
-		t.Errorf("a station that was not won must not count as won, the train station keeps its win (won_19=%d won_20=%d won_24=%d won_25=%d)",
-			p.Stats["won_19"], p.Stats["won_20"], p.Stats["won_24"], p.Stats["won_25"])
+	if p.Stats["won_27"] != 0 || p.Stats["won_26"] != 0 || p.Stats["won_21"] != 0 || p.Stats["won_22"] != 1 {
+		t.Errorf("a station that was not won must not count as won, the train station keeps its win (won_21=%d won_22=%d won_26=%d won_27=%d)",
+			p.Stats["won_21"], p.Stats["won_22"], p.Stats["won_26"], p.Stats["won_27"])
 	}
 	if p.Stats["distinct"] != 20 {
 		t.Errorf("distinct %d, want 20", p.Stats["distinct"])
@@ -147,15 +150,30 @@ func TestMigrationNeverReachedTheStation(t *testing.T) {
 		before := cloneProgress(p)
 		migrateProgress(&p)
 		want := un
-		if un > italyIdx { // the highway was beaten: ITALIA opens and the frontier moves with its party
-			want = un + 1
+		if un > rev2ItalyIdx { // the highway was beaten: ITALIA opens and the frontier moves with its party
+			want++
+		}
+		if un > alcalaIdx { // PARÍS (the old TORRE EIFFEL) was beaten: ALCALÁ opens and the frontier moves with its party
+			want++
+		}
+		if want > guadalajaraIdx { // (rev 6) the CIRCUITO was open: GUADALAJARA opens too
+			want++
 		}
 		if p.Unlocked != want {
 			t.Errorf("unlocked %d became %d, want %d", un, p.Unlocked, want)
 		}
 		for k, v := range before.Stats {
-			if p.Stats[k] != v {
-				t.Errorf("unlocked %d: stat %s changed %d -> %d", un, k, v, p.Stats[k])
+			nk := k
+			var i int
+			if _, err := fmt.Sscanf(k, "won_%d", &i); err == nil && i >= alcalaIdx {
+				i++ // (rev 5)
+				if i >= guadalajaraIdx {
+					i++ // (rev 6)
+				}
+				nk = fmt.Sprintf("won_%d", i)
+			}
+			if p.Stats[nk] != v {
+				t.Errorf("unlocked %d: stat %s changed %d -> %s %d", un, k, v, nk, p.Stats[nk])
 			}
 		}
 	}
@@ -164,17 +182,17 @@ func TestMigrationNeverReachedTheStation(t *testing.T) {
 func TestMigrationOnlyOnce(t *testing.T) {
 	p := oldSave(21, 20)
 	migrateProgress(&p)
-	// the player then plays the new layout: frontier at the disco (24) with won_21, won_22 earned in the new campaign
-	p.Unlocked = 24
-	p.Stats["won_21"], p.Stats["won_22"] = 1, 1
+	// the player then plays the new layout: frontier at the disco (26) with won_23, won_24 earned in the new campaign
+	p.Unlocked = 26
+	p.Stats["won_23"], p.Stats["won_24"] = 1, 1
 	migrateProgress(&p)
-	if p.Unlocked != 24 || p.Stats["won_21"] != 1 || p.Stats["won_22"] != 1 || p.Stats["won_25"] != 1 {
+	if p.Unlocked != 26 || p.Stats["won_23"] != 1 || p.Stats["won_24"] != 1 || p.Stats["won_27"] != 1 {
 		t.Errorf("a save in the new layout was migrated again: %+v", p)
 	}
 	var fresh Progress
 	json.Unmarshal([]byte(`{"unlocked":22,"stats":{"won_20":1}}`), &fresh)
 	migrateProgress(&fresh) // rev 0 and 22: it IS old (the frontier was past party 21? no: 22 > 21)
-	if fresh.Unlocked != 26 || fresh.Stats["won_25"] != 1 {
+	if fresh.Unlocked != 28 || fresh.Stats["won_27"] != 1 {
 		t.Errorf("an old save cannot have more than 21 unlocked; whatever it says it keeps the station open: %d %v", fresh.Unlocked, fresh.Stats)
 	}
 }
@@ -200,11 +218,13 @@ func TestSavedProgressCarriesTheRevision(t *testing.T) {
 	}
 }
 
-// the old editor corrections of the station (c21_station, c24_station, c25_station) still apply to it
+// the old editor corrections of the station (c21_station, c24_station, c25_station, c26_station, c27_station) still
+// apply to it
 func TestStationKeepsItsOldOverride(t *testing.T) {
-	if campaignKey(25) != "c26_station" || campaignKeyRev2(25) != "c25_station" || campaignKeyRev1(25) != "c24_station" ||
-		legacyStationKey != "c21_station" {
-		t.Fatalf("keys: %s / %s / %s / %s", campaignKey(25), campaignKeyRev2(25), campaignKeyRev1(25), legacyStationKey)
+	if campaignKey(27) != "c28_station" || campaignKeyRev5(27) != "c27_station" || campaignKeyRev3(27) != "c26_station" ||
+		campaignKeyRev2(27) != "c25_station" || campaignKeyRev1(27) != "c24_station" || legacyStationKey != "c21_station" {
+		t.Fatalf("keys: %s / %s / %s / %s / %s / %s", campaignKey(27), campaignKeyRev5(27), campaignKeyRev3(27), campaignKeyRev2(27),
+			campaignKeyRev1(27), legacyStationKey)
 	}
 }
 
@@ -212,22 +232,22 @@ func TestStationKeepsItsOldOverride(t *testing.T) {
 func TestUnlockWalksThroughTheNewParties(t *testing.T) {
 	builtinLevels()
 	g := testGame()
-	g.progress.Unlocked = 22 // the birthday party is the frontier
-	for _, idx := range []int{21, 22, 23} {
+	g.progress.Unlocked = 24 // the birthday party is the frontier
+	for _, idx := range []int{23, 24, 25} {
 		g.levelIdx = idx
 		g.unlockNext()
 		if g.progress.Unlocked != idx+2 {
 			t.Fatalf("after party %d the frontier is %d, want %d", idx+1, g.progress.Unlocked, idx+2)
 		}
 	}
-	g.levelIdx = 24 // the pirate ship opens the station
+	g.levelIdx = 26 // the pirate ship opens the station
 	g.unlockNext()
-	if g.progress.Unlocked != 26 {
-		t.Errorf("after the pirate ship the frontier is %d, want 26 (the station)", g.progress.Unlocked)
+	if g.progress.Unlocked != 28 {
+		t.Errorf("after the pirate ship the frontier is %d, want 28 (the station)", g.progress.Unlocked)
 	}
-	g.levelIdx = 25
+	g.levelIdx = 27
 	g.unlockNext()
-	if g.progress.Unlocked != 26 {
+	if g.progress.Unlocked != 28 {
 		t.Errorf("the station is the last: frontier %d", g.progress.Unlocked)
 	}
 }
@@ -754,8 +774,8 @@ func TestCrowdIsDressedForTheParty(t *testing.T) {
 	if n := count("hockey", func(s CharSpec) bool { return s.Shoes == hx(0xe8eef4) }); n != 300 {
 		t.Errorf("hockey: %d/300 with skates", n)
 	}
-	if n := count("disco70", func(s CharSpec) bool { return s.Hair2 == HairAfro }); n < 180 {
-		t.Errorf("disco: only %d afros", n)
+	if n := count("disco70", func(s CharSpec) bool { return s.Hair2 == HairAfroXL }); n < 250 { // v1.4.0: nearly all, huge
+		t.Errorf("disco: only %d huge afros", n)
 	}
 	if n := count("disco70", func(s CharSpec) bool { return s.Bottom == BotFlare }); n != 300 {
 		t.Errorf("disco: %d/300 in bell-bottoms", n)
@@ -788,7 +808,7 @@ func TestCrowdDoesNotMoveTheGameDice(t *testing.T) {
 	if g.rng.Int63() != ref.Int63() {
 		t.Error("g.rng moved")
 	}
-	if dressed < 90 || dressed > 150 {
+	if dressed < 165 || dressed > 199 { // v1.4.0: nearly every guest of the 70s disco comes dressed (huge afros)
 		t.Errorf("%d of 200 dressed (chance %.2f)", dressed, crowdChance["disco70"])
 	}
 }
@@ -802,9 +822,10 @@ func TestNewLooksChangeTheSprite(t *testing.T) {
 	}
 	plain := draw(base)
 	for name, mod := range map[string]func(*CharSpec){
-		"afro":  func(s *CharSpec) { s.Hair2 = HairAfro },
-		"flare": func(s *CharSpec) { s.Bottom = BotFlare },
-		"stick": func(s *CharSpec) { s.Carry = HoldStick },
+		"afro":   func(s *CharSpec) { s.Hair2 = HairAfro },
+		"afroXL": func(s *CharSpec) { s.Hair2 = HairAfroXL },
+		"flare":  func(s *CharSpec) { s.Bottom = BotFlare },
+		"stick":  func(s *CharSpec) { s.Carry = HoldStick },
 	} {
 		s := base
 		mod(&s)
@@ -900,19 +921,24 @@ func TestNewPartiesMusicIsDifferentFromTheirNeighbours(t *testing.T) {
 		}
 		seq = append(seq, genreForTitle(title).id)
 	}
-	for i := 18; i < len(seq); i++ {
+	// (ALCALÁ at 6 and GUADALAJARA at 15 since v1.4.0; GUADALAJARA's list neighbours are the CEMENTERIO and the CIRCUITO)
+	for _, i := range []int{alcalaIdx, alcalaIdx + 1, guadalajaraIdx, guadalajaraIdx + 1, 20, 21, 22, 23, 24, 25, 26, 27} {
 		if seq[i] == seq[i-1] {
 			t.Errorf("parties %d and %d have the same genre %s", i, i+1, seq[i])
 		}
 	}
-	if seq[19] != "clasica" || seq[21] != "pop" || seq[22] != "rock" || seq[23] != "disco" {
-		t.Errorf("genres %v", seq[19:24])
+	if seq[guadalajaraIdx] == seq[guadalajaraIdx-2] {
+		t.Errorf("GUADALAJARA sounds like the CEMENTERIO above it in the list")
+	}
+	if seq[alcalaIdx] != "flamenco" || seq[guadalajaraIdx] != "flamenco" || seq[21] != "clasica" || seq[23] != "pop" ||
+		seq[24] != "rock" || seq[25] != "disco" {
+		t.Errorf("genres %v", seq[20:26])
 	}
 }
 
 // a VIP zone is possible in the three new parties
 func TestNewPartiesCanHaveAVIP(t *testing.T) {
-	for _, i := range []int{19, 21, 22, 23} {
+	for _, i := range []int{alcalaIdx, guadalajaraIdx, 21, 23, 24, 25} {
 		d := builtinLevels()[i]
 		if z, _ := vipPlace(d, ""); z == nil {
 			t.Errorf("party %d (%s): the VIP zone does not fit", i+1, d.Title)

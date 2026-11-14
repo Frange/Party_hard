@@ -107,7 +107,7 @@ func TestBalloonSeenWithFrozenProgress(t *testing.T) {
 	t.Cleanup(func() { progressFrozen = prev })
 	g := &Game{}
 	g.progress = Progress{Stats: map[string]int{}}
-	if _, ok := g.interludeAfter(14); !ok {
+	if _, ok := g.interludeAfter(campaignAtSlot(14)); !ok { // the 15th row of the list (campaign_retired.go)
 		t.Fatal("after party 15 there must be the balloon")
 	}
 	g.markSeen("seen_interlude15")

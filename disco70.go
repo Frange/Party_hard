@@ -485,6 +485,10 @@ func discoTile(buf []byte, stride, x0, y0 int, r, g, b float64) {
 
 // drawDiscoTiles: the lit dance floor of the 70s disco (floor kind "disco70"), one WritePixels + one DrawImage.
 func (g *Game) drawDiscoTiles(dst *ebiten.Image, f Floor) {
+	if f.R != discoFloor { // the small floors, each with its own drawing (disco70_mini.go)
+		g.drawDiscoMini(dst, f)
+		return
+	}
 	if disco.lvl != g.lvl || disco.rng == nil {
 		disco.reset(g.lvl)
 	}

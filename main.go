@@ -31,7 +31,7 @@ var iconPNG []byte
 func main() {
 	selftest := flag.Int("selftest", 0, "run N frames of automated play and exit (debug)")
 	mute := flag.Bool("mute", false, "start without sound")
-	level := flag.Int("level", 0, "start level N (1-based, 1..number of levels) directly, debug; the campaign is 1..26 (25 BARCO PIRATA, 26 ESTACIÓN ESPACIAL), then the random-mode pool")
+	level := flag.Int("level", 0, "start level N (1-based, 1..number of levels) directly, debug; the campaign is 1..28 (7 ALCALÁ DE HENARES, 16 GUADALAJARA, 27 BARCO PIRATA, 28 ESTACIÓN ESPACIAL), then the random-mode pool")
 	findF := flag.String("edfind", "", "search text preset in the editor lists (debug)")
 	impF := flag.String("edimport", "", "picture to import in the editor on start (debug)")
 	impAcc := flag.Bool("edaccept", false, "accept the imported picture straight away (debug)")
@@ -400,7 +400,7 @@ func main() {
 		g.progress.Stats["jp_unlocked"] = 1
 		g.progress.Unlocked = campaignN
 		g.mode = ModeLevelSelect
-		g.menuSel = campaignN + 1
+		g.menuSel = campaignShown() + 1 // the island's row (campaign_retired.go)
 	}
 	if *jurF {
 		progressFrozen = true
@@ -525,6 +525,11 @@ func main() {
 		g.progress.Owned = append(g.progress.Owned, "hat:caproja", "cape:roja", "shoe:rojas", "out:teeroja", "out:teeverde", "glasses:none")
 		g.syncShop()
 		g.progress.Equip = map[string]string{}
+		if *wardF == 1 { // one player: wearing the bald mane of the barber's shop (hair_mane.go) to look at it
+			g.progress.Owned = append(g.progress.Owned, "hair:baldmane")
+			g.syncShop()
+			g.progress.Equip["hair"] = "hair:baldmane"
+		}
 		g.progress.EquipP2 = nil
 		if n > 1 {
 			g.progress.EquipP2 = map[string]string{"hat": "hat:caproja", "cape": "cape:roja"}

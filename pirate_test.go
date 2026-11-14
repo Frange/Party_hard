@@ -21,11 +21,11 @@ import (
 func TestPirateRightBeforeStation(t *testing.T) {
 	defs := builtinLevels()
 	pi, st := campaignIdx("pirate"), campaignIdx("station")
-	if pi != pirateIdx || pirateIdx != 24 || st != pi+1 {
-		t.Fatalf("pirate ship at %d (pirateIdx %d), station at %d: the pirate ship is party 25, the station 26", pi, pirateIdx, st)
+	if pi != pirateIdx || pirateIdx != 26 || st != pi+1 { // (v1.4.0: ALCALÁ DE HENARES is party 7, GUADALAJARA 16)
+		t.Fatalf("pirate ship at %d (pirateIdx %d), station at %d: the pirate ship is party 27, the station 28", pi, pirateIdx, st)
 	}
-	if len(campaignLevels) != 26 || campaignN != 26 {
-		t.Fatalf("the campaign has %d parties (%d built), want 26", len(campaignLevels), campaignN)
+	if len(campaignLevels) != 28 || campaignN != 28 {
+		t.Fatalf("the campaign has %d parties (%d built), want 28", len(campaignLevels), campaignN)
 	}
 	if last := campaignLevels[len(campaignLevels)-1]; last.icon != "station" {
 		t.Fatalf("RULE: the space station is the last listed party (got %q)", last.icon)
@@ -470,7 +470,7 @@ func TestPirateTextsAndListRow(t *testing.T) {
 	g := auditGame(t)
 	for _, lang := range []string{"es", "en"} {
 		gameLang, editorLang, uiLang = lang, lang, lang
-		label := "> " + fmt.Sprintf("%d ", pirateIdx+1) + tr("BARCO PIRATA")
+		label := "> " + fmt.Sprintf("%d ", campaignNumber(pirateIdx)) + tr("BARCO PIRATA") // its row: 25 (2 parties retired, ALCALÁ and GUADALAJARA added in v1.4.0)
 		if want := map[string]string{"es": "BARCO PIRATA", "en": "PIRATE SHIP"}[lang]; tr(label) != "> 25 "+want {
 			t.Errorf("[%s] the list row reads %q", lang, tr(label))
 		}
@@ -651,19 +651,22 @@ func upTo(n int) []int {
 	return out
 }
 
-// rev2Icon: the icon of party i in the 25-party layout of v1.0.0
+// rev2Icon: the icon of party i in the 25-party layout of v1.0.0 (no pirate ship, no ALCALÁ, no GUADALAJARA)
 func rev2Icon(i int) string {
-	if i >= pirateIdx {
-		return campaignLevels[i+1].icon
+	var icons []string
+	for _, e := range campaignLevels {
+		if e.icon != "pirate" && e.icon != "alcala" && e.icon != "guadalajara" {
+			icons = append(icons, e.icon)
+		}
 	}
-	return campaignLevels[i].icon
+	return icons[i]
 }
 
 func TestPirateMigrationStationWonAndIsland(t *testing.T) {
 	p := v100Save(25, upTo(25), map[string]int{"jp_unlocked": 1, "seen_interlude20": 1, "seen_end1": 1})
 	migrateProgress(&p)
-	if p.CampaignRev != 3 || campaignRev != 3 || p.Unlocked != 26 {
-		t.Fatalf("rev %d (const %d) unlocked %d, want 3 and 26: the station stays open and the pirate ship opens", p.CampaignRev, campaignRev, p.Unlocked)
+	if p.CampaignRev != campaignRev || campaignRev < 3 || p.Unlocked != 28 { // (rev 5 and 6, v1.4.0: ALCALÁ and GUADALAJARA open too)
+		t.Fatalf("rev %d (const %d) unlocked %d, want the current rev and 28: the station stays open and the pirate ship opens", p.CampaignRev, campaignRev, p.Unlocked)
 	}
 	for old := 0; old < 25; old++ { // every party keeps its own win, by name
 		ni := campaignIdx(rev2Icon(old))
@@ -674,8 +677,14 @@ func TestPirateMigrationStationWonAndIsland(t *testing.T) {
 	if _, ok := p.Stats[fmt.Sprintf("won_%d", pirateIdx)]; ok {
 		t.Error("the pirate ship was never played: it cannot be won")
 	}
-	if p.Stats["won_25"] != 1 {
-		t.Error("the station's win did not move to won_25")
+	if _, ok := p.Stats[fmt.Sprintf("won_%d", alcalaIdx)]; ok {
+		t.Error("ALCALÁ was never played: it cannot be won")
+	}
+	if _, ok := p.Stats[fmt.Sprintf("won_%d", guadalajaraIdx)]; ok {
+		t.Error("GUADALAJARA was never played: it cannot be won")
+	}
+	if p.Stats["won_27"] != 1 {
+		t.Error("the station's win did not move to won_27")
 	}
 	for k, want := range map[string]int{"jp_unlocked": 1, "seen_interlude20": 1, "seen_end1": 1, "played": 77, "distinct": 25, "kills": 900} {
 		if p.Stats[k] != want {
@@ -692,8 +701,9 @@ func TestPirateMigrationStationWonAndIsland(t *testing.T) {
 	prevN := campaignN
 	campaignN = len(campaignLevels)
 	t.Cleanup(func() { campaignN = prevN })
-	if got := g.careerLevelsDone(); got != 25 {
-		t.Errorf("parties done %d, want 25 (all but the pirate ship)", got)
+	// (the wins of the DISCOTECA and the CINE, retired in v1.4.0, are kept above but no longer counted)
+	if got := g.careerLevelsDone(); got != 25-len(retiredParties()) {
+		t.Errorf("parties done %d, want %d (all but the pirate ship and the retired ones)", got, 25-len(retiredParties()))
 	}
 	if !g.jpListed() {
 		t.Error("the island is no longer in the list")
@@ -703,23 +713,28 @@ func TestPirateMigrationStationWonAndIsland(t *testing.T) {
 func TestPirateMigrationStationOpenNotWon(t *testing.T) {
 	p := v100Save(25, upTo(24), nil)
 	migrateProgress(&p)
-	if p.Unlocked != 26 || p.Stats["won_25"] != 0 || p.Stats["won_24"] != 0 || p.Stats["won_23"] != 1 {
-		t.Errorf("unlocked %d, won_23 %d won_24 %d won_25 %d: the disco keeps its win, nothing is invented",
-			p.Unlocked, p.Stats["won_23"], p.Stats["won_24"], p.Stats["won_25"])
+	if p.Unlocked != 28 || p.Stats["won_27"] != 0 || p.Stats["won_26"] != 0 || p.Stats["won_25"] != 1 {
+		t.Errorf("unlocked %d, won_25 %d won_26 %d won_27 %d: the disco keeps its win, nothing is invented",
+			p.Unlocked, p.Stats["won_25"], p.Stats["won_26"], p.Stats["won_27"])
 	}
 }
 
 func TestPirateMigrationFrontier(t *testing.T) {
-	for _, c := range []struct{ un, want int }{{1, 1}, {7, 7}, {20, 20}, {24, 24}, {25, 26}} {
+	for _, c := range []struct{ un, want int }{{1, 1}, {6, 6}, {7, 8}, {20, 22}, {24, 26}, {25, 28}} { // (rev 5: past the TORRE EIFFEL, +1; rev 6: past the CEMENTERIO, +1)
 		p := v100Save(c.un, upTo(c.un-1), nil)
 		before := cloneProgress(p)
 		migrateProgress(&p)
 		if p.Unlocked != c.want {
 			t.Errorf("frontier %d became %d, want %d", c.un, p.Unlocked, c.want)
 		}
-		if c.un < 25 { // the station had not been reached: no stat moves at all
+		if c.un < 25 { // the station had not been reached: every win stays on its party (by name)
 			for k, v := range before.Stats {
-				if p.Stats[k] != v {
+				var i int
+				if _, err := fmt.Sscanf(k, "won_%d", &i); err == nil {
+					if nk := fmt.Sprintf("won_%d", campaignIdx(rev2Icon(i))); p.Stats[nk] != v {
+						t.Errorf("frontier %d: %s (%s) did not land on %s", c.un, k, rev2Icon(i), nk)
+					}
+				} else if p.Stats[k] != v {
 					t.Errorf("frontier %d: %s changed %d -> %d", c.un, k, v, p.Stats[k])
 				}
 			}
@@ -738,7 +753,7 @@ func TestPirateMigrationFrontier(t *testing.T) {
 		g.levelIdx = idx
 		g.unlockNext()
 	}
-	if g.progress.Unlocked != 26 || campaignLevels[g.progress.Unlocked-1].icon != "station" {
+	if g.progress.Unlocked != 28 || campaignLevels[g.progress.Unlocked-1].icon != "station" {
 		t.Errorf("after the disco and the pirate ship the frontier is %d", g.progress.Unlocked)
 	}
 }
@@ -753,26 +768,27 @@ func TestPirateMigrationOnceAndOlderSaves(t *testing.T) {
 	json.Unmarshal(raw, &back)
 	migrateProgress(&back) // and after a save round trip (rev 3 is stamped)
 	for _, q := range []Progress{p, back} {
-		if q.Unlocked != once.Unlocked || q.CampaignRev != 3 || fmt.Sprint(q.Stats) != fmt.Sprint(once.Stats) {
+		if q.Unlocked != once.Unlocked || q.CampaignRev != campaignRev || fmt.Sprint(q.Stats) != fmt.Sprint(once.Stats) {
 			t.Errorf("migrated twice: %+v", q)
 		}
 	}
-	// a save already in the new layout (rev 3) with the pirate ship won is never moved
+	// a save in the rev-3 layout with the pirate ship won only gets the ALCALÁ and GUADALAJARA steps (rev 5 and 6:
+	// everything two places on)
 	var fresh Progress
 	json.Unmarshal([]byte(`{"unlocked":26,"campaignRev":3,"stats":{"won_24":1,"won_25":1}}`), &fresh)
 	migrateProgress(&fresh)
-	if fresh.Unlocked != 26 || fresh.Stats["won_24"] != 1 || fresh.Stats["won_25"] != 1 {
-		t.Errorf("a rev-3 save was migrated: %+v", fresh)
+	if fresh.Unlocked != 28 || fresh.Stats["won_26"] != 1 || fresh.Stats["won_27"] != 1 || fresh.Stats["won_24"] != 0 || fresh.Stats["won_25"] != 0 {
+		t.Errorf("a rev-3 save was migrated wrong: %+v", fresh)
 	}
 	// the old layouts go through the whole chain: the station's win ends at won_25
 	old := oldSave(21, 20) // the 21-party game, station won
 	migrateProgress(&old)
-	if old.Unlocked != 26 || old.Stats["won_25"] != 1 || old.Stats["won_24"] != 0 || old.CampaignRev != 3 {
-		t.Errorf("a 21-party save: unlocked %d won_24 %d won_25 %d rev %d", old.Unlocked, old.Stats["won_24"], old.Stats["won_25"], old.CampaignRev)
+	if old.Unlocked != 28 || old.Stats["won_27"] != 1 || old.Stats["won_26"] != 0 || old.CampaignRev != campaignRev {
+		t.Errorf("a 21-party save: unlocked %d won_26 %d won_27 %d rev %d", old.Unlocked, old.Stats["won_26"], old.Stats["won_27"], old.CampaignRev)
 	}
 	r1 := rev1Save(24, upTo(24)) // the 24-party game, station won
 	migrateProgress(&r1)
-	if r1.Unlocked != 26 || r1.Stats["won_25"] != 1 || r1.Stats["won_24"] != 0 || r1.Stats["won_19"] != 0 {
+	if r1.Unlocked != 28 || r1.Stats["won_27"] != 1 || r1.Stats["won_26"] != 0 || r1.Stats["won_21"] != 0 {
 		t.Errorf("a 24-party save: %+v", r1.Stats)
 	}
 }
@@ -780,19 +796,20 @@ func TestPirateMigrationOnceAndOlderSaves(t *testing.T) {
 // the editor corrections saved with the 25-party (c25_station) or older numbers still reach the station
 func TestPirateOldOverrideKeys(t *testing.T) {
 	st := campaignIdx("station")
-	if campaignKey(st) != "c26_station" || campaignKeyRev2(st) != "c25_station" || campaignKeyRev1(st) != "c24_station" || legacyStationKey != "c21_station" {
+	if campaignKey(st) != "c28_station" || campaignKeyRev5(st) != "c27_station" || campaignKeyRev3(st) != "c26_station" || campaignKeyRev2(st) != "c25_station" ||
+		campaignKeyRev1(st) != "c24_station" || legacyStationKey != "c21_station" {
 		t.Fatalf("station keys %q / %q / %q / %q", campaignKey(st), campaignKeyRev2(st), campaignKeyRev1(st), legacyStationKey)
 	}
-	if campaignKey(pirateIdx) != "c25_pirate" || campaignKeyRev2(pirateIdx) != "" || campaignKeyRev1(pirateIdx) != "" {
-		t.Error("the pirate ship is new: it has no old key")
+	if campaignKey(pirateIdx) != "c27_pirate" || campaignKeyRev5(pirateIdx) != "c26_pirate" || campaignKeyRev3(pirateIdx) != "c25_pirate" || campaignKeyRev2(pirateIdx) != "" || campaignKeyRev1(pirateIdx) != "" {
+		t.Error("the pirate ship is new in rev 3: it has only its rev-3 key")
 	}
 	train := campaignIdx("train")
-	if campaignKey(train) != "c21_train" || campaignKeyRev1(train) != "c20_train" || campaignKeyRev2(train) != "" {
+	if campaignKey(train) != "c23_train" || campaignKeyRev1(train) != "c20_train" || campaignKeyRev2(train) != "" {
 		t.Error("the parties in front of the pirate ship keep their keys")
 	}
 	saved := levelOverrides
 	t.Cleanup(func() { levelOverrides = saved; builtinLevels() })
-	for _, key := range []string{"c25_station", "c24_station"} {
+	for _, key := range []string{"c27_station", "c26_station", "c25_station", "c24_station"} {
 		d := genNamed("station", campaignLevels[st].seed, "ESTACIÓN ESPACIAL")
 		la := levelAssetFromDef(d, key)
 		la.Meta.Intro = "corrección " + key
@@ -835,7 +852,7 @@ func TestPirateMigrationNeverTouchesTheRealSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	q, _ := readProgressFile(path)
-	if q.CampaignRev != 3 || q.Unlocked != 26 || q.Stats["won_25"] != 1 || q.Stats["jp_unlocked"] != 1 {
+	if q.CampaignRev != campaignRev || q.Unlocked != 28 || q.Stats["won_27"] != 1 || q.Stats["jp_unlocked"] != 1 {
 		t.Errorf("the migrated copy reads back as %+v", q)
 	}
 	if after := sum(); after != before {

@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -64,6 +65,54 @@ func genTrainStation(rng *rand.Rand) *LevelDef {
 	return d
 }
 
+// Trains come one after another (v1.4.0, the user wanted many trains passing all the time with some pauses): a run of
+// trainBurstMin..Max trains a few seconds apart, then a pause, then another run. Only some of them stop to bring guests.
+// Their own dice (trainDice), never g.rng.
+const (
+	trainBurstMin   = 5
+	trainBurstMax   = 8
+	trainStopChance = 0.25
+)
+
+var (
+	trainRng  *rand.Rand
+	trainSeed int64 // tests: non-zero = deterministic dice
+	trainRun  struct {
+		lvl   *Level
+		n, of int     // trains of this run so far, and how many it has
+		saidT float64 // when the warning was last said
+	}
+)
+
+func trainDice() *rand.Rand {
+	if trainRng == nil {
+		sd := trainSeed
+		if sd == 0 {
+			sd = time.Now().UnixNano() ^ 0x7a1e
+		}
+		trainRng = rand.New(rand.NewSource(sd))
+	}
+	return trainRng
+}
+
+// trainGap: seconds until the next train: 1-3 s inside a run (counted from when the last one has gone), 20-30 s of
+// pause between two runs.
+func (g *Game) trainGap() float64 {
+	r := trainDice()
+	if trainRun.lvl != g.lvl {
+		trainRun.lvl, trainRun.n, trainRun.of = g.lvl, 0, 0
+	}
+	if trainRun.of == 0 {
+		trainRun.of = trainBurstMin + r.Intn(trainBurstMax-trainBurstMin+1)
+	}
+	trainRun.n++
+	if trainRun.n >= trainRun.of {
+		trainRun.n, trainRun.of = 0, 0
+		return 20 + r.Float64()*10
+	}
+	return 1 + r.Float64()*2
+}
+
 type Train struct {
 	trackY  float64
 	x       float64 // head
@@ -96,14 +145,19 @@ func (g *Game) updateTrains(dt float64) {
 	}
 	if g.train == nil {
 		if g.time >= g.trainT {
-			tr := &Train{trackY: def.Tracks[g.rng.Intn(len(def.Tracks))], cars: 4 + g.rng.Intn(3), col: g.rng.Intn(4), stops: g.rng.Float64() < 0.6}
+			r := trainDice()
+			first := trainRun.lvl != g.lvl || trainRun.n == 0
+			tr := &Train{trackY: def.Tracks[r.Intn(len(def.Tracks))], cars: 3 + r.Intn(4), col: r.Intn(4), stops: r.Float64() < trainStopChance}
 			tr.dir = 1
-			if g.rng.Intn(2) == 0 {
+			if r.Intn(2) == 0 {
 				tr.dir = -1
 			}
 			g.train = tr
-			g.say("¡Se acerca un tren! Cuidado con las vías")
-			g.snd.Play("alert")
+			if first || g.time-trainRun.saidT > 20 { // the warning, not on every train (no repeated message in 20 s)
+				trainRun.saidT = g.time
+				g.say("¡Se acerca un tren! Cuidado con las vías")
+				g.snd.Play("alert")
+			}
 		}
 		return
 	}
@@ -193,11 +247,11 @@ func (g *Game) updateTrains(dt float64) {
 	// gone: schedule the next one
 	if tr.t > 1 && ((tr.dir > 0 && tr.x-tr.length() > g.lvl.W+30) || (tr.dir < 0 && tr.x+tr.length() < -30)) {
 		g.train = nil
-		g.trainT = g.time + 45 + g.rng.Float64()*45
+		g.trainT = g.time + g.trainGap()
 	}
 	if tr.state == trLeave && tr.t > 14 {
 		g.train = nil
-		g.trainT = g.time + 45 + g.rng.Float64()*45
+		g.trainT = g.time + g.trainGap()
 	}
 }
 

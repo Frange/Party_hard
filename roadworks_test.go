@@ -291,6 +291,37 @@ func TestRoadworksWorkersFromTheGuests(t *testing.T) {
 	}
 }
 
+// The DeLorean that took off climbs across the pavement in the air: it runs nobody over (it killed a worker of the
+// works, pushed back onto the pavement right under it, about one run in ten of the test below). On the road it does.
+func TestAirborneDeloreanRunsNobodyOver(t *testing.T) {
+	partyGame(t)
+	g := peLoad(t, 0, false)
+	var gu *Guest
+	for _, x := range g.guests {
+		if !x.out() {
+			gu = x
+			break
+		}
+	}
+	if gu == nil {
+		t.Fatal("no guest")
+	}
+	prevGod := g.god
+	g.god = true
+	t.Cleanup(func() { g.god = prevGod })
+	g.p.pos = Vec{gu.pos.X + 300, gu.pos.Y + 300}
+	a := &Ambient{kind: ambObj, name: "delorean", x: gu.pos.X, y: gu.pos.Y + 3, v0: -100, vx: -90, t2: 0.4, col: 1}
+	g.runOver(a)
+	if gu.dead {
+		t.Fatal("the flying DeLorean ran a guest over")
+	}
+	a.col = 0 // the other one stays on the road at full speed
+	g.runOver(a)
+	if !gu.dead {
+		t.Fatal("the DeLorean on the road should still run people over")
+	}
+}
+
 // With heavy traffic the cars move aside by the works and never run a worker over, not even one standing in the lane.
 func TestRoadworksCarsDoNotRunOverWorkers(t *testing.T) {
 	partyGame(t)

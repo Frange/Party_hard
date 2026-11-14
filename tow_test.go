@@ -15,7 +15,7 @@ func TestTowTruckCollectsWrecks(t *testing.T) {
 			t.Fatal("no level was tested")
 		}
 	}()
-	for _, mk := range []func() *LevelDef{level1, level3, level4, level5} {
+	for _, mk := range []func() *LevelDef{level1, level3, level4} {
 		def := mk()
 		if def.Police != "car" {
 			continue

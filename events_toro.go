@@ -67,7 +67,7 @@ var (
 )
 
 // toroIcons: the parties where a mechanical bull fits.
-var toroIcons = map[string]bool{"festival": true, "funfair": true, "ranch": true, "beach": true, "cake": true}
+var toroIcons = map[string]bool{"festival": true, "funfair": true, "beach": true, "cake": true}
 
 var (
 	toroJoin   = pevTexts("¡Me toca el toro!", "¡Yo también monto!", "¡A la cola del toro!", "¡Esta vez aguanto!")

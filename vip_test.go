@@ -150,7 +150,11 @@ func vipQuality(t *testing.T, title string, l *Level) {
 	if z.in.X < 0 || z.in.Y < 0 || z.in.X+z.in.W > l.W || z.in.Y+z.in.H > l.H {
 		t.Errorf("%s: zone out of the map", title)
 	}
-	if countKind(l, "vipsuit") < 1 || countKind(l, "viprope_h") < 6 || countKind(l, "viprope_v") < 2 {
+	minH := 6
+	if !z.legacy && len(z.cells) > 0 { // shaped zones (vipshape.go): small ones have fewer segments
+		minH = 4
+	}
+	if countKind(l, "vipsuit") < 1 || countKind(l, "viprope_h") < minH || countKind(l, "viprope_v") < 2 {
 		t.Errorf("%s: cordon or loot missing (suits %d)", title, countKind(l, "vipsuit"))
 	}
 	if iss := levelOverlaps(l); len(iss) > 0 {
@@ -472,7 +476,7 @@ func TestVIPKillBonusPoliceAndGoal(t *testing.T) {
 
 func TestVIPBehaviours(t *testing.T) {
 	// tough: several blows
-	g := vipGame(t, "TORRE EIFFEL", false)
+	g := vipGame(t, parisTitle, false)
 	boss := vipStaff(g, vipBoss)[0]
 	boss.vipID = "boxer"
 	boss.vipHP = vipByID("boxer").hp
@@ -506,7 +510,7 @@ func TestVIPBehaviours(t *testing.T) {
 		t.Error("a VIP who calls for help brings the police and reinforcements")
 	}
 	// tip: help instead of killing
-	g = vipGame(t, "TORRE EIFFEL", false)
+	g = vipGame(t, parisTitle, false)
 	boss = vipStaff(g, vipBoss)[0]
 	g.p.suitT = 10
 	g.p.pos = Vec{boss.pos.X + 10, boss.pos.Y}
@@ -535,8 +539,15 @@ func TestVIPLoadDrawAndTwoPlayers(t *testing.T) {
 		g.titleT = 0
 		g.mode = ModePlay
 		z := g.lvl.vip
-		if z == nil || !z.spawned || g.vipStaffN() != 4 {
+		if z == nil || !z.spawned {
 			t.Fatalf("two=%v: zone not spawned", two)
+		}
+		staff := 2 + 1 + len(z.extra) + len(z.inners) // doors, VIPs, inner guards (shapes: vipshape.go)
+		if z.inners == nil {
+			staff++ // the classic carpet: one inner guard
+		}
+		if g.vipStaffN() != staff || staff < 3 {
+			t.Fatalf("two=%v: %d staff, want %d", two, g.vipStaffN(), staff)
 		}
 		cards := 0
 		for _, gu := range g.guests {
@@ -547,7 +558,7 @@ func TestVIPLoadDrawAndTwoPlayers(t *testing.T) {
 		if cards != vipCarriers {
 			t.Errorf("%d invitation carriers, want %d", cards, vipCarriers)
 		}
-		if g.total != len(g.guests)+len(g.guards)-4 {
+		if g.total != len(g.guests)+len(g.guards)-staff {
 			t.Error("total must leave the staff out")
 		}
 		for _, pl := range g.players() {

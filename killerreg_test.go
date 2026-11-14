@@ -48,10 +48,10 @@ func TestKillerChanceAboutOneInThree(t *testing.T) {
 			}
 		}
 	}
-	if hits < 45 || hits > 90 { // 0.22 of 300 = 66
-		t.Errorf("%d of %d levels have a killer, want about 22%%", hits, n)
+	if hits < 65 || hits > 115 { // 0.30 of 300 = 90
+		t.Errorf("%d of %d levels have a killer, want about 30%%", hits, n)
 	}
-	if killerChance != 0.22 || killerSecondAfter != 300 {
+	if killerChance != 0.30 || killerSecondAfter != 300 {
 		t.Errorf("constants changed: %v %v", killerChance, killerSecondAfter)
 	}
 }
@@ -120,7 +120,7 @@ func TestKillerSlowPlayerHasNoAccelerator(t *testing.T) {
 	}
 }
 
-// About one party in 5-6 has a killer and never two in a row.
+// About one party in 4 has a killer (0.30 / 1.30 = 0.23) and never two in a row.
 func TestKillerRateAndNeverBackToBack(t *testing.T) {
 	r := rand.New(rand.NewSource(3))
 	n, hits, prev := 6000, 0, false
@@ -135,8 +135,8 @@ func TestKillerRateAndNeverBackToBack(t *testing.T) {
 		prev = p.planned
 	}
 	rate := float64(hits) / float64(n)
-	if rate < 1.0/7 || rate > 1.0/4.5 {
-		t.Errorf("rate %.3f, want about 1 in 5-6", rate)
+	if rate < 0.20 || rate > 0.26 {
+		t.Errorf("rate %.3f, want about 1 in 4", rate)
 	}
 }
 

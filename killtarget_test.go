@@ -20,8 +20,8 @@ func killTargetLevels(t *testing.T) int {
 		// with 5 levels: the medal tests saw "no campaign" and TestPirateBoatArrivals indexed out of range (-shuffle)
 		levelDefs = builtinLevels()
 	}
-	if len(campaignLevels) != 26 {
-		t.Fatalf("the campaign has %d parties, want 26", len(campaignLevels))
+	if len(campaignLevels) != 28 {
+		t.Fatalf("the campaign has %d parties, want 28", len(campaignLevels))
 	}
 	return len(campaignLevels)
 }
@@ -101,7 +101,7 @@ func killAll(g *Game) {
 	}
 }
 
-// Every one of the 26 parties: the start keeps room for the arrivals (and is a real party: >= 40), the
+// Every one of the 28 parties: the start keeps room for the arrivals (and is a real party: >= 40), the
 // target never passes 65 however many arrivals are forced, the HUD writes exactly kills/total, and killing
 // the people of the target ends the party (nobody impossible to reach is left in it).
 func TestKillTargetCappedAllLevels(t *testing.T) {

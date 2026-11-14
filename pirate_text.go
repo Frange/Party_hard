@@ -41,8 +41,9 @@ func init() {
 	dogNoIcons["pirate"] = true
 	levelIconColors["pirate"] = 0x8a3a3a // rum red: the menu swatch of the party
 	genLabels["pirate"] = "Barco pirata" // the editor's name of the generator
-	// no entry in ambientPlan: the plan keeps 10-14 animated levels (ambient_test.go); the bay is painted with its
-	// ripples and foam, and the sky animates on its own (seasky.go: the ship on the horizon, the passing pirate ship)
+	// no entry in ambientPlan (it keeps 10-14 levels, ambient_test.go): since v1.4.0 the bay animates on its own
+	// (pirate_sea.go: wave crests, a dolphin, a shark's fin);
+	// the sky animates on its own (seasky.go: the ship on the horizon, the passing pirate ship)
 
 	for k, v := range map[string]string{
 		title: "PIRATE SHIP",

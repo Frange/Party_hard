@@ -534,8 +534,10 @@ const (
 	HairBuns
 	HairMessy
 	HairComb
-	HairSide // short hair with a fringe swept to one side
-	HairAfro // a big round afro
+	HairSide     // short hair with a fringe swept to one side
+	HairAfro     // a big round afro
+	HairBaldMane // bald on top, long hair from the sides and the back down to the floor (hair_mane.go)
+	HairAfroXL   // an exaggerated, huge 70s afro (the DISCO SETENTERA crowd)
 )
 
 const (
@@ -593,6 +595,7 @@ const (
 	GlassBig
 	GlassWhite
 	GlassNeon
+	GlassPatch // a pirate's eye patch (pirate_crew.go)
 )
 
 const (
@@ -650,7 +653,8 @@ type CharSpec struct {
 	Makeup, Censor                          bool // red lips and eye shadow / mosaic censor bar
 	Ride, Face                              int  // 1 scooter, 2 skateboard / 1 smile, 2 sly grin
 	RideCol                                 color.RGBA
-	noOverride                              bool // built from an asset: do not look for an edited drawing again
+	noOverride                              bool  // built from an asset: do not look for an edited drawing again
+	pir                                     uint8 // pirate bits of the BARCO PIRATA crowd: peg leg, hook, parrot (pirate_crew.go)
 }
 
 func hx(h uint32) color.RGBA { return rgb(h) }
@@ -884,6 +888,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			hand = shade(hand, 0.8)
 		}
 		b.rect(cI(ex), cI(ey), armW, 2, hand)
+		pirArm(b, s, vw, sx, sy, ex, ey, armW, sign)            // hook and parrot (pirate_crew.go)
 		qzHand(b, s, vw, ex, ey, armW, dark, id)                // gloves Q-Z (charimp_q.go)
 		dbArm(b, s, vw, sx, sy, mx, my, ex, ey, armW, dark, id) // Dragon Ball (dragonball_art.go)
 		// ptf_art.go
@@ -941,8 +946,15 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			lc, sc = shade(lc, 0.76), shade(sc, 0.76)
 		}
 		thickLine(b, hxp, hipY, mx, my, legW, lc)
-		thickLine(b, mx, my, ex, ey, legW, sc)
+		if pirPeg(s, sign) { // a wooden peg leg (pirate_crew.go)
+			thickLine(b, mx, my, ex, ey, maxI(2, legW-1), hx(0x8a5a32))
+		} else {
+			thickLine(b, mx, my, ex, ey, legW, sc)
+		}
 		shoe := s.Shoes
+		if pirPeg(s, sign) {
+			shoe = hx(0x4a2e1a)
+		}
 		if dark {
 			shoe = shade(shoe, 0.8)
 		}
@@ -1260,9 +1272,8 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			}
 		}
 	}
-	head := func() {
-		b.cur = 1
-		rx, ry := 2.6, 3.0
+	headGeom := func() (hxp, hyp, rx, ry float64) {
+		rx, ry = 2.6, 3.0
 		switch s.Head {
 		case HeadBig:
 			rx, ry = 3.8, 4.0
@@ -1275,14 +1286,29 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		if s.Hat == HatVader || s.Hat == HatTrooper {
 			rx, ry = 2.6, 3.0
 		}
-		hxp := c0 + sway + shiftX
+		hxp = c0 + sway + shiftX
 		if vw == vSide {
 			hxp += p.HeadZ * 0.7
 		}
-		hyp := torsoTop + 0.8 - ry + math.Abs(p.HeadZ)*0.25
+		hyp = torsoTop + 0.8 - ry + math.Abs(p.HeadZ)*0.25
 		if vw == vSide {
 			rx *= 0.92
 		}
+		return
+	}
+	// mane: the floor-length hair of HairBaldMane (hair_mane.go), behind the body seen from the front or the side and
+	// over the back seen from behind
+	mane := func() {
+		if s.Hair2 != HairBaldMane || robot || s.Mask.A != 0 {
+			return
+		}
+		b.cur = 2
+		hxp, hyp, rx, _ := headGeom()
+		drawMane(b, vw, p, hxp, hyp, rx, footRow, s.Hair)
+	}
+	head := func() {
+		b.cur = 1
+		hxp, hyp, rx, ry := headGeom()
 		skin := s.Skin
 		hairC := s.Hair
 		ihx := cI(hxp)
@@ -1306,6 +1332,12 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			b.ellipse(hxp, hyp-0.4, rx+1.6, ry+1.2, hairC)
 		case HairAfro:
 			b.ellipse(hxp, hyp-1.3, rx+3.4, ry+2.9, hairC)
+		case HairAfroXL:
+			b.ellipse(hxp, hyp-3.2, rx+6.2, ry+5.6, shade(hairC, 0.82))
+			b.ellipse(hxp-0.4, hyp-3.6, rx+5.4, ry+4.9, hairC)
+			for _, o := range [][2]float64{{-5, -6}, {3, -8}, {6, -3}, {-7, -1}, {0, -10}} { // the curls catch the light
+				b.set(cI(hxp+o[0]), cI(hyp+o[1]), shade(hairC, 1.35))
+			}
 		case HairPony:
 			if vw != vFront {
 				b.rect(cI(hxp-rx-1), cI(hyp+1), 2, 8, hairC)
@@ -1326,6 +1358,12 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		case HairBuns:
 			b.ellipse(hxp-rx-1.2, hyp-0.6, 1.6, 1.6, hairC)
 			b.ellipse(hxp+rx+1.2, hyp-0.6, 1.6, 1.6, hairC)
+		case HairBaldMane:
+			if vw == vFront && !robot && s.Mask.A == 0 { // the hair from the sides falls over the shoulders, framing the face
+				x0, x1 := cI(hxp-rx-0.5), cI(hxp+rx+0.5)
+				b.rect(x0-1, cI(hyp-ry*0.2), 2, cI(ry)+5, hairC)
+				b.rect(x1-1, cI(hyp-ry*0.2), 2, cI(ry)+5, hairC)
+			}
 		}
 		if s.Ears > 0 && vw != vSide {
 			ey := cI(hyp)
@@ -1370,7 +1408,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 				return dy < -ry*0.25 || (math.Abs(dx) > rx*0.8 && dy < ry*0.2)
 			}
 			switch s.Hair2 {
-			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive, HairSide, HairAfro:
+			case HairShort, HairLong, HairBob, HairBun, HairPony, HairPompadour, HairCurly, HairFry, HairSpiky, HairQuiff, HairBowl, HairBuns, HairMessy, HairDreads, HairComb, HairStar, HairBeehive, HairSide, HairAfro, HairAfroXL:
 				hair(capCond, hairC)
 				if s.Hair2 != HairBald {
 					b.set(ihx-1, top+1, shade(hairC, 1.45))
@@ -1418,6 +1456,9 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 						b.rect(cI(hxp-rx), cI(hyp), 3, n, hairC)
 					}
 				}
+			case HairBaldMane:
+				hair(func(x, y int, dx, dy float64) bool { return maneScalp(vw, dx, dy, rx, ry) }, hairC)
+				b.set(ihx-1, top+1, shade(skin, 1.22)) // the shine of the bald top
 			case HairMohawk:
 				b.rect(ihx, top-3, 2, 6, hairC)
 			case HairHomer:
@@ -1541,6 +1582,8 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 			case GlassNeon:
 				b.rect(cI(hxp-rx), ey, cI(2*rx), 2, hx(0x30f0e0))
 				b.rect(cI(hxp-rx), ey+1, cI(2*rx), 1, hx(0xf040c0))
+			case GlassPatch:
+				pirPatch(b, vw, hxp, rx, ihx, ey)
 			case GlassBig:
 				b.rect(ihx-3, ey-1, 3, 3, hx(0x20202a))
 				b.rect(ihx+1, ey-1, 3, 3, hx(0x20202a))
@@ -1900,6 +1943,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		sx := float64(cx-1) + sway + shiftX
 		hp := float64(cx - 1)
 		cape(false)
+		mane()
 		drawLeg(hp, p.LF, -1, true, 5)
 		lsx, lsy := drawArm(sx, shY, p.LA, -1, true, 3)
 		if p.Hold == HoldPompom {
@@ -1920,6 +1964,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		drawLeg(hpR, p.LF, -1, false, 6)
 		torso()
 		cape(false)
+		mane()
 		hxL, hyL := drawArm(shL.X, shL.Y, p.RA, 1, false, 3)
 		held(hxL, hyL, 3)
 		rx0, ry0 := drawArm(shR.X, shR.Y, p.LA, -1, false, 4)
@@ -1929,6 +1974,7 @@ func genChar(s *CharSpec, vw int, p Pose) *pixBuf {
 		head()
 	default:
 		cape(true)
+		mane()
 		drawLeg(hpL, p.LF, -1, false, 5)
 		drawLeg(hpR, p.RF, 1, false, 6)
 		torso()

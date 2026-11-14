@@ -46,6 +46,18 @@ func peLoad(t *testing.T, idx int, two bool) *Game {
 		fursuitRng, fursuitSeed, fursuitLvl = prevFur[0].(*rand.Rand), prevFur[1].(int64), prevFur[2].(*Level)
 		fursuitWant, fursuitAt, fursuitDone = prevFur[3].(bool), prevFur[4].(float64), prevFur[5].(bool)
 	})
+	// The VIP zone dice (vipchance.go, vipshape.go) kept running from one load to the next and the style dice could be
+	// seeded from the clock: the birthday party got its zone (and its shape) or not depending on what ran before, and the
+	// magician test failed one run in two. Pinned per level and per party, like g.rng.
+	prevVIP := [...]any{vipRng, vipSeed, vipStyleRng, vipStyleDecision, vipMisses}
+	t.Cleanup(func() {
+		vipRng, vipSeed, vipStyleRng = prevVIP[0].(*rand.Rand), prevVIP[1].(int64), prevVIP[2].(*rand.Rand)
+		vipStyleDecision, vipMisses = prevVIP[3].(vipStyle), prevVIP[4].(int)
+	})
+	vipSeed = peLoadSeed*7907 + int64(idx)*131 + 3001
+	vipRng = rand.New(rand.NewSource(vipSeed))
+	vipStyleRng = rand.New(rand.NewSource(vipSeed*7919 + 17))
+	vipStyleDecision, vipMisses = vipStyle{}, 0
 	g.loadLevel(idx)
 	g.kp = killerPlan{}
 	fursuitLvl, fursuitWant = g.lvl, false

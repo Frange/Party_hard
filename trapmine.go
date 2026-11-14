@@ -74,8 +74,27 @@ func (g *Game) updateTrapMine(pr *Prop, dt float64) {
 	}
 	if g.trapDetects(pr) || cakeGoesOff(pr) { // the cake does not wait for anybody: it blows up once armed (trapcake.go)
 		pr.armed = false
+		trapSetOff = g.trapSetters(pr)
 		g.triggerTrap(pr)
+		trapSetOff = nil
 	}
+}
+
+// trapSetOff: the guests who set off the trap going off right now (inside trapDetectR). The traps whose effect comes
+// a moment later (gas, fireworks, the piano) always catch them: a fast guest (the kids on wheels, the skaters) used
+// to walk through the gas or out from under the piano untouched (2026-11-12).
+var trapSetOff []*Guest
+
+// trapSetters: the living guests inside the detection radius of pr.
+func (g *Game) trapSetters(pr *Prop) []*Guest {
+	c := trapCentre(pr)
+	var out []*Guest
+	for _, gu := range g.guests {
+		if !gu.out() && dist(gu.pos, c) < trapDetectR {
+			out = append(out, gu)
+		}
+	}
+	return out
 }
 
 // trapDetects: somebody is within trapDetectR of the armed trap.

@@ -249,7 +249,7 @@ func vipSnapshot() map[string]bool {
 // random (vipRoll); any level where vipPlace finds room may get one.
 var vipPlan = map[string]string{
 	"PLAZA DE TOROS":        "king",
-	"TORRE EIFFEL":          "pope",
+	"PARÍS":                 "pope",
 	"FESTIVAL":              "rockstar",
 	"PARQUE DE ATRACCIONES": "president",
 	"ESTACIÓN DE ESQUÍ":     "oil",
@@ -327,6 +327,7 @@ func (g *Game) suitHides(q Vec) bool {
 
 func (g *Game) putOnSuit(p *Player) {
 	p.suitT = suitDuration
+	g.suitDress(p) // the gold suit is really worn: new clothes, and the handcuffs mark goes like with a disguise
 	g.stat("suits", 1)
 	g.snd.Play("spark")
 	g.burst(Vec{p.pos.X, p.pos.Y - 16}, 24, 80, rgb(0xffd860), 0.7, 2, 0)
@@ -399,6 +400,14 @@ type vipZone struct {
 	chaseP      *Player // whom the staff is after (the warning ladder)
 	alarmed     bool
 	called      bool
+	// shapes and the mini VIP party (vipshape.go); legacy = the classic carpet with its old layout
+	legacy   bool
+	shape    int
+	cells    []Rect   // the carpet cells (empty in the classic one: in is the carpet)
+	sec      int      // vipSecLow / Normal / High
+	vipSpots []Vec    // where the VIPs stand (the first is boss); empty: boss
+	inners   []Vec    // where the inner guards stand; nil in the classic one: inner
+	extra    []string // the other VIPs of a mini party (ids)
 }
 
 // vipRelief: the staff is changing shift (the door guards are away or yawning).
@@ -435,7 +444,13 @@ func vipPrint(d *LevelDef) uint64 {
 	return h.Sum64()
 }
 
-var vipCache = map[*LevelDef]*vipPlaced{}
+// vipCacheKey: a placement depends on the definition and on the style (shape, size, security, party).
+type vipCacheKey struct {
+	def *LevelDef
+	st  string
+}
+
+var vipCache = map[vipCacheKey]*vipPlaced{}
 
 // vipDecision: the VIP chosen for the level that is being loaded ("" = no zone). loadLevel sets it (vipRoll) just
 // before buildLevel and clears it after; every other buildLevel call (tests, generators, flashbacks) gets a bare level.
@@ -448,6 +463,11 @@ func buildLevel(def *LevelDef) *Level {
 		if nd, z := vipPlace(def, id); nd != nil {
 			l := buildLevelRaw(nd)
 			zc := *z
+			zc.id = id // the cache is per style, not per VIP
+			zc.extra = nil
+			if n := len(zc.vipSpots) - 1; n > 0 {
+				zc.extra = append([]string(nil), vipStyleDecision.extra[:minI(n, len(vipStyleDecision.extra))]...)
+			}
 			l.vip = &zc
 			l.addTables()      // cloth tables and chairs of a few indoor parties (pe_tables.go)
 			l.addSeats()       // café tables, benches, deckchairs... where the guests sit down (seats.go)
@@ -475,6 +495,8 @@ func vipRemovable(name string) bool {
 	switch name {
 	case "stage", "speaker", "screen", "truss", "dj", "jukebox", "bar", "buffet", "punch", "checkout", "stall", "toilet", "portapotty", "bowl":
 		return false
+	case "entertainer": // the decorative magician/clown of the birthday party does the magic show (pe_magic.go): never swept
+		return false
 	}
 	return propPriority(name) <= 2
 }
@@ -497,8 +519,14 @@ func vipClearCost(def *LevelDef, area Rect) int {
 }
 
 func vipPlace(def *LevelDef, id string) (*LevelDef, *vipZone) {
+	return vipPlaceStyle(def, id, vipStyleDecision)
+}
+
+// vipPlaceStyle: the zone of that style (or a smaller/other shape, the classic sizes last) on the definition.
+func vipPlaceStyle(def *LevelDef, id string, st vipStyle) (*LevelDef, *vipZone) {
 	fp := vipPrint(def)
-	if c, ok := vipCache[def]; ok && c.fp == fp {
+	ck := vipCacheKey{def, st.key()}
+	if c, ok := vipCache[ck]; ok && c.fp == fp {
 		if c.def == nil {
 			return nil, nil
 		}
@@ -517,15 +545,32 @@ func vipPlace(def *LevelDef, id string) (*LevelDef, *vipZone) {
 	l := buildLevelRaw(&strip)
 	reach := l.reachFrom(def.Start)
 	res := &vipPlaced{fp: fp}
-	for _, sz := range [][2]float64{{5, 64}, {4, 64}, {5, 32}, {4, 32}} {
-		nS, depth := int(sz[0]), sz[1]
-		w := vipSeg * float64(nS)
+	wantV, wantI := vipWantStaff(st)
+	for _, try := range vipTries(st) {
+		cells := vipShapeCells(try.shape, try.cols, try.rows, try.flip)
+		if try.legacy {
+			cells = vipShapeCells(vsRect, try.cols, try.rows, false)
+		}
+		gate := vipGateCell(cells, try.cols, try.rows)
+		if gate.c < 0 {
+			continue
+		}
+		w, depth := vipSeg*float64(try.cols), vipSeg*float64(try.rows)
+		// the shaped zones need room for their people: loot + VIPs + at least one inner guard in a party
+		if !try.legacy && st.partyN > 0 && len(cells) < 1+wantV+2 {
+			continue
+		}
 		var best Rect
 		bs, found := -1e9, false
 		for y := 80.0; y+depth+50 < l.H; y += 8 {
 			for x := 36.0; x+w+36 < l.W; x += 8 {
 				in := Rect{x, y, w, depth}
-				if !l.vipSiteOK(in, nS, reach) {
+				pieces := vipCordonCells(x, y, cells, gate)
+				loot := Vec{in.X + in.W/2 - 8, in.Y + 0.4*in.H}
+				if !try.legacy {
+					loot = vipShapeLayout(x, y, cells, gate, try.cols, wantV, wantI).loot
+				}
+				if l.vipSiteWhyP(in, x+vipSeg*(float64(gate.c)+0.5), pieces, loot, reach) != "" {
 					continue
 				}
 				ca := in.Grow(14)
@@ -539,8 +584,8 @@ func vipPlace(def *LevelDef, id string) (*LevelDef, *vipZone) {
 			continue
 		}
 		in := best
-		gx := in.X + vipSeg*(float64(nS/2)+0.5)
-		z := &vipZone{id: id, in: in, gx: gx}
+		gx := in.X + vipSeg*(float64(gate.c)+0.5)
+		z := &vipZone{id: id, in: in, gx: gx, legacy: try.legacy, shape: try.shape, sec: vipSecNormal}
 		z.gate = Rect{gx - vipSeg/2, in.Y + in.H - 6, vipSeg, 34}
 		z.trig = Rect{in.X - 4, in.Y - 4, in.W + 8, in.H + 8}
 		by := in.Y + in.H
@@ -558,6 +603,16 @@ func vipPlace(def *LevelDef, id string) (*LevelDef, *vipZone) {
 		z.inner = Vec{in.X + 34, in.Y + 0.72*in.H}
 		z.boss = Vec{in.X + in.W - 40, in.Y + 0.47*in.H}
 		z.loot = Vec{in.X + in.W/2 - 8, in.Y + 0.4*in.H}
+		if !try.legacy {
+			z.cells = vipCellRects(in.X, in.Y, cells)
+			z.sec = st.sec
+			lay := vipShapeLayout(in.X, in.Y, cells, gate, try.cols, wantV, wantI)
+			z.loot, z.vipSpots, z.inners = lay.loot, lay.vips, lay.inners
+			if len(z.inners) == 0 {
+				z.inners = []Vec{} // low security: nobody inside (never nil: nil = the classic inner guard)
+			}
+			z.boss = z.vipSpots[0]
+		}
 		nd := *def
 		nd.Props = nil
 		clear := in.Grow(14)
@@ -574,14 +629,14 @@ func vipPlace(def *LevelDef, id string) (*LevelDef, *vipZone) {
 			}
 			nd.Props = append(nd.Props, p)
 		}
-		for _, pc := range vipCordon(in, nS) {
+		for _, pc := range vipCordonCells(in.X, in.Y, cells, gate) {
 			nd.Props = append(nd.Props, PropInst{Kind: pc.name, X: pc.x, Y: pc.y})
 		}
 		nd.Props = append(nd.Props, PropInst{Kind: "vipsuit", X: z.loot.X, Y: z.loot.Y})
 		res.def, res.z = &nd, z
 		break
 	}
-	vipCache[def] = res
+	vipCache[ck] = res
 	if res.def == nil {
 		return nil, nil
 	}
@@ -619,7 +674,11 @@ func (l *Level) vipSiteOK(in Rect, nS int, reach []bool) bool {
 }
 
 func (l *Level) vipSiteWhy(in Rect, nS int, reach []bool) string {
-	gx := in.X + vipSeg*(float64(nS/2)+0.5)
+	return l.vipSiteWhyP(in, in.X+vipSeg*(float64(nS/2)+0.5), vipCordon(in, nS), Vec{in.X + in.W/2 - 8, in.Y + 0.4*in.H}, reach)
+}
+
+// vipSiteWhyP: the checks of vipSiteWhy for any shape (its gate x, its cordon pieces and where its suit lies).
+func (l *Level) vipSiteWhyP(in Rect, gx float64, pieces []vipPiece, loot Vec, reach []bool) string {
 	area := Rect{in.X - 14, in.Y - 22, in.W + 28, in.H + 22 + 40}
 	if area.X < 24 || area.Y < 70 || area.X+area.W > l.W-24 || area.Y+area.H > l.H-24 {
 		return "r1"
@@ -668,13 +727,13 @@ func (l *Level) vipSiteWhy(in Rect, nS int, reach []bool) string {
 	if !reach[int(front.Y/navCell)*l.cw+int(front.X/navCell)] {
 		return "r10"
 	}
-	for _, pc := range vipCordon(in, nS) {
+	for _, pc := range pieces {
 		k := propKinds[pc.name]
 		if l.propClashes(pc.name, k, Vec{pc.x, pc.y}, 0) {
 			return "r11"
 		}
 	}
-	if l.propClashes("vipsuit", propKinds["vipsuit"], Vec{in.X + in.W/2 - 8, in.Y + 0.4*in.H}, 0) {
+	if l.propClashes("vipsuit", propKinds["vipsuit"], loot, 0) {
 		return "suit"
 	}
 	return ""
@@ -713,8 +772,9 @@ func (g *Game) spawnVIP() {
 		return
 	}
 	d := vipByID(z.id)
-	if d == nil {
-		return
+	if d == nil { // never an empty zone: an unknown id gets a registry VIP
+		d = &vipDefs[0]
+		z.id = d.id
 	}
 	mk := func(pos Vec, role int, k int) *Guard {
 		spec := vipGuardSpec(g.rng, k)
@@ -727,11 +787,28 @@ func (g *Game) spawnVIP() {
 		gd := mk(z.posts[i], vipDoor, i)
 		gd.vipAway = z.aways[i]
 	}
-	mk(z.inner, vipInner, 2).vipFace = DirRight
-	spec := d.spec()
-	boss := &Guard{pos: z.boss, dir: DirDown, cs: newCharSet(&spec), route: []Vec{z.boss}, state: gdWait, home: z.boss, leash: 190}
-	boss.vipGuard = vipGuard{vip: vipBoss, vipID: d.id, vipPost: z.boss, vipFace: DirDown, vipHP: d.hp, vipT: 2}
-	g.guards = append(g.guards, boss)
+	if z.inners == nil { // the classic carpet: one inner guard
+		mk(z.inner, vipInner, 2).vipFace = DirRight
+	}
+	for i, pos := range z.inners {
+		gd := mk(pos, vipInner, 2+i)
+		gd.vipFace = []Dir{DirRight, DirLeft, DirDown}[i%3]
+	}
+	mkBoss := func(d *vipDef, pos Vec, k int) {
+		spec := d.spec()
+		boss := &Guard{pos: pos, dir: DirDown, cs: newCharSet(&spec), route: []Vec{pos}, state: gdWait, home: pos, leash: 190}
+		boss.vipGuard = vipGuard{vip: vipBoss, vipID: d.id, vipPost: pos, vipFace: DirDown, vipHP: d.hp, vipT: 2 + float64(k)*1.7}
+		g.guards = append(g.guards, boss)
+	}
+	mkBoss(d, z.boss, 0)
+	for i, id := range z.extra { // the mini VIP party
+		if i+1 >= len(z.vipSpots) {
+			break
+		}
+		if e := vipByID(id); e != nil && e.id != d.id {
+			mkBoss(e, z.vipSpots[i+1], i+1)
+		}
+	}
 	z.spawned = true
 	z.shiftT, z.alarmed, z.called, z.cool = 0, false, false, 0
 	// two guests carry an invitation
@@ -768,7 +845,7 @@ func (g *Game) vipIntruder(z *vipZone) *Player {
 
 // touches: the player is inside the zone or right in front of its gate.
 func (z *vipZone) touches(p *Player) bool {
-	return z.trig.Has(p.pos.X, p.pos.Y) || z.gate.Has(p.pos.X, p.pos.Y)
+	return z.inside(p.pos.X, p.pos.Y) || z.gate.Has(p.pos.X, p.pos.Y)
 }
 
 func (g *Game) updateVIP(dt float64) {
@@ -950,7 +1027,7 @@ func (g *Game) updateVIPBoss(gd *Guard, z *vipZone, dt float64) {
 		np := Vec{gd.pos.X + dx/n*step, gd.pos.Y + dy/n*step}
 		box := z.in.Grow(-10)
 		np.X, np.Y = clampF(np.X, box.X, box.X+box.W), clampF(np.Y, box.Y+6, box.Y+box.H)
-		if !g.lvl.SolidP(np.X, np.Y) {
+		if !g.lvl.SolidP(np.X, np.Y) && z.inside(np.X, np.Y) {
 			gd.dir = faceTo(gd.pos, np)
 			gd.pos = np
 			gd.moving, gd.curSpd = true, 48
@@ -996,7 +1073,7 @@ func (g *Game) vipTough(gd *Guard) bool {
 // vipInZone: is this spot inside the VIP area (the zone where the staff works) of the current party?
 func (g *Game) vipInZone(pos Vec) bool {
 	z := g.lvl.vip
-	return z != nil && z.trig.Has(pos.X, pos.Y)
+	return z != nil && z.inside(pos.X, pos.Y)
 }
 
 // vipOnKill: a staff member just died by the player's hand.
@@ -1090,6 +1167,11 @@ func (g *Game) drawVIPFloor(dst *ebiten.Image) {
 	rr(run, rgb(0x8a1424))
 	rr(Rect{run.X, run.Y, 2, run.H}, rgb(0xe8c040))
 	rr(Rect{run.X + run.W - 2, run.Y, 2, run.H}, rgb(0xe8c040))
+	if !z.legacy && len(z.cells) > 0 { // round, oval, L, platform... (vipshape.go)
+		g.drawVIPShapeFloor(dst, z)
+		g.drawTextC(dst, "VIP", math.Round(g.wx(z.gx)), math.Round(g.wy(z.in.Y+z.in.H+10)), rgb(0xf0d060), 1)
+		return
+	}
 	rr(z.in, rgb(0x9a1628))
 	rr(Rect{z.in.X, z.in.Y, z.in.W, 3}, rgb(0x6a0c1a))
 	rr(Rect{z.in.X + 3, z.in.Y + 5, z.in.W - 6, z.in.H - 8}, rgb(0xa81c30))

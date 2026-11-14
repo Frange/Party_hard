@@ -84,7 +84,11 @@ func (g *Game) trapCop(c *Cop) {
 	g.points += g.killVal(100)
 }
 
-func (g *Game) trapGuard(gd *Guard) {
+func (g *Game) trapGuard(gd *Guard) { g.trapGuardBy(gd, kcTrap) }
+
+// trapGuardBy: trapGuard with the cause of the statistics (the explosive trap counts as a blast). Every trap of the
+// player that kills a guard goes through here, so a VIP killed by one gets his bonus and his card (vipOnKill).
+func (g *Game) trapGuardBy(gd *Guard, cause killCause) {
 	if gd.dead || g.vipTough(gd) {
 		return
 	}
@@ -94,7 +98,7 @@ func (g *Game) trapGuard(gd *Guard) {
 	g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
 	g.snd.Play("stab")
 	g.kills++
-	g.countKill(kcTrap, false)
+	g.countKill(cause, false)
 	g.points += g.killVal(50)
 	g.vipOnKill(gd)
 	g.checkDone()

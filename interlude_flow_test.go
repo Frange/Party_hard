@@ -35,12 +35,17 @@ func TestInterludeFlowCampaign(t *testing.T) {
 	defer flowReset()
 	for _, two := range []bool{false, true} {
 		for idx := 0; idx < campaignN-1; idx++ {
+			if campaignRetired(idx) { // never played (campaign_retired.go)
+				continue
+			}
 			g := flowGame(idx, two)
 			leaveLevel(g)
-			wantInter := map[int]int{4: interCar, 9: interBoat, 14: interBalloon, campaignN - 2: interRocket}
+			next := campaignNext(idx) // the retired parties are skipped
+			// the interludes go by the row of the list: after the 5th, 10th and 15th party played
+			wantInter := map[int]int{campaignAtSlot(4): interCar, campaignAtSlot(9): interBoat, campaignAtSlot(14): interBalloon, campaignN - 2: interRocket}
 			kind, isInter := wantInter[idx]
 			if isInter {
-				if g.mode != ModeInterlude || g.inter == nil || g.inter.kind != kind || g.inter.next != idx+1 || g.inter.two != two {
+				if g.mode != ModeInterlude || g.inter == nil || g.inter.kind != kind || g.inter.next != next || g.inter.two != two {
 					t.Fatalf("2P=%v level %d: expected interlude %d before level %d (mode %v)", two, idx+1, kind, idx+2, g.mode)
 				}
 				if g.levelIdx != idx {
@@ -48,10 +53,10 @@ func TestInterludeFlowCampaign(t *testing.T) {
 				}
 				// the interlude ends: the NEXT party is loaded and played
 				g.finishInterlude()
-				if g.mode != ModePlay || g.levelIdx != idx+1 || g.inter != nil {
+				if g.mode != ModePlay || g.levelIdx != next || g.inter != nil {
 					t.Fatalf("2P=%v interlude after %d: next party not loaded (mode %v idx %d)", two, idx+1, g.mode, g.levelIdx)
 				}
-			} else if g.mode != ModePlay || g.levelIdx != idx+1 || g.inter != nil {
+			} else if g.mode != ModePlay || g.levelIdx != next || g.inter != nil {
 				t.Fatalf("2P=%v level %d: no interlude expected, went to mode %v idx %d", two, idx+1, g.mode, g.levelIdx)
 			}
 		}

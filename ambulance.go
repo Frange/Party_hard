@@ -425,8 +425,7 @@ func (g *Game) standDown(c *Cop) {
 // updateCordon: an officer who seals off the place walks slowly around it until his 20 s are done.
 func (g *Game) updateCordon(c *Cop, dt float64) {
 	if c.onSceneT >= copMinStay {
-		c.state = cLeave
-		c.path = g.lvl.Path(c.pos, g.vehDoor(c))
+		g.crewLeave(c) // the crew goes back together (copcrew.go)
 		return
 	}
 	if c.wait > 0 {

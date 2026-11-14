@@ -19,7 +19,7 @@ import (
 //	grave    CEMENTERIO             pumpkin head, vampire collar and cape, witch hat, mummy bandages
 //	snow     ESTACIÓN DE ESQUÍ      bobble beanie, striped scarf, ski goggles
 //	casino   CASINO                 tuxedo bib + bow tie, eye mask, top hat
-//	eiffel   TORRE EIFFEL           beret, moustache + neckerchief (women: beret + neckerchief), striped sailor top
+//	eiffel   PARÍS                  beret, moustache + neckerchief (women: beret + neckerchief), striped sailor top
 //
 // Not here on purpose: the birthday, hockey, 70s disco and ITALIA crowds already dress up (venuecrowd.go),
 // the pirate ship has its own pirate guests, and the space station and the island stay as they are.
@@ -490,7 +490,7 @@ var costumeLevels = map[string][]string{
 // costumeTitles: the random-mode rolls of those parties carry no icon: they are found by their title.
 var costumeTitles = map[string]string{
 	"MIAMI BEACH": "beach", "PARQUE DE ATRACCIONES": "funfair", "CEMENTERIO": "grave",
-	"ESTACIÓN DE ESQUÍ": "snow", "CASINO": "casino", "TORRE EIFFEL": "eiffel",
+	"ESTACIÓN DE ESQUÍ": "snow", "CASINO": "casino", "PARÍS": "eiffel",
 }
 
 func costumeLookIdx(id string) int {

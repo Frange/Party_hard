@@ -12,14 +12,16 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// METAL DETECTOR (idea 315 of the user): in SOME parties of the casino, the club and the cinema a doorway between two
+// METAL DETECTOR (idea 315 of the user): in SOME parties of the casino and the ice hockey rink a doorway between two
 // rooms has a row of walk-through metal detector arches (pixel art drawn here, no props). The guests walk through it
-// without a sound; a PLAYER (either of the two with 2 players) always carries his knife, so crossing it sets the alarm
-// off: a short beep, the lights of the arches blink red, and the nearest free guard starts the ORDINARY guard chase
-// (gdReact -> gdChase: the same leash, endurance and losing the target as any guard, so it can be shaken off). The
-// guard stands a moment before he runs (mdReact: time to react, never an unfair end). The marked player wears the
-// handcuffs mark (drawCuffs, the same symbol of suspect.go/twojail.go) while the warning lasts (the guard is after him,
-// at most mdMarkMax s). With no guard free, the nearest officer on scene comes to look at the door (cSearch).
+// without a sound; a PLAYER (either of the two with 2 players) always carries his knife, so crossing it MAY set the
+// alarm off (mdBeepP, its own dice: not every crossing beeps): a short beep and the lights of the arches blink red.
+// The answer goes up step by step (2026-11-12, owner: "no debe pitar cada vez ni atraer cada vez más guardias"):
+//   1. the first alarm sends ONE security guard to look at the door (gdInvestigate, no chase, no handcuffs mark);
+//      with no guard free, the nearest officer on scene comes to look instead;
+//   2. only if it goes on (another alarm within mdFollowT s of the last one) the police are called to the place,
+//      as a guard would call them (raisePolice, never "informed": no handcuffs), once per party;
+//   3. after that the arches only blink and beep: nobody else is sent.
 // After an alarm the arches stay quiet for mdCooldown s: no alarm in a loop.
 //
 // It is NOT a party event (the mean of events per party does not go up): it is an element of the level, rolled with its
@@ -32,11 +34,9 @@ import (
 
 const (
 	mdChance   = 0.4
-	mdCooldown = 20.0 // seconds of silence after an alarm
+	mdCooldown = 25.0 // seconds of silence after an alarm
 	mdAlarmT   = 4.0  // seconds the arches blink red
-	mdReact    = 1.2  // the guard stands this long before he runs
-	mdMarkMax  = 12.0 // the cuffs mark lasts at most this long
-	mdCopMark  = 6.0  // ...or this long when an officer comes to look
+	mdFollowT  = 75.0 // a second alarm within this many seconds of the last one: the police are called
 	mdArchH    = 34.0 // height of an arch (world px)
 	mdArchW    = 40.0 // width of one arch: a door gets as many as fit
 	mdBand     = 26.0 // the crossing box reaches this far on each side of the door
@@ -45,8 +45,9 @@ const (
 	mdMaxW     = 130.0
 )
 
-// mdVenues: the parties where the arches may come (by Def.Icon).
-var mdVenues = map[string]bool{"casino": true, "disco": true, "cinema": true}
+// mdVenues: the parties where the arches may come (by Def.Icon). v1.4.0: the club and the cinema were retired
+// (campaign_retired.go); the arches went to the ice hockey rink, the indoor venue whose doorway fits them every time.
+var mdVenues = map[string]bool{"casino": true, "hockey": true}
 
 var (
 	mdRng     *rand.Rand
@@ -54,6 +55,7 @@ var (
 	mdOff     bool  // tests: never
 	mdForce   bool  // tests: for sure where they fit
 	mdInTests bool  // tests: roll the real dice under `go test`
+	mdBeepP   = 0.6 // chance that a crossing out of the cooldown beeps (tests set 1)
 	mdFlag    = flag.String("metaldet", "", "debug: metal detector in the level given: on | trip (walks the player through)")
 )
 
@@ -96,6 +98,9 @@ type mdRun struct {
 	markUntil  float64
 	trips      int
 	staged     int
+	step       int     // alarms answered: 1 = a guard went to look, 2 = the police were called
+	lastAlarm  float64 // game time of the last alarm
+	called     bool    // the police were called by the arches in this party (only once)
 }
 
 var (
@@ -255,43 +260,57 @@ func (g *Game) updateMetalDet(dt float64) {
 			break
 		}
 	}
-	// the warning lasts while the guard is after him
-	if run.chaser != nil {
-		gd := run.chaser
-		if gd.dead || gd.state != gdReact && gd.state != gdChase && gd.state != gdBeat {
-			run.chaser = nil
-			run.markUntil = math.Min(run.markUntil, g.time)
-		}
+	// the guard sent to look is done once he got there (or something else took him)
+	if gd := run.chaser; gd != nil && (gd.dead || gd.state != gdInvestigate) {
+		run.chaser = nil
 	}
 	if run.target != nil && (run.target.dead || run.target.jail.held) {
 		run.markUntil = g.time
 	}
 }
 
-// mdTrip: a player walked through the arches.
+// mdTrip: a player walked through the arches. Out of the cooldown it MAY beep (mdBeepP); each alarm answers one step
+// more: a guard comes to look, then (if it goes on) the police are called, then nothing else.
 func (g *Game) mdTrip(run *mdRun, p *Player) {
 	if g.time < run.coolUntil {
 		return
 	}
+	r := mdDice()
+	if r.Float64() >= mdBeepP {
+		run.coolUntil = g.time + 3 // a quiet crossing: the next one a little later
+		return
+	}
 	run.trips++
 	run.coolUntil, run.alarmUntil = g.time+mdCooldown, g.time+mdAlarmT
-	run.target, run.chaser, run.cop = p, nil, nil
+	run.target = p
 	g.mdSfx()
 	if g.snd != nil && g.snd.sfx != nil {
 		g.snd.Play("metaldet")
 	}
 	g.say(mdSayLine[0])
-	r := mdDice()
-	if gd := g.mdNearestGuard(p.pos); gd != nil {
-		gd.state, gd.timer = gdReact, mdReact
-		if dist(gd.pos, p.pos) < 70 {
-			gd.timer += 0.6 // right beside him: a little longer to react
+	goesOn := run.step > 0 && g.time-run.lastAlarm <= mdFollowT
+	run.lastAlarm = g.time
+	switch {
+	case run.called:
+		return // the police already came for the arches once: they only blink now
+	case goesOn && run.step >= 1:
+		run.step = 2
+		run.called = true
+		if !g.dbg.noPolice {
+			g.raisePolice(run.door.Center(), false) // like a guard on the phone: the place, never the handcuffs
 		}
+		return
+	}
+	run.step = 1
+	if gd := run.chaser; gd != nil && !gd.dead && gd.state == gdInvestigate {
+		return // the guard sent before is still on his way: nobody else
+	}
+	run.chaser, run.cop = nil, nil
+	if gd := g.mdNearestGuard(p.pos); gd != nil {
+		gd.state = gdInvestigate
+		gd.path = g.lvl.Path(gd.pos, g.lvl.NearestFree(run.door.Center()))
 		gd.icon, gd.iconT = pevPick(r, mdGuardLines), 2
-		gd.lastSeen, gd.path = p.pos, nil
-		gd.chaseT, gd.lost, gd.sight = 0, 0, 1.6
 		run.chaser = gd
-		run.markUntil = g.time + mdMarkMax
 		return
 	}
 	if c := g.mdNearestCop(p.pos); c != nil {
@@ -299,10 +318,7 @@ func (g *Game) mdTrip(run *mdRun, p *Player) {
 		c.path = g.lvl.Path(c.pos, run.door.Center())
 		c.icon, c.iconT = mdCopLines[0], 2
 		run.cop = c
-		run.markUntil = g.time + mdCopMark
-		return
 	}
-	run.markUntil = g.time + mdAlarmT
 }
 
 // mdNearestGuard: the nearest guard who can come (not VIP staff, not asleep, not already chasing).

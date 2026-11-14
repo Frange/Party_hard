@@ -13,7 +13,7 @@ package main
 // It is shown in the bottom right corner of the main menu, in Settings > Credits and in the window title.
 // ---------------------------------------------------------------------------
 
-const gameVersion = "1.3.0"
+const gameVersion = "1.4.0"
 
 // versionLabel: how the version is written on screen ("v.1.0.0", the owner's style).
 func versionLabel() string { return "v." + gameVersion }

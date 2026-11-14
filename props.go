@@ -196,7 +196,11 @@ func init() {
 		b.rect(3, 9, 6, 2, c(0xfff0b0))
 		b.rect(3, 48, 6, 4, c(0x2a2a34))
 	}}
-	pk["tree"] = &PropKind{W: 56, H: 72, FW: 10, FH: 6, Draw: func(b *pixBuf, v int) {
+	pk["tree"] = &PropKind{W: 56, H: 72, FW: 10, FH: 6, Vars: treeVars, Draw: func(b *pixBuf, v int) {
+		if v%treeVars > 0 { // oaks, firs, cherry, twisted pine... (treeart.go)
+			drawTreeVar(b, v%treeVars)
+			return
+		}
 		b.rect(24, 48, 8, 24, c(0x6a4228))
 		b.rect(24, 48, 2, 24, c(0x8a5a36))
 		b.ellipse(28, 42, 20, 6, c(0x1e5028))
@@ -208,7 +212,11 @@ func init() {
 		b.ellipse(26, 30, 7, 5, c(0x3a8a44))
 	}}
 	pk["palm"] = &PropKind{W: 48, H: 72, FW: 8, FH: 6, Vars: 4, Draw: drawPalm} // palmart.go
-	pk["bush"] = &PropKind{W: 34, H: 28, FW: 26, FH: 9, Hide: true, Draw: func(b *pixBuf, v int) {
+	pk["bush"] = &PropKind{W: 34, H: 28, FW: 26, FH: 9, Hide: true, Vars: bushVars, Draw: func(b *pixBuf, v int) {
+		if v%bushVars > 0 { // round, flowering, berries, dry, blossom (treeart.go)
+			drawBushVar(b, v%bushVars)
+			return
+		}
 		b.ellipse(17, 18, 16, 9, c(0x1e5028))
 		b.ellipse(10, 14, 9, 8, c(0x2a6a34))
 		b.ellipse(24, 14, 9, 8, c(0x2e7a3a))

@@ -63,7 +63,7 @@ var levelDefs []*LevelDef
 var doorLog []Door
 
 func classicLevels() []*LevelDef {
-	return []*LevelDef{level1(), level2(), level3(), level4(), level5()}
+	return []*LevelDef{level1(), level2(), level3(), level4()} // (v1.4.0: the 5th, the ranch, became BARCELONA: barcelona.go)
 }
 
 // extraLevels are the venues that are not one of the 20 fixed campaign
@@ -139,7 +139,7 @@ func level1() *LevelDef {
 		P("table", 190, 287), P("table", 246, 319), P("bar", 206, 343), P("plant", 142, 343),
 		// living room
 		P("dj", 440, 126), P("speaker", 352, 122), P("speaker", 530, 122),
-		PV("couch", 342, 337, 1), PV("couch", 520, 337, 0), P("punch", 430, 340),
+		PV("couch", 342, 337, 1), PV("couch", 520, 337, 0), P("punch", 420, 298), // the punch in the middle of the room, by the dance floor (v1.4.0)
 		P("phone", 566, 311), P("plant", 314, 159), P("plant", 560, 159), P("tv", 330, 255),
 		// lounge
 		P("fireplace", 700, 119), PV("couch", 630, 196, 2), PV("couch", 790, 196, 0), P("plant", 600, 135), P("table", 710, 175),
@@ -331,91 +331,6 @@ func level4() *LevelDef {
 		{Vec{300, 120}, color.RGBA{120, 40, 190, 200}, 80, true}, {Vec{660, 120}, color.RGBA{40, 80, 200, 200}, 80, true},
 		{Vec{480, 220}, color.RGBA{90, 30, 110, 130}, 110, true},
 	}
-	d.Doors = append(d.Doors, doorLog...)
-	return d
-}
-
-// ---------------------------------------------------------------------------
-// 5. Bull's Eye ranch
-// ---------------------------------------------------------------------------
-func level5() *LevelDef {
-	doorLog = nil
-	d := &LevelDef{
-		Title: "BULL'S EYE",
-		Intro: "Un rancho perdido y una fiesta con botas. Nadie oirá los gritos.",
-		W:     960, H: 540, Sky: "none", Police: "car",
-		Tint:    color.RGBA{4, 8, 20, 80},
-		Start:   Vec{200, 500},
-		CarFrom: Vec{1040, 512}, CarTo: Vec{700, 512},
-		Guests: 38, CellSize: 16,
-	}
-	d.Floors = []Floor{
-		F(0, 0, 960, 466, "grass"),
-		F(236, 60, 258, 262, "wood"),
-		F(508, 60, 214, 130, "wood"),
-		F(508, 198, 214, 124, "parquet"),
-		FC(280, 120, 140, 110, "rug", 0x30302e),
-		F(32, 60, 168, 152, "concrete"),
-		F(762, 60, 168, 152, "dirt"),
-		F(400, 322, 130, 150, "dirt"),
-		F(300, 410, 360, 56, "dirt"),
-		F(0, 468, 960, 20, "pave"),
-		F(0, 488, 960, 52, "asphalt"),
-		F(0, 514, 960, 4, "dash"),
-		F(260, 130, 120, 90, "dance"),
-	}
-	d.Walls = walls(
-		hw(230, 730, 60, 16, WallWood),
-		vw(230, 60, 330, 8, WallWood),
-		vw(722, 60, 330, 8, WallWood),
-		hw(230, 730, 322, 16, WallWood, [2]float64{420, 520}),
-		vw(500, 76, 322, 8, WallWood, [2]float64{110, 170}, [2]float64{236, 296}),
-		hw(508, 722, 190, 14, WallWood, [2]float64{590, 650}),
-		hw(24, 208, 60, 14, WallWood),
-		vw(24, 60, 220, 8, WallWood),
-		vw(200, 60, 220, 8, WallWood),
-		hw(24, 208, 212, 14, WallWood, [2]float64{90, 150}),
-		hw(754, 938, 60, 14, WallWood),
-		// a side door out of the stable, besides the one at the front
-		vw(754, 60, 220, 8, WallWood, [2]float64{120, 190}),
-		vw(930, 60, 220, 8, WallWood),
-		hw(754, 938, 212, 14, WallWood, [2]float64{820, 880}),
-		hw(0, 960, 462, 8, WallFence, [2]float64{360, 560}),
-		vw(0, 0, 462, 8, WallFence),
-		vw(952, 0, 462, 8, WallFence),
-	)
-	d.Props = []PropInst{
-		// saloon
-		P("bar", 360, 108), P("barrel", 280, 110), PV("bookshelf", 262, 130, 0), P("table", 330, 270), P("table", 410, 290), P("table", 260, 300), P("stool", 330, 288),
-		PV("stool", 410, 306, 0), P("speaker", 470, 100),
-		P("fireplace", 600, 108), PV("couch", 540, 170, 3), P("table", 660, 160), P("plant", 700, 110),
-		PV("bed", 650, 292, 0), P("closet", 540, 260), P("closet", 700, 260), P("plant", 520, 300),
-		P("phone", 480, 310),
-		// garage
-		P("crate", 60, 120), P("crate", 90, 130), P("barrel", 170, 110), PV("car", 110, 190, 3), P("phone", 40, 80),
-		// barn
-		P("haystack", 800, 120), P("haystack", 890, 120), P("crate", 910, 190),
-		// yard
-		P("tree", 120, 330), P("bush", 60, 400), P("bush", 160, 420), P("tree", 90, 270),
-		P("bush", 840, 260), P("bush", 700, 400), P("bush", 900, 420), P("barrel", 770, 270),
-		P("fruitstand", 560, 440), PV("motorbike", 640, 420, 1), P("arch", 460, 452), P("sign", 700, 450),
-		P("lamp", 210, 240), P("lamp", 740, 240), P("lamp", 360, 340), P("lamp", 560, 340),
-		P("dumpster", 220, 410), P("tree", 640, 340),
-	}
-	d.Performers = []Perf{{Vec{420, 90}, "guitar", DirDown}, {Vec{300, 96}, "sing", DirDown}, {Vec{445, 152}, "dj", DirDown}}
-	d.Props = append(d.Props, P("dj", 445, 170))
-	yard := R(730, 240, 200, 190)
-	d.Animals = []AnimalSpawn{
-		{"horse", Vec{800, 330}, yard}, {"horse", Vec{880, 290}, yard}, {"horse", Vec{840, 160}, R(770, 90, 150, 110)},
-		{"hen", Vec{760, 380}, yard}, {"hen", Vec{820, 400}, yard}, {"hen", Vec{900, 370}, yard}, {"hen", Vec{860, 260}, yard},
-		{"hen", Vec{60, 300}, R(14, 230, 210, 200)}, {"hen", Vec{120, 380}, R(14, 230, 210, 200)}, {"hen", Vec{180, 300}, R(14, 230, 210, 200)},
-		{"chick", Vec{90, 320}, R(14, 230, 210, 200)}, {"chick", Vec{140, 340}, R(14, 230, 210, 200)}, {"chick", Vec{160, 390}, R(14, 230, 210, 200)}, {"cat", Vec{200, 420}, R(14, 230, 210, 200)}, {"bull", Vec{780, 190}, R(770, 90, 150, 110)},
-		{"dog", Vec{200, 340}, R(14, 230, 210, 200)},
-	}
-	d.Roam = []Rect{R(240, 130, 250, 180), R(512, 70, 206, 110), R(512, 202, 206, 112), R(28, 70, 166, 130), R(766, 70, 160, 130),
-		R(14, 230, 210, 200), R(236, 335, 460, 120), R(720, 230, 220, 200), R(100, 470, 800, 16)}
-	d.Dance = []Rect{R(266, 140, 108, 70)}
-	d.Guards = [][]Vec{{{150, 300}, {150, 400}}, {{860, 250}, {860, 400}}}
 	d.Doors = append(d.Doors, doorLog...)
 	return d
 }

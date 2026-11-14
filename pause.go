@@ -164,9 +164,9 @@ func (g *Game) pauseChoose(row int) {
 		lvl := g.levelIdx
 		g.banked = true // abandoned: its points are not banked (loadLevel would bank them)
 		g.loadLevel(0)
-		g.menuSel = clampI(g.progress.Unlocked-1, 0, campaignN-1)
-		if lvl >= 0 && lvl < campaignN && lvl < g.progress.Unlocked {
-			g.menuSel = lvl
+		g.menuSel = g.campaignMenuSel()
+		if s := campaignSlotOf(lvl); s >= 0 && lvl < g.progress.Unlocked {
+			g.menuSel = s // the row of the abandoned party (campaign_retired.go)
 		}
 		g.mode = ModeLevelSelect
 	}

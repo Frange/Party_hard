@@ -53,7 +53,7 @@ func ambGame(t *testing.T, level int, seed int64, two bool) *Game {
 
 // ambLevels: an ordinary road party, the funfair, the pirate ship, the space station and the island.
 func ambLevels(t *testing.T) []int {
-	return []int{0, 7, pirateIdx, specialJurassic, len(campaignLevels) - 1}
+	return []int{0, campaignIdx("funfair"), pirateIdx, specialJurassic, len(campaignLevels) - 1}
 }
 
 // ambBodies kills n ordinary guests where they stand and has them found.
@@ -273,7 +273,7 @@ func TestPoliceOnlyCoverNeverCarry(t *testing.T) {
 	}
 }
 
-// After covering, each officer searches 10-15 s (each towards a different place) and goes back
+// After covering, each officer searches 10-15 s (each towards a different place) and goes back with his crew
 // when nobody is suspected.
 func TestPoliceSearch10to15sThenLeave(t *testing.T) {
 	for _, lv := range []int{0, 7, 12} {
@@ -312,8 +312,20 @@ func TestPoliceSearch10to15sThenLeave(t *testing.T) {
 						if closed || g.caseHasSuspect() || strings.ContainsAny(hist[c], "JM") { // a suspect taken: the case closed
 							continue
 						}
-						if c.searchT < 10 || c.searchT > 15.2 {
-							t.Fatalf("level %d: an officer went back after %.1fs of search (max %.1f, onScene %.1f, kind %d, t %.1f, states %s, resp %d)", lv, c.searchT, c.maxSearch, c.onSceneT, c.kind, g.time, hist[c], g.respKind)
+						// the crew goes back complete (copcrew.go, 2026-11-12): an officer who is done may go on searching
+						// until his last mate is done, so the 10-15 s hold for the last one of the crew, and they all
+						// leave in the same frame
+						last := c.searchT
+						for _, o := range g.cops {
+							if o.veh == c.veh && !o.medic {
+								if o.state != cLeave {
+									t.Fatalf("level %d: an officer left without his mate (mate state %d)", lv, o.state)
+								}
+								last = math.Min(last, o.searchT)
+							}
+						}
+						if c.searchT < 10 || last > 15.2 {
+							t.Fatalf("level %d: an officer went back after %.1fs of search (last of the crew %.1f, max %.1f, onScene %.1f, kind %d, t %.1f, states %s, resp %d)", lv, c.searchT, last, c.maxSearch, c.onSceneT, c.kind, g.time, hist[c], g.respKind)
 						}
 					}
 				}

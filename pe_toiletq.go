@@ -25,7 +25,7 @@ import (
 // toilet), 20 %, between 60 and 240 s, once. Group "wc".
 // ---------------------------------------------------------------------------
 
-var toiletqIcons = map[string]bool{"festival": true, "funfair": true, "beach": true, "ranch": true}
+var toiletqIcons = map[string]bool{"festival": true, "funfair": true, "beach": true}
 
 const (
 	tqSlot    = 13.0 // pixels between two people in the line

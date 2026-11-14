@@ -7,7 +7,7 @@
 // writes releases/manifest-<version>-<mac|win>.json (relative path, size, sha256 and mode of every file of
 // the zip; sorted, no dates, no local paths). The version is read from VERSION.txt inside the zip.
 //
-// Patch from an older version to the built one (or use ./mkpatch.sh <base> from the project root):
+// Patch from 1.0.0 to the built one (or use ./mkpatch.sh from the project root; owner's policy: one patch from 1.0.0, none between versions):
 //
 //	go -C tools/mkpatch run . -from 1.0.0 [-to 1.0.1] -mac <zip> -win <zip> -dir <releases> -out <folder>
 //

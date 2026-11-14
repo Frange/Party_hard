@@ -103,7 +103,7 @@ func (g *Game) unlockNext() {
 		return
 	}
 	if g.progress.Unlocked < campaignN {
-		g.progress.Unlocked++
+		g.progress.Unlocked = campaignFrontier(g.progress.Unlocked + 1) // a retired party is skipped (campaign_retired.go)
 		saveProgress(g.progress)
 	}
 }

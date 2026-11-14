@@ -43,7 +43,8 @@ func propPriority(name string) int {
 	switch name {
 	case "stage", "jp_gate", "booth", "bungalow", "stands", "eiffel", "ferris", "carousel", "coaster", "chalet", "crypt", "goal", "goalv",
 		"screen", "halfpipe", "skatebowl", "lift", "igloo", "jp_lab", "jp_rotunda", "jp_tower", "jp_control", "jp_lighthouse", "fountain",
-		"lifeguard", "liberty", "obelisk", "tent":
+		"lifeguard", "liberty", "obelisk", "tent",
+		"gdl_fountain", "gdl_park", "gdl_pergola": // the landmarks of GUADALAJARA: no VIP carpet sweeps them away
 		return 4
 	case "phone", "techphone", "toilet", "portapotty", "dj", "bar", "punch", "buffet", "bowl", "checkout", "jukebox", "stall",
 		"poisonbottle", "disguisebag":

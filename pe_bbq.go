@@ -83,10 +83,21 @@ func bbqStart(g *Game, a *partyAct) bool {
 		if !found {
 			continue
 		}
+		// the cook: the free guest with the SHORTEST WALK (not the nearest as the crow flies: from inside a house the
+		// grill behind a wall is a long way round), and only one who gets there in time (bbqWalkMax)
 		var cook *Guest
+		best := guestSpeed * bbqWalkMax * 0.8
 		for _, gu := range g.guests {
-			if g.pevFreeGuest(gu) && (cook == nil || dist(gu.pos, spot) < dist(cook.pos, spot)) && g.lvl.PathG(gu.pos, spot) != nil {
-				cook = gu
+			if !g.pevFreeGuest(gu) || dist(gu.pos, spot) >= best {
+				continue
+			}
+			path := g.lvl.PathG(gu.pos, spot)
+			n := pevPathLen(path, gu.pos)
+			if path == nil && dist(gu.pos, spot) <= 6 { // already there
+				n = dist(gu.pos, spot)
+			}
+			if n < best {
+				cook, best = gu, n
 			}
 		}
 		if cook == nil {
@@ -210,10 +221,25 @@ func drawFlamePix(plot plotFn, x, y, px int, t, u float64) {
 		if hh < 2 {
 			continue
 		}
-		plot(x+i*2*px, y-hh*px, w*px+px, hh*px, color.RGBA{0xff, 0x6a, 0x1a, 255})
-		plot(x+i*2*px, y-(hh*2/3)*px, w*px, (hh*2/3)*px, color.RGBA{0xff, 0xc8, 0x30, 255})
+		// layered like the other fires (fire_art.go): dark red rim, red, orange, yellow
+		plot(x+i*2*px-px, y-hh*px+px, w*px+3*px, hh*px-px, fireRamp[5])
+		plot(x+i*2*px, y-hh*px, w*px+px, hh*px, fireRamp[4])
+		plot(x+i*2*px, y-(hh*4/5)*px, w*px+px, (hh*4/5)*px, fireRamp[3])
+		plot(x+i*2*px, y-(hh*3/5)*px, w*px, (hh*3/5)*px, fireRamp[1])
 	}
-	plot(x-px, y-h/3*px, 3*px, h/3*px, color.RGBA{0xff, 0xf4, 0xb0, 255})
+	plot(x-px, y-h/3*px, 3*px, h/3*px, fireRamp[0])
+	for i := 0; i < 3; i++ { // sparks that rise and die out
+		v := fireFrac(t*1.3 + float64(i)/3)
+		if v > 0.85 {
+			continue
+		}
+		col := fireRamp[1]
+		if v > 0.5 {
+			col = fireRamp[4]
+		}
+		sx := x + int(math.Round(math.Sin(float64(i)*2.1+v*5)*5))*px
+		plot(sx, y-(h+2+int(v*12))*px, px, px, col)
+	}
 }
 
 // drawCookKitPix: the cook's hat and apron on a guest whose feet are at (cx, cy); headTop is the top of his head.

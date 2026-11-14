@@ -639,20 +639,44 @@ func (l *Level) RandomIn(rng *rand.Rand, r Rect) Vec {
 	return l.NearestFree(r.Center())
 }
 
+// roamTopY: no place to wander to (nor to appear at) has its feet higher than this: a guest walking along the very top
+// of the screen is hardly seen (his head is cut by the border). The roaming areas are cut there (v1.4.0); a level whose
+// areas are all above it keeps them as they are.
+const roamTopY = 64.0
+
+// roamRects: the roaming areas with the top band cut off.
+func (l *Level) roamRects() []Rect {
+	var out []Rect
+	for _, r := range l.Def.Roam {
+		if r.Y < roamTopY {
+			r.H -= roamTopY - r.Y
+			r.Y = roamTopY
+		}
+		if r.H >= 4 && r.W > 0 {
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return l.Def.Roam
+	}
+	return out
+}
+
 func (l *Level) RandomRoam(rng *rand.Rand) Vec {
+	rects := l.roamRects()
 	// weight by area
 	total := 0.0
-	for _, r := range l.Def.Roam {
+	for _, r := range rects {
 		total += r.W * r.H
 	}
 	t := rng.Float64() * total
-	for _, r := range l.Def.Roam {
+	for _, r := range rects {
 		t -= r.W * r.H
 		if t <= 0 {
 			return l.RandomIn(rng, r)
 		}
 	}
-	return l.RandomIn(rng, l.Def.Roam[0])
+	return l.RandomIn(rng, rects[0])
 }
 
 func (l *Level) InPool(p Vec) bool {
@@ -674,7 +698,7 @@ func (l *Level) Outdoor(p Vec) bool {
 		}
 	}
 	switch kind {
-	case "grass", "dirt", "sand", "cobble", "pave", "asphalt", "dash", "pitch", "arena", "boardwalk", "deck", "rooftop", "rooftop2", "snow", "chalk", "edge", "rails", "galleon", "":
+	case "grass", "dirt", "sand", "cobble", "pave", "asphalt", "dash", "pitch", "arena", "boardwalk", "deck", "rooftop", "rooftop2", "snow", "chalk", "edge", "rails", "galleon", "alcala", "guadalajara", "barcelona", "paris", "":
 		return true
 	}
 	return false

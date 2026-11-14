@@ -113,10 +113,12 @@ func TestInterludesAfterLevels5And10(t *testing.T) {
 	if k, ok := g.interludeAfter(4); !ok || k != interCar {
 		t.Error("after the bull ring there must be the car interlude")
 	}
+	// v1.4.0: ALCALÁ DE HENARES is the 7th party and the disco (index 10) is retired; the boat comes after the 10th
+	// party of the list (the stadium, index 9)
 	if k, ok := g.interludeAfter(9); !ok || k != interBoat {
-		t.Error("after the disco there must be the boat interlude")
+		t.Error("after the stadium (10th party of the list) there must be the boat interlude")
 	}
-	for _, i := range []int{0, 3, 5, 8, 10, 20} {
+	for _, i := range []int{0, 3, 5, 6, 8, 10, 11, 20} {
 		if _, ok := g.interludeAfter(i); ok {
 			t.Errorf("level %d should not have an interlude", i)
 		}

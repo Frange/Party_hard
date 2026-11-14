@@ -14,7 +14,7 @@ import (
 //     (kidStreetFit: open ground connected to the party; never the space station, the pirate ship or the island). A
 //     party with no room passes the turn to the next one, and the count goes on from there. The SKATE PARK always
 //     has them (its bowls, skater_park.go), outside the rhythm. Today (26 parties): 1 3 5 7 9 11 (12 skate) 13 15
-//     17 19 22 24 (the train station has no open ground: 21 passes to 22; the hockey rink and the pirate ship none). Random mode: the same answer as the
+//     17 19 22 24 (the train station has no open ground: 21 passes to 22; the pirate ship none; the hockey rink has ground since v1.4.0 but falls right after 24). Random mode: the same answer as the
 //     campaign party of the same title; a venue that is not in the campaign gets them when its title hashes odd and
 //     it has room (kidStreetOnFor).
 //   - WHERE: on the open ground of the level (pavements, squares, gardens, beach...: Level.Outdoor), never on a
@@ -49,7 +49,7 @@ var kidStreetNo = map[string]bool{"station": true, "pirate": true}
 var kidStreetFit = map[string]bool{"house": true, "beach": true, "neon": true, "ranch": true, "bull": true,
 	"eiffel": true, "boat": true, "funfair": true, "stadium": true, "disco": true, "festival": true, "grave": true,
 	"cinema": true, "circuit": true, "snow": true, "roof": true, "casino": true, "highway": true, "italy": true,
-	"cake": true, "disco70": true}
+	"cake": true, "hockey": true, "disco70": true, "alcala": true, "guadalajara": true} // hockey: open since its two doors (v1.4.0); it falls right after the birthday, so the rhythm skips it
 
 // kidStreetCampaign: for every campaign index, whether the three ride there (the fixed rule).
 func kidStreetCampaign() []bool {

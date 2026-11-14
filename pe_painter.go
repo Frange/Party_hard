@@ -34,7 +34,7 @@ const (
 )
 
 // painterIcons: the parties with a facade or a high outdoor wall where the ladder fits (checked by TestPmEventsFitSomeLevelsAndStart).
-var painterIcons = map[string]bool{"house": true, "ranch": true, "cake": true}
+var painterIcons = map[string]bool{"house": true, "cake": true} // (v1.4.0: the ranch became BARCELONA, an open square)
 
 var (
 	pntrLines     = pevTexts("Un poco más a la izquierda...", "Esta pared quedará preciosa", "¡Cuidado con el bote!", "Pintura fresca, ¿eh?", "No me mováis la escalera")

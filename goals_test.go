@@ -254,7 +254,8 @@ func TestKillerNoGuaranteeWhenAllGot(t *testing.T) {
 	}
 }
 
-// The rate of parties with a killer is the old one (~0.18, never back to back) when no killer is ever killed.
+// The rate of parties with a killer is the base one (killerChance 0.30 since v1.4.0: ~0.23, never back to back) when
+// no killer is ever killed.
 func TestKillerBaseRateUnchangedByTheGuarantee(t *testing.T) {
 	g := goalsGame(t)
 	g.progress.KillerWait = 0
@@ -270,8 +271,8 @@ func TestKillerBaseRateUnchangedByTheGuarantee(t *testing.T) {
 		}
 		prev = g.kp.planned
 	}
-	if rate := float64(hits) / 4000; rate < 1.0/7 || rate > 1.0/4.5 {
-		t.Errorf("base rate %.3f, want about 0.18", rate)
+	if rate := float64(hits) / 4000; rate < 0.20 || rate > 0.26 {
+		t.Errorf("base rate %.3f, want about 0.23", rate)
 	}
 }
 

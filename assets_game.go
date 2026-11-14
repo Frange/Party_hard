@@ -16,6 +16,7 @@ import (
 
 // applyObjects registers the objects found on disk as prop kinds (they replace built-ins of the same name).
 func applyObjects(objs []*ObjAsset) {
+	propAnimRemember() // the built-in kinds of the moving props, before the assets replace them (propanim.go)
 	for _, oa := range objs {
 		m := oa.Meta
 		if m.Name == "phone" {
@@ -390,8 +391,10 @@ func (g *Game) rebuildLevels() {
 		}
 		levelDefs = defs
 		campaignN = len(defs) // custom background sets replace the campaign wholesale
+		campaignCustom = true // ...and nothing of theirs is retired (campaign_retired.go)
 	} else {
 		levelDefs = builtinLevels()
+		campaignCustom = false
 	}
 	g.baseN = len(levelDefs)
 }

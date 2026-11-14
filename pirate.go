@@ -163,6 +163,13 @@ func genPirate(rng *rand.Rand) *LevelDef {
 	pl.at("ptreasure", 826, 290, 0)
 	pl.at("plantern", 818, 238, 0)
 
+	// gunpowder with dynamite (a trap) and loot spilled on the planks (pirate_more_props.go)
+	pl.at("pdynamite", 560, 266, 0)
+	pl.at("pdynamite", 786, 332, 0)
+	pl.at("pgold", 168, 344, 0)
+	pl.at("pgold", 612, 360, 1)
+	pl.at("pgold", 600, 494, 0)
+
 	// the dock: crates, a barrel, mooring posts and a lantern
 	pl.at("crate", 346, 482, 0)
 	pl.at("pbarrel", 374, 480, 0)

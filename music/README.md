@@ -26,32 +26,39 @@ Every party has its own genre. When there is no mp3 for a party the game plays i
 | 1 | House party | Living-room kegger | House |
 | 2 | Miami Beach | Lawless beach shack | Reggaeton |
 | 3 | Glow Neon | Neon rave | Synthwave |
-| 4 | Diana (ranch) | Bonfire in boots | Country |
+| 4 | Barcelona | Rumba in the square | Reggaeton (Latin, for the rumba) |
 | 5 | Bullring | Cape and capers bash | Pasodoble / flamenco |
-| 6 | Eiffel Tower | Black-tie waltz dinner | Classical (waltz) |
-| 7 | Night cruise | The captain's bash | Disco |
-| 8 | Funfair | Fairground, no seatbelt | Chiptune |
-| 9 | Stadium | Cup final blowout | Pop |
-| 10 | Disco club | Sunrise session | Techno |
-| 11 | Festival | Mud festival | Electronic |
-| 12 | Skate park | Bowl jam | Punk |
-| 13 | Cemetery | Wake with riffs | Metal |
-| 14 | Cinema | Late-night screening | Orchestral |
-| 15 | Circuit | Brakeless race | Electronic |
-| 16 | Ski resort | Après-ski with cocoa | Pop |
-| 17 | Rooftop | Rooftop pool bash | Hip-hop (lo-fi) |
-| 18 | Casino | Black-tie night | Jazz (swing) |
-| 19 | Motorway | Traffic jam with speakers | Rock |
-| 20 | Italy | Pasta, amore and chaos | Classical (opera) |
-| 21 | Train station | Ticketless party | Rap (boom bap) |
-| 22 | Birthday party | Candle-blowing mayhem | Pop |
-| 23 | Hockey rink | Overtime without a referee | Rock |
-| 24 | 70s disco | Bell-bottom fever | Disco |
-| 25 | Space station | Zero-gravity rave | Electronic |
+| 6 | Paris (was Eiffel Tower) | Black-tie waltz dinner | Classical (waltz) |
+| 7 | Alcalá de Henares | Town fiesta with storks | Pasodoble / flamenco |
+| 8 | Night cruise | The captain's bash | Disco |
+| 9 | Funfair | Fairground, no seatbelt | Chiptune |
+| 10 | Stadium | Cup final blowout | Pop |
+| 11 | Disco club | Sunrise session | Techno |
+| 12 | Festival | Mud festival | Electronic |
+| 13 | Skate park | Bowl jam | Punk |
+| 14 | Cemetery | Wake with riffs | Metal |
+| 15 | Cinema | Late-night screening | Orchestral |
+| 16 | Guadalajara | Street party with honey and bandstand | Pasodoble / flamenco |
+| 17 | Circuit | Brakeless race | Electronic |
+| 18 | Ski resort | Après-ski with cocoa | Pop |
+| 19 | Rooftop | Rooftop pool bash | Hip-hop (lo-fi) |
+| 20 | Casino | Black-tie night | Jazz (swing) |
+| 21 | Motorway | Traffic jam with speakers | Rock |
+| 22 | Italy | Pasta, amore and chaos | Classical (opera) |
+| 23 | Train station | Ticketless party | Rap (boom bap) |
+| 24 | Birthday party | Candle-blowing mayhem | Pop |
+| 25 | Hockey rink | Overtime without a referee | Rock |
+| 26 | 70s disco | Bell-bottom fever | Disco |
+| 27 | Pirate ship | Boarding party with rum | Epic |
+| 28 | Space station | Zero-gravity rave | Electronic |
 | – | Isla Nublada (secret) | Last Cretaceous party | Epic orchestral (wonder and danger) |
 
-Italy (20) was added right after the Motorway: files numbered 1 to 19 keep their party; files you had numbered 20 to 24
-belong one number later now (rename them +1). A file of another style is ignored anyway (see below).
+Italy (now 22) was added right after the Motorway, Alcalá de Henares (7, v1.4.0) right after the Eiffel Tower (now Paris) and
+Guadalajara (16, v1.4.0, the 14th party of the list) right after the Cemetery: files numbered 1 to 6 keep their party; a
+file you had numbered 7 to 14 belongs one number later now (+1), and one numbered 15 or more two numbers later (+2) if
+it was named before Alcalá; if you had already renumbered it for Alcalá, only the files numbered 16 or more move (+1). A file of
+another style is ignored anyway (see below). The number is the place of the party in the campaign, counting the two parties
+that are no longer played (Disco club 11, Cinema 15).
 
 The level select shows "kind of party · genre" under the name of every party, and the title card of the party shows the
 kind and the music (`Música: ...`) for a few seconds.
@@ -76,7 +83,7 @@ patch lists them in REMOVIDOS.txt) and, if a copy is still there, it is skipped.
 `./PartyHardy -exportmusic music -musicbatch 3` writes files already named with their style.
 
 The random-mode venues use Rock (pub), Pasodoble (European square) and Pop (mall). When the DJ dies one of six songs written
-for it takes over (lounge, funk, ballad, soft disco, ambient, bossa: `songs_afterdj.go`, about 70-100 s each, with
+for it takes over (fast funk, big beat, ska, salsa, disco funk, surf rock: `songs_afterdj.go`, about 60-66 s each, with
 sections, a tune and drums that change; never the same song twice in a row; an mp3 of yours in `DJ/` wins);
 a band of its own style (Metalica = metal, The Beetles = pop, Elviz = country, Lost Profets and Despistaus = rock) plays
 its genre, and the punk bands play the style of the party.

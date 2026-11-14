@@ -296,6 +296,12 @@ func (g *Game) killAnimal(a *Animal) {
 		}
 	}
 	a.dead = true
+	// an animal killed by the player's hand or by his trap counts for his RACHA too (streak.go, 2026-11-12)
+	cause := kcKnife
+	if g.credit {
+		cause = kcTrap
+	}
+	g.streakKill(g.statPlayer(cause))
 	g.award(a.pos, 10+5*b2i(a.kind == animSnake), "")
 	a.icon, a.state = "", aIdle
 	g.decals = append(g.decals, Decal{pos: a.pos, kind: 0, r: 5 + g.rng.Float64()*3})

@@ -8,19 +8,19 @@ import (
 
 // ---------------------------------------------------------------------------
 // The music after the DJ dies. It used to be punk from the old step sequencer:
-// a kick on every beat and an 8-bar loop ("chunta chunta"). Now it is six songs
-// written here: lounge, funk, a ballad, soft disco, ambient and bossa. Each one
-// has 32 bars in four sections (intro A, A answered a third higher, B with other
-// chords, a break and the theme again), a tune made from a motif that follows the
-// chords, and a drum part that changes by section: rests, syncopations, fills and
-// whole bars without a kick. One plays at random when the DJ dies, never the same
-// as the last one; when the song changes it is another one.
+// a kick on every beat and an 8-bar loop ("chunta chunta"); then six soft songs (lounge, ballad, ambient...) that
+// sounded too tame. Now it is six lively songs written here: fast funk, big beat, ska, salsa, disco funk and surf
+// rock, 116-126 bpm. Each one has 32 bars in four sections (intro A, A answered a third higher, B with other chords
+// and a build-up, a break and the theme again), a tune made from a motif that follows the chords, a busy bass, and
+// a drum part that changes by section: syncopated kicks (seldom four to the floor), ghost notes, claps, fills and
+// a crash on every new section. One plays at random when the DJ dies, never the same as the last one; when the
+// song changes it is another one.
 // ---------------------------------------------------------------------------
 
 const (
 	tdjBars = 32   // 4 sections of 8 bars
 	tdjRest = -999 // a rest in a motif
-	tdjRMS  = 0.14 // a bit quieter than the music of the parties (finishGenre uses 0.17)
+	tdjRMS  = 0.15 // a touch under the music of the parties (finishGenre uses 0.17)
 )
 
 // tdjCtx: where a bar is and which chord it plays.
@@ -201,338 +201,393 @@ func tdjPick(i int, p ...string) string { return p[i%len(p)] }
 
 var tdjSilent = dots(16)
 
+// tdjCrash: a crash at the start of every section and of the last theme.
+func tdjCrash(c tdjCtx) string {
+	if (c.sec > 0 && c.bar == 0) || (c.sec == 3 && c.bar == 4) {
+		return "x..............."
+	}
+	return tdjSilent
+}
+
 // tdjSongs: the songs after the DJ, in the order of afterDJPlaylist.
 var tdjSongs []tdjSong
 
 func init() {
-	// ---- lounge: a soft horn over a jazzy piano, brushes and a rim (F major)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_lounge", bpm: 92, sc: scFMajor, swing: 2, echo: 0.75, fb: 0.3, wet: 0.18,
-		prog: [4][8]int{{0, 5, 1, 4, 0, 5, 1, 4}, {0, 5, 1, 4, 3, 2, 1, 4}, {3, 2, 1, 5, 3, 2, 1, 4}, {1, 4, 0, 5, 1, 4, 0, 0}},
+	// ---- fast funk: a slapped sixteenth bass, guitar chops, a brass hook, claps and ghost notes (E dorian, written in D major)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_funk", bpm: 116, sc: scDMajor, swing: 2, echo: 0.375, fb: 0.18, wet: 0.08,
+		prog: [4][8]int{{1, 1, 4, 4, 1, 1, 4, 4}, {1, 1, 4, 4, 1, 1, 3, 4}, {3, 2, 5, 4, 3, 2, 5, 4}, {1, 4, 1, 4, 3, 2, 1, 4}},
 		layers: []tdjLayer{
-			{"horn", 0.3, true, tdjMelody(65, tdjTune{
-				a:    []tdjM{{1.5, 4}, {0.5, 2}, {1, 0}, {1, tdjRest}},
-				a2:   []tdjM{{0.5, 2}, {0.5, 4}, {1, 7}, {1, 6}, {1, 4}},
-				b:    []tdjM{{2, 4}, {1, 5}, {1, 4}},
-				b2:   []tdjM{{1, 2}, {1, 1}, {2, 0}},
-				cad:  []tdjM{{3, 0}, {1, tdjRest}},
-				fill: []tdjM{{0.5, 4}, {0.5, 5}, {0.5, 4}, {0.5, 2}, {2, 0}}})},
-			{"piano", 0.22, false, func(c tdjCtx) string {
+			{"brass", 0.26, true, tdjMelody(64, tdjTune{
+				a:    []tdjM{{0.5, 0}, {0.25, tdjRest}, {0.25, 2}, {0.5, 4}, {0.5, tdjRest}, {0.25, 5}, {0.25, 4}, {0.5, 2}, {0.5, 4}, {0.5, 7}},
+				a2:   []tdjM{{0.75, 4}, {0.25, 6}, {0.5, 7}, {0.25, tdjRest}, {0.25, 7}, {0.5, 6}, {0.5, 4}, {0.5, 2}, {0.5, 0}},
+				b:    []tdjM{{0.5, 7}, {0.5, 7}, {0.5, 6}, {0.5, 4}, {1, 5}, {0.5, 4}, {0.5, 2}},
+				b2:   []tdjM{{0.25, 4}, {0.25, 5}, {0.5, 4}, {0.5, 2}, {0.5, 4}, {0.5, 5}, {0.5, tdjRest}, {1, 7}},
+				cad:  []tdjM{{0.5, 2}, {0.5, 1}, {0.5, 0}, {0.5, tdjRest}, {0.5, 0}, {1.5, tdjRest}},
+				fill: []tdjM{{0.25, 0}, {0.25, 2}, {0.25, 4}, {0.25, 6}, {0.5, 7}, {0.5, 9}, {1, 7}, {1, tdjRest}}})},
+			{"guitar", 0.18, false, func(c tdjCtx) string {
 				if c.sec == 0 && c.bar < 2 {
-					return tdjRhythm(c.chord, "X:4")
+					return tdjRhythm(c.chord[1:], "X:0.25 R:0.75 X:0.25 R:0.75 X:0.25 R:0.75 X:0.25 R:0.75")
 				}
-				return tdjRhythm(c.chord, tdjPick(c.abs, "X:1.5 X:0.5 R:0.5 X:1 R:0.5", "R:0.5 X:1 R:0.5 X:1.5 R:0.5"))
+				return tdjRhythm(c.chord[1:], tdjPick(c.abs,
+					"X:0.25 R:0.25 X:0.25 X:0.25 R:0.5 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 X:0.25 R:0.5 X:0.25 R:0.25",
+					"R:0.5 X:0.25 R:0.25 X:0.25 X:0.25 R:0.5 X:0.25 R:0.25 X:0.25 X:0.25 R:0.5 X:0.5",
+					"X:0.25 X:0.25 R:0.5 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 X:0.25 R:0.5 X:0.25 R:0.25 X:0.5"))
 			}},
-			{"ebass", 0.42, false, func(c tdjCtx) string {
+			{"synbass", 0.46, false, func(c tdjCtx) string {
+				if c.sec == 3 && c.bar < 2 {
+					return tdjBass(c, "r:0.5 R:0.5 o:0.25 R:0.25 r:0.5 R:0.5 o:0.25 R:0.25 f:0.5 o:0.5")
+				}
+				return tdjBass(c, tdjPick(c.bar+c.sec,
+					"r:0.25 R:0.25 o:0.25 r:0.25 R:0.25 r:0.25 f:0.25 R:0.25 r:0.25 o:0.25 R:0.25 r:0.25 t:0.25 f:0.25 d:0.25 r:0.25",
+					"r:0.5 o:0.25 R:0.25 r:0.25 r:0.25 o:0.5 R:0.25 f:0.25 t:0.25 R:0.25 o:0.5 f:0.25 d:0.25",
+					"r:0.25 r:0.25 R:0.5 o:0.25 R:0.25 r:0.25 R:0.25 f:0.25 R:0.25 t:0.5 u:0.25 t:0.25 f:0.25 o:0.25"))
+			}},
+			{"pad", 0.12, false, func(c tdjCtx) string {
+				if c.sec == 2 {
+					return tdjRhythm(c.chord[:3], "R:1.5 X:0.25 R:0.75 X:0.25 R:1.25")
+				}
+				return "R:4"
+			}},
+		},
+		drums: []tdjDrum{
+			{0.58, func(c tdjCtx) string {
+				switch {
+				case c.sec == 3 && c.bar < 2:
+					return tdjSilent
+				case c.bar == 7:
+					return "k.k...k...k.k.k."
+				}
+				return tdjPick(c.bar+c.sec, "k..k......k..k..", "k.k.......k.....", "k..k....k.k...k.", "k.....k...k..k..")
+			}},
+			{0.44, func(c tdjCtx) string {
 				switch {
 				case c.sec == 0 && c.bar < 2:
-					return "R:4"
-				case c.sec == 0 || (c.sec == 3 && c.bar < 4):
-					return tdjBass(c, "r:2 f:2")
+					return tdjPick(c.bar, tdjSilent, "............n.nn")
+				case c.bar == 7:
+					return "....n..n.nn.nnnn"
 				}
-				return tdjBass(c, tdjPick(c.bar, "r:1 R:0.5 r:0.5 f:1 o:1", "r:1.5 t:0.5 f:1 d:1"))
+				return tdjPick(c.bar, "....n..g.g..n..g", "....n.g...g.n...")
 			}},
-			{"pad", 0.16, false, func(c tdjCtx) string {
-				if c.sec >= 2 || (c.sec == 0 && c.bar < 4) {
+			{0.28, func(c tdjCtx) string { // clap on top in the B part and the last theme
+				if c.sec == 2 || (c.sec == 3 && c.bar >= 4) {
+					return "....c.......c..."
+				}
+				return tdjSilent
+			}},
+			{0.08, func(c tdjCtx) string { return "hhhhhhhhhhhhhhhh" }},
+			{0.09, func(c tdjCtx) string {
+				if c.sec == 0 {
+					return tdjSilent
+				}
+				return tdjPick(c.bar, "......o.......o.", "..o...........o.")
+			}},
+			{0.2, tdjCrash},
+		}})
+
+	// ---- big beat: a saw riff, power-chord stabs, a busy synth bass and breakbeats with snare rolls (C minor)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_bigbeat", bpm: 124, sc: scCMinor, echo: 0.375, fb: 0.2, wet: 0.1,
+		prog: [4][8]int{{0, 0, 5, 6, 0, 0, 5, 6}, {0, 0, 5, 6, 3, 3, 4, 4}, {5, 6, 0, 0, 5, 6, 4, 4}, {0, 0, 0, 0, 0, 5, 6, 4}},
+		layers: []tdjLayer{
+			{"saw", 0.17, true, tdjMelody(60, tdjTune{
+				a:    []tdjM{{0.5, 0}, {0.5, 0}, {0.25, 2}, {0.25, 0}, {0.5, 4}, {0.5, tdjRest}, {0.5, 3}, {0.5, 2}, {0.5, 0}},
+				a2:   []tdjM{{0.75, 4}, {0.25, 4}, {0.5, 6}, {0.5, 7}, {0.5, tdjRest}, {0.5, 6}, {0.5, 4}, {0.5, 2}},
+				b:    []tdjM{{1, 7}, {0.5, tdjRest}, {0.5, 7}, {0.5, 9}, {0.5, 7}, {1, 4}},
+				b2:   []tdjM{{0.25, 4}, {0.25, 5}, {0.25, 4}, {0.25, 2}, {1, 0}, {0.5, tdjRest}, {0.5, 2}, {1, 4}},
+				cad:  []tdjM{{0.5, 4}, {0.5, 2}, {1, 1}, {2, 0}},
+				fill: []tdjM{{0.25, 0}, {0.25, 2}, {0.25, 4}, {0.25, 6}, {0.25, 7}, {0.25, 9}, {0.5, 11}, {2, tdjRest}}})},
+			{"dist", 0.13, false, func(c tdjCtx) string {
+				pw := []int{c.chord[0], c.chord[2]}
+				if c.sec == 0 && c.bar < 2 {
+					return "R:4"
+				}
+				return tdjRhythm(pw, tdjPick(c.abs, "X:0.75 X:0.75 X:0.5 R:1 X:0.5 X:0.5",
+					"X:0.5 R:0.25 X:0.25 R:0.5 X:0.5 R:0.5 X:0.75 X:0.25 R:0.5"))
+			}},
+			{"synbass", 0.44, false, func(c tdjCtx) string {
+				if c.sec == 0 && c.bar < 4 {
+					return tdjBass(c, "r:0.5 r:0.5 R:0.5 r:0.5 o:0.5 R:0.5 f:0.5 r:0.5")
+				}
+				return tdjBass(c, tdjPick(c.bar, "r:0.25 r:0.25 R:0.25 r:0.25 o:0.5 r:0.5 R:0.25 r:0.25 f:0.5 d:0.5 r:0.5",
+					"r:0.75 r:0.25 o:0.5 R:0.5 r:0.5 t:0.5 f:0.5 o:0.5"))
+			}},
+			{"strings", 0.12, false, func(c tdjCtx) string {
+				if c.sec == 2 || (c.sec == 3 && c.bar >= 4) {
 					return tdjRhythm(c.chord[:3], "X:4")
 				}
 				return "R:4"
 			}},
 		},
 		drums: []tdjDrum{
-			{0.45, func(c tdjCtx) string { // soft kick
+			{0.6, func(c tdjCtx) string {
 				switch {
-				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 4:
+				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 2:
 					return tdjSilent
+				case c.sec == 3 && c.bar < 4:
+					return "k.......k......."
 				case c.bar == 7:
-					return "K.....K...K.K..."
+					return "k.k...k.k.k.k..."
 				}
-				return tdjPick(c.bar, "K.........K.....", "K......K..K.....", "K.........K.....", "K.....K.........")
+				return tdjPick(c.bar, "k.k.......k.....", "k.........k..k..", "k.k.......k..k..", "k......k..k.....")
 			}},
-			{0.3, func(c tdjCtx) string { // rim
-				if c.sec == 0 {
-					return tdjSilent
+			{0.46, func(c tdjCtx) string {
+				switch {
+				case c.sec == 0 && c.bar < 2:
+					return tdjPick(c.bar, tdjSilent, "........n.n.nnnn")
+				case c.sec == 2 && c.bar == 6:
+					return "n.n.n.n.n.n.n.n."
+				case c.sec == 2 && c.bar == 7:
+					return "nnnnnnnnnnnnnnnn" // the build-up into the last part
+				case c.bar == 7:
+					return "....n..n.n..nnnn"
 				}
-				if c.sec == 2 {
-					return "....r.....r.r..."
-				}
-				return "....r.......r..."
+				return tdjPick(c.bar, "....n..g.g..n...", "....n.....g.n..g")
 			}},
-			{0.1, func(c tdjCtx) string { // hats
-				if c.sec == 0 && c.bar < 4 {
-					return tdjSilent
+			{0.09, func(c tdjCtx) string {
+				if c.sec == 0 && c.bar < 2 {
+					return "h.h.h.h.h.h.h.h."
 				}
-				return "h.h.h.h.h.h.h.h."
+				return "hhhhhhhhhhhhhhhh"
 			}},
-			{0.08, func(c tdjCtx) string { // shaker in the B part
-				if c.sec == 2 {
-					return "s.ss.ss.s.ss.ss."
+			{0.08, func(c tdjCtx) string {
+				if c.sec == 1 || c.sec == 2 {
+					return "..o...o...o...o."
 				}
 				return tdjSilent
 			}},
+			{0.2, tdjCrash},
 		}})
 
-	// ---- funk: a syncopated bass, guitar chops, a brass hook and ghost notes (E dorian, written in D major)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_funk", bpm: 104, sc: scDMajor, swing: 2, echo: 0.375, fb: 0.2, wet: 0.1,
-		prog: [4][8]int{{1, 1, 4, 4, 1, 1, 4, 4}, {1, 1, 4, 4, 1, 1, 3, 4}, {3, 2, 5, 4, 3, 2, 5, 4}, {1, 4, 1, 4, 3, 2, 1, 4}},
+	// ---- ska: offbeat guitar and organ skank, a walking bass, a horn tune and a snare that pushes (G major)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_ska", bpm: 126, sc: scGMajor, echo: 0.375, fb: 0.15, wet: 0.08,
+		prog: [4][8]int{{0, 0, 3, 4, 0, 0, 3, 4}, {0, 5, 3, 4, 0, 5, 3, 4}, {3, 3, 0, 0, 3, 3, 1, 4}, {0, 5, 3, 4, 0, 5, 4, 0}},
 		layers: []tdjLayer{
-			{"brass", 0.24, true, tdjMelody(64, tdjTune{
-				a:    []tdjM{{0.5, 0}, {0.25, tdjRest}, {0.25, 2}, {0.5, 4}, {0.5, tdjRest}, {0.25, 5}, {0.25, 4}, {0.5, 2}, {1, tdjRest}},
-				a2:   []tdjM{{0.75, 4}, {0.25, 6}, {0.5, 7}, {0.5, tdjRest}, {0.5, 6}, {0.5, 4}, {1, tdjRest}},
-				b:    []tdjM{{1, 7}, {0.5, 6}, {0.5, 4}, {1, 5}, {1, tdjRest}},
-				b2:   []tdjM{{0.5, 4}, {0.5, 2}, {0.5, 4}, {0.5, 5}, {2, 4}},
-				cad:  []tdjM{{0.5, 2}, {0.5, 1}, {1, 0}, {2, tdjRest}},
-				fill: []tdjM{{0.25, 0}, {0.25, 2}, {0.25, 4}, {0.25, 6}, {0.5, 7}, {0.5, tdjRest}, {2, tdjRest}}})},
-			{"guitar", 0.2, false, func(c tdjCtx) string {
-				if c.sec == 0 && c.bar < 2 {
-					return "R:4"
-				}
-				return tdjRhythm(c.chord[1:], tdjPick(c.abs,
-					"R:0.5 X:0.25 R:0.25 R:0.5 X:0.25 X:0.25 R:0.5 X:0.25 R:0.25 R:0.5 X:0.5",
-					"X:0.25 R:0.75 X:0.25 R:0.25 X:0.25 R:0.25 R:0.5 X:0.25 X:0.25 R:1"))
-			}},
-			{"ebass", 0.5, false, func(c tdjCtx) string {
-				if c.sec == 2 || (c.sec == 3 && c.bar < 4) {
-					return tdjBass(c, tdjPick(c.bar, "r:1 R:0.5 r:0.5 f:1 o:1", "r:1.5 u:0.5 t:1 f:1"))
-				}
-				return tdjBass(c, tdjPick(c.bar, "r:0.75 r:0.25 R:0.5 o:0.25 R:0.25 r:0.5 R:0.25 f:0.25 t:0.5 r:0.5",
-					"r:0.5 R:0.25 r:0.25 o:0.5 R:0.5 r:0.25 r:0.25 R:0.5 f:0.5 d:0.5"))
-			}},
-			{"pad", 0.12, false, func(c tdjCtx) string {
+			{"horn", 0.26, true, tdjMelody(65, tdjTune{
+				a:    []tdjM{{0.5, 4}, {0.5, 4}, {0.5, 5}, {0.5, 4}, {1, 2}, {1, 0}},
+				a2:   []tdjM{{0.5, 0}, {0.5, 2}, {0.5, 4}, {0.5, 7}, {0.75, 6}, {0.25, 4}, {1, tdjRest}},
+				b:    []tdjM{{0.75, 7}, {0.25, 7}, {0.5, 6}, {0.5, 4}, {1, 5}, {0.5, 4}, {0.5, 2}},
+				b2:   []tdjM{{0.5, 2}, {0.5, 4}, {0.5, 2}, {0.5, 0}, {1, 1}, {1, tdjRest}},
+				cad:  []tdjM{{1, 2}, {1, 1}, {2, 0}},
+				fill: []tdjM{{0.25, 0}, {0.25, 1}, {0.25, 2}, {0.25, 4}, {0.5, 7}, {0.5, 7}, {2, tdjRest}}})},
+			{"guitar", 0.19, false, func(c tdjCtx) string {
 				if c.sec == 2 {
-					return tdjRhythm(c.chord[:3], "X:4")
+					return tdjRhythm(c.chord[:3], "R:0.5 X:0.25 X:0.25 R:0.5 X:0.25 X:0.25 R:0.5 X:0.25 X:0.25 R:0.5 X:0.25 X:0.25")
+				}
+				return tdjRhythm(c.chord[:3], "R:0.5 X:0.5 R:0.5 X:0.5 R:0.5 X:0.5 R:0.5 X:0.5")
+			}},
+			{"piano", 0.11, false, func(c tdjCtx) string { // the organ bubble
+				if c.sec == 1 || (c.sec == 3 && c.bar >= 4) {
+					return tdjRhythm(c.chord[1:], "R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25 R:0.25 X:0.25")
 				}
 				return "R:4"
+			}},
+			{"ebass", 0.46, false, func(c tdjCtx) string {
+				if c.sec == 0 && c.bar < 2 {
+					return tdjBass(c, "r:1 f:1 o:1 f:1")
+				}
+				return tdjBass(c, tdjPick(c.abs, "r:0.5 t:0.5 f:0.5 o:0.5 f:0.5 t:0.5 u:0.5 d:0.5",
+					"r:0.5 r:0.5 t:0.5 f:0.5 o:0.5 f:0.5 t:0.5 u:0.5", "o:0.5 f:0.5 t:0.5 r:0.5 d:0.5 r:0.5 t:0.5 f:0.5"))
 			}},
 		},
 		drums: []tdjDrum{
 			{0.55, func(c tdjCtx) string {
 				switch {
-				case c.sec == 3 && c.bar < 4:
-					return tdjPick(c.bar, "k...............", tdjSilent)
+				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 2:
+					return tdjSilent
 				case c.bar == 7:
-					return "k.k.......k.k.k."
+					return "k.k...k.k.k...k."
 				}
-				return tdjPick(c.bar, "k.........k..k..", "k..k......k.....", "k.........k..k..", "k..k....k.k.....")
+				return tdjPick(c.bar, "k.......k.......", "k.......k.....k.", "k.....k.k.......")
 			}},
 			{0.42, func(c tdjCtx) string {
 				switch {
-				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 4:
-					return tdjSilent
+				case c.sec == 0 && c.bar < 2:
+					return tdjPick(c.bar, tdjSilent, "............nnnn")
 				case c.bar == 7:
-					return "....n.....nn.nnn"
+					return "....n..n.nn.nnnn"
+				case c.sec == 2:
+					return "....n.......n.n."
 				}
 				return "....n.......n..."
 			}},
-			{0.16, func(c tdjCtx) string { return tdjPick(c.bar, ".g.....g.g....g.", "...g...g.g......") }},
-			{0.08, func(c tdjCtx) string {
-				if c.sec == 1 || c.sec == 2 {
+			{0.1, func(c tdjCtx) string {
+				switch {
+				case c.sec == 2:
 					return "hhhhhhhhhhhhhhhh"
+				case c.sec == 1:
+					return "h.hhh.hhh.hhh.hh"
 				}
 				return "h.h.h.h.h.h.h.h."
 			}},
-			{0.1, func(c tdjCtx) string {
-				if c.sec == 2 && c.bar%2 == 1 {
-					return "..............o."
+			{0.2, func(c tdjCtx) string { // rim shots carry the break
+				if c.sec == 3 && c.bar < 4 {
+					return "r..r..r...r.r..."
 				}
 				return tdjSilent
 			}},
+			{0.2, tdjCrash},
 		}})
 
-	// ---- ballad: a piano tune over an arpeggio, a pad and very few drums (C major)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_balada", bpm: 76, sc: scCMajor, echo: 0.75, fb: 0.35, wet: 0.22,
-		prog: [4][8]int{{0, 4, 5, 3, 0, 4, 3, 4}, {0, 4, 5, 3, 0, 4, 3, 0}, {5, 3, 0, 4, 5, 3, 1, 4}, {3, 4, 2, 5, 3, 4, 0, 0}},
+	// ---- salsa: a piano montuno, a flute, brass stabs, a tumbao bass, the clave, congas and the bell (G minor)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_salsa", bpm: 120, sc: scGMinor, echo: 0.5, fb: 0.18, wet: 0.1,
+		prog: [4][8]int{{0, 3, 4, 0, 0, 3, 4, 0}, {0, 3, 6, 2, 5, 3, 4, 4}, {5, 6, 0, 0, 5, 6, 4, 4}, {0, 3, 4, 0, 5, 3, 4, 0}},
 		layers: []tdjLayer{
-			{"piano", 0.32, true, tdjMelody(67, tdjTune{
-				a:    []tdjM{{1, 4}, {1, 2}, {1.5, 4}, {0.5, 5}},
-				a2:   []tdjM{{2, 4}, {1, 2}, {1, 1}},
-				b:    []tdjM{{1, 7}, {1, 6}, {1, 4}, {1, 5}},
-				b2:   []tdjM{{3, 4}, {1, tdjRest}},
-				cad:  []tdjM{{4, 0}},
-				fill: []tdjM{{1, 2}, {1, 4}, {2, 7}}})},
-			{"piano", 0.15, false, func(c tdjCtx) string {
+			{"flute", 0.26, true, tdjMelody(67, tdjTune{
+				a:    []tdjM{{0.5, 7}, {0.5, tdjRest}, {0.5, 7}, {0.5, 6}, {0.5, 4}, {0.5, tdjRest}, {1, 2}},
+				a2:   []tdjM{{0.25, 4}, {0.25, 5}, {0.5, 7}, {0.5, 9}, {0.5, 7}, {0.5, 4}, {0.5, 2}, {1, 0}},
+				b:    []tdjM{{1.5, 9}, {0.5, 7}, {0.5, 6}, {0.5, 7}, {1, 4}},
+				b2:   []tdjM{{0.5, tdjRest}, {0.5, 2}, {0.5, 4}, {0.5, 5}, {0.5, 4}, {0.5, 2}, {1, 0}},
+				cad:  []tdjM{{0.5, 4}, {0.5, 2}, {1, 1}, {2, 0}},
+				fill: []tdjM{{0.25, 7}, {0.25, 6}, {0.25, 4}, {0.25, 2}, {0.25, 4}, {0.25, 6}, {0.5, 7}, {2, tdjRest}}})},
+			{"piano", 0.16, false, func(c tdjCtx) string { // montuno
 				ch := c.chord
-				idx := [][]int{{0, 2, 4, 5, 2, 4, 5, 4}, {0, 2, 4, 2, 5, 4, 2, 4}}[c.abs%2]
-				tones := []int{ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12, ch[2] + 12}
-				return arpBar(tones, idx, 0.5)
+				tones := []int{ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12}
+				return arpBar(tones, [][]int{{3, 1, 2, 3, 0, 2, 1, 2}, {0, 2, 3, 1, 4, 2, 3, 1}}[c.abs%2], 0.5)
 			}},
-			{"pad", 0.16, false, func(c tdjCtx) string {
-				if c.sec == 0 {
+			{"brass", 0.15, false, func(c tdjCtx) string {
+				if c.sec == 2 || (c.sec == 1 && c.bar >= 4) {
+					return tdjRhythm(c.chord[:3], "R:1.5 X:0.25 X:0.25 R:1 X:0.5 R:0.5")
+				}
+				return "R:4"
+			}},
+			{"ebass", 0.46, false, func(c tdjCtx) string {
+				if c.sec == 0 && c.bar < 2 {
 					return "R:4"
 				}
-				return tdjRhythm(c.chord[:3], "X:4")
-			}},
-			{"ebass", 0.34, false, func(c tdjCtx) string {
-				switch {
-				case c.sec == 0 && c.bar < 4:
-					return "R:4"
-				case c.sec == 2:
-					return tdjBass(c, "r:2 f:2")
-				}
-				return tdjBass(c, "r:4")
+				return tdjBass(c, tdjPick(c.bar, "r:0.5 R:0.5 r:0.25 f:0.25 R:0.5 o:0.5 R:0.25 f:0.25 o:0.5 f:0.5", "R:0.5 r:0.5 r:0.5 f:0.5 R:0.5 o:0.5 f:0.5 t:0.5"))
 			}},
 		},
 		drums: []tdjDrum{
-			{0.36, func(c tdjCtx) string {
+			{0.48, func(c tdjCtx) string {
 				switch {
-				case c.sec == 0, c.sec == 3 && c.bar < 4:
+				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 2:
 					return tdjSilent
-				case c.sec == 2:
-					return tdjPick(c.bar, "K.....K.K.......", "K.........K.....")
+				case c.bar == 7:
+					return "k.k.k.k...k.k.k."
 				}
-				return "K.......K......."
+				return tdjPick(c.bar+c.sec, "k.....k...k.....", "k.....k.....k...", "k..k..k...k.....")
 			}},
-			{0.24, func(c tdjCtx) string {
-				if c.sec == 0 || (c.sec == 3 && c.bar < 4) {
-					return tdjSilent
-				}
-				return "........r......."
-			}},
-			{0.14, func(c tdjCtx) string {
-				if c.sec == 2 {
-					return "j...j...j...j..."
+			{0.24, func(c tdjCtx) string { return tdjPick(c.bar, "r..r..r.........", "....r...r.......") }}, // 3-2 clave
+			{0.1, func(c tdjCtx) string { // the bell
+				if c.sec == 1 || c.sec == 2 || (c.sec == 3 && c.bar >= 4) {
+					return "j.j.j.j.j.j.j.j."
 				}
 				return tdjSilent
 			}},
-			{0.3, func(c tdjCtx) string {
-				if c.sec == 2 && c.bar == 7 {
-					return "........t.t.tttt"
+			{0.17, func(c tdjCtx) string { // congas
+				switch {
+				case c.sec == 0 && c.bar < 2:
+					return "......t.......tt"
+				case c.bar == 7:
+					return "t.t.tttt..t.tttt"
+				}
+				return tdjPick(c.abs, "......t.t.....tt", "..t...t.t...t.tt")
+			}},
+			{0.07, func(c tdjCtx) string { return "s.ss.ss.s.ss.ss." }},
+			{0.3, func(c tdjCtx) string { // timbal fills
+				switch {
+				case c.bar == 7 && c.sec < 3:
+					return "........n.n.nnnn"
+				case c.sec == 2 && c.bar == 3:
+					return "............nnnn"
 				}
 				return tdjSilent
 			}},
+			{0.18, tdjCrash},
 		}})
 
-	// ---- soft disco: octave bass, strings, offbeat hats; the kick only goes four to the floor in a few bars (A minor)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_disco", bpm: 112, sc: scAMinor, echo: 0.5, fb: 0.25, wet: 0.14,
-		prog: [4][8]int{{0, 3, 6, 2, 0, 3, 6, 2}, {0, 3, 6, 2, 0, 3, 6, 4}, {5, 4, 3, 2, 5, 4, 1, 4}, {0, 3, 6, 2, 5, 3, 4, 4}},
+	// ---- disco funk: an octave bass, string stabs, a chicken-scratch guitar, claps and open hats (F major, minor chords)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_disco", bpm: 124, sc: scFMajor, echo: 0.5, fb: 0.2, wet: 0.1,
+		prog: [4][8]int{{1, 4, 1, 4, 5, 3, 1, 4}, {1, 4, 1, 4, 5, 3, 2, 4}, {3, 2, 5, 1, 3, 2, 1, 4}, {1, 4, 5, 3, 1, 4, 1, 4}},
 		layers: []tdjLayer{
-			{"square", 0.16, true, tdjMelody(69, tdjTune{
-				a:    []tdjM{{0.5, 4}, {0.5, tdjRest}, {0.5, 4}, {0.5, 5}, {1, 4}, {1, 2}},
-				a2:   []tdjM{{0.5, 7}, {0.5, tdjRest}, {0.5, 7}, {0.5, 6}, {1, 4}, {1, tdjRest}},
-				b:    []tdjM{{1.5, 2}, {0.5, 4}, {1, 7}, {1, 4}},
-				b2:   []tdjM{{0.5, 5}, {0.5, 4}, {0.5, 2}, {0.5, 0}, {2, tdjRest}},
+			{"square", 0.16, true, tdjMelody(65, tdjTune{
+				a:    []tdjM{{0.5, 4}, {0.25, tdjRest}, {0.25, 4}, {0.5, 5}, {0.5, 4}, {0.5, 2}, {0.5, tdjRest}, {0.5, 4}, {0.5, 7}},
+				a2:   []tdjM{{1, 9}, {0.5, 7}, {0.5, tdjRest}, {0.5, 7}, {0.5, 6}, {1, 4}},
+				b:    []tdjM{{0.5, 7}, {0.5, 7}, {0.5, 9}, {0.5, 7}, {1.5, 4}, {0.5, 2}},
+				b2:   []tdjM{{0.25, 2}, {0.25, 4}, {0.5, 5}, {0.5, 4}, {0.5, 2}, {1, 0}, {1, tdjRest}},
 				cad:  []tdjM{{1, 4}, {1, 2}, {2, 0}},
-				fill: []tdjM{{0.5, 0}, {0.5, 2}, {0.5, 4}, {0.5, 7}, {1, 9}, {1, tdjRest}}})},
-			{"strings", 0.16, false, func(c tdjCtx) string {
-				if c.sec == 0 {
+				fill: []tdjM{{0.25, 0}, {0.25, 2}, {0.25, 4}, {0.25, 5}, {0.25, 7}, {0.25, 9}, {0.25, 11}, {0.25, 12}, {2, tdjRest}}})},
+			{"strings", 0.14, false, func(c tdjCtx) string {
+				switch {
+				case c.sec == 0:
 					return "R:4"
+				case c.sec == 2:
+					return tdjRhythm(c.chord[:3], "X:4")
 				}
-				return tdjRhythm(c.chord[:3], "X:4")
+				return tdjRhythm(c.chord[:3], "X:0.5 R:1 X:0.25 X:0.25 R:1 X:1")
 			}},
-			{"synbass", 0.42, false, func(c tdjCtx) string {
-				if c.sec == 0 || (c.sec == 3 && c.bar < 4) {
-					return tdjBass(c, tdjPick(c.bar, "r:1 R:0.5 r:0.5 o:1 R:1", "r:1.5 f:0.5 R:1 o:1"))
+			{"synbass", 0.44, false, func(c tdjCtx) string {
+				if c.sec == 2 && c.bar%2 == 1 {
+					return tdjBass(c, "r:0.25 r:0.25 o:0.5 r:0.25 r:0.25 o:0.5 f:0.25 f:0.25 o:0.5 d:0.5 o:0.5")
 				}
 				return tdjBass(c, "r:0.5 o:0.5 r:0.5 o:0.5 r:0.5 o:0.5 f:0.5 o:0.5")
 			}},
-			{"pizz", 0.14, false, func(c tdjCtx) string {
+			{"guitar", 0.13, false, func(c tdjCtx) string {
 				if c.sec == 0 && c.bar < 4 {
-					return tdjRhythm(c.chord[1:], "X:1 R:3")
+					return "R:4"
 				}
-				return tdjRhythm(c.chord[1:], "R:0.5 X:0.5 R:0.5 X:0.5 R:0.5 X:0.5 R:0.5 X:0.5")
+				return tdjRhythm(c.chord[1:], "X:0.25 R:0.25 X:0.25 X:0.25 X:0.25 R:0.25 X:0.25 X:0.25 X:0.25 R:0.25 X:0.25 X:0.25 X:0.25 R:0.25 X:0.25 X:0.25")
 			}},
 		},
 		drums: []tdjDrum{
-			{0.5, func(c tdjCtx) string {
+			{0.55, func(c tdjCtx) string {
 				switch {
-				case c.sec == 0 && c.bar < 4, c.sec == 3 && c.bar < 4:
+				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 2:
 					return tdjSilent
 				case (c.sec == 1 && c.bar >= 4) || (c.sec == 3 && c.bar >= 4 && c.bar < 7):
 					return "k...k...k...k..." // the only bars four to the floor
 				case c.bar == 7:
-					return "k.....k.k.k.k..."
+					return "k.k...k.k.k.kkkk"
 				}
-				return tdjPick(c.bar, "k.......k.......", "k.....k.k.......", "k.......k.....k.")
+				return tdjPick(c.bar, "k.....k...k.....", "k.......k..k....", "k..k......k.k...")
 			}},
-			{0.3, func(c tdjCtx) string {
-				if c.sec == 0 {
+			{0.32, func(c tdjCtx) string {
+				switch {
+				case c.sec == 0 && c.bar < 2:
 					return tdjSilent
+				case c.sec == 2:
+					return "....c..c....c..c"
 				}
 				return "....c.......c..."
 			}},
-			{0.07, func(c tdjCtx) string {
-				if c.sec == 0 && c.bar < 4 {
-					return tdjSilent
-				}
-				return "..o...o...o...o."
-			}},
-			{0.07, func(c tdjCtx) string {
-				if c.sec == 2 {
-					return "h.hhh.hhh.hhh.hh"
-				}
-				return tdjSilent
-			}},
-		}})
-
-	// ---- ambient: harp arpeggios, a celesta, a pad; the drums are a heartbeat and a shaker (G major)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_ambient", bpm: 84, sc: scGMajor, echo: 1.0, fb: 0.4, wet: 0.28,
-		prog: [4][8]int{{0, 2, 5, 3, 0, 2, 3, 4}, {0, 2, 5, 3, 0, 2, 3, 4}, {5, 3, 0, 4, 5, 3, 1, 4}, {3, 4, 5, 2, 3, 4, 0, 0}},
-		layers: []tdjLayer{
-			{"celesta", 0.26, true, tdjMelody(74, tdjTune{
-				a:    []tdjM{{2, 4}, {2, 7}},
-				a2:   []tdjM{{1, 9}, {1, 7}, {2, 4}},
-				b:    []tdjM{{3, 2}, {1, 4}},
-				b2:   []tdjM{{2, tdjRest}, {1, 7}, {1, 9}},
-				cad:  []tdjM{{4, 7}},
-				fill: []tdjM{{1, 4}, {1, 7}, {1, 9}, {1, 11}}})},
-			{"harp", 0.17, false, func(c tdjCtx) string {
-				ch := c.chord
-				tones := []int{ch[0], ch[1], ch[2], ch[3], ch[0] + 12, ch[1] + 12}
-				if c.sec == 0 && c.bar < 4 || c.sec == 3 && c.bar < 4 {
-					return arpBar(tones, []int{0, 2, 4, 2, 1, 3, 5, 3}, 0.5)
-				}
-				return arpBar(tones, [][]int{{0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3, 4, 3, 2, 1}, {0, 2, 4, 5, 4, 2, 1, 3, 5, 3, 1, 2, 4, 2, 1, 0}}[c.abs%2], 0.25)
-			}},
-			{"pad", 0.22, false, func(c tdjCtx) string { return tdjRhythm(c.chord[:3], "X:4") }},
-			{"ebass", 0.3, false, func(c tdjCtx) string {
+			{0.08, func(c tdjCtx) string { return "..o...o...o...o." }},
+			{0.06, func(c tdjCtx) string {
 				if c.sec == 0 {
-					return "R:4"
-				}
-				return tdjBass(c, tdjPick(c.bar, "r:4", "r:3 f:1"))
-			}},
-		},
-		drums: []tdjDrum{
-			{0.32, func(c tdjCtx) string {
-				switch {
-				case c.sec == 0, c.sec == 3 && c.bar < 4:
 					return tdjSilent
-				case c.sec == 2:
-					return tdjPick(c.bar, "K.......K.....K.", "K.........K.....")
 				}
-				return tdjPick(c.bar, "K...............", "K.......K.......")
+				return "hhhhhhhhhhhhhhhh"
 			}},
-			{0.08, func(c tdjCtx) string {
-				if c.sec == 2 || (c.sec == 3 && c.bar >= 4) {
-					return "s.s.s.s.s.s.s.s."
+			{0.24, func(c tdjCtx) string {
+				if c.bar == 7 && c.sec < 3 {
+					return "........t.t.tttt"
 				}
 				return tdjSilent
 			}},
-			{0.1, func(c tdjCtx) string {
-				if c.sec == 1 {
-					return "......w.......w."
-				}
-				return tdjSilent
-			}},
+			{0.2, tdjCrash},
 		}})
 
-	// ---- bossa: a nylon guitar, a flute, a plucked bass and the clave on the rim (G major)
-	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_bossa", bpm: 100, sc: scGMajor, echo: 0.5, fb: 0.25, wet: 0.16,
-		prog: [4][8]int{{0, 0, 1, 4, 0, 0, 1, 4}, {0, 5, 1, 4, 0, 5, 1, 4}, {3, 3, 2, 5, 1, 1, 4, 4}, {3, 4, 2, 5, 1, 4, 0, 0}},
+	// ---- surf rock: a tremolo guitar tune, driving power chords, an eighth-note bass and a rolling kit (A minor)
+	tdjSongs = append(tdjSongs, tdjSong{id: "tdj_surf", bpm: 126, sc: scAMinor, echo: 0.375, fb: 0.25, wet: 0.14,
+		prog: [4][8]int{{0, 0, 3, 3, 0, 0, 4, 4}, {0, 5, 6, 0, 0, 5, 4, 4}, {3, 3, 0, 0, 3, 3, 4, 4}, {5, 6, 0, 0, 5, 6, 4, 0}},
 		layers: []tdjLayer{
-			{"flute", 0.26, true, tdjMelody(67, tdjTune{
-				a:    []tdjM{{1.5, 4}, {0.5, 4}, {1, 5}, {1, 4}},
-				a2:   []tdjM{{0.5, 2}, {1, 4}, {0.5, 2}, {2, 0}},
-				b:    []tdjM{{1, 7}, {0.5, 6}, {1, 4}, {1.5, 2}},
-				b2:   []tdjM{{1, tdjRest}, {0.5, 1}, {0.5, 2}, {2, 4}},
-				cad:  []tdjM{{3, 0}, {1, tdjRest}},
-				fill: []tdjM{{0.5, 0}, {0.5, 1}, {0.5, 2}, {0.5, 4}, {2, 5}}})},
-			{"guitar", 0.2, false, func(c tdjCtx) string {
-				return tdjRhythm(c.chord, tdjPick(c.abs, "X:0.75 X:0.75 R:0.5 X:0.75 X:0.75 R:0.5", "R:0.5 X:0.75 X:0.75 R:0.5 X:1 R:0.5"))
-			}},
-			{"pizz", 0.45, false, func(c tdjCtx) string {
+			{"guitar", 0.26, true, tdjMelody(64, tdjTune{
+				a:    []tdjM{{0.25, 7}, {0.25, 7}, {0.25, 7}, {0.25, 7}, {0.25, 6}, {0.25, 6}, {0.25, 4}, {0.25, 4}, {0.5, 2}, {0.5, 4}, {1, 0}},
+				a2:   []tdjM{{0.5, 0}, {0.5, 2}, {0.5, 3}, {0.5, 4}, {0.25, 7}, {0.25, 7}, {0.25, 7}, {0.25, 7}, {1, 4}},
+				b:    []tdjM{{0.5, 9}, {0.5, 7}, {0.5, 9}, {0.5, 7}, {1, 4}, {1, tdjRest}},
+				b2:   []tdjM{{0.25, 4}, {0.25, 4}, {0.25, 2}, {0.25, 2}, {0.5, 0}, {0.5, tdjRest}, {0.5, 4}, {0.5, 6}, {1, 7}},
+				cad:  []tdjM{{0.5, 4}, {0.5, 3}, {0.5, 2}, {0.5, 1}, {2, 0}},
+				fill: []tdjM{{0.25, 0}, {0.25, 1}, {0.25, 2}, {0.25, 3}, {0.25, 4}, {0.25, 5}, {0.25, 6}, {0.25, 7}, {1, 7}, {1, tdjRest}}})},
+			{"dist", 0.12, false, func(c tdjCtx) string {
+				pw := []int{c.chord[0], c.chord[2]}
 				if c.sec == 0 && c.bar < 2 {
-					return "R:4"
+					return tdjRhythm(pw, "X:1 R:1 X:1 R:1")
 				}
-				return tdjBass(c, tdjPick(c.bar, "r:1.5 f:0.5 f:1.5 r:0.5", "r:1.5 f:0.5 t:1 f:1"))
+				return tdjRhythm(pw, tdjPick(c.abs, "X:0.5 X:0.5 R:0.5 X:0.5 X:0.5 R:0.5 X:0.5 X:0.5", "X:0.75 X:0.75 X:0.5 X:0.75 X:0.75 X:0.5"))
+			}},
+			{"ebass", 0.46, false, func(c tdjCtx) string {
+				if c.sec == 3 && c.bar < 4 {
+					return tdjBass(c, "r:0.5 R:0.5 r:0.5 R:0.5 f:0.5 R:0.5 o:0.5 R:0.5")
+				}
+				return tdjBass(c, tdjPick(c.bar, "r:0.5 r:0.5 r:0.5 r:0.5 f:0.5 f:0.5 o:0.5 f:0.5", "r:0.5 r:0.5 t:0.5 r:0.5 f:0.5 r:0.5 d:0.5 r:0.5"))
 			}},
 			{"pad", 0.1, false, func(c tdjCtx) string {
 				if c.sec == 2 {
@@ -542,27 +597,38 @@ func init() {
 			}},
 		},
 		drums: []tdjDrum{
-			{0.3, func(c tdjCtx) string {
+			{0.56, func(c tdjCtx) string {
 				switch {
-				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 4:
+				case c.sec == 0 && c.bar < 2, c.sec == 3 && c.bar < 2:
 					return tdjSilent
 				case c.bar == 7:
-					return "K.....K.K..K.K.."
+					return "k.k.k.k...k.k.k."
 				}
-				return tdjPick(c.bar, "K.....K.K.....K.", "K.....K.K.......")
+				return tdjPick(c.bar, "k.k.....k.k.....", "k.......k.k...k.", "k.k...k...k.....")
 			}},
-			{0.26, func(c tdjCtx) string { // 3-2 clave
-				if c.sec == 0 && c.bar < 2 {
-					return tdjSilent
+			{0.45, func(c tdjCtx) string {
+				switch {
+				case c.sec == 0 && c.bar < 2:
+					return tdjPick(c.bar, tdjSilent, "............nnnn")
+				case c.sec == 2:
+					return "....n.......n..n"
 				}
-				return tdjPick(c.bar, "r..r..r.........", "....r...r.......")
+				return "....n.......n..."
 			}},
-			{0.07, func(c tdjCtx) string {
-				if c.sec == 0 || (c.sec == 3 && c.bar < 4) {
-					return tdjSilent
+			{0.09, func(c tdjCtx) string { return "h.h.h.h.h.h.h.h." }},
+			{0.1, func(c tdjCtx) string {
+				if c.sec == 2 || (c.sec == 3 && c.bar >= 4) {
+					return "j.j.j.j.j.j.j.j."
 				}
-				return "s.ss.ss.s.ss.ss."
+				return tdjSilent
 			}},
+			{0.26, func(c tdjCtx) string {
+				if c.bar == 7 {
+					return "........t.t.tttt"
+				}
+				return tdjSilent
+			}},
+			{0.2, tdjCrash},
 		}})
 
 	for _, s := range tdjSongs {

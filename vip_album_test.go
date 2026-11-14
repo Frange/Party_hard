@@ -90,3 +90,32 @@ func TestVIPSectionIsSeparate(t *testing.T) {
 		prev = r[0] + r[2]
 	}
 }
+
+// the traps of the player kill the VIP like the knife does: his bonus, his card and the alarm (vipOnKill). The explosive
+// trap (a stove, triggerTrapNow "explode") killed guards by hand and skipped all of it.
+func TestVIPKilledByATrapGetsTheBonus(t *testing.T) {
+	for _, how := range []string{"explosion", "trapGuard"} {
+		g := vipAlbumGame(t)
+		boss := vipStaff(g, vipBoss)[0]
+		if !g.vipInZone(boss.pos) {
+			t.Fatal("the boss starts inside the area")
+		}
+		g.p.pos = Vec{boss.pos.X + 300, boss.pos.Y + 200} // far from the blast
+		before := g.points
+		if how == "explosion" {
+			g.triggerTrapNow(&Prop{Name: "stove", K: propKinds["stove"], X: boss.pos.X, Y: boss.pos.Y + 8})
+		} else {
+			g.trapGuard(boss)
+		}
+		if !boss.dead {
+			t.Fatalf("%s: the VIP should be dead", how)
+		}
+		pay := vipDefaultPay
+		if d := vipByID(boss.vipID); d != nil && d.bonus > 0 {
+			pay = d.bonus
+		}
+		if g.points-before < pay || !vipEliminated[boss.vipID] || g.progress.Album["vip:"+boss.vipID]&albumKilled == 0 {
+			t.Fatalf("%s: no VIP bonus (points +%d, want at least %d; eliminated %v)", how, g.points-before, pay, vipEliminated[boss.vipID])
+		}
+	}
+}

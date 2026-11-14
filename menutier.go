@@ -34,7 +34,7 @@ func menuTierOf(finished, trophies, everything bool) int {
 
 // gameFinished: every campaign party was won at least once (the story is over).
 func (g *Game) gameFinished() bool {
-	return campaignN > 0 && g.careerLevelsDone() >= campaignN
+	return campaignN > 0 && g.careerLevelsDone() >= campaignShown()
 }
 
 // debugMenuTier: DEBUG row "Estado del menú" (0 = what the save says, 1..4 = normal/bronze/silver/gold). Never saved.

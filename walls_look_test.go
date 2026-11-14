@@ -46,7 +46,7 @@ func floorAvg(kind string) (color.RGBA, bool) {
 		return rgb(0x15121f), true
 	case "disco70":
 		return rgb(0x0e0a14), true
-	case "dash", "rug", "rink", "water", "helipad":
+	case "dash", "rug", "rink", "water", "helipad", "barcelona", "paris": // (the painted backdrops: nobody stands on them)
 		return color.RGBA{}, false
 	}
 	b := stylizeFloor(kind, genFloor(kind, 0))

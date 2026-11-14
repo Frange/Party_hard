@@ -170,7 +170,7 @@ func stealthDef(def *LevelDef) *LevelDef {
 	n0 := len(tmp.Props)
 	tmp.ensureBooth("hedge", have+sthHedges, isHedge, []Vec{def.Start}, 24)
 	for _, pr := range tmp.Props[n0:] {
-		if !isHedge(pr) || stealthHedgeBlocks(def, pr) {
+		if !isHedge(pr) || stealthHedgeBlocks(def, pr) || stealthHedgeTouches(tmp.Props[:n0], pr) {
 			continue
 		}
 		in := PropInst{Kind: "hedge", X: pr.X, Y: pr.Y}
@@ -180,6 +180,22 @@ func stealthDef(def *LevelDef) *LevelDef {
 		cp.Props = append(cp.Props, in)
 	}
 	return &cp
+}
+
+// stealthHedgeTouches: a hedge whose footprint (level: the props the level already had) (plus a step) touches another solid prop's footprint: it would close
+// the gap between them (the pirate ship's anchor, v1.4.0) even when the pair rules let them stand side by side.
+func stealthHedgeTouches(level []*Prop, pr *Prop) bool {
+	foot := pr.Foot.Grow(4)
+	for _, o := range level {
+		if o.K == nil || o.K.NoSolid {
+			continue
+		}
+		f := o.Foot
+		if foot.X < f.X+f.W && f.X < foot.X+foot.W && foot.Y < f.Y+f.H && f.Y < foot.Y+foot.H {
+			return true
+		}
+	}
+	return false
 }
 
 // stealthHedgeBlocks: a hedge that would sit on a guard's route point, a performer or the start.

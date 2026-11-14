@@ -115,7 +115,16 @@ func dailyPick(date string, unlocked int, album map[string]int) dailyChallenge {
 	r := dailyDice(date, 0)
 	order := r.Perm(n)
 	d := dailyChallenge{date: date, level: order[0]}
+	for _, i := range order { // a retired party is never the challenge (campaign_retired.go)
+		if !campaignRetired(i) {
+			d.level = i
+			break
+		}
+	}
 	for _, i := range order { // the first (in the order of the date) where the VIP carpet fits
+		if campaignRetired(i) {
+			continue
+		}
 		if dailyVIPRoom(i) {
 			d.level = i
 			break

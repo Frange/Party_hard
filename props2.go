@@ -261,10 +261,7 @@ func init() {
 		for y := 14; y < 52; y += 6 {
 			b.rect(0, y, 60, 1, c(0x44403c))
 		}
-		b.rect(12, 20, 36, 28, c(0x1a1210))
-		b.rect(26, 34, 8, 12, c(0xff7a20))
-		b.rect(22, 38, 16, 8, c(0xffb030))
-		b.rect(28, 28, 4, 8, c(0xffd860))
+		drawHearth(b, 0) // logs, embers and the layered flame (fire_art.go; propanim.go moves it)
 		b.rect(4, 4, 52, 3, c(0x6a4a2a))
 	}}
 	pk["crate"] = &PropKind{W: 26, H: 26, FW: 24, FH: 8, Draw: func(b *pixBuf, v int) {

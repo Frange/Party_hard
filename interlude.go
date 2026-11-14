@@ -123,24 +123,27 @@ func (g *Game) afterLevel() {
 	if g.levelIdx == specialJurassic { // the island has no "next party": back to the list
 		g.loadLevel(0)
 		g.mode = ModeLevelSelect
-		g.menuSel = campaignN + 1
+		g.menuSel = campaignShown() + 1 // the island's row (campaign_retired.go)
 		return
 	}
+	next := campaignNext(g.levelIdx) // a retired party is skipped (campaign_retired.go)
 	if kind, ok := g.interludeAfter(g.levelIdx); ok {
-		g.startInterlude(kind, g.levelIdx+1)
+		g.startInterlude(kind, next)
 		return
 	}
-	g.startLevel(g.levelIdx + 1)
+	g.startLevel(next)
 }
 
 // interludeAfter: the interlude that follows campaign level i, if it has not been seen yet.
+// The 5th, 10th and 15th go by the row of the party in the list (campaignSlotOf: the retired parties do not count).
 func (g *Game) interludeAfter(i int) (int, bool) {
+	s := campaignSlotOf(i)
 	switch {
-	case i == 4 && !g.seen("seen_interlude5"):
+	case s == 4 && !g.seen("seen_interlude5"):
 		return interCar, true
-	case i == 9 && !g.seen("seen_interlude10"):
+	case s == 9 && !g.seen("seen_interlude10"):
 		return interBoat, true
-	case i == 14 && !g.seen("seen_interlude15"):
+	case s == 14 && !g.seen("seen_interlude15"):
 		return interBalloon, true
 	case i == len(campaignLevels)-2 && !g.seen("seen_interlude20"): // the party before the space station
 		return interRocket, true

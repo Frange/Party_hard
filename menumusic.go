@@ -398,9 +398,12 @@ func warmMenuMusic(tier int) {
 // good guess). The anthem is the first thing the warm-up thread of newSounds builds; a finished game builds
 // its calm version in a thread of its own, and with the legend trophy the silver and gold ones too.
 func warmMenuMusicEarly(p Progress) {
-	n := len(campaignLevels)
-	won := 0
-	for i := 0; i < n; i++ {
+	n, won := 0, 0
+	for i := range campaignLevels {
+		if campaignLevels[i].retired { // the retired parties no longer count (campaign_retired.go)
+			continue
+		}
+		n++
 		if p.Stats[fmt.Sprintf("won_%d", i)] > 0 {
 			won++
 		}

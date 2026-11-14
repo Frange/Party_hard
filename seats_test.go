@@ -575,3 +575,23 @@ func TestSeatLongTablesAreHidingPlaces(t *testing.T) {
 		t.Errorf("only %d long tables in the campaign", found)
 	}
 }
+
+// A sitter killed after updateSeats of a frame (a car, a trap, the killer later in the same frame) gives his seat back
+// at the end of that frame (seatDropOut, deferred by updatePlay): seatCheckBook found "a dead guest keeps a seat" one
+// run in a few.
+func TestSeatFreedTheSameFrame(t *testing.T) {
+	killTargetLevels(t)
+	g := bigPlay(t, 1, 7, false)
+	gu, s := seatOne(t, g, nil)
+	g.killGuest(gu, false) // no updateSeats after it
+	g.seatDropOut()
+	if s.by != nil || gu.seat != nil {
+		t.Fatal("the dead sitter keeps his seat until the next frame")
+	}
+	gu2, s2 := seatOne(t, g, gu)
+	gu2.gone = true
+	g.updatePlay(1.0 / 60) // the end of the frame frees the seat of a guest who left too
+	if s2.by == gu2 || gu2.seat != nil {
+		t.Fatal("a guest who left keeps his seat")
+	}
+}

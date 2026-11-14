@@ -16,5 +16,10 @@
   "variants": false,
   "fps": 0,
   "sort_off": 0,
-  "ambient_speed": 0
+  "ambient_speed": 0,
+  "light_col": [
+    0,
+    0,
+    0
+  ]
 }

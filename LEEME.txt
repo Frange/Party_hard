@@ -16,16 +16,17 @@ CONSÉRVALOS: no borres ni sustituyas la carpeta assets entera. Si instalas el j
 copia antes esos dos ficheros a la carpeta assets nueva. Una partida de una versión anterior se actualiza sola al
 cargarla, sin perder nada.
 
-Versión v.1.3.0 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard; también en Créditos,
+Versión v.1.4.0 - Frange (abajo a la derecha del menú principal, con el homenaje a Party Hard; también en Créditos,
 en el título de la ventana y en VERSION.txt). Todo lo que trae cada versión está en CHANGELOG.md: cambio menor = x.y.Z,
 medio = x.Y.0, grande = X.0.0. Las teclas fijas (R, M, F11, Enter/Esc) ya no se rotulan en el menú: están en la ventana
 de ayuda, el botón "?" (o F1).
 
 ACTUALIZAR CON UN PARCHE
 ------------------------
-En vez del juego completo puede llegarte un parche, PartyHardy-Parche-<Mac|Windows>-<de>-a-<a>.zip (por ejemplo
-PartyHardy-Parche-Mac-1.0.0-a-1.1.0.zip), con SÓLO lo que cambia. Sirve únicamente sobre la versión "de" (mírala en
-VERSION.txt o abajo a la derecha del menú); sigue su LEEME_ACTUALIZAR.txt.
+En vez del juego completo puede llegarte un parche, PartyHardy-Parche-<Mac|Windows>-1.0.0-a-<a>.zip (por ejemplo
+PartyHardy-Parche-Mac-1.0.0-a-1.4.0.zip), con SÓLO lo que cambia. Sólo hay UN parche por versión y siempre parte de la
+1.0.0 (no hay parches entre versiones intermedias): sirve únicamente sobre la 1.0.0 (mírala en VERSION.txt o abajo a la
+derecha del menú); si tienes otra versión, descarga el juego completo. Sigue su LEEME_ACTUALIZAR.txt.
 - Qué incluye: los ficheros nuevos y cambiados (ejecutables, .app, assets, música, LEEME, CHANGELOG, VERSION.txt) en
   las mismas carpetas que el juego, REMOVIDOS.txt (lo que hay que borrar), LEEME_ACTUALIZAR.txt y VERIFICAR_BASE.txt.
 - Qué NO incluye ni toca: tu partida (assets/progress.json), tus ajustes (assets/settings.json), las preferencias del
@@ -116,7 +117,7 @@ furgoneta amarilla con 1 o 2 técnicos que arreglan las cabinas cortadas y se va
 
 SUCESOS A DEMANDA
 -----------------
-Algunos trofeos (Fiestero, Cortacables, Testigo ocular, Contactos, Era cretácica, ¿A quién yamarás?,
+Algunos trofeos (Fiestero, Cortacables, Testigo ocular, Contactos, Era cretácica, ¿A quién llamarán?,
 Servicio técnico) dan el poder de provocar un suceso raro con la tecla V (botón L1 del mando;
 se cambia en AJUSTES): máximo 2 por fiesta, separados 30 segundos.
 
@@ -127,12 +128,13 @@ de frente, huyen; hay que pillarlos por la espalda. También están en la tienda
 
 26 FIESTAS
 ----------
-La campaña tiene 26 escenarios, siempre en este orden: House Party, Miami Beach, Glow Neon, Bull's Eye,
-Plaza de Toros, Torre Eiffel, Crucero Nocturno, Parque de Atracciones, Estadio, Discoteca, Festival,
-Skate Park, CEMENTERIO (noche de brujas), Cine, Circuito, ESTACIÓN DE ESQUÍ, Rooftop Party, CASINO,
+La campaña tiene 26 escenarios, siempre en este orden: House Party, Miami Beach, Glow Neon, BARCELONA,
+Plaza de Toros, PARÍS, ALCALÁ DE HENARES, Crucero Nocturno, Parque de Atracciones, Estadio, Festival,
+Skate Park, CEMENTERIO (noche de brujas), GUADALAJARA, Circuito, ESTACIÓN DE ESQUÍ, Rooftop Party, CASINO,
 Autopista, ITALIA, Estación de Tren, Fiesta de Cumpleaños, Pista de Hockey, Disco Setentera, BARCO PIRATA y,
 de colofón, la Estación Espacial (y después, la isla secreta). Pub, Plaza Europea, Centro Comercial y
-Supermercado salen en el modo aleatorio.
+Supermercado salen en el modo aleatorio. Desde la v1.4.0 la Discoteca y el Cine ya no se juegan (tu partida
+conserva lo que ganaste en ellas; si la siguiente fiesta que te tocaba era una de las dos, se abre la siguiente).
 
 BARCOS Y NAVES
 --------------
@@ -170,7 +172,7 @@ Dos opciones más, solo aquí (apagadas por defecto):
   un policía o un guardia a menos de ~420 px, te delata y vuelven la alerta y las esposas. Matarlo antes sigue librándote.
 - CÁMARAS DE SEGURIDAD (camera.go): cámaras de techo en la pared (esquinas o centro) que barren de lado a lado unos 90 grados,
   con pausa en los extremos, y un cono translúcido (verde en calma, rojo al detectar) cortado por las paredes. En el juego
-  NORMAL salen en CINE, CASINO, ESTACIÓN DE TREN, ESTACIÓN ESPACIAL, DISCOTECA y HOUSE PARTY (y en CENTRO COMERCIAL y PUB del
+  NORMAL salen en CASINO, ESTACIÓN DE TREN, ESTACIÓN ESPACIAL y HOUSE PARTY (y en CENTRO COMERCIAL y PUB del
   modo aleatorio); pasar por el cono solo enciende un LED rojo breve, pero MATAR dentro del cono hace de la cámara un testigo
   directo: avisa a la policía al instante y salen las esposas (con 2 jugadores, solo al que grabó). En el modo SIGILO hay
   hasta 2 por nivel donde caben y estar en el cono cuenta como ser visto (alerta roja); la caja de cartón y los arbustos
@@ -208,13 +210,13 @@ Dos opciones más, solo aquí (apagadas por defecto):
   camaras NO funcionan (sin cono ni grabacion) y todos ven la MITAD de lejos; vuelve la luz con un "clac".
   -storm 1: fuerza la TORMENTA a los ~3 s (lluvia; en la estacion de esqui, nevada) con un relampago a los ~9 s;
   -storm 2: ademas un rayo cae sobre un invitado a los ~12 s. Congela el progreso. La tormenta real sale a veces (1 fiesta
-  de cada 5-6) solo en fiestas al aire libre: Miami Beach, Torre Eiffel, Parque de atracciones, Estadio, Festival,
+  de cada 5-6) solo en fiestas al aire libre: Miami Beach, París, Parque de atracciones, Estadio, Festival,
   Cementerio, Circuito, Estacion de esqui y Autopista; nunca en sigilo ni en el Reto de hoy; como mucho una por fiesta,
   a los 70-200 s, dura 40-80 s y no cambia lo que ven guardias ni camaras. El rayo sobre un invitado es muy raro y no
   cuenta como baja tuya (ni estrellas ni policia).
   -dawn 0: fuerza el AMANECER en la fiesta (la noche aclara poco a poco: por tiempo, ~5 min, o por invitados caidos);
   -dawn P (1-100): amanecer fijo al P % (para capturas). Congela el progreso. El real sale en 1 de cada 3 fiestas de
-  Miami Beach, Torre Eiffel, Festival y Rooftop Party; solo cambia la luz (las farolas se apagan al final).
+  Miami Beach, París, Festival y Rooftop Party; solo cambia la luz (las farolas se apagan al final).
   -medaldemo: todas las fiestas abiertas con medallas de ejemplo (bronce, plata y oro alternas); no se guarda nada.
   -hidedemo x,y,in|out|busy: el jugador está en x,y, entra en el escondite más cercano al segundo 1 y (out, busy: con el
   compañero en el sitio) sale al segundo 2, para ver dónde reaparece.
@@ -227,6 +229,31 @@ Dos opciones más, solo aquí (apagadas por defecto):
 
 NOVEDADES DE LA ÚLTIMA VERSIÓN
 ------------------------------
+- v1.4.0: nueva fiesta 14 de la lista: GUADALAJARA (después del Cementerio y antes del Circuito). La plaza al
+  atardecer con el toro negro en el monte, la "Pastelería Mariam", "Miel de la Alcarria", el palacio de piedra, la
+  iglesia de dos torrecillas, el panteón de cúpula gris y el estadio morado. En medio, la fuente octogonal con
+  surtidores; el DJ pincha en el templete; hay pérgolas con parras, puesto de miel, quiosco de prensa y estatua en su
+  jardín vallado. Tu partida no pierde nada: cada victoria sigue en su fiesta y, si ya tenías abierto el Circuito,
+  Guadalajara aparece abierta (sin ganar). Si usas tus propios mp3 numerados ("music/N_..."), los que tenías del 16 en
+  adelante pasan a ser del número siguiente (el número cuenta también la Discoteca y el Cine retirados).
+- v1.4.0: la fiesta 4 de la lista (el antiguo rancho Diana / Bull's Eye) es ahora BARCELONA: una gran plaza de día con
+  cielo azul y mar al fondo, la Sagrada Família con su grúa, el Tibidabo con su teleférico de cabinas rojas, el
+  ayuntamiento con su torre del reloj, la casa modernista de mosaico, el mercado de ladrillo y vidrieras, el Arc de
+  Triomf, el pabellón del parque con tejado de mosaico, dos fuentes con parterres, palmeras, terrazas, quiosco azul y
+  el gran círculo de mosaico, que es la pista del DJ. Banderas de España y de Cataluña ondeando en el balcón del
+  ayuntamiento y en dos mástiles. Ocupa el mismo sitio que el rancho: tus victorias, medallas y fiestas abiertas de esa
+  posición se conservan tal cual (si habías ganado el rancho, Barcelona cuenta como ganada).
+- v1.4.0: la TORRE EIFFEL pasa a llamarse PARÍS: la torre sigue en su sitio (y todos sus sucesos), y alrededor
+  aparecen la ciudad pintada al fondo (edificios con tejados de mansarda y balcones de hierro, el Sacré-Cœur en su
+  colina y el Arco del Triunfo), terrazas con sillas de mimbre, una boca de metro modernista, quiosco verde,
+  bouquinistes con sus cajas de libros, panadería con baguettes, farolas de época, un tiovivo que gira, un acordeonista
+  y un mimo, y la bandera de Francia ondeando. Mismo sitio de la lista: tu partida no pierde nada.
+- v1.4.0: nueva fiesta 7 de la lista: ALCALÁ DE HENARES (justo después de París, la antigua Torre Eiffel). La plaza mayor al
+  atardecer, con la fachada de la universidad, la iglesia con su rosetón y su campanario, la torre almenada, los
+  soportales con terrazas y CIGÜEÑAS en sus nidos (de vez en cuando castañean y aletean). El DJ pincha en el templete,
+  hay estatua con jardín, estatuas sentadas en un banco, puestos de mercadillo y pasodoble. Tu partida no pierde nada:
+  cada victoria sigue en su fiesta y, si ya habías ganado la Torre Eiffel (París), Alcalá aparece abierta (sin ganar). Si usas
+  tus propios mp3 numerados ("music/N_..."), los que tenías del 7 en adelante pasan a ser del número siguiente.
 - v1.3.0 (el detalle está en CHANGELOG.md; incluye todo lo de la antigua 1.2.0, que no llegó a publicarse): TORO
   MECÁNICO (playa, rancho, feria, festival y cumpleaños); murga callejera; pogos en círculo; parejas de baile lento; la
   ola en el estadio; concurso de comer; invitado con megáfono; los invitados acarician perros, gatos y caballos;
@@ -235,7 +262,7 @@ NOVEDADES DE LA ÚLTIMA VERSIÓN
   grafitero que deja sus dibujos en la fachada; carrera de sacos; superhéroe aficionado; paraguas con tormenta (los
   rayos nunca caen cerca de un jugador); helicóptero, lancha y nave sanitarios en la isla, el barco y la estación; los
   patinadores salen en una de cada dos fiestas; la conga sale en casi todas; DETECTOR DE METALES en una
-  puerta de algunas fiestas del casino, la discoteca y el cine (si lo cruzas pita y un guardia va a por ti).
+  puerta de algunas fiestas del casino y de la pista de hockey (si lo cruzas puede pitar y un guardia va a mirar).
   La policía busca menos (10-15 s), las
   ambulancias van más rápido (2 si hay 5 cuerpos o más) y ya no se van sin actuar; las peleas salen algo menos.
   Arreglado: la estación espacial con la carpeta assets y las bajas por veneno contadas dos veces en CARRERA.
@@ -388,30 +415,32 @@ ESTILOS DE MÚSICA
 -----------------
 Cada fiesta tiene su propio género. Si no has puesto un mp3 en la carpeta "music" para esa fiesta, el juego toca su
 música sintetizada en ese estilo (al empezar sale un letrero pequeño con el género). Tabla Nivel -> Género:
-   1 Fiesta en casa: House                 12 Parque de skate: Punk
-   2 Miami Beach: Reggaetón                13 Cementerio: Metal
-   3 Neón brillante: Synthwave             14 Cine: Orquestal
-   4 Diana (rancho): Country               15 Circuito: Electrónica
-   5 Plaza de toros: Pasodoble             16 Estación de esquí: Pop
-   6 Torre Eiffel: Clásica (vals)          17 Fiesta en la azotea: Hip-hop (lo-fi)
-   7 Crucero nocturno: Disco               18 Casino: Jazz (swing)
-   8 Parque de atracciones: Chiptune       19 Autopista: Rock
-   9 Estadio: Pop                          20 Italia: Clásica (ópera)
-  10 Discoteca: Techno                     21 Estación de tren: Rap (boom bap)
-  11 Festival: Electrónica                 22 Cumpleaños: Pop · 23 Hockey: Rock · 24 Disco setentera: Disco
-                                           25 Barco pirata: Épica · 26 Estación espacial: Electrónica
-                                           Isla Nublada (secreto): Orquestal épica
+   1 Fiesta en casa: House                 15 Cine: Orquestal
+   2 Miami Beach: Reggaetón                16 Guadalajara: Pasodoble
+   3 Neón brillante: Synthwave             17 Circuito: Electrónica
+   4 Barcelona: Reggaetón (rumba)          18 Estación de esquí: Pop
+   5 Plaza de toros: Pasodoble             19 Fiesta en la azotea: Hip-hop (lo-fi)
+   6 París: Clásica (vals)                 20 Casino: Jazz (swing)
+   7 Alcalá de Henares: Pasodoble          21 Autopista: Rock
+   8 Crucero nocturno: Disco               22 Italia: Clásica (ópera)
+   9 Parque de atracciones: Chiptune       23 Estación de tren: Rap (boom bap)
+  10 Estadio: Pop                          24 Cumpleaños: Pop · 25 Hockey: Rock · 26 Disco setentera: Disco
+  11 Discoteca: Techno                     27 Barco pirata: Épica · 28 Estación espacial: Electrónica
+  12 Festival: Electrónica                 Isla Nublada (secreto): Orquestal épica
+  13 Parque de skate: Punk                 (el número del mp3 cuenta también la Discoteca 11 y el Cine 15,
+  14 Cementerio: Metal                      que ya no se juegan)
 En el modo aleatorio: pub = rock, plaza europea = pasodoble, centro comercial = pop. Si muere el DJ, entra el punk; una
 banda de otro estilo (Metalica = metal, The Beetles = pop, Elviz = country, Lost Profets y Despistaus = rock) toca el
 suyo, y las bandas punk tocan el estilo de la fiesta. Si pones tus propios mp3 ("music/N_nombre.mp3"), mandan ellos:
 la tabla te sirve para saber qué canción poner en cada pantalla.
 Cada fiesta tiene además su TIPO de fiesta (con nombre gracioso), que sale en la pantalla ELIGE LA FIESTA bajo el
 nombre ("Botellón de salón · House") y en el letrero del principio. Tipos: 1 Botellón de salón, 2 Chiringuito sin ley,
-3 Rave de neón, 4 Hoguera con botas, 5 Fiesta de capotes, 6 Cena de gala con vals, 7 Fiesta del capitán, 8 Feria sin
-cinturón, 9 Final de copa, 10 Sesión de madrugada, 11 Festival de barro, 12 Jam en el bowl, 13 Velatorio con riffs,
-14 Sesión golfa, 15 Carrera sin freno, 16 Après-ski con chocolate, 17 Terraza con piscina, 18 Noche de corbata,
-19 Atasco con altavoces, 20 Pasta, amore y caos, 21 Fiesta sin billete, 22 Soplavelas sin control, 23 Prórroga sin
-árbitro, 24 Fiebre de pata de elefante, 25 Abordaje con ron, 26 Rave de gravedad cero, Isla Nublada: Última fiesta cretácica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
+3 Rave de neón, 4 Hoguera con botas, 5 Fiesta de capotes, 6 Cena de gala con vals, 7 Fiesta mayor con cigüeñas,
+8 Fiesta del capitán, 9 Feria sin cinturón, 10 Final de copa, 11 Sesión de madrugada, 12 Festival de barro, 13 Jam en
+el bowl, 14 Velatorio con riffs, 15 Sesión golfa, 16 Verbena con miel y templete, 17 Carrera sin freno, 18 Après-ski
+con chocolate, 19 Terraza con piscina, 20 Noche de corbata, 21 Atasco con altavoces, 22 Pasta, amore y caos, 23 Fiesta
+sin billete, 24 Soplavelas sin control, 25 Prórroga sin árbitro, 26 Fiebre de pata de elefante, 27 Abordaje con ron,
+28 Rave de gravedad cero, Isla Nublada: Última fiesta cretácica (música: orquestal épica, una pieza original de maravilla y peligro: trompa, cuerdas, arpa, timbales).
 NOMBRES DE LOS MP3: si la última palabra del nombre es un género ("13_cementerio_metal.mp3"), el juego lo compara con
 el de la fiesta: si coincide suena (y el letrero lo dice); si es de otro estilo (por ejemplo restos de un lote antiguo
 como "13_cine_electro.mp3") se IGNORA con un aviso en la consola y suena la música del juego. Un nombre sin género
@@ -486,7 +515,7 @@ ZONAS VIP, TRAJE DORADO, INVITACION Y RELEVO (vip.go):
   ni camaras (g.sees y la camara contestan que no), asi que no hay testigos, ni ALERTA ni BUSCADO. Brillo dorado y barra de tiempo; parpadea
   los ultimos 2 s y avisa al acabar. Un solo uso por traje; por jugador con 2P; compatible con el modo sigilo.
 - ZONA VIP (ocasional: 1 de cada 5 partidas, y seguro tras 8 sin ninguna, vipchance.go con rand propio; solo en niveles donde cabe, nunca en sigilo; el VIP sale entre los NO conseguidos del album, afinidad de tema en vipPlan, y con los 50 conseguidos al azar; levels.go intacto): alfombra roja con cordon, 2 guardias en la puerta y 1 dentro, un VIP y un traje
-  dorado de botin. Niveles: PLAZA DE TOROS (S.M. EL REY), TORRE EIFFEL (SU SANTIDAD PIO XCIX), FESTIVAL (la superestrella del rock),
+  dorado de botin. Niveles: PLAZA DE TOROS (S.M. EL REY), PARÍS (SU SANTIDAD PIO XCIX), FESTIVAL (la superestrella del rock),
   PARQUE DE ATRACCIONES (EL PRESIDENTE), ESTACION DE ESQUI (el magnate petrolero), CRUCERO NOCTURNO (EL PADRINO NIPON); si un nivel no
   tiene hueco, no hay zona. Los guardias estan parados; entrar (o atacarlos) sin traje, pase ni invitacion los activa y te persiguen
   con la persecucion normal (se rinden si te pierden). El personal y el VIP NO cuentan para completar la fiesta.
@@ -498,7 +527,7 @@ ZONAS VIP, TRAJE DORADO, INVITACION Y RELEVO (vip.go):
   y tienes 15 s de pase (barra verde; antes 30 s).
 - RELEVO: cada 40 s los guardias de la puerta bostezan y miran el reloj (1,5 s) y se van; durante 3,5 s en total (antes 7 s) la zona esta sin vigilar.
 - ESCALADA DE CASTIGO (si el VIP sigue vivo): un guardia VIP que te pilla en la zona sin traje/pase/invitacion (o tras atacarlos) te da un aviso por jugador y nivel: 1o te saca de la zona y te tira al suelo 1,5 s sin dano; 2o te pega, te saca y te deja aturdido 3 s con estrellitas; 3o te mata (revive en 2P / fin de partida en 1P). Entre avisos hay 3 s de inmunidad. Lo mismo vale para los INVITADOS normales que entren en la zona (contador por invitado: "¡Perdone!", aturdido, y a la 3a muere sin puntos, estrellas ni testigos para ti; baja de GENTE). Si matas al VIP no hay escalada: policia y persecucion como antes. El traje dorado sigue durando 8 s.
-- Debug: -vipdemo gate|inside|suit|relief|invite|stun (fuerza la zona, sin azar; con -level N; N=5 toros, 6 Eiffel, 7 crucero, 8 parque, 11 festival, 16 esqui).
+- Debug: -vipdemo gate|inside|suit|relief|invite|stun (fuerza la zona, sin azar; con -level N; N=5 toros, 6 París, 7 crucero, 8 parque, 11 festival, 16 esqui).
 
 AYUDA DE CONTROLES (botón "?")
 ------------------------------
@@ -523,7 +552,7 @@ HUD, ULTIMOS INVITADOS Y CAMARA LENTA (hud.go, lastguests.go, slowmo.go, lang_hu
 - CAMARA LENTA en la ultima baja de la fiesta (aliveCount llega a 0 en checkDone, solo una vez por nivel, nunca en sigilo): ~1 s REAL con dt x0,25 (bajada rapida, mantiene, rampa suave a x1), destello blanco 0,3 s, vineta oscura y un golpe grave ("slowmo" en audio.go). completeLevel se ejecuta al acabar (nunca mas de ~1 s despues). slowmoEnabled=false lo desactiva (los tests lo apagan en slowmo_flag_test.go y los de slowmo_test.go lo encienden con t.Cleanup). Audio: no oido.
 
 ANIMACION DE FONDO Y SONIDO AMBIENTE (ambient.go, ambient_sound.go):
-- Animacion de fondo SUTIL, dibujada justo despues del suelo (detras de props, cuerpos y actores; no toca colisiones ni orden de dibujo; 1P y 2P igual). ambientPlan (ambient.go) lista los 13 niveles con efecto, el resto no tiene: MIAMI BEACH y PLAYA (espuma que sube y baja en la orilla, destellos del sol en el mar, crestas de olas), CRUCERO NOCTURNO (crestas de olas en el mar, un delfin salta cada 20-40 s, destellos en la piscina), CEMENTERIO (niebla baja que deriva), ESTACION DE ESQUI (copos de nieve), ESTACION ESPACIAL (estrellas que titilan), PLAZA EUROPEA / TORRE EIFFEL / SKATE PARK (hojas llevadas por el viento), BULL'S EYE / FESTIVAL / ESTACION DE TREN (polvo), HOUSE PARTY (destellos en la piscina). Ademas, en los niveles con viento (bgSway) arboles, palmeras, pinos y arbustos se inclinan 1 px la copa de vez en cuando (3 franjas cacheadas, sin imagenes nuevas por fotograma). Coste medido con -gamebench 600 en Miami Beach: dibujo 2,66 ms sin efectos -> 2,70 ms con ellos.
+- Animacion de fondo SUTIL, dibujada justo despues del suelo (detras de props, cuerpos y actores; no toca colisiones ni orden de dibujo; 1P y 2P igual). ambientPlan (ambient.go) lista los 13 niveles con efecto, el resto no tiene: MIAMI BEACH y PLAYA (espuma que sube y baja en la orilla, destellos del sol en el mar, crestas de olas), CRUCERO NOCTURNO (crestas de olas en el mar, un delfin salta cada 20-40 s, destellos en la piscina), CEMENTERIO (niebla baja que deriva), ESTACION DE ESQUI (copos de nieve), ESTACION ESPACIAL (estrellas que titilan), PLAZA EUROPEA / PARIS / BARCELONA / SKATE PARK (hojas llevadas por el viento), FESTIVAL / ESTACION DE TREN (polvo), HOUSE PARTY (destellos en la piscina). Ademas, en los niveles con viento (bgSway) arboles, palmeras, pinos y arbustos se inclinan 1 px la copa de vez en cuando (3 franjas cacheadas, sin imagenes nuevas por fotograma). Coste medido con -gamebench 600 en Miami Beach: dibujo 2,66 ms sin efectos -> 2,70 ms con ellos.
 - Variable ambientOn (true por defecto); PH_AMBIENT=0 en el entorno la apaga (util para comparar tiempos). Los tests de pixeles pueden poner ambientOn=false.
 - SONIDO AMBIENTE: APAGADO por defecto y SIN OIR (no se pudo escuchar al escribirlo: juzgalo tu). Para encenderlo: PH_AMBIENT_SOUND=1 ./PartyHardy (o variable de entorno equivalente en Windows). Bucles de 8 s sinteticos (olas = ruido rosa con swell; viento; grillos; tren lejano; murmullo de gente; zumbido de estacion) a volumen 0,06 (la musica va a 0,5), solo mientras se juega un nivel del plan; se pausan en menus, interludios, ayuda, trofeos y con -mute o la tecla M. Si suena mal, se deja apagado o se ajusta ambientVolume / buildAmbientLoop.
 

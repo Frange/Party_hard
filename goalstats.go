@@ -75,6 +75,9 @@ func careerTime(secs int) string {
 func (g *Game) careerLevelsDone() int {
 	n := 0
 	for i := 0; i < campaignN; i++ {
+		if campaignRetired(i) { // a retired party (campaign_retired.go) keeps its won_N but no longer counts
+			continue
+		}
 		if g.progress.Stats[fmt.Sprintf("won_%d", i)] > 0 {
 			n++
 		}
@@ -105,7 +108,7 @@ func (g *Game) careerRows() (left, right [][2]string) {
 	kills := careerKills(&g.progress)
 	left = [][2]string{
 		{"Partidas jugadas", fmt.Sprint(st["played"])},
-		{"Niveles completados", careerOf(g.careerLevelsDone(), campaignN)},
+		{"Niveles completados", careerOf(g.careerLevelsDone(), campaignShown())},
 		{"Fiestas ganadas", fmt.Sprint(st["wins"])},
 		{"Bajas totales", fmt.Sprint(kills)},
 		{careerCuffsLabel, fmt.Sprint(g.progress.Escapes)},

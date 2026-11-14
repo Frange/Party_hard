@@ -1,6 +1,168 @@
 # Registro de cambios de Party Hardy
 ---
 
+## [v1.4.0] - 2026-11-12 - medio
+
+### Añadido
+- **Nueva fiesta 7: ALCALÁ DE HENARES** (justo después de la Torre Eiffel; la Estación Espacial y la isla secreta
+  siguen siendo las dos últimas): la plaza mayor al atardecer, con la fachada plateresca de la universidad, la iglesia
+  gótica con rosetón y campanario, la torre almenada, los soportales con terrazas, casas con balcones y **cigüeñas** en
+  sus nidos que castañean y aletean de vez en cuando. El DJ pincha en el templete (la pista está delante de su
+  escalera), estatua en su jardín con vallitas, dos estatuas sentadas en un banco, puestos de mercadillo, árboles en
+  maceteros, pasodoble, frases propias y medallas como el resto. Partidas guardadas: CampaignRev 5 mueve cada victoria
+  a su fiesta (won_6..won_25 -> won_7..won_26) y abre Alcalá (sin ganar) a quien ya había ganado la Torre Eiffel; las
+  correcciones del editor con el número antiguo siguen valiendo. Tus mp3 numerados del 7 en adelante pasan al número
+  siguiente.
+- **Nueva fiesta 14: GUADALAJARA** (justo después del Cementerio y antes del Circuito; el Barco Pirata y la Estación
+  Espacial siguen siendo las últimas): la plaza al atardecer, con el monte y la silueta negra del toro, la casa rosa de
+  la "Pastelería Mariam" con su toldo de rayas, la casa naranja de "Miel de la Alcarria", el palacio renacentista de
+  piedra con su fachada de puntas de diamante y su portada, la iglesia de dos torrecillas, el panteón de cúpula gris con
+  rosetón y el estadio morado con sus focos y su escudo, al que sube una escalinata. En medio, la **fuente octogonal**
+  con surtidores y agua que se mueve; el DJ pincha en el **templete**, hay pérgolas con parras y bancos, puesto de miel,
+  quiosco de prensa morado, estatua en su jardín vallado, terraza de la pastelería, pasodoble, frases propias,
+  periódico y medallas como el resto. Partidas guardadas: CampaignRev 6 mueve cada victoria a su fiesta
+  (won_15..won_26 -> won_16..won_27) y abre Guadalajara (sin ganar) a quien ya tenía abierto el Circuito; las
+  correcciones del editor con el número antiguo siguen valiendo. Tus mp3 numerados del 16 en adelante pasan al número
+  siguiente (el número cuenta también las dos fiestas retiradas).
+- **Peluquería: "Calvo con melena"**: calvo por arriba y con una melena desde los lados y la nuca que llega hasta el
+  suelo; se mueve al andar y se ve en las tres direcciones.
+- **Periódico con las manos manchadas**: tras una matanza, al coger el periódico quedan huellas de pulgares y manos
+  ensangrentadas en los bordes, más cuantas más víctimas tuvo la fiesta.
+- **Militares y SWAT con metralleta** en las manos: alguna vez la usan, como mucho una ráfaga entre todos por aviso;
+  después revisan la zona y se van todos hasta que los vuelvan a llamar.
+- **Objetos con movimiento**: la noria y el tiovivo giran, los globos se mecen, el público de las gradas se mueve
+  (cabezas, brazos arriba, saltitos), la bola de discoteca gira con destellos, el fuego de la chimenea parpadea, el
+  agua de las fuentes corre, el gondolero rema, las tragaperras parpadean y la ruleta del casino gira con su bola.
+- **Casino**: algunos invitados van a jugar a las tragaperras (giran los rodillos mientras juegan) y a la ruleta, se
+  quedan un rato y a veces celebran ("¡PREMIO!", "¡Todo al rojo!").
+- **Zonas VIP variadas**: ya no son siempre iguales; pueden ser rectangulares de varios tamaños, redondas, ovaladas,
+  en L o una plataforma con escalones, según el espacio del nivel, y con más o menos seguridad (2 a 4 guardias).
+- **Mini fiesta VIP**: a veces hay 2 o 3 VIP juntos en la zona, siempre con más guardias.
+- **Estación espacial**: sin helipuertos (todo llega en nave); cohete, cúpula de cultivo, módulo, antena y ventanas
+  con planetas; el fondo se mueve: estrellas que titilan, planetas que giran, satélites, naves que pasan y estrellas
+  fugaces.
+- **Barco pirata**: casi todos van de pirata (pata de palo, garfio, parche, loro; y disfraces de piratas de dibujos y
+  de aventura gráfica), duelos de espadas y **duelos de insultos** de las aventuras piratas clásicas entre dos invitados
+  (como mucho 2 a la vez, insulto y réplica en ES y EN), guardias piratas, barriles de dinamita (trampa), montones de
+  tesoro y el mar con olas, delfín y una aleta de tiburón.
+- **Disco setentera**: casi todos con afros enormes y tres pistas pequeñas iluminadas con dibujos propios que se mueven
+  (rayos, cuadrados y flechas), donde la gente va a bailar.
+- **Estación de esquí**: invitados en esquís o tabla, guerras de bolas de nieve, muñecos de nieve que se quedan y, como
+  mucho una vez por fiesta, una **bola de nieve gigante** que baja por la pista y arrolla a los invitados.
+- **Cumpleaños**: una troupe de payasos que hace malabares, perritos de globo, echa agua con la flor y un coche de
+  payasos que va y viene.
+- **Pista de hockey**: jugadores con stick que se pasan el disco (también a invitados) y a veces lanzan un cañonazo a
+  alguien: duele y alguno muere (como mucho 3 por fiesta).
+- **Árboles y arbustos variados**: además del de siempre, roble redondo, roble grande sombreado, abeto, abeto oscuro,
+  abeto seco, cerezo en flor y pino torcido; arbustos redondos, con flores, con bayas, secos y de flor rosa. Cada nivel
+  los elige según su tema (abetos secos en el cementerio, abetos en la nieve, cerezos en sitios japoneses...), con la
+  misma huella, transparencia y viento que antes.
+- **Cementerio**: siempre, al rato, salen **zombis** de las tumbas que se comen el cerebro de algunos invitados (como
+  mucho 5 por fiesta; luego solo asustan), después aparecen dos **fantasmas** que solo asustan (la gente grita y huye)
+  y llegan los **Cazafantasmos**, que los persiguen con sus rayos hasta atraparlos y, con la confusión, fríen a algún
+  invitado (como mucho 3).
+- **Skate park**: muros de ladrillo para pintar (el del fondo y uno suelto entre las barandillas) y en cada fiesta de
+  1 a 3 **grafiteros** que dejan sus dibujos en ellos.
+
+### Cambiado
+- **La fiesta 4 (el rancho Diana / Bull's Eye) es ahora BARCELONA**: gran plaza de día con cielo azul, el mar con
+  veleros y el hotel en forma de vela, el Tibidabo con su iglesia, su torre y un **teleférico de cabinas rojas que sube
+  y baja**, el ayuntamiento con torre del reloj, la casa modernista de mosaico, el mercado de ladrillo con vidrieras,
+  la Sagrada Família con su grúa y el Arc de Triomf (fondo pintado, no se entra). En la plaza: el gran **círculo de
+  mosaico** es la pista (el DJ en su borde), dos **fuentes** animadas con parterres, terrazas, palmeras, árboles,
+  farolas, bancos, el banco ondulado de mosaico, el quiosco azul de prensa, el pabellón del parque con tejado de
+  mosaico y el ponche delante de la pista. **Banderas de España y de Cataluña** ondeando en el balcón del ayuntamiento
+  y en dos mástiles. Música latina (reggaetón, por la rumba), frases, periódico, icono y sucesos de plaza (músico
+  callejero, malabarista, mimo, tele, despedida, estatua viviente); fuera los del rancho (toro mecánico, póker, pintor,
+  linterna, cola del váter, calavera). Mismo índice, icono interno y clave del editor: **las victorias, medallas y
+  fiestas abiertas del rancho se conservan tal cual** (sin migración). Una corrección del editor guardada para el
+  rancho ya no se aplica a Barcelona (el fichero no se toca).
+- **TORRE EIFFEL pasa a llamarse PARÍS**: la torre sigue en su sitio con todos sus sucesos (grafitero, carrera de
+  sacos...), y llega la ciudad: fondo pintado de noche con edificios haussmannianos (mansardas de zinc, buhardillas,
+  chimeneas, balcones de hierro), el Sacré-Cœur en su colina, el Arco del Triunfo al final de una avenida y la
+  **bandera de Francia** ondeando en un balcón y en un mástil; abajo, la planta baja de los comercios es un muro de
+  verdad (el grafitero sigue teniendo pared). En la plaza: mesas de bistró con sillas de mimbre, boca de metro
+  modernista, quiosco verde, cajas de libros de los bouquinistes, panadería con baguettes, farolas de época, un tiovivo
+  que gira, un **acordeonista** y un **mimo** animados. Frases e icono nuevos; mismo índice, icono, medallas y
+  partidas.
+- **Circuito**: pasan coches muy rápido (más del doble que en la calle) y muy a menudo por la pista; si estás en la pista te avisa
+  "¡COCHE!" al entrar cada uno. Fuera el puente gris del centro y las gradas de abajo.
+- **Discoteca y Cine retirados**: ya no se juegan ni salen en la lista (la campaña queda en 24 fiestas, 26 con ALCALÁ DE HENARES y GUADALAJARA; la estación
+  espacial sigue siendo la última). Tu partida no pierde nada: lo ganado allí se conserva y, si la siguiente fiesta
+  que te tocaba era una de ellas, se abre la siguiente. Los interludios salen tras la 5.ª, 10.ª y 15.ª fiesta de la
+  lista. El **detector de metales** pasa a la pista de hockey (y sigue en el casino).
+- **Fuego más realista** (pirómano, cocinero, coches ardiendo, barbacoa y chimenea): llamas en capas (núcleo amarillo
+  claro, naranja y bordes rojo oscuro), lenguas que ondulan y se desprenden, chispas que suben y se apagan y brasas en
+  la base; nítido, sin escalados.
+- **Icono del teléfono**: auricular con borde oscuro, sombreado y cable en espiral, del color de la cabina desde la
+  que se llama (rojo como las cabinas rojas, amarillo desde la cabina amarilla de los técnicos), con rayitas de sonido
+  al sonar y sin giros borrosos; también en el aviso sobre los teléfonos del nivel.
+- **Música tras matar al DJ**: las seis canciones ahora son movidas (funk rápido, big beat, ska, salsa, disco funk y
+  surf rock, de 116 a 126 bpm), con bajo y percusión con más energía, platillos al cambiar de sección, redobles y
+  breaks, sin repetir el mismo compás.
+- **Periódico**: gotas de sangre más grandes y más numerosas cuantas más víctimas.
+- **Parches**: ya no hay parches entre versiones; cada versión trae el juego completo y UN parche desde la 1.0.0.
+- **Policías por cuerpo**: policía 1 ó 2, FBI siempre 2, militares 3, SWAT 4 y Pawer Rangers 5; ninguno carga con
+  cuerpos (solo los identifican e investigan la zona). Cada grupo se va COMPLETO (salvo los que hayan muerto), y
+  cualquier grupo que pase un rato sin ver cadáveres ni sospechosos se marcha.
+- **Estrellas del HUD**: tantas como tipos de policía tengas desbloqueados (con policía, FBI y militares, 3 como
+  máximo y sin estrellas vacías de más).
+- **OBJETIVOS > POLICÍAS** en orden fijo: Polis, FBI, Militares, SWAT y Pawer Rangers.
+- **Detector de metales**: ya no pita cada vez; primero va un guardia de seguridad a mirar y, solo si sigue
+  pitando, se avisa a la policía (sin esposas); después ya no manda a nadie más.
+- **RACHA**: matar animales también suma (y las trampas siguen sumando).
+- **Aviso de medalla** más pequeño que el de trofeo y con su propio sonido.
+- Los **asesinos especiales** vienen un poco más a menudo (alrededor de 1 fiesta de cada 4).
+- **Estación de tren**: música nueva y más movida (breakbeat) en lugar del rap, y pasan muchos más trenes, en tandas
+  de 5 a 8 con pausas entre ellas (solo algunos paran a dejar gente).
+
+### Arreglado
+- **Título de la fiesta pegado al marcador**: el nombre grande del principio deja siempre al menos 12 px con el panel
+  de arriba a la izquierda, en español y en inglés; un nombre muy largo (ALCALÁ DE HENARES) sale un tamaño menor.
+- **Zona VIP vacía**: los asesinos de la fiesta y los caballos ya no matan a los guardias VIP ni al VIP, así que la
+  zona nunca se queda sin gente por su cuenta.
+- Ortografía de las citas con una letra cambiada: ahora la letra cambiada forma palabras correctas o juegos de
+  palabras ("Yo soy tu madre", "¡No puedes posar!", "Hasta la pista, baby", "más allí", "Respeto mi autoridad",
+  "Levitosa", "Tutatix", "Excedente") en vez de parecer erratas.
+- Trofeos que saltaban solos: al abrir el juego en el menú, al empezar una fiesta sin hacer nada (avisos de la
+  fiesta anterior que volvían tras el periódico) o repetidos; ahora cada trofeo se anuncia una sola vez.
+- **Traje dorado estando esposado**: ahora cambia la ropa y quita las esposas, como un disfraz.
+- **Trampas** que no afectaban a invitados rápidos (Sam-sam, César, Diego, los skaters) al pasar: el gas, los
+  fuegos artificiales y el piano alcanzan siempre a quien las activa.
+- **Escondidos bajo la mesa**: ya no se ven solo unos pies sueltos; se levanta el mantel dentro de la mesa y se ve
+  al invitado agachado (cabeza y hombros).
+- **Estadio**: el DJ pincha en el centro del campo, el campo ya no tiene vallas alrededor y se quitó la grada de abajo,
+  que tapaba el juego.
+- **Transparencias** (copas de árboles, tejados, toldos): se vuelven algo más transparentes y empiezan a hacerlo un
+  poco antes de llegar, con un fundido suave.
+- **Ponches** más céntricos (casa, crucero y la casa del modo aleatorio), junto a la pista y no en un rincón.
+- **Edificios con una sola salida**: el rancho (salón y garaje), la discoteca y los edificios del modo aleatorio tienen siempre al
+  menos dos salidas.
+- Los invitados ya no pasean pegados al borde de arriba de la pantalla, donde casi no se les veía.
+- **Ponches** de la fiesta de cumpleaños y de la disco setentera junto a las pistas, no en una esquina.
+- **Pista de hockey y disco setentera**: dos entradas desde la calle (antes una sola, una trampa con la policía); la sala
+  de la disco tiene una puerta lateral y sus paredes ya no dejan rendijas en las esquinas.
+- **Cementerio**: además de los árboles secos tiene algunos árboles y arbustos vivos, con su estilo de cementerio.
+- **VIP muerto con una trampa** (la explosión de una estufa, una barbacoa o un altavoz): ahora da su bonus y su cromo,
+  como con el cuchillo.
+- **El coche del futuro (la DeLorian) que despega** ya no atropella a nadie mientras sube por la acera (mataba a los
+  obreros de las obras).
+- **Pausa con dos jugadores**: el aviso "[E] ..." de un objeto ya no asoma por debajo del panel de pausa.
+- Un invitado que muere sentado deja libre su asiento en el mismo momento.
+- **Barbacoa**: el cocinero es el invitado que menos tiene que andar hasta la parrilla (no el más cercano en línea
+  recta, que desde dentro de la casa daba la vuelta entera y el evento se perdía por el camino).
+- **Payasos del cumpleaños**: cada número (malabares, globos) se hace en un sitio al que el payaso llega a tiempo;
+  antes algunos se perdían por el camino y el de los globos podía no salir nunca.
+- **Rancho (BULL'S EYE)**: la segunda puerta del garaje ya no queda tapada por un trozo de pared.
+- **Modo sigilo en el Barco Pirata**: los setos que añade el modo ya no se pegan al ancla ni cierran el paso.
+- **Cartel de inicio de fiesta**: la línea pequeña (tipo de fiesta y música) va debajo del título, lejos del borde de
+  arriba y del panel del HUD; los mensajes bajan mientras se ve el cartel.
+- **Cuadro de descripción de la fiesta**: ya no se mete bajo el panel del HUD (Parque de Atracciones, Estación de
+  Esquí, Rooftop Party, Estación Espacial...); si el texto es largo se parte en dos líneas, siempre separado del panel.
+- **Fiesta de cumpleaños con zona VIP**: la alfombra VIP ya no se lleva al mago de la fiesta, así que el número de
+  magia lo hace él y no aparece un segundo mago.
+- **Alcalá de Henares y Guadalajara**: la línea pequeña bajo el título lleva fondo oscuro y se lee sobre las fachadas.
+
 ## [v1.3.0] - 2026-11-11 - medio
 
 ### Añadido

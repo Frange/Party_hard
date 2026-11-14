@@ -341,22 +341,41 @@ func TestPevMagicianFailsSometimesAndBirthdayHasNoSecondOne(t *testing.T) {
 	if runs < 8 || fails == 0 || fails == runs {
 		t.Errorf("a trick should fail sometimes, not never or always (%d of %d)", fails, runs)
 	}
-	// the birthday party: the decorative magician does the show, nobody is added
-	for _, idx := range peEligible(g, "magician") {
-		if levelDefs[idx].Icon != "cake" {
-			continue
-		}
-		g3 := peLoad(t, idx, false)
-		before := len(g3.lvl.Props)
-		peForce(g3, "magician")
-		for s := 0; s < 30*40 && g3.partyRunning("magician") == nil && len(g3.pev.plan) > 0; s++ {
-			peStep(g3, 1.0/30, true)
-		}
-		if a := g3.partyRunning("magician"); a != nil {
-			st := a.D.(*magicState)
-			if st.prop == nil || st.prop.Name != "entertainer" || len(g3.lvl.Props) != before {
-				t.Error("the birthday show should use the decorative magician")
+	// the birthday party: the decorative magician does the show, nobody is added. Also with a VIP zone of every shape
+	// (vipForce + several dice): the carpet once swept the decorative magician away and a second one came.
+	prevForce, prevLS := vipForce, peLoadSeed
+	t.Cleanup(func() { vipForce, peLoadSeed = prevForce, prevLS })
+	for run := 0; run < 7; run++ {
+		vipForce, peLoadSeed = run > 0, int64(run)
+		for _, idx := range peEligible(g, "magician") {
+			if levelDefs[idx].Icon != "cake" {
+				continue
 			}
+			g3 := peLoad(t, idx, false)
+			deco := false
+			for _, p := range g3.lvl.Props {
+				deco = deco || (p.Name == "entertainer" && p.Var == 1 && !p.gone)
+			}
+			if !deco {
+				t.Errorf("run %d (vip zone %v): the birthday party lost its decorative magician", run, g3.lvl.vip != nil)
+			}
+			peBirthdayShow(t, g3)
+		}
+	}
+}
+
+// peBirthdayShow: the magician event of the birthday party uses the decorative magician and adds nobody.
+func peBirthdayShow(t *testing.T, g3 *Game) {
+	t.Helper()
+	before := len(g3.lvl.Props)
+	peForce(g3, "magician")
+	for s := 0; s < 30*40 && g3.partyRunning("magician") == nil && len(g3.pev.plan) > 0; s++ {
+		peStep(g3, 1.0/30, true)
+	}
+	if a := g3.partyRunning("magician"); a != nil {
+		st := a.D.(*magicState)
+		if st.prop == nil || st.prop.Name != "entertainer" || len(g3.lvl.Props) != before {
+			t.Error("the birthday show should use the decorative magician")
 		}
 	}
 }

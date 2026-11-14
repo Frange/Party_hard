@@ -9,7 +9,7 @@ import (
 // ---------------------------------------------------------------------------
 // Songs: a tiny step sequencer. Every level has its own playlist (house, techno, disco,
 // reggaeton...), the menu keeps the original electro theme and when the DJ dies the
-// party switches to the songs after the DJ (songs_afterdj.go: lounge, funk, ballad...).
+// party switches to the songs after the DJ (songs_afterdj.go: funk, big beat, ska, salsa...).
 // ---------------------------------------------------------------------------
 
 type songSpec struct {

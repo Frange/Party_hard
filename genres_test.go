@@ -63,7 +63,8 @@ func TestEveryLevelHasAGenre(t *testing.T) {
 	if len(kinds) < 14 {
 		t.Errorf("only %d genres in the campaign: %v", len(kinds), seq)
 	}
-	for _, need := range []string{"electro", "metal", "reggaeton", "pop", "rap", "hiphop", "clasica", "punk"} {
+	// v1.4.0: the train station left rap for its own breakbeat (the user found the rap loop dull): rap is no party's now
+	for _, need := range []string{"electro", "metal", "reggaeton", "pop", "breakbeat", "hiphop", "clasica", "punk"} {
 		if !kinds[need] {
 			t.Errorf("the campaign never uses %s", need)
 		}

@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
-	"testing"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -54,10 +53,11 @@ var (
 )
 
 var (
-	gfRng     *rand.Rand
-	gfSeed    int64 // tests: non-zero = deterministic dice
-	gfInTests bool  // tests: let it happen under go test (off by default so the other tests' parties stay as they were)
-	gfUsed    = map[int]bool{}
+	gfRng      *rand.Rand
+	gfSeed     int64 // tests: non-zero = deterministic dice
+	gfInTests  bool  // tests: let it happen under go test (off by default so the other tests' parties stay as they were)
+	gfTestsOff bool  // set by the tests' init (testiso_test.go): the graffiti event is off under go test unless gfInTests
+	gfUsed     = map[int]bool{}
 )
 
 func gfDice() *rand.Rand {
@@ -205,6 +205,9 @@ func gfReset(g *Game) {
 		gfLv.max = 3
 	}
 	gfLv.next = g.time + 35 + r.Float64()*120
+	if skateGraffiti(g.lvl.Def) && len(gfLv.segs) > 0 { // SKATE PARK: 1-3 painters ALWAYS (skategraffiti.go)
+		gfLv.want, gfLv.max, gfLv.next = true, 1+r.Intn(3), g.time+skateGfFirst+r.Float64()*skateGfFirstVar
+	}
 	if pevDebugOn("graffiti") {
 		gfLv.want, gfLv.next, gfLv.max = true, g.time+2, 3
 		if pevDemo("graffiti") == "muro" { // two finished pieces at the start (captures)
@@ -363,7 +366,7 @@ func gfDue(g *Game, t partyTraits) bool {
 	if g.lvl == nil {
 		return false
 	}
-	if testing.Testing() && !gfInTests && !pevDebugOn("graffiti") {
+	if gfTestsOff && !gfInTests && !pevDebugOn("graffiti") {
 		return false
 	}
 	lv := gfLevelOf(g)
@@ -446,6 +449,9 @@ func gfEnd(g *Game, s *gfState) {
 		gfDropPiece(s.piece)
 	}
 	gfLv.next = g.time + 60 + r.Float64()*80
+	if skateGraffiti(g.lvl.Def) { // the skate park's crew comes one after another (skategraffiti.go)
+		gfLv.next = g.time + skateGfNext + r.Float64()*skateGfNextVar
+	}
 	if pevDebugOn("graffiti") {
 		gfLv.next = g.time + 4
 	}

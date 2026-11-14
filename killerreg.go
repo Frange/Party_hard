@@ -11,8 +11,9 @@ import (
 //
 // Before: EVERY level had one 28-68 s after the start and, after each one was caught, up to two more 70-130 s later.
 // Now (killerRegulation):
-//   - a level has a killer with probability killerChance (0.22), at a random moment (killerAtMin..killerAtMax);
-//     never two parties in a row with one: on average 1 party in 5-6 (0.18). The old slow-player accelerator
+//   - a level has a killer with probability killerChance (0.30; 0.22 until 2026-11-12, the owner asked for a bit
+//     more), at a random moment (killerAtMin..killerAtMax); never two parties in a row with one: on average about
+//     1 party in 4 (0.23). The old slow-player accelerator
 //     (3:30, one comes anyway) was REMOVED: it gave a killer to almost every long party;
 //   - at most ONE per level, unless the level passes killerSecondAfter (5:00): then one more (two in total at most);
 //   - never in STEALTH (those levels never plan one), not in cinematics (they never run updateSlasher);
@@ -26,7 +27,7 @@ import (
 
 const (
 	killerRegulation  = true
-	killerChance      = 0.22 // per party; with no back-to-back parties the real rate is p/(1+p) = ~0.18 (1 in 5-6)
+	killerChance      = 0.30 // per party; with no back-to-back parties the real rate is p/(1+p) = ~0.23 (about 1 in 4)
 	killerAtMin       = 30.0
 	killerAtMax       = 150.0
 	killerSecondAfter = 300.0 // 5:00

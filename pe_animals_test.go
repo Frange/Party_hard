@@ -193,23 +193,34 @@ func TestPetForcedEachKind(t *testing.T) {
 
 // The fear of the cat wins: the player comes near the petted cat and it runs away (its own AI), the petting ends.
 func TestPetCatStillRunsFromThePlayer(t *testing.T) {
-	paGlobals(t)
-	g, _ := paLoad(t, 13, animCat, false)
-	if g == nil {
-		t.Skip("no cat")
-	}
-	dbgPartyEvent = "caricia:gato"
-	g.p.pos = g.lvl.NearestFree(Vec{8, 8})
-	petLv.lvl = nil
+	// It used to load only party 13 and SKIP when that one came without a cat (or the petting did not start): the
+	// test proved nothing then. Now it tries the parties with a cat in their own list of animals (13 and the HOUSE
+	// PARTY, whose cat is fixed in levels.go) and FAILS if none of them gets a petted cat.
+	prevEv := dbgPartyEvent
+	t.Cleanup(func() { dbgPartyEvent = prevEv })
+	var g *Game
 	var ps *petState
-	for s := 0; s < 30*30 && (ps == nil || ps.phase != ptPet); s++ {
-		paStep(g, 1.0/30)
-		if a := g.partyRunning("caricia"); a != nil {
-			ps = a.D.(*petState)
+	for _, idx := range []int{13, 0, 13, 0} {
+		paGlobals(t)
+		if g, _ = paLoad(t, idx, animCat, false); g == nil {
+			continue
+		}
+		dbgPartyEvent = "caricia:gato"
+		g.p.pos = g.lvl.NearestFree(Vec{8, 8})
+		petLv.lvl = nil
+		ps = nil
+		for s := 0; s < 30*30 && (ps == nil || ps.phase != ptPet); s++ {
+			paStep(g, 1.0/30)
+			if a := g.partyRunning("caricia"); a != nil {
+				ps = a.D.(*petState)
+			}
+		}
+		if ps != nil && ps.phase == ptPet {
+			break
 		}
 	}
-	if ps == nil || ps.phase != ptPet {
-		t.Skip("the petting did not start")
+	if g == nil || ps == nil || ps.phase != ptPet {
+		t.Fatal("no party with a cat got a petting going (parties 13 and 0)")
 	}
 	g.p.dead, g.p.hidden = false, false
 	g.p.pos = Vec{ps.a.pos.X + 10, ps.a.pos.Y}
@@ -230,7 +241,7 @@ func TestPetCatStillRunsFromThePlayer(t *testing.T) {
 func paFetch(t *testing.T, two bool, body func(g *Game, s *fetchState) string) {
 	t.Helper()
 	last := ""
-	for _, idx := range []int{0, 5, 10, 21, 7} {
+	for _, idx := range []int{0, 5, campaignIdx("festival"), campaignIdx("cake"), campaignIdx("funfair")} {
 		paGlobals(t)
 		g, _ := paLoad(t, idx, animDog, two)
 		if g == nil {
@@ -441,7 +452,7 @@ func TestIceSkaterOnlyOnIceLevels(t *testing.T) {
 // The show: he gets onto the ice, does tricks (one funny fall and getting up), stays on the ice, bows and is let go;
 // killed in the middle it ends at once. In the ski resort and on the hockey rink, one and two players.
 func TestIceSkaterShow(t *testing.T) {
-	for _, idx := range []int{15, 22} {
+	for _, idx := range []int{campaignIdx("snow"), campaignIdx("hockey")} {
 		for _, two := range []bool{false, true} {
 			whys := ""
 			ok := false
@@ -497,7 +508,7 @@ func TestIceSkaterShow(t *testing.T) {
 	}
 	// killed in the middle of the show
 	paGlobals(t)
-	g := peLoad(t, 15, false)
+	g := peLoad(t, campaignIdx("snow"), false)
 	dbgPartyEvent = "hielo"
 	iceSkLv.lvl = nil
 	var s *iceSkState

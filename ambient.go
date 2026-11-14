@@ -57,8 +57,8 @@ var ambientPlan = []ambientEntry{
 	{"ESTACIÓN DE ESQUÍ", bgSnow | bgSway, "wind"},
 	{"ESTACIÓN ESPACIAL", bgStars, "hum"},
 	{"PLAZA EUROPEA", bgLeaves | bgSway, "crowd"},
-	{"TORRE EIFFEL", bgLeaves | bgSway, "crowd"},
-	{"BULL'S EYE", bgDust | bgSway, "wind"},
+	{"PARÍS", bgLeaves | bgSway, "crowd"},
+	{"BARCELONA", bgLeaves | bgSway, "crowd"},
 	{"SKATE PARK", bgLeaves | bgSway, "crowd"},
 	{"FESTIVAL", bgDust | bgSway, "crowd"},
 	{"HOUSE PARTY", bgPool | bgSway, ""},
@@ -274,6 +274,7 @@ func (g *Game) drawBackAnim(dst *ebiten.Image) {
 		return
 	}
 	g.drawSeaSky(dst, g.time) // the sun's reflection rocking on the swell, the ship on the horizon (seasky.go)
+	g.drawPirateSea(dst)      // the pirate ship's bay: waves, a dolphin, a shark's fin (pirate_sea.go)
 	b := bgFor(g.lvl.Def)
 	if b.fx == 0 {
 		return
@@ -321,6 +322,7 @@ func (g *Game) drawBackAnim(dst *ebiten.Image) {
 		g.drawJump(dst, b, t)
 	}
 	if fx&bgStars != 0 {
+		g.drawSpaceFx(dst, t, ox, oy) // the station's sky: more stars, turning planets, satellites, ships (space_fx.go)
 		for _, s := range b.stars {
 			v := math.Max(0, math.Sin(t*s.sp+s.ph))
 			a := 30 + 210*v*v

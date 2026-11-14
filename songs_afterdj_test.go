@@ -222,3 +222,48 @@ func TestAfterDJLegacyFilesSkipped(t *testing.T) {
 		t.Errorf("DJ dead with an empty DJ/: %+v", p)
 	}
 }
+
+// the songs after the DJ are lively (v1.4.0: the soft ones were too tame): a dance tempo, a busy bass, a busy kit,
+// a crash on every new section and drum bars that keep changing
+func TestAfterDJSongsAreLively(t *testing.T) {
+	bassInst := map[string]bool{"ebass": true, "synbass": true, "pizz": true, "sub": true}
+	for _, s := range tdjSongs {
+		gs := genreSongs[s.id]
+		if s.bpm < 112 {
+			t.Errorf("%s: %.0f bpm (want >= 112)", s.id, s.bpm)
+		}
+		bassNotes := 0
+		for _, tr := range gs.tracks {
+			if !bassInst[tr.inst] {
+				continue
+			}
+			for _, n := range parseNotes(tr.notes) {
+				if len(n.midi) > 0 {
+					bassNotes++
+				}
+			}
+		}
+		hits, crashes := 0, 0
+		for _, p := range gs.perc {
+			for i := 0; i < len(p.pattern); i++ {
+				if p.pattern[i] != '.' {
+					hits++
+				}
+				if p.pattern[i] == 'x' {
+					crashes++
+				}
+			}
+		}
+		perBarBass, perBarHits := float64(bassNotes)/tdjBars, float64(hits)/tdjBars
+		if perBarBass < 5 {
+			t.Errorf("%s: %.1f bass notes per bar (want >= 5)", s.id, perBarBass)
+		}
+		if perBarHits < 16 {
+			t.Errorf("%s: %.1f drum hits per bar (want >= 16)", s.id, perBarHits)
+		}
+		if crashes < 4 {
+			t.Errorf("%s: %d crashes (want one per section)", s.id, crashes)
+		}
+		t.Logf("%-12s %3.0f bpm  bass %.1f notes/bar  drums %.1f hits/bar  crashes %d", s.id, s.bpm, perBarBass, perBarHits, crashes)
+	}
+}

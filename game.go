@@ -353,6 +353,7 @@ type Cop struct {
 	climbPh   int     // ladNone / ladUp / ladDeliver / ladLeave
 	exit      Vec     // where he walks off when his vehicle was wrecked (hasExit)
 	hasExit   bool
+	idleT     float64 // seconds without seeing a body or the suspect: the whole crew goes back (copcrew.go)
 }
 
 type Vehicle struct {
@@ -495,6 +496,7 @@ type Assets struct {
 type Game struct {
 	lastBandSign           Rect     // screen box of the band banner drawn in the last frame (bands.go; tests)
 	seats                  seatBook // chairs, tables and benches and who sits on them (seats.go)
+	mach                   machBook // slot machines and roulettes and who plays them (propplay.go)
 	streakT                float64
 	blk                    blackoutState // the blackout event (blackout.go)
 	smk                    smokeState    // smoke grenades and their clouds (smoke.go)
@@ -727,6 +729,8 @@ type Game struct {
 	sceneSel                                    int
 	bedEmpty, bedNoTalk                         bool // the intro: he is out of bed / nobody mutters
 	trophyDirty                                 bool
+	trophyQuiet                                 bool            // the catch-up check of the boot: granted without a toast (trophies.go)
+	trophyToasted                               map[string]bool // trophies already announced in this session: never twice
 	toasts                                      []trophyToast
 	trophySel, trophyScroll                     int
 	trophyTab, albumSel, albumScroll            int // page of the TROFEOS screen (0 list, 1 album) and the album cursor (album.go)
@@ -859,6 +863,10 @@ func newGame(mute bool) *Game {
 	g.medalLegacyInit() // medals: the x/N of their trophy and the menu tier of a v1.0.0 save (medals.go)
 	g.loadLevel(0)
 	g.mode = ModeMenu
+	// the trophies the saved stats already reached are granted now, quietly: no toast in the menu just for opening
+	// the game (trophies.go)
+	g.trophyQuiet, g.trophyDirty = true, true
+	g.checkTrophies()
 	g.snd.StartMusic() // music is on by default
 	return g
 }
@@ -907,6 +915,7 @@ func (g *Game) loadLevel(i int) {
 		iceBegin(g)
 	}
 	vipDecision, toroDecision, rwDecision = "", false, false
+	vipStyleDecision = vipStyle{} // the shape of the VIP zone (vipshape.go)
 	g.renderBG()
 	g.setupCameras() // security cameras of this level (camera.go)
 	g.time = 0
@@ -921,7 +930,7 @@ func (g *Game) loadLevel(i int) {
 	g.evManual, g.evManualAt = 0, -999
 	g.pwEvAt, g.pwFamAt = -999, -999
 	g.ambT = 6 + g.rng.Float64()*10
-	if g.lvl.Def.Highway {
+	if g.lvl.Def.Highway || raceTrack(g.lvl.Def) { // the circuit's race cars start at once too (racetrack.go)
 		g.ambT = 0.5
 	}
 	g.towT = 20 + g.rng.Float64()*15
@@ -1206,7 +1215,7 @@ func (g *Game) Update() error {
 				g.dbgSel = 0
 				g.mode = ModeDebug
 			case menuContinue:
-				g.menuSel = clampI(g.progress.Unlocked-1, 0, campaignN-1)
+				g.menuSel = g.campaignMenuSel() // the list row of the newest open party (campaign_retired.go)
 				g.mode = ModeLevelSelect
 			case menuNewGame:
 				if g.hasProgress() {
@@ -1264,7 +1273,10 @@ func (g *Game) Update() error {
 		g.pauseAfterSettings() // opened from the pause window: back to it, the party clock held (pause.go)
 	case ModeLevelSelect:
 		g.time += 1.0 / 60
-		rows := campaignN + 1 // the campaign slots + the fixed "ALEATORIO" row
+		// the campaign slots (the retired parties are not listed, campaign_retired.go: menuSel is a row of the list,
+		// campaignAtSlot gives its party) + the fixed "ALEATORIO" row
+		shown := campaignShown()
+		rows := shown + 1
 		if g.jpListed() {
 			rows++ // ...and the island, once it has been unlocked
 		}
@@ -1308,19 +1320,19 @@ func (g *Game) Update() error {
 			g.menuSel = (g.menuSel + step) % rows // jump between the columns
 		}
 		for i, k := range []ebiten.Key{ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5, ebiten.Key6, ebiten.Key7, ebiten.Key8, ebiten.Key9} {
-			if i < campaignN && i < g.progress.Unlocked && inpututil.IsKeyJustPressed(k) {
-				g.startLevel(i)
+			if idx := campaignAtSlot(i); idx >= 0 && idx < g.progress.Unlocked && inpututil.IsKeyJustPressed(k) {
+				g.startLevel(idx)
 			}
 		}
 		if actConfirm.just() || click {
 			if onBtn {
 				g.startDaily(false, -1) // RETO DE HOY (does nothing when it was lost / done today)
-			} else if g.menuSel == campaignN {
+			} else if g.menuSel == shown {
 				g.startRandomLevel()
-			} else if g.menuSel == campaignN+1 && g.jpListed() {
+			} else if g.menuSel == shown+1 && g.jpListed() {
 				g.startLevel(specialJurassic)
-			} else if g.menuSel < g.progress.Unlocked {
-				g.startLevel(g.menuSel)
+			} else if idx := campaignAtSlot(g.menuSel); idx >= 0 && idx < g.progress.Unlocked {
+				g.startLevel(idx)
 			}
 		}
 		if actBack.just() {
@@ -1477,6 +1489,9 @@ func (g *Game) runSelftest() {
 
 func (g *Game) updatePlay(dt float64) {
 	g.time += dt
+	// a guest killed (a car, a trap, the killer...) or gone after updateSeats of this frame gives his seat back at the
+	// end of the frame, not one frame later (seats.go)
+	defer g.seatDropOut()
 	for i := range g.msgs {
 		g.msgs[i].t -= dt
 	}
@@ -1528,8 +1543,12 @@ func (g *Game) updatePlay(dt float64) {
 	g.updateLife(dt)
 	g.updateParty(dt) // sometimes-events (partyevents.go)
 	g.updateWorks(dt) // roadworks and their crane (roadworks.go, crane.go)
-	g.cdTick()        // the closing time of the party (countdown.go)
-	g.careerTick(dt)  // seconds played, for the CARRERA page (goalstats.go)
+	// duels on the ship, snowballs, clowns, hockey players (venueacts.go)
+	g.updateVenueActs(dt)
+	// CEMENTERIO: zombies, ghosts and ghost hunters, own dice (graveyard.go)
+	g.updateGraveyard(dt)
+	g.cdTick()       // the closing time of the party (countdown.go)
+	g.careerTick(dt) // seconds played, for the CARRERA page (goalstats.go)
 	g.updateStreaker()
 	g.updateMetalDet(dt) // the metal detector arches of some doors (metaldet.go)
 	g.updateBlackout(dt)
@@ -1637,7 +1656,8 @@ func (g *Game) updatePlay(dt float64) {
 		g.updateGuest(gu, dt)
 		restore()
 	}
-	g.updateSeats(dt) // the guests resting on chairs and benches (seats.go)
+	g.updateSeats(dt)    // the guests resting on chairs and benches (seats.go)
+	g.updateMachines(dt) // the guests playing the slot machines and the roulette (propplay.go)
 	for _, gd := range g.guards {
 		restore := g.mdFocus(gd) // g.focus, or the player the metal detector marked (metaldet.go)
 		g.updateGuard(gd, dt)
@@ -2638,11 +2658,7 @@ func (g *Game) triggerTrapNow(pr *Prop) {
 		}
 		for _, gd := range g.guards {
 			if !gd.dead && dist(gd.pos, centre) < 64 {
-				gd.dead = true
-				g.countKill(kcBlast, false)
-				g.points += g.killVal(50)
-				g.spawnBody(gd.pos, gd.cs, gd.dir)
-				g.bodies[len(g.bodies)-1].label = "Guardia " + g.personalName(gd, gd.cs)
+				g.trapGuardBy(gd, kcBlast) // like every trap: a VIP blown up gets his bonus (vipOnKill)
 			}
 		}
 		g.trapCops(centre, 64)
@@ -2826,6 +2842,9 @@ func (g *Game) guestPick(gu *Guest) {
 			next, dur = gToilet, 5
 		}
 	case r < 0.74:
+		if g.machPick(gu) { // or play a slot machine or the roulette, in the casino (propplay.go)
+			return
+		}
 		if g.seatPick(gu) { // sit down for a while on a free chair or bench (seats.go)
 			return
 		}
@@ -4256,14 +4275,13 @@ func (g *Game) copNext(c *Cop) {
 		s.icon, s.iconT = "!?", 1.5
 		return
 	}
-	if !g.copMayLeave(c) {
+	if !g.crewReady(c) { // the crew goes back complete: he sweeps until his mates are done too (copcrew.go)
 		if c.state != cSweep {
 			c.state, c.wait, c.path = cSweep, 0, nil
 		}
 		return
 	}
-	c.state = cLeave
-	c.path = g.lvl.Path(c.pos, g.vehDoor(c))
+	g.crewLeave(c)
 }
 
 func (g *Game) removeBody(b *Body) {
@@ -4438,6 +4456,7 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		}
 		g.markSuspect(p)
 	}
+	g.copIdleTick(c, dt, sees) // a crew that sees nothing for a while goes back, all together (copcrew.go)
 	if !c.medic && (c.state == cSweep || c.state == cSearch) {
 		// only the search counts (not covering the bodies nor the walk to the tip: 2026-11-11).
 		// The FBI never gives up investigating on its own: it keeps searching
@@ -4533,11 +4552,15 @@ func (g *Game) updateCop(c *Cop, dt float64) {
 		if c.timer <= 0 && !g.copMayLeave(c) {
 			c.timer = 1
 		} else if c.timer <= 0 {
-			// gives up: back to the vehicle and away
+			// gives up the chase: with his crew done he goes back with them, otherwise he goes on searching
 			g.wanted = math.Min(g.wanted, 10)
 			g.releaseCop(c)
-			c.state = cLeave
-			c.path = g.lvl.Path(c.pos, g.vehDoor(c))
+			c.searchT = math.Max(c.searchT, c.maxSearch)
+			if g.crewReady(c) {
+				g.crewLeave(c)
+			} else {
+				c.state, c.wait, c.path = cSweep, 0, nil
+			}
 		}
 	case cSearch:
 		arr := g.copWalk(c, copWalkSpeed, dt)
@@ -4795,6 +4818,8 @@ func (g *Game) updateAmbient(dt float64) {
 		def := g.lvl.Def
 		if def.Highway {
 			g.ambT = 0.5 + g.rng.Float64()*0.9
+		} else if raceTrack(def) {
+			g.ambT = raceGapMin + g.rng.Float64()*raceGapVar // racetrack.go: race cars, very often
 		} else if def.FastTraffic {
 			g.ambT = 3 + g.rng.Float64()*3
 		} else if def.Police == "car" {
@@ -4859,6 +4884,10 @@ func (g *Game) updateAmbient(dt float64) {
 			case ambHorse:
 				speed = 85
 			}
+			if raceTrack(def) && a.kind != ambTank {
+				a.kind, a.name = ambCar, "" // the circuit only gets race cars, flat out (racetrack.go)
+				speed = raceSpeed(g.rng)
+			}
 		} else if def.Sky == "space" {
 			a.kind = ambMeteor
 			a.y = 8 + g.rng.Float64()*30
@@ -4887,6 +4916,9 @@ func (g *Game) updateAmbient(dt float64) {
 		}
 		if a != nil {
 			g.amb = append(g.amb, a)
+			if raceTrack(def) && a.kind == ambCar {
+				g.raceWarn(a)
+			}
 		} else {
 			g.ambT = 2
 			if def.Highway {
@@ -5030,6 +5062,9 @@ func (g *Game) trafficNear(p Vec) bool {
 // runOver: vehicles on the road kill whoever is standing in their lane. People who cross
 // without looking (and the player) can be hit; it never raises the criminality.
 func (g *Game) runOver(a *Ambient) {
+	if ambAirborne(a) {
+		return
+	}
 	for _, gu := range g.guests {
 		if gu.out() {
 			continue
@@ -5045,6 +5080,13 @@ func (g *Game) runOver(a *Ambient) {
 			g.die("Te ha atropellado un coche")
 		}
 	})
+}
+
+// ambAirborne: the DeLorean that took off (driveAmbient, "delorean": odd colour) climbs into the sky with its wheels
+// folded; its y goes up across the pavement, and it used to run over whoever stood there (a worker of the road works,
+// pushed back onto the pavement by rwGuard right under it). In the air it hits nobody.
+func ambAirborne(a *Ambient) bool {
+	return a.name == "delorean" && a.t2 > 0 && a.col%2 != 0
 }
 
 // Road levels: seconds between ambient vehicles = ambRoadGapMin + rand*ambRoadGapVar.

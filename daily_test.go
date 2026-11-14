@@ -255,8 +255,8 @@ func TestShopPricesScaled(t *testing.T) {
 	n, total := shopTotal()
 	// the short shop (shopkeep.go): 41 clothes + 60 accessories + 12 perks + 12 animals + 32 weapons, ~515k points
 	// (about 50 parties, shopprice.go); the characters, the killers, the police types and the uniforms are goals, not articles
-	if n != 157 || total < 400000 || total > 650000 {
-		t.Fatalf("shop: %d items, %d points (want 157 items, 400000-650000)", n, total)
+	if n != 158 || total < 400000 || total > 650000 {
+		t.Fatalf("shop: %d items, %d points (want 158 items, 400000-650000)", n, total)
 	}
 	for _, list := range shopCatalog {
 		prev := 0

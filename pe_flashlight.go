@@ -54,7 +54,7 @@ var (
 )
 
 // flashIcons: night venues with room to walk a patrol in the dark (roomy, mostly open air). Day levels never.
-var flashIcons = map[string]bool{"grave": true, "funfair": true, "festival": true, "ranch": true, "skate": true,
+var flashIcons = map[string]bool{"grave": true, "funfair": true, "festival": true, "skate": true,
 	"train": true, "snow": true, "circuit": true}
 
 type flashGuard struct {

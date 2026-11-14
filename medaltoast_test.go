@@ -143,8 +143,8 @@ func TestMedalToastTwoPlayer(t *testing.T) {
 	}
 }
 
-// The medal toast is the trophy pill: inside the screen (16 px), clear of the HUD panel (12 px), every line inside
-// the pill with >= 6 px, in Spanish and English, for every medal.
+// The medal toast is a smaller pill than the trophy one (two lines): inside the screen (16 px), clear of the HUD
+// panel (12 px), every line inside the pill with >= 6 px, in Spanish and English, for every medal.
 func TestMedalToastLayout(t *testing.T) {
 	snapshotLang(t)
 	for _, two := range []bool{false, true} {
@@ -159,7 +159,7 @@ func TestMedalToastLayout(t *testing.T) {
 				g.drawToast(img)
 				rec := textRec
 				textRec = nil
-				const w, h = 400.0, 64.0
+				const w, h = medalToastW, medalToastH // smaller than the trophy pill (2026-11-12)
 				px, py := float64(screenW/2)-w/2, 16.0
 				if py < 16 || px < 16 || px+w > screenW-16 {
 					t.Fatalf("pill outside the margins")
@@ -167,7 +167,7 @@ func TestMedalToastLayout(t *testing.T) {
 				if hudX+hudW+12 > px || g.hud.bottom < 0 {
 					t.Fatalf("pill %v too close to the HUD panel (right edge %v)", px, hudX+hudW)
 				}
-				if len(rec.texts) != 3 {
+				if len(rec.texts) != 2 {
 					t.Fatalf("%s medal %d: %d lines", lang, m, len(rec.texts))
 				}
 				for _, tx := range rec.texts {

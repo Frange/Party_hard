@@ -101,6 +101,7 @@ func auditGame(t *testing.T) *Game {
 		t.Cleanup(func() {
 			g.progress = Progress{}
 			_ = json.Unmarshal(snap, &g.progress)
+			g.trophyToasted = nil // the trophies announced go with the progress they were won in (trophies.go)
 		})
 	}
 	return auditG
@@ -347,7 +348,7 @@ func auditShots() []auditShot {
 		g.startTitle()
 		g.title.t = 4
 	})
-	for _, sel := range []int{0, 9, 19, 24, 25, 26, 27} {
+	for _, sel := range []int{0, 6, 9, 13, 19, 25, 26, 27} { // 6 = ALCALÁ DE HENARES, 13 = GUADALAJARA, 25 the station, 26 ALEATORIO, 27 the island
 		sel := sel
 		add(fmt.Sprintf("level select (Isla Nublada unlocked) sel=%d", sel), true, func(g *Game) {
 			auditReset(g)
@@ -355,7 +356,7 @@ func auditShots() []auditShot {
 			g.menuSel = sel
 		})
 	}
-	for _, sel := range []int{28} { // the RETO DE HOY button selected (26 parties + ALEATORIO + Isla: index = rows)
+	for _, sel := range []int{28} { // the RETO DE HOY button selected (26 parties shown + ALEATORIO + Isla: index = rows)
 		sel := sel
 		add(fmt.Sprintf("level select RETO DE HOY button sel=%d", sel), true, func(g *Game) {
 			auditReset(g)

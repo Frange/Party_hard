@@ -16,12 +16,25 @@ func landmarkFadeAmp(name string) (float64, bool) {
 		return 0.4, true
 	case name == "pmast": // the masts of the BARCO PIRATA (pirate_props.go)
 		return 0.5, true
+	case name == "alc_monument", name == "alc_kioskroof": // the statue and the bandstand roof of ALCALÁ (alcala_props.go)
+		return 0.4, true
+	case name == "gdl_fountain", name == "gdl_park", name == "gdl_pergola": // the fountain, the statue and the pergolas of
+		// GUADALAJARA (guadalajara_props.go)
+		return 0.4, true
+	case name == "bcn_fountain", name == "bcn_pavilion": // the fountains and the park's pavilion of BARCELONA
+		return 0.4, true
+	case name == "alc_kiosk", name == "bcn_mosaic": // flat ground under everybody: never see-through
+		return 0, true
 	}
 	return 0, false
 }
 
 // italyMonument: the pieces of ITALIA that are the party itself: no VIP carpet or overlap fix may remove them.
 func italyMonument(name string) bool {
+	switch name {
+	case "bcn_fountain", "bcn_pavilion", "bcn_mosaic", "par_metro", "par_bakery": // BARCELONA and PARÍS (v1.4.0)
+		return true
+	}
 	return name == "pisa" || name == "pisalawn" || strings.HasPrefix(name, "colos")
 }
 

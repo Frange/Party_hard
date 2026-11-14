@@ -11,8 +11,11 @@ import (
 // mdGlobals: every global of the detector is put back after the test.
 func mdGlobals(t *testing.T) {
 	t.Helper()
-	pf, pi, po, pr, ps, prun, pnone := mdForce, mdInTests, mdOff, mdRng, mdSeed, md, mdNoneAt
-	t.Cleanup(func() { mdForce, mdInTests, mdOff, mdRng, mdSeed, md, mdNoneAt = pf, pi, po, pr, ps, prun, pnone })
+	pf, pi, po, pr, ps, prun, pnone, pb := mdForce, mdInTests, mdOff, mdRng, mdSeed, md, mdNoneAt, mdBeepP
+	t.Cleanup(func() {
+		mdForce, mdInTests, mdOff, mdRng, mdSeed, md, mdNoneAt, mdBeepP = pf, pi, po, pr, ps, prun, pnone, pb
+	})
+	mdBeepP = 1 // every crossing out of the cooldown beeps, unless the test wants the dice
 }
 
 // mdLoad: a party of level idx with the arches forced (the run is nil if no door fits).
@@ -35,7 +38,7 @@ func mdLoad(t *testing.T, idx int, two bool, seed int64) (*Game, *mdRun) {
 func mdVenueIdx(t *testing.T) []int {
 	t.Helper()
 	var out []int
-	for _, ic := range []string{"casino", "disco", "cinema"} {
+	for _, ic := range []string{"casino", "hockey"} { // v1.4.0: the club and the cinema are retired
 		i := campaignIdx(ic)
 		if i < 0 {
 			t.Fatalf("no campaign party %q", ic)
@@ -58,7 +61,7 @@ func mdCross(g *Game, run *mdRun, p *Player, down bool) {
 	g.updateMetalDet(1.0 / 60)
 }
 
-// The arches come only in the casino, the club and the cinema; there they find a doorway (forced; at least once in 3 tries), add nothing
+// The arches come only in the casino and the ice hockey rink; there they find a doorway (forced; at least once in 3 tries), add nothing
 // solid (props, solids and the walking map are the same), sit in a gap away from the start with nothing drawn on them,
 // and the way through the door stays open from the start on both sides.
 func TestMetalDetVenuesGeometry(t *testing.T) {
@@ -161,8 +164,9 @@ func TestMetalDetSometimes(t *testing.T) {
 	}
 }
 
-// A player who crosses sets the alarm off: the arches blink red, the nearest guard reacts (a moment before he runs),
-// the player wears the cuffs mark; crossing again within the cooldown does nothing; after it, it beeps again.
+// A player who crosses sets the alarm off: the arches blink red and ONE guard walks to the door to look (no chase,
+// no handcuffs mark, no police); crossing again within the cooldown does nothing; if it goes on (another alarm soon
+// after) the police are called to the place, without handcuffs; after that nobody else is sent (2026-11-12).
 func TestMetalDetPlayerTripsAndCooldown(t *testing.T) {
 	_ = partyGame(t)
 	mdGlobals(t)
@@ -179,16 +183,25 @@ func TestMetalDetPlayerTripsAndCooldown(t *testing.T) {
 		t.Fatalf("crossing: trips %d alarm until %.1f (now %.1f)", run.trips, run.alarmUntil, g.time)
 	}
 	gd := run.chaser
-	if gd == nil || gd.state != gdReact || gd.timer < mdReact {
-		t.Fatalf("no guard sent (chaser %v)", gd)
+	if gd == nil || gd.state != gdInvestigate || len(gd.path) == 0 {
+		t.Fatalf("no guard sent to look (chaser %v)", gd)
 	}
 	if gd.icon == "" {
 		t.Error("the guard says nothing")
 	}
-	if !g.mdMarked(g.p) {
-		t.Error("the player wears no cuffs mark")
+	sent := 0
+	for _, o := range g.guards {
+		if o.state == gdInvestigate || o.state == gdReact || o.state == gdChase {
+			sent++
+		}
 	}
-	// the arches blinking red and the cuffs mark draw without trouble
+	if sent != 1 {
+		t.Errorf("%d guards answer the first alarm, want 1", sent)
+	}
+	if g.mdMarked(g.p) || g.isSuspectP(g.p) || g.policeCalled {
+		t.Error("the first alarm put the handcuffs mark on the player or called the police")
+	}
+	// the arches blinking red draw without trouble
 	dst := ebiten.NewImage(960, 540)
 	g.mdDraw(dst, run)
 	g.mdDrawMarks(dst)
@@ -208,11 +221,51 @@ func TestMetalDetPlayerTripsAndCooldown(t *testing.T) {
 	if run.trips != 1 {
 		t.Errorf("trips %d within the cooldown", run.trips)
 	}
+	// it goes on: the police are called to the place, without handcuffs
 	g.time += mdCooldown
-	gd.state = gdPatrol
 	mdCross(g, run, g.p, false)
-	if run.trips != 2 {
-		t.Errorf("trips %d after the cooldown", run.trips)
+	if run.trips != 2 || !g.policeCalled || run.step != 2 {
+		t.Fatalf("second alarm: trips %d police %v step %d", run.trips, g.policeCalled, run.step)
+	}
+	if g.wanted > 0 || g.isSuspectP(g.p) || g.mdMarked(g.p) {
+		t.Errorf("the police came with the handcuffs (wanted %.0f)", g.wanted)
+	}
+	// and then nobody else: no new guard, no second call
+	guardsBusy := func() int {
+		n := 0
+		for _, o := range g.guards {
+			if o.state == gdInvestigate || o.state == gdReact || o.state == gdChase {
+				n++
+			}
+		}
+		return n
+	}
+	before := guardsBusy()
+	pend := g.pendingCar
+	g.time += mdCooldown
+	mdCross(g, run, g.p, true)
+	if run.trips != 3 || guardsBusy() > before || g.pendingCar != pend {
+		t.Errorf("a third alarm sent more people (busy %d -> %d, car %.1f -> %.1f)", before, guardsBusy(), pend, g.pendingCar)
+	}
+}
+
+// Not every crossing beeps (its own dice), and a quiet crossing sends nobody.
+func TestMetalDetNotEveryCrossingBeeps(t *testing.T) {
+	_ = partyGame(t)
+	mdGlobals(t)
+	g, run := mdLoad(t, campaignIdx("casino"), false, 7)
+	if run == nil {
+		t.Fatal("no arches")
+	}
+	mdBeepP, mdRng, mdSeed = 0.6, nil, 4242
+	g.time = 30
+	n := 30
+	for i := 0; i < n; i++ {
+		g.time += mdCooldown + 1
+		mdCross(g, run, g.p, i%2 == 0)
+	}
+	if run.trips == 0 || run.trips == n {
+		t.Errorf("%d of %d crossings beeped: want some, not all", run.trips, n)
 	}
 }
 
@@ -220,7 +273,7 @@ func TestMetalDetPlayerTripsAndCooldown(t *testing.T) {
 func TestMetalDetGuestsNoAlarm(t *testing.T) {
 	_ = partyGame(t)
 	mdGlobals(t)
-	g, run := mdLoad(t, campaignIdx("disco"), false, 3)
+	g, run := mdLoad(t, campaignIdx("hockey"), false, 3)
 	if run == nil {
 		t.Fatal("no arches")
 	}
@@ -249,8 +302,9 @@ func TestMetalDetGuestsNoAlarm(t *testing.T) {
 	}
 }
 
-// The chase is the ordinary one: run far away and the guard loses him, the mark goes, nobody dies.
-func TestMetalDetChaseShakenOff(t *testing.T) {
+// The guard only comes to look: he walks to the door, looks around and goes back to his round; the player who is
+// out of his sight is never chased nor marked, and nobody dies.
+func TestMetalDetGuardLooksAndGoesBack(t *testing.T) {
 	_ = partyGame(t)
 	mdGlobals(t)
 	g, run := mdLoad(t, campaignIdx("casino"), false, 7)
@@ -265,32 +319,34 @@ func TestMetalDetChaseShakenOff(t *testing.T) {
 	}
 	g.p.pos = g.lvl.NearestFree(g.lvl.Def.Start) // outside the building, out of his sight
 	dt := 1.0 / 60
-	lost, chased := false, false
-	for f := 0; f < 60*15; f++ {
+	arrived := false
+	for f := 0; f < 60*40; f++ {
 		g.time += dt
 		g.updateMetalDet(dt)
 		restore := g.mdFocus(gd)
 		g.updateGuard(gd, dt)
 		restore()
-		chased = chased || gd.state == gdChase
-		if gd.state == gdSearch || gd.state == gdReturn || gd.state == gdWait {
-			lost = true
+		if gd.state == gdChase || gd.state == gdReact {
+			t.Fatal("the guard chased the player he never saw")
+		}
+		if gd.state == gdWait || gd.state == gdPatrol {
+			arrived = true
 			break
 		}
 	}
-	if !lost || !chased {
-		t.Fatalf("the guard never chased and gave up (chased %v, state %d)", chased, gd.state)
+	if !arrived {
+		t.Fatalf("the guard never got to the door (state %d)", gd.state)
 	}
 	g.updateMetalDet(dt)
-	if g.mdMarked(g.p) {
-		t.Error("the cuffs mark stayed after the guard gave up")
+	if g.mdMarked(g.p) || run.chaser != nil {
+		t.Error("the mark or the guard stayed after he looked")
 	}
 	if g.p.dead {
 		t.Error("the player died")
 	}
 }
 
-// Two players: the guard goes after the one who crossed, not the nearest one.
+// Two players: the guard looks for the one who crossed, not the nearest one.
 func TestMetalDetTwoPlayersChaseCrosser(t *testing.T) {
 	_ = partyGame(t)
 	mdGlobals(t)
@@ -305,8 +361,8 @@ func TestMetalDetTwoPlayersChaseCrosser(t *testing.T) {
 	if gd == nil {
 		t.Fatal("no guard sent")
 	}
-	if run.target != p2 || !g.mdMarked(p2) || g.mdMarked(p1) {
-		t.Fatal("the mark is not on the one who crossed")
+	if run.target != p2 || g.mdMarked(p2) || g.mdMarked(p1) {
+		t.Fatal("the alarm is not about the one who crossed, or it marked somebody")
 	}
 	p1.pos = Vec{gd.pos.X + 6, gd.pos.Y} // J1 right beside the guard
 	restore := g.mdFocus(gd)
@@ -323,7 +379,7 @@ func TestMetalDetTwoPlayersChaseCrosser(t *testing.T) {
 func TestMetalDetCopComesWithoutGuards(t *testing.T) {
 	_ = partyGame(t)
 	mdGlobals(t)
-	g, run := mdLoad(t, campaignIdx("cinema"), false, 5)
+	g, run := mdLoad(t, campaignIdx("hockey"), false, 5)
 	if run == nil {
 		t.Fatal("no arches")
 	}
@@ -334,7 +390,7 @@ func TestMetalDetCopComesWithoutGuards(t *testing.T) {
 	g.cops = []*Cop{c}
 	g.time = 30
 	mdCross(g, run, g.p, true)
-	if run.cop != c || c.state != cSearch || c.icon == "" || !g.mdMarked(g.p) {
+	if run.cop != c || c.state != cSearch || c.icon == "" || g.mdMarked(g.p) {
 		t.Errorf("officer not sent (state %d)", c.state)
 	}
 }

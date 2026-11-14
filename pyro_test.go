@@ -29,7 +29,7 @@ func firstFlammable(g *Game) *Prop {
 
 // the fire spreads a little and never beyond its budget, its reach or the cap on flames
 func TestFireSpreadBounded(t *testing.T) {
-	for _, idx := range []int{0, 3, 16} {
+	for _, idx := range []int{0, 3, campaignIdx("roof")} {
 		g, _ := fireGame(t, idx, int64(idx)+5)
 		start := firstFlammable(g)
 		if start == nil {
@@ -86,9 +86,9 @@ func TestNothingMetalBurns(t *testing.T) {
 			t.Errorf("%s should not burn", name)
 		}
 	}
-	g2, def := fireGame(t, 16, 2) // the rooftop has a pool
+	g2, def := fireGame(t, campaignIdx("roof"), 2) // the rooftop has a pool
 	if len(g2.lvl.Pools) == 0 {
-		t.Skip("no pool in this level")
+		t.Fatalf("%s has no pool (the rooftop should)", def.Title)
 	}
 	pc := g2.lvl.Pools[0]
 	in := &Prop{Name: "sofa", K: propKinds["sofa"], X: pc.X + pc.W/2, Y: pc.Y + pc.H/2}
@@ -99,7 +99,7 @@ func TestNothingMetalBurns(t *testing.T) {
 
 // the firefighters arrive and put it out
 func TestFirefightersPutItOut(t *testing.T) {
-	for _, idx := range []int{0, 16} {
+	for _, idx := range []int{0, campaignIdx("roof")} {
 		g, _ := fireGame(t, idx, int64(idx)+9)
 		pr := firstFlammable(g)
 		f := g.igniteProp(pr, nil)

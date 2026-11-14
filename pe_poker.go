@@ -96,7 +96,7 @@ func (s *pkrState) pevHas(gu *Guest) bool {
 	return false
 }
 
-var pokerIcons = map[string]bool{"house": true, "roof": true, "ranch": true, "casino": true, "boat": true, "pirate": true,
+var pokerIcons = map[string]bool{"house": true, "roof": true, "casino": true, "boat": true, "pirate": true,
 	"italy": true, "disco70": true, "train": true, "neon": true}
 
 func init() {

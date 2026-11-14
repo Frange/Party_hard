@@ -85,8 +85,8 @@ func TestMedalForPoints(t *testing.T) {
 // The parties with a medal are the campaign list as it is (the island never), whatever is inserted later.
 func TestMedalLevelsAreTheCampaign(t *testing.T) {
 	ls := medalLevels()
-	if len(ls) != len(campaignLevels) {
-		t.Fatalf("%d medal parties for %d campaign parties", len(ls), len(campaignLevels))
+	if len(ls) != len(campaignLevels)-len(retiredParties()) { // the retired parties give none (campaign_retired.go)
+		t.Fatalf("%d medal parties for %d campaign parties (%d retired)", len(ls), len(campaignLevels), len(retiredParties()))
 	}
 	for _, k := range ls {
 		if k == "jurassic" || k == "" {
@@ -269,10 +269,12 @@ func TestMedalStickyMenuTier(t *testing.T) {
 	if g.progress.MenuTier != 0 {
 		t.Error("the v1.0.0 computation ran twice")
 	}
-	// a new save with the same trophies and every one of the 26 parties won (no legacy) is bronze until the gold trophy
+	// a new save with the same trophies and every one of the 28 parties won (no legacy) is bronze until the gold trophy
 	q := cloneProgress(p)
 	q.MedalRev = 1
 	q.Stats[fmt.Sprintf("won_%d", pirateIdx)] = 1
+	q.Stats[fmt.Sprintf("won_%d", alcalaIdx)] = 1      // (ALCALÁ DE HENARES, new in v1.4.0)
+	q.Stats[fmt.Sprintf("won_%d", guadalajaraIdx)] = 1 // (GUADALAJARA, new in v1.4.0)
 	g.progress = q
 	g.medalLegacyInit()
 	if g.menuTier() != tierBronze || g.allTrophies() {
@@ -307,7 +309,7 @@ func TestMedalLevelSelectLayout(t *testing.T) {
 	}
 	for _, lang := range []string{"es", "en"} {
 		gameLang, editorLang, uiLang = lang, lang, lang
-		for sel := 0; sel < campaignN; sel++ {
+		for sel := 0; sel < campaignShown(); sel++ { // sel: a row of the list (the retired parties have none)
 			auditReset(g)
 			g.mode, g.menuSel = ModeLevelSelect, sel
 			textRec = &textRecorder{}
@@ -316,7 +318,7 @@ func TestMedalLevelSelectLayout(t *testing.T) {
 			img.Deallocate()
 			rec := textRec
 			textRec = nil
-			want := tr(medalLine(g.medalGoalFor(levelDefs[sel])))
+			want := tr(medalLine(g.medalGoalFor(levelDefs[campaignAtSlot(sel)])))
 			var line *textRect
 			var texts []textRect
 			for i, r := range rec.texts {
@@ -334,14 +336,14 @@ func TestMedalLevelSelectLayout(t *testing.T) {
 				t.Errorf("[%s] %q leaves the panel: %.0f-%.0f", lang, line.s, x0, x1)
 			}
 			// every medal: 16 px inside the panel, 12 px from any text of another row or column
-			for i := 0; i < campaignN; i++ {
+			for i := 0; i < campaignShown(); i++ { // i: the row
 				cx := levelColX[i/levelRowsPerCol]
 				y := levelRowY0 + float64(i%levelRowsPerCol)*levelRowDY
 				pre := "  "
 				if i == sel {
 					pre = "> "
 				}
-				label := pre + fmt.Sprintf("%d ", i+1) + tr(levelDefs[i].Title)
+				label := pre + fmt.Sprintf("%d ", i+1) + tr(levelDefs[campaignAtSlot(i)].Title)
 				mx := levelMedalX(cx, g.textW(label, 1.3))
 				m := [4]float64{mx, y - 1, mx + medalIconW, y - 1 + medalIconH}
 				if m[2] > 930-16 {

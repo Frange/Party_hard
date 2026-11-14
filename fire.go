@@ -303,73 +303,22 @@ var fireCries = []string{"¡FUEGO!", "¡ME QUEMO!", "¡AAAH!", "¡AGUA!", "¡QUE
 
 // ---- drawing -------------------------------------------------------------------
 
-var flameFrames [6]*ebiten.Image
-
-// buildFlames paints six frames of a small pixel-art flame: red at the foot, orange in the middle,
-// yellow at the tips, a column per pixel with a different height each frame.
-func buildFlames() {
-	if flameFrames[0] != nil {
-		return
-	}
-	const w, h = 14, 22
-	for f := range flameFrames {
-		b := newPix(w, h)
-		for x := 0; x < w; x++ {
-			cx := float64(x) - float64(w-1)/2
-			base := 1 - (cx*cx)/((float64(w)/2)*(float64(w)/2)) // tall in the middle
-			wob := math.Sin(float64(x)*1.7+float64(f)*1.3)*2.2 + math.Sin(float64(x)*0.8-float64(f)*2.1)*1.4
-			top := (float64(h) - 3) * (0.35 + 0.65*base)
-			top += wob
-			if top > float64(h)-1 {
-				top = float64(h) - 1
-			}
-			for y := 0; y < int(top); y++ {
-				yy := h - 1 - y
-				t := float64(y) / top // 0 foot .. 1 tip
-				var col color.RGBA
-				switch {
-				case t < 0.3:
-					col = color.RGBA{0xd8, 0x28, 0x14, 255}
-				case t < 0.62:
-					col = color.RGBA{0xf4, 0x84, 0x1c, 255}
-				case t < 0.85:
-					col = color.RGBA{0xff, 0xc8, 0x3c, 255}
-				default:
-					col = color.RGBA{0xff, 0xf0, 0x90, 255}
-				}
-				// a hot core in the middle of the base
-				if t < 0.45 && math.Abs(cx) < 2 {
-					col = color.RGBA{0xff, 0xe0, 0x70, 255}
-				}
-				b.set(x, yy, col)
-			}
-		}
-		flameFrames[f] = b.img()
-	}
-}
-
 // drawFire paints the flames of one fire and the glow it throws on the floor.
 func (g *Game) drawFire(dst *ebiten.Image, f *Fire) {
 	in := f.intensity()
 	if in <= 0 {
 		return
 	}
-	buildFlames()
 	n := int(math.Max(1, math.Round(f.w/12)))
-	for i := 0; i < n; i++ {
-		fr := (int(g.time*9+f.seed*3) + i*2) % len(flameFrames)
-		img := flameFrames[fr]
+	for i := 0; i < n; i++ { // the layered flames of fire_art.go, at scale 1 (sharp): the size follows the intensity
+		fr := int(g.time*9+f.seed*3) + i*3
 		sc := in * (0.75 + 0.35*math.Sin(g.time*7+f.seed+float64(i)*1.9))
 		if sc < 0.2 {
 			continue
 		}
 		x := g.wx(f.pos.X) + (float64(i)-float64(n-1)/2)*11
 		y := g.wy(f.pos.Y) - 1
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(-7, -22)
-		op.GeoM.Scale(sc, sc)
-		op.GeoM.Translate(math.Round(x), math.Round(y))
-		dst.DrawImage(img, op)
+		drawFireFrame(dst, fireSizeFor(sc), fr, x, y)
 	}
 	flick := 0.8 + 0.2*math.Sin(g.time*13+f.seed*5)
 	g.glowAt(dst, Vec{f.pos.X, f.pos.Y - 8}, 26+f.w*0.4, color.RGBA{255, 140, 40, uint8(95 * in * flick)})

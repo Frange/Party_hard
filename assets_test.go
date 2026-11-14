@@ -265,6 +265,8 @@ func TestPlayerReachesPeople(t *testing.T) {
 // Fights and murders between other people never raise the criminality;
 // only the player's own kills do.
 func TestStarsOnlyFromPlayer(t *testing.T) {
+	snapshotGlobals(t)
+	dbgPoliceGroups = 5                                                        // every police type has come: up to 5 stars (police_groups.go starCap)
 	g := &Game{policeCalled: true, pendingCar: -1, pendingUnit: -1, total: 60} // 60 people: one star per 10 located kills
 	for i := 0; i < 12; i++ {
 		g.bodies = append(g.bodies, &Body{reported: true})

@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"image/color"
 	"testing"
 )
 
@@ -127,6 +128,48 @@ func TestPaperWearBigRipsStainsBloodBySeed(t *testing.T) {
 		}
 		if same*2 > len(masks[i]) {
 			t.Errorf("seed %d wears the page like seed 1 (%d of %d pixels in common)", i+1, same, len(masks[i]))
+		}
+	}
+}
+
+// v1.4.0: bigger and more drops, and after a massacre the hands that picked the paper up leave bloody prints on the
+// edges where it is held (more with more victims); a party without victims leaves clean edges.
+func TestPaperBloodyHandsGrowWithKills(t *testing.T) {
+	isRed := func(c color.RGBA) bool { return int(c.R) > int(c.G)+60 && int(c.R) > int(c.B)+50 && int(c.G) < 90 }
+	measure := func(seed int64, kills int) (edge, all int) {
+		d := paperSample(paperFacts{seed: seed, kills: kills}, false, false, 3)
+		d.kills = kills
+		base, worn, _ := renderPaperBoth(d)
+		for y := 0; y < screenH; y++ {
+			for x := 0; x < screenW; x++ {
+				b, w := base.RGBAAt(x, y), worn.RGBAAt(x, y)
+				if b == w || !isRed(w) {
+					continue
+				}
+				all++
+				if (x < 70 || x >= screenW-70) && y >= 150 && y < 430 {
+					edge++
+				}
+			}
+		}
+		return
+	}
+	if paperHandPrints(0) != 0 || paperHandPrints(1) < 1 || paperHandPrints(30) <= paperHandPrints(5) {
+		t.Fatalf("hand prints by kills: 0->%d 1->%d 5->%d 30->%d", paperHandPrints(0), paperHandPrints(1), paperHandPrints(5), paperHandPrints(30))
+	}
+	for _, seed := range []int64{7919, 15838, 23757, 31676} {
+		e0, a0 := measure(seed, 0)
+		e5, a5 := measure(seed, 5)
+		e30, a30 := measure(seed, 30)
+		t.Logf("seed %d: red pixels on the held edges 0/5/30 kills = %d/%d/%d, on the page %d/%d/%d", seed, e0, e5, e30, a0, a5, a30)
+		if e5 < 150 {
+			t.Errorf("seed %d: 5 victims leave only %d red pixels on the edges", seed, e5)
+		}
+		if e30 < 2*e5 || e30 < 1500 {
+			t.Errorf("seed %d: 30 victims leave %d red pixels on the edges (5 victims: %d): the hands should be full of blood", seed, e30, e5)
+		}
+		if a30 <= a5 || a5 <= a0 {
+			t.Errorf("seed %d: the blood does not grow with the victims: %d / %d / %d", seed, a0, a5, a30)
 		}
 	}
 }

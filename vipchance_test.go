@@ -84,14 +84,14 @@ func TestVIPPicksOnlyMissingWhileAnyLeft(t *testing.T) {
 		album2["vip:"+d.id] = albumKilled
 	}
 	for i := 0; i < 50; i++ {
-		if id := vipPick(vipDice(), album2, "TORRE EIFFEL"); id != only {
+		if id := vipPick(vipDice(), album2, parisTitle); id != only {
 			t.Fatalf("only %s is missing, got %s", only, id)
 		}
 	}
 	vipEliminated[only] = true
 	seen := map[string]bool{}
 	for i := 0; i < 2000; i++ {
-		seen[vipPick(vipDice(), album2, "TORRE EIFFEL")] = true
+		seen[vipPick(vipDice(), album2, parisTitle)] = true
 	}
 	if len(seen) < len(reg)-1 {
 		t.Errorf("all got: expected variety, saw %d", len(seen))

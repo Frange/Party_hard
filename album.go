@@ -377,6 +377,14 @@ func (g *Game) albumView() []albumCard {
 	if k < 0 {
 		return out
 	}
+	if k == cardCop { // POLICÍAS: always Polis -> FBI -> Militares -> SWAT -> Power Rangers (2026-11-12, owner)
+		for _, c := range all {
+			if c.kind() == k {
+				out = append(out, c)
+			}
+		}
+		return out
+	}
 	// the order: first the cards never met (???), then the ones met or killed but not won yet, the won ones last;
 	// stable inside every group (catalogue order)
 	var grp [4][]albumCard

@@ -18,7 +18,7 @@ func shopCounts() (n map[int]int, pts map[int]int) {
 func TestShortShopCounts(t *testing.T) {
 	buildShopCatalog()
 	n, _ := shopCounts()
-	want := map[int]int{shopOutfits: 41, shopAccess: 60, shopPerks: 12, shopAnimals: 12, shopWeapons: 32} // +4 wild animals, +12 weapons (2026-11-09)
+	want := map[int]int{shopOutfits: 41, shopAccess: 61, shopPerks: 12, shopAnimals: 12, shopWeapons: 32} // +4 wild animals, +12 weapons (2026-11-09)
 	for tab, w := range want {
 		if n[tab] != w {
 			t.Errorf("%s: %d articles for sale, want %d", shopTabNames[tab], n[tab], w)
@@ -30,7 +30,7 @@ func TestShortShopCounts(t *testing.T) {
 		}
 	}
 	items, total := shopTotal()
-	if items != 157 || total < 400000 || total > 650000 { // shopprice.go: ~50 parties to buy everything
+	if items != 158 || total < 400000 || total > 650000 { // shopprice.go: ~50 parties to buy everything
 		t.Fatalf("%d items, %d points", items, total)
 	}
 	// the price order of each list is kept (cheapest first)

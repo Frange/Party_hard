@@ -147,10 +147,10 @@ func TestMedalV100SaveMatrix(t *testing.T) {
 		if (lines[0] == "100 %") != (c.want == tierGold) {
 			t.Errorf("%s: COMPLETADO %q with tier %d", c.name, lines, c.want)
 		}
-		if c.want == tierGold { // the 100 % stays; what came after (the ship and the trophy) is "new"
+		if c.want == tierGold { // the 100 % stays; what came after (the ship, ALCALÁ, GUADALAJARA and the trophy) is "new"
 			txt := strings.Join(lines[1:], " ")
 			if !strings.HasPrefix(lines[1], tr("Nuevo:")) || !strings.Contains(txt, tr("1 trofeo")) ||
-				!strings.Contains(txt, tr("1 fiesta")) {
+				!strings.Contains(txt, fmt.Sprintf(tr("%d fiestas"), 3)) {
 				t.Errorf("%s: COMPLETADO with the kept gold: %q", c.name, lines)
 			}
 		}
@@ -172,7 +172,9 @@ func TestMedalV100SaveMatrix(t *testing.T) {
 		if g.progress.MenuTier != c.want || g.menuTier() != c.want {
 			t.Errorf("%s: after save and reload tier %d (kept %d)", c.name, g.menuTier(), g.progress.MenuTier)
 		}
-		if g.progress.Stats["won_25"] != pre.Stats["won_24"] || g.progress.Stats["won_24"] != 0 {
+		// (v1.4.0: the station is index 27, the pirate ship 26, ALCALÁ 6 and GUADALAJARA 15)
+		if g.progress.Stats["won_27"] != pre.Stats["won_24"] || g.progress.Stats["won_26"] != 0 || g.progress.Stats["won_6"] != 0 ||
+			g.progress.Stats["won_15"] != 0 {
 			t.Errorf("%s: station win moved wrong: %v", c.name, g.progress.Stats)
 		}
 	}
@@ -195,8 +197,8 @@ func TestMedalV100AllPartiesAllOldTrophies(t *testing.T) {
 			v100Everything(&p)
 			want = tierGold
 		}
-		if p.Stats["won_24"] != 0 || p.Trophies[medalTrophy] {
-			t.Fatal("the pirate ship or the new trophy came won from v1.0.0")
+		if p.Stats[fmt.Sprintf("won_%d", pirateIdx)] != 0 || p.Stats[fmt.Sprintf("won_%d", alcalaIdx)] != 0 || p.Trophies[medalTrophy] {
+			t.Fatal("the pirate ship, ALCALÁ or the new trophy came won from v1.0.0")
 		}
 		g.progress = p
 		g.syncShop()
@@ -211,7 +213,7 @@ func TestMedalV100AllPartiesAllOldTrophies(t *testing.T) {
 	}
 }
 
-// A save made by v1.1.0 (MedalRev 1) plays by the new rules: 26 parties and 71 trophies.
+// A save made by v1.1.0 (MedalRev 1) plays by the new rules: 28 parties (since v1.4.0) and 71 trophies.
 func TestMedalNewSaveNewRules(t *testing.T) {
 	g := medalLegacyGame(t)
 	mk := func(won int, medal, everything bool) Progress {
@@ -235,10 +237,10 @@ func TestMedalNewSaveNewRules(t *testing.T) {
 		medal, everything bool
 		want              int
 	}{
-		{"25 parties (no ship)", 25, true, true, tierNormal},
-		{"26 parties, 70 trophies", 26, false, true, tierBronze},
-		{"26 parties, 71 trophies", 26, true, false, tierSilver},
-		{"26 parties, everything", 26, true, true, tierGold},
+		{"27 parties (no station)", 27, true, true, tierNormal},
+		{"28 parties, 70 trophies", 28, false, true, tierBronze},
+		{"28 parties, 71 trophies", 28, true, false, tierSilver},
+		{"28 parties, everything", 28, true, true, tierGold},
 	} {
 		g.progress = mk(c.won, c.medal, c.everything)
 		g.syncShop()

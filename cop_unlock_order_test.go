@@ -158,7 +158,9 @@ func TestCopReconcileOldSaves(t *testing.T) {
 			t.Errorf("v1.1.x %s kept=%v want %v", k, ok, want)
 		}
 	}
-	if p.MenuTier != 2 || p.MedalRev != 1 || p.CampaignRev != 3 || p.Wallet != 7 || p.Stats["kills"] != 1200 || p.CopRev != copRev {
+	// the campaign layers still run on it: rev 3 -> the current one (ALCALÁ and GUADALAJARA inserted, the old
+	// "everything open" 26 becomes 28) while the rest of the save stays as it was
+	if p.MenuTier != 2 || p.MedalRev != 1 || p.CampaignRev != campaignRev || p.Unlocked != 28 || p.Wallet != 7 || p.Stats["kills"] != 1200 || p.CopRev != copRev {
 		t.Fatalf("v1.1.x save changed: %+v", p)
 	}
 	// v1.0.0 (CampaignRev 2): the trophies alone keep the cards (the kills stat of old saves may be lower)

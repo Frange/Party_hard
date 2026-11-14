@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"math"
 	"math/rand"
 )
 
@@ -68,6 +69,23 @@ func min2(a, b float64) float64 {
 	return b
 }
 
+// scatterTheme: scatter with variant 0 (a tree or a bush of variant 0 is drawn with the kinds of the theme of the level,
+// treeVarFor; scatter rolls an explicit variant) and more tries (the graves leave little room).
+func (pl *genPlacer) scatterTheme(r Rect, n int, sp float64, kind string) {
+	for i := 0; i < n; i++ {
+		for t := 0; t < 60; t++ {
+			x := r.X + 36 + pl.rng.Float64()*math.Max(1, r.W-72)
+			y := r.Y + 74 + pl.rng.Float64()*math.Max(1, r.H-104)
+			if !pl.free(x, y, sp) {
+				continue
+			}
+			pl.used = append(pl.used, Vec{x, y})
+			*pl.out = append(*pl.out, PropInst{Kind: kind, X: math.Round(x), Y: math.Round(y)})
+			break
+		}
+	}
+}
+
 func genGraveyard(rng *rand.Rand) *LevelDef {
 	doorLog = nil
 	d := &LevelDef{
@@ -105,6 +123,10 @@ func genGraveyard(rng *rand.Rand) *LevelDef {
 	pl.scatter(R(40, 60, 880, 380), 6, 120, "lamp")
 	pl.scatter(R(40, 60, 880, 380), 2, 120, "statue", "bench")
 	pl.at("phone", 60, 360, 0)
+	// a few living trees and bushes among the dead ones (v1.4.0): variant 0, so treeVarFor draws them as the graveyard's
+	// firs, dead firs and dark or dry bushes (treeart.go)
+	pl.scatterTheme(R(40, 60, 880, 380), 4, 64, "tree")
+	pl.scatterTheme(R(40, 60, 880, 380), 5, 52, "bush")
 	genStreet(d, frontX)
 	d.Props = props
 	d.Roam = []Rect{R(40, 60, 880, 380), R(14, 410, 930, 36), R(300, 456, 400, 22)}

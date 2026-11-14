@@ -9,7 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const skateParkIdx = 11 // the SKATE PARK in the campaign
+var skateParkIdx = campaignIdx("skate") // the SKATE PARK in the campaign (by icon: indices move when parties are inserted)
 
 func skateKids(g *Game) map[string]*Guest {
 	m := map[string]*Guest{}

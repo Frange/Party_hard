@@ -119,6 +119,15 @@ func genBuilding(rng *rand.Rand, style string) *LevelDef {
 		x0 := bx0 + 90 + rng.Float64()*(bx1-bx0-280)
 		rearGap = [][2]float64{{x0, x0 + 100}}
 	}
+	if lGap == nil && rGap == nil && rearGap == nil {
+		// never a building with only the front door (a trap with the police at it, v1.4.0): a side door on the side
+		// farther from the front one (no dice: the rest of the party comes out as before)
+		if frontX < (bx0+bx1)/2 {
+			rGap = [][2]float64{{170, 270}}
+		} else {
+			lGap = [][2]float64{{170, 270}}
+		}
+	}
 	ws = append(ws,
 		hw(bx0, bx1, 30, 16, st.outer, rearGap...),
 		vw(bx0, 30, 412, 8, st.outer, lGap...),
@@ -236,7 +245,7 @@ func genFurnish(kind string, r Rect, rng *rand.Rand, pl *genPlacer, d *LevelDef,
 		pl.at("speaker", cx+90, r.Y+58, 0)
 		d.Performers = append(d.Performers, Perf{Vec{cx, r.Y + 44}, "dj", DirDown})
 		dj = true
-		pl.at("punch", r.X+r.W-70, r.Y+r.H-26, 0)
+		pl.at("punch", cx+60, math.Min(dy+dh+24, r.Y+r.H-26), 0) // by the dance floor, not in a corner (v1.4.0)
 		pl.at("couch", r.X+70, r.Y+r.H-28, 1)
 		pl.at("phone", r.X+r.W-28, r.Y+r.H/2, 0)
 		*phones++
@@ -402,7 +411,7 @@ func genPlaza(rng *rand.Rand, eiffel bool) *LevelDef {
 		Guests: 44 + rng.Intn(8), CellSize: 16,
 	}
 	if eiffel {
-		d.Title, d.Intro = "PARÍS", "Bajo la torre Eiffel, la ciudad del amor y del caos."
+		d.Title, d.Intro = parisTitle, "Bajo la torre Eiffel, la ciudad del amor y del caos."
 	}
 	frontX := 380 + rng.Float64()*200
 	d.Floors = []Floor{F(0, 0, 960, 452, "cobble")}
@@ -418,6 +427,9 @@ func genPlaza(rng *rand.Rand, eiffel bool) *LevelDef {
 	if eiffel {
 		d.Floors = append(d.Floors, F(40, 110, 880, 330, "grass"), F(0, 110, 40, 330, "cobble"), F(420, 110, 120, 330, "cobble"), F(40, 300, 880, 40, "cobble"))
 		pl.at("eiffel", cx, eiffelY, 0) // low enough that the top stays clear of the title and the intro plate
+		// PARÍS (paris.go): the painted city and the shopfronts replace the brick facade, and the city's props
+		doorLog = nil // the doors of the facade above are logged again by the shopfronts
+		d.Walls = walls(append(parisDress(d, pl, rng), vw(0, 98, 452, 10, WallFence), vw(950, 98, 452, 10, WallFence))...)
 		pl.avoid = append(pl.avoid, Vec{cx, eiffelY - 12}, Vec{cx, eiffelY - 62}, Vec{cx - 40, eiffelY - 4}, Vec{cx + 40, eiffelY - 4})
 		for _, x := range []float64{150, 270, 690, 810} {
 			pl.at("hedge", x, 170, 0)
@@ -454,16 +466,23 @@ func genPlaza(rng *rand.Rand, eiffel bool) *LevelDef {
 	pl.at("speaker", 62, 356, 0)
 	pl.at("speaker", 160, 356, 0)
 	d.Performers = []Perf{{Vec{110, 342}, "dj", DirDown}, {Vec{840, 330}, "guitar", DirDown}}
-	pl.at("lamp", 330, 200, 0)
-	pl.at("lamp", 630, 200, 0)
-	pl.at("lamp", 330, 400, 0)
-	pl.at("lamp", 630, 400, 0)
+	lamp := "lamp"
+	if eiffel {
+		lamp = "par_lamp" // the period street lamps of PARÍS (paris_props.go)
+	}
+	pl.at(lamp, 330, 200, 0)
+	pl.at(lamp, 630, 200, 0)
+	pl.at(lamp, 330, 400, 0)
+	pl.at(lamp, 630, 400, 0)
 	pl.at("phone", 920, 300, 0)
 	pl.scatter(R(30, 360, 900, 80), 3, 120, "bush", "tree", "planter")
 	pl.at("car", 200+rng.Float64()*100, 534, 1)
 	genStreet(d, frontX)
 	d.Props = props
 	d.Roam = []Rect{R(30, 110, 900, 330), R(14, 410, 930, 36), R(300, 456, 400, 22)}
+	if eiffel {
+		d.Roam = parisRoam(d.Roam) // the lawn kept for the sack race (paris.go)
+	}
 	d.Dance = []Rect{R(60, 380, 120, 50)}
 	d.Animals = []AnimalSpawn{{"dog", Vec{200, 330}, R(30, 250, 250, 180)}, {"cat", Vec{850, 300}, R(700, 250, 230, 180)}}
 	if rng.Intn(2) == 0 {
@@ -566,33 +585,28 @@ func genStadium(rng *rand.Rand) *LevelDef {
 	for _, a := range []float64{0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6} { // centre circle
 		line(479+math.Cos(a)*42-1, 246+math.Sin(a)*42-1, 3, 3)
 	}
-	d.Walls = walls(
-		hw(60, 900, 86, 8, WallFence, [2]float64{276, 396}, [2]float64{576, 696}),
-		hw(60, 900, 400, 8, WallFence, [2]float64{frontX - 50, frontX + 50}, [2]float64{116, 236}),
-		vw(60, 86, 408, 8, WallFence, [2]float64{190, 320}),
-		vw(892, 86, 408, 8, WallFence, [2]float64{190, 320}),
-		hw(0, 960, 0, 14, WallBrick), vw(0, 14, 452, 10, WallFence), vw(950, 14, 452, 10, WallFence),
-	)
+	// the pitch is open (no fences round it, v1.4.0): only the outer walls of the ground
+	d.Walls = walls(hw(0, 960, 0, 14, WallBrick), vw(0, 14, 452, 10, WallFence), vw(950, 14, 452, 10, WallFence))
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
 	pl.avoid = append(pl.avoid, Vec{frontX, 420}, Vec{frontX, 380})
 	pl.at("stands", 200, 66, 0)
 	pl.at("stands", 440, 66, 1)
 	pl.at("stands", 680, 66, 0)
-	pl.at("stands", 170, 452, 1)
-	pl.at("stands", 790, 452, 0)
+	// (no stands at the bottom any more: they hid the pitch from the player)
 	pl.at("goalv", 74, 284, 0)  // goal line at x=90, net behind it
 	pl.at("goalv", 886, 284, 1) // goal line at x=870
-	pl.at("dj", 930-10, 330, 0)
-	pl.at("speaker", 926, 370, 0)
-	pl.at("speaker", 926, 290, 0)
-	d.Performers = []Perf{{Vec{920, 312}, "dj", DirLeft}}
+	// the DJ plays ON the pitch, at the top of the centre circle, facing the crowd (it was hidden on a side, v1.4.0)
+	pl.at("dj", 480, 178, 0)
+	pl.at("speaker", 428, 176, 0)
+	pl.at("speaker", 532, 176, 0)
+	d.Performers = []Perf{{Vec{480, 160}, "dj", DirDown}}
 	pl.at("phone", 30, 300, 0)
 	pl.at("car", 640, 534, 0)
 	genStreet(d, frontX)
 	d.Props = props
-	d.Roam = []Rect{R(100, 120, 760, 260), R(14, 100, 74, 320), R(876, 100, 70, 320), R(14, 410, 930, 36), R(300, 456, 400, 22)}
-	d.Dance = []Rect{R(430, 200, 100, 90)}
+	d.Roam = []Rect{R(100, 120, 760, 260), R(14, 100, 74, 320), R(876, 100, 70, 320), R(14, 380, 930, 66), R(300, 456, 400, 22)}
+	d.Dance = []Rect{R(420, 196, 120, 96)}
 	d.Animals = []AnimalSpawn{{"dog", Vec{300, 250}, R(100, 130, 300, 240)}}
 	d.Guards = [][]Vec{{{30, 140}, {30, 400}}, {{frontX - 180, 430}, {frontX + 180, 430}}, {{920, 140}, {920, 260}}}
 	d.Doors = append(d.Doors, doorLog...)
@@ -848,6 +862,12 @@ func genByKind0(rng *rand.Rand, kind string) *LevelDef {
 		return genItaly(rng) // italy.go
 	case "pirate":
 		return genPirate(rng) // pirate.go
+	case "alcala":
+		return genAlcala(rng) // alcala.go
+	case "guadalajara":
+		return genGuadalajara(rng) // guadalajara.go
+	case "barcelona":
+		return genBarcelona(rng) // barcelona.go
 	}
 	return genBeach(rng)
 }
@@ -880,7 +900,7 @@ func genYacht(rng *rand.Rand) *LevelDef {
 		vw(540, 112, 322, 8, WallPlaster, [2]float64{170, 282}),
 	)
 	d.Props = []PropInst{
-		P("dj", 332, 140), P("speaker", 235, 148), P("speaker", 428, 148), P("bar", 322, 286), P("punch", 460, 278),
+		P("dj", 332, 140), P("speaker", 235, 148), P("speaker", 428, 148), P("bar", 322, 286), P("punch", 470, 196),
 		P("couch", 172, 290), PV("couch", 476, 286, 1), P("table", 225, 250), P("table", 410, 238),
 		P("sunbed", 592, 168), PV("sunbed", 615, 325, 1), P("umbrella", 600, 205), PV("umbrella", 804, 207, 2),
 		P("bar", 742, 178), P("phone", 812, 330), P("closet", 94, 190), P("plant", 512, 162),
@@ -908,11 +928,16 @@ func genSkatepark(rng *rand.Rand) *LevelDef {
 	}
 	frontX := 380 + rng.Float64()*200
 	d.Floors = []Floor{F(0, 0, 960, 452, "grass"), F(60, 90, 840, 320, "concrete")}
+	// v1.4.0 (user): graffiti walls: the back wall of the park is brick now and a free-standing brick wall stands
+	// between the two rails; their faces take the pieces of the graffiti crew (skategraffiti.go, pe_graffiti.go).
 	d.Walls = walls(
-		hw(0, 960, 20, 20, WallHedge),
+		hw(0, 960, 20, 20, WallBrick),
 		vw(0, 40, 452, 10, WallFence),
 		vw(950, 40, 452, 10, WallFence),
+		hw(skateWallX0, skateWallX1, skateWallY, skateWallH, WallBrick),
 	)
+	// a paved apron in front of the free-standing wall: the painters stand on it (gfSegments wants street floor)
+	d.Floors = append(d.Floors, F(skateWallX0, skateWallY+skateWallH, skateWallX1-skateWallX0, 20, "pave"))
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
 	// three bowls (round, kidney and rounded square) with kids riding them, and two rails
@@ -922,6 +947,9 @@ func genSkatepark(rng *rand.Rand) *LevelDef {
 	pl.at("rail", 330, 310, 0)
 	pl.at("rail", 640, 310, 0)
 	pl.avoid = append(pl.avoid, Vec{200, 190}, Vec{480, 180}, Vec{760, 200}, Vec{330, 310}, Vec{640, 310})
+	for x := skateWallX0; x <= skateWallX1; x += 30 { // nothing in front of (or on) the graffiti wall
+		pl.avoid = append(pl.avoid, Vec{x, skateWallY + 8})
+	}
 	pl.at("dj", 110, 360, 0)
 	pl.at("speaker", 62, 356, 0)
 	pl.at("speaker", 160, 356, 0)
@@ -940,8 +968,8 @@ func genSkatepark(rng *rand.Rand) *LevelDef {
 }
 
 // genCircuit: the street runs across the middle of the scenario instead of
-// along one edge, with grandstands north and south and a single decorative
-// bridge crossing (FastTraffic keeps cars circling through often).
+// along one edge, with grandstands to the north and a gap in the track fences to
+// cross on foot (FastTraffic + racetrack.go: fast race cars, often, with a warning).
 func genCircuit(rng *rand.Rand) *LevelDef {
 	doorLog = nil
 	d := &LevelDef{
@@ -971,11 +999,10 @@ func genCircuit(rng *rand.Rand) *LevelDef {
 	)
 	var props []PropInst
 	pl := &genPlacer{rng: rng, out: &props}
-	pl.at("bridge", 470, 285, 0)
-	pl.avoid = append(pl.avoid, Vec{470, 285})
+	// v1.4.0 (user): no grey bridge over the middle of the track and no stands at the bottom (they only got in the
+	// way); people cross the track on foot through the gap in the fences, and the race cars (racetrack.go) warn first.
 	for i := 0; i < 4; i++ {
 		pl.at("stands", 70+float64(i)*220, 60, i%2)
-		pl.at("stands", 70+float64(i)*220, 440, i%2)
 	}
 	pl.at("dj", 480, 90, 0)
 	pl.at("speaker", 420, 86, 0)

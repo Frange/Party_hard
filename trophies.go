@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -98,7 +99,7 @@ var trophyList = []Trophy{
 	{"t_e5", "Testigo ocular", "Presencia 5 sucesos especiales.", "events", 5, wr(shopAccess, "haircol:tr_arco", "Pelo arcoíris", "haircol", func(s *CharSpec) { s.Hair = hx(0xe83aa8) }, "Colores para quien lo ha visto todo.")},
 	{"t_ufo", "Contactos", "Presencia el paso de un ovni.", "ev_1", 1, chr("tr_marciano", "El Marciano", "Un alienígena verde con corbata. Viene en misión de paz... y a por las patatas.")},
 	{"t_rex", "Era cretácica", "Presencia la llegada del T-Rex.", "ev_16", 1, chr("tr_paleontologo", "La Paleontóloga", "Con casco y pico. Sabe lo que es un dinosaurio y lo demuestra gritando.")},
-	{"t_ghost", "¿A quién yamarás?", "Presencia la llegada de los Cazafantasmos.", "ev_15", 1, wep("protones", "Aspiradora de protones", HoldVacuum, "Una mochila con un tubo. No atrapa fantasmas, pero deja el suelo limpio.")},
+	{"t_ghost", "¿A quién llamarán?", "Presencia la llegada de los Cazafantasmos.", "ev_15", 1, wep("protones", "Aspiradora de protones", HoldVacuum, "Una mochila con un tubo. No atrapa fantasmas, pero deja el suelo limpio.")},
 	{"t_m10k", "Primeros ahorros", "Gana 10000 puntos en total.", "earned", 10000, wr(shopOutfits, "out:tr_rapero", "Chaqueta de rapero dorada", "outfit", func(s *CharSpec) {
 		s.Top, s.Shirt, s.Shirt2, s.Pants = TopHoodie, hx(0xe8c040), hx(0xe8c040), hx(0x1a1a22)
 	}, "Con cadena imaginaria y muchas ínfulas.")},
@@ -219,6 +220,11 @@ func (g *Game) checkTrophies() {
 		return
 	}
 	g.trophyDirty = false
+	// The first check of the session (newGame) only catches up with what the saved stats already reached: it is
+	// granted without a toast (it used to pop up in the menu just for opening the game). A trophy is announced once
+	// per session at most, and never when it was already won (2026-11-12).
+	quiet := g.trophyQuiet
+	g.trophyQuiet = false
 	for _, t := range trophyList {
 		reached := progressStat(&g.progress, t.stat) >= t.need
 		if t.id == legendTrophy {
@@ -250,8 +256,14 @@ func (g *Game) checkTrophies() {
 		}
 		g.syncShop()
 		g.applyShop()
-		g.toasts = append(g.toasts, trophyToast{name: t.name, reward: t.reward.name, secret: secretTrophy[t.id]})
-		g.snd.Play("win")
+		if !quiet && !g.trophyToasted[t.id] {
+			g.toasts = append(g.toasts, trophyToast{name: t.name, reward: t.reward.name, secret: secretTrophy[t.id]})
+			g.snd.Play("win")
+		}
+		if g.trophyToasted == nil {
+			g.trophyToasted = map[string]bool{}
+		}
+		g.trophyToasted[t.id] = true
 		saveProgress(g.progress)
 	}
 }
@@ -263,9 +275,15 @@ type trophyToast struct {
 	secret       bool
 	medal        int // a medal reached during the party (medals.go medalLive): medalBronze..medalGold, 0 = a trophy
 	medalGoal    int // ...and the kill target its thresholds come from (the "next medal" line)
+	lvl          *Level
 }
 
-const toastLife = 5.0
+const (
+	medalToastW = 300.0 // the medal toast: smaller than the trophy pill (2026-11-12)
+	medalToastH = 46.0
+	toastLife   = 5.0
+	toastSeenT  = 1.5 // a toast already on screen this long is not shown again after a pause (hint, newspaper)
+)
 
 // toastHeld: the pop-ups wait (queued in g.toasts) while the level hint plate or the newspaper front page is on.
 func (g *Game) toastHeld() bool {
@@ -273,7 +291,17 @@ func (g *Game) toastHeld() bool {
 }
 
 func (g *Game) updateToasts(dt float64) {
-	if len(g.toasts) == 0 || g.toastHeld() {
+	// a medal belongs to its party: one still waiting when the party is over (or another one began) is dropped
+	for len(g.toasts) > 0 && g.toasts[0].medal > 0 && (g.toasts[0].lvl != g.lvl || g.mode != ModePlay) {
+		g.toasts = g.toasts[1:]
+	}
+	if len(g.toasts) == 0 {
+		return
+	}
+	if g.toastHeld() {
+		if g.toasts[0].t > toastSeenT { // already read: it does not come back after the pause (it looked repeated)
+			g.toasts = g.toasts[1:]
+		}
 		return
 	}
 	g.toasts[0].t += dt
@@ -287,7 +315,10 @@ func (g *Game) drawToast(dst *ebiten.Image) {
 		return
 	}
 	tt := g.toasts[0]
-	const w, h = 400.0, 64.0
+	w, h := 400.0, 64.0
+	if tt.medal > 0 { // a medal is not a trophy: a smaller pill (medalToastW x medalToastH)
+		w, h = medalToastW, medalToastH
+	}
 	slide := 1.0
 	switch {
 	case tt.t < 0.45:
@@ -296,8 +327,8 @@ func (g *Game) drawToast(dst *ebiten.Image) {
 		slide = (toastLife - tt.t) / 0.45
 	}
 	slide = slide * slide * (3 - 2*slide) // ease in/out
-	x := screenW/2 - w/2
-	y := -h - 6 + (h+22)*slide
+	x := math.Round(screenW/2 - w/2)
+	y := math.Round(-h - 6 + (h+22)*slide)
 	// dark rounded pill with a soft edge
 	fillRect(dst, x-2, y-2, w+4, h+4, rgba(0xffffff, 40))
 	fillRect(dst, x+8, y, w-16, h, rgb(0x14161e))
@@ -306,17 +337,15 @@ func (g *Game) drawToast(dst *ebiten.Image) {
 	filledEllipse(dst, x+w-10, y+10, 10, 10, rgb(0x14161e))
 	filledEllipse(dst, x+10, y+h-10, 10, 10, rgb(0x14161e))
 	filledEllipse(dst, x+w-10, y+h-10, 10, 10, rgb(0x14161e))
-	if tt.medal > 0 { // a medal: the same pill, the medal in its colours instead of the cup (medals.go)
-		cx, cy := x+36, y+h/2
+	if tt.medal > 0 { // the medal in its colours, its name and the next step: two lines
+		cx, cy := x+26, y+h/2
 		_, face, _ := medalCols(tt.medal)
-		filledEllipse(dst, cx, cy, 24, 24, rgb(0x2a2c3a))
-		filledEllipse(dst, cx, cy, 20, 20, rgb(0x3a3c4e))
-		drawMedalS(dst, cx-15, cy-21, tt.medal, 3)
-		head, name, foot := medalToastLines(tt.medal, tt.medalGoal)
-		// three lines of 16 px with 6 px or more to the edges of the 64 px pill (the trophy toast keeps its old places)
-		g.drawText(dst, head, x+72, y+7, rgb(0x9aa0b4), 1)
-		g.drawText(dst, name, x+72, y+24, rgb(0xf4f6ff), 1.6)
-		g.drawText(dst, foot, x+72, y+41, face, 1)
+		filledEllipse(dst, cx, cy, 17, 17, rgb(0x2a2c3a))
+		filledEllipse(dst, cx, cy, 14, 14, rgb(0x3a3c4e))
+		drawMedalS(dst, cx-10, cy-14, tt.medal, 2)
+		_, name, foot := medalToastLines(tt.medal, tt.medalGoal)
+		g.drawText(dst, name, x+52, y+7, rgb(0xf4f6ff), 1)
+		g.drawText(dst, foot, x+52, y+24, face, 1)
 		return
 	}
 	// the gold cup in a circle

@@ -8,6 +8,10 @@ import (
 	_ "unsafe" // go:linkname
 )
 
+// Under go test the graveyard acts and the graffiti event stay off unless a test asks for them (gyInTests,
+// gfInTests): the other tests' parties stay as they were. Production code never asks whether it runs in a test.
+func init() { gyTestsOff, gfTestsOff = true, true }
+
 // ---- ebiten's deferred draw queue (memory of the test binary) ----
 // The tests never start ebiten's game loop (no window): every DrawImage, WritePixels or Deallocate made outside a
 // frame is queued by ebiten (internal/atlas, appendDeferred) to run at the next BeginFrame, which never comes in a

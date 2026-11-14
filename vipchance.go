@@ -48,6 +48,7 @@ func vipDice() *rand.Rand {
 // vipReseed: tests. Starts the dice again with that seed and clears the pity counter.
 func vipReseed(seed int64) {
 	vipSeed, vipRng, vipMisses = seed, nil, 0
+	vipStyleRng, vipStyleDecision = nil, vipStyle{}
 }
 
 // vipGot: the player has eliminated or helped this VIP (album bits), here or in an earlier session.
@@ -99,10 +100,26 @@ func vipDecide(r *rand.Rand, def *LevelDef, album map[string]int, misses *int, s
 
 // vipRoll: loadLevel asks it before building the level.
 func (g *Game) vipRoll(def *LevelDef) string {
+	// shape, size, security and mini party: own dice (vipshape.go); the classic carpet when there is no zone
+	vipStyleDecision = vipRollStyle(vipStyleDice())
+	if st, ok := vipDebugStyle(); ok {
+		vipStyleDecision = st
+	}
+	id := ""
 	if g.dc != nil && !g.stealth && !vipOff && def != nil && def.Title != "" { // RETO DE HOY: a VIP for sure (daily.go)
 		if d, _ := vipPlace(def, g.dc.vip); d != nil {
-			return g.dc.vip
+			id = g.dc.vip
 		}
 	}
-	return vipDecide(vipDice(), def, g.progress.Album, &vipMisses, g.stealth, dbgVIPDemo != "" || vipForce)
+	if id == "" {
+		id = vipDecide(vipDice(), def, g.progress.Album, &vipMisses, g.stealth, dbgVIPDemo != "" || vipForce || *dbgVIPShape != "") // -vipshape forces a zone too
+	}
+	if id == "" {
+		vipStyleDecision = vipStyle{}
+		return ""
+	}
+	if vipStyleDecision.partyN > 0 {
+		vipStyleDecision.extra = vipPickExtra(vipStyleDice(), g.progress.Album, id, vipStyleDecision.partyN)
+	}
+	return id
 }

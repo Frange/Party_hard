@@ -65,7 +65,7 @@ func TestAmbientDrawsAndSwitch(t *testing.T) {
 	g := ambientSetup(t)
 	scr := ebiten.NewImage(screenW, screenH)
 	defer scr.Deallocate()
-	for _, title := range []string{"MIAMI BEACH", "CRUCERO NOCTURNO", "ESTACIÓN DE ESQUÍ", "CEMENTERIO", "ESTACIÓN ESPACIAL", "PLAZA EUROPEA", "BULL'S EYE"} {
+	for _, title := range []string{"MIAMI BEACH", "CRUCERO NOCTURNO", "ESTACIÓN DE ESQUÍ", "CEMENTERIO", "ESTACIÓN ESPACIAL", "PLAZA EUROPEA", "BARCELONA", "PARÍS"} {
 		i := ambientLevelIdx(title)
 		if i < 0 {
 			t.Fatalf("%s missing", title)

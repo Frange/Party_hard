@@ -38,7 +38,7 @@ func (g *Game) complParts() []complPart {
 		}
 	}
 	return []complPart{
-		{"1 fiesta", "%d fiestas", g.careerLevelsDone(), campaignN},
+		{"1 fiesta", "%d fiestas", g.careerLevelsDone(), campaignShown()},
 		{"1 personaje", "%d personajes", ch, chAll},
 		{"1 VIP", "%d VIPs", vp, vpAll},
 		{"1 asesino", "%d asesinos", ks, ksAll},

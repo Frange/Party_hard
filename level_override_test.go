@@ -25,7 +25,7 @@ func coveredBy(rects []Rect, x, y float64) bool {
 
 // an override changes only what the user changed: props, walls, zones; the rest stays generated
 func TestLevelOverrideApplies(t *testing.T) {
-	idx := 8 // stadium
+	idx := campaignIdx("stadium")
 	def := resolveCampaign(campaignLevels[idx])
 	if def == nil {
 		t.Skip("scenario did not build")

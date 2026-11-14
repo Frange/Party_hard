@@ -82,6 +82,8 @@ func genStation(rng *rand.Rand) *LevelDef {
 		Title: "ESTACIÓN ESPACIAL", Intro: "El final del viaje: una estación a la deriva, y una fiesta que no debería estar aquí.",
 		W: 960, H: 540, Sky: "space", Police: "car", Transit: "space", Tint: color.RGBA{2, 2, 24, 110},
 		CarFrom: Vec{1040, 524}, CarTo: Vec{520, 524}, ParkX0: 400, ParkX1: 580,
+		// no helipads: everybody (police and medics too) docks in a spaceship (Transit "space", Police "car"). The two
+		// Pads are only the invisible centres of the docking bays: they keep tables, booths and seats out of the bays.
 		Start: Vec{480, 344}, Pads: []Vec{{150, 270}, {810, 270}}, Guests: 36 + rng.Intn(8), CellSize: 16,
 		Hull: true, Shape: stationShape,
 	}
@@ -89,7 +91,6 @@ func genStation(rng *rand.Rand) *LevelDef {
 		F(240, 130, 480, 280, "white"), F(60, 170, 180, 200, "concrete"), F(720, 170, 180, 200, "concrete"),
 		F(380, 40, 200, 90, "tile"), F(380, 410, 200, 90, "carpet"),
 		F(380, 220, 200, 110, "dance"),
-		FC(100, 220, 100, 100, "helipad", 0xd8e1e8), FC(760, 220, 100, 100, "helipad", 0xd8e1e8),
 	}
 	d.Walls = walls(
 		vw(236, 170, 370, 8, WallRoof, [2]float64{240, 300}),
@@ -106,11 +107,14 @@ func genStation(rng *rand.Rand) *LevelDef {
 		P("extinguisher", 362, 100),
 		PV("couch", 440, 480, 0), P("tv", 520, 478), P("phone", 100, 356), P("phone", 856, 356),
 		P("closet", 90, 200), P("closet", 220, 200), P("closet", 740, 200), P("bookshelf", 870, 200),
+		// space things where the helipads were (space_props.go)
+		P("srocket", 80, 304), P("sdome", 196, 358), PV("swindow", 152, 196, 0), PV("swindow", 806, 196, 2),
+		P("ssatdish", 882, 292), P("smodule", 762, 352), PV("swindow", 470, 50, 1),
 	}
 	d.Performers = []Perf{{Vec{480, 164}, "dj", DirDown}}
 	d.Roam = []Rect{R(250, 140, 460, 260), R(70, 180, 160, 180), R(730, 180, 160, 180), R(390, 50, 180, 70), R(390, 420, 180, 70)}
 	d.Dance = []Rect{R(388, 228, 184, 94)}
-	d.Glows = []Glow{{Vec{480, 275}, color.RGBA{60, 90, 220, 140}, 130, true}, {Vec{150, 270}, color.RGBA{80, 160, 255, 90}, 90, false}, {Vec{810, 270}, color.RGBA{80, 160, 255, 90}, 90, false}}
+	d.Glows = []Glow{{Vec{480, 275}, color.RGBA{60, 90, 220, 140}, 130, true}, {Vec{150, 270}, color.RGBA{80, 160, 255, 70}, 80, false}, {Vec{810, 270}, color.RGBA{80, 160, 255, 70}, 80, false}}
 	d.Guards = [][]Vec{{{290, 180}, {290, 360}}, {{670, 180}, {670, 360}}}
 	d.Doors = append(d.Doors, doorLog...)
 	d.Walls = append(d.Walls, voidWalls(stationShape, d.W, d.H)...)

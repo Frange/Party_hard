@@ -83,11 +83,12 @@ func medalFor(points, goal int) int {
 	return medalNone
 }
 
-// medalLevels: the icons of the parties that give a medal (the campaign list as it is now; never the island).
+// medalLevels: the icons of the parties that give a medal (the campaign list as it is now; never the island, never a
+// retired party: its medal stays in the save but it no longer counts, campaign_retired.go).
 func medalLevels() []string {
 	var out []string
 	for _, e := range campaignLevels {
-		if e.icon != "" && e.icon != "jurassic" {
+		if e.icon != "" && e.icon != "jurassic" && !e.retired {
 			out = append(out, e.icon)
 		}
 	}
@@ -178,11 +179,20 @@ func (g *Game) medalLive() {
 	}
 	for r.medalSaid < m {
 		r.medalSaid++
-		g.toasts = append(g.toasts, trophyToast{medal: r.medalSaid, medalGoal: g.partyMedalGoal()})
+		g.toasts = append(g.toasts, trophyToast{medal: r.medalSaid, medalGoal: g.partyMedalGoal(), lvl: g.lvl})
 	}
 	if g.snd != nil {
-		g.snd.Play("win")
+		g.medalSfx()
+		g.snd.Play("medal") // not the fanfare of a trophy: a short chime of its own
 	}
+}
+
+// medalSfx adds the chime of the medal toast the first time it is needed (a medal is not a trophy: its own sound).
+func (g *Game) medalSfx() {
+	if g.snd == nil || g.snd.sfx == nil || g.snd.sfx["medal"] != nil {
+		return
+	}
+	g.snd.sfx["medal"] = mix(tone(1320, 0.08, 0.35, 10, 1), shift(tone(1760, 0.16, 0.35, 8, 1), 0.08))
 }
 
 // medalToastDemo: the debug flag -medaltoast N (1 bronze, 2 silver, 3 gold).
@@ -242,13 +252,13 @@ func (g *Game) medalLegacyInit() {
 }
 
 // v100MenuTier: the menu tier v1.0.0 gave this (already migrated) save, with the rules of v1.0.0: 25 parties (every
-// campaign party but the BARCO PIRATA, new in v1.1.0 at pirateIdx) and 70 trophies (every one but medalTrophy).
+// campaign party but the BARCO PIRATA, new in v1.1.0, and ALCALÁ DE HENARES and GUADALAJARA, new in v1.4.0) and 70 trophies (every one but medalTrophy).
 // The album and the shop are the same as in v1.0.0. Whatever the new party and the new trophy add counts only from
 // now on (under the kept 100 % it shows as "Nuevo:", completion.go).
 func (g *Game) v100MenuTier() int {
 	won, all := 0, 0
 	for i := 0; i < campaignN; i++ {
-		if i == pirateIdx {
+		if i == pirateIdx || i == alcalaIdx || i == guadalajaraIdx { // ALCALÁ DE HENARES and GUADALAJARA are new in v1.4.0 too
 			continue
 		}
 		all++
